@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Trade Backtester"
+version = "1.0.0"
+id = "artifacts/trade-backtest"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24593
+
+[services.development]
+run = "pnpm --filter @workspace/trade-backtest run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trade-backtest", "run", "build" ]
+publicDir = "artifacts/trade-backtest/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24593"
+BASE_PATH = "/"

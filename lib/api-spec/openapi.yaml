@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Trade Backtesting API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: strategies
+    description: Trading strategy operations
+  - name: backtests
+    description: Backtest run operations
+  - name: trades
+    description: Individual trade operations
+  - name: equity
+    description: Equity curve operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +30,297 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /strategies:
+    get:
+      operationId: listStrategies
+      tags: [strategies]
+      summary: List all strategies
+      responses:
+        "200":
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Strategy"
+    post:
+      operationId: createStrategy
+      tags: [strategies]
+      summary: Create a strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrategyInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /strategies/{id}:
+    get:
+      operationId: getStrategy
+      tags: [strategies]
+      summary: Get a strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Strategy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateStrategy
+      tags: [strategies]
+      summary: Update a strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrategyUpdate"
+      responses:
+        "200":
+          description: Updated strategy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategy
+      tags: [strategies]
+      summary: Delete a strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /strategies/{id}/performance:
+    get:
+      operationId: getStrategyPerformance
+      tags: [strategies]
+      summary: Get aggregated performance across all backtests for a strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Strategy performance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategyPerformance"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backtests:
+    get:
+      operationId: listBacktests
+      tags: [backtests]
+      summary: List all backtests
+      parameters:
+        - name: strategyId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of backtests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Backtest"
+    post:
+      operationId: createBacktest
+      tags: [backtests]
+      summary: Create and run a backtest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BacktestInput"
+      responses:
+        "201":
+          description: Backtest created and run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backtest"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backtests/summary:
+    get:
+      operationId: getBacktestSummary
+      tags: [backtests]
+      summary: Aggregate stats across all backtests
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestSummary"
+
+  /backtests/{id}:
+    get:
+      operationId: getBacktest
+      tags: [backtests]
+      summary: Get a backtest with results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Backtest details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteBacktest
+      tags: [backtests]
+      summary: Delete a backtest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backtests/{id}/trades:
+    get:
+      operationId: getBacktestTrades
+      tags: [trades]
+      summary: Get trades for a backtest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trade"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /backtests/{id}/equity:
+    get:
+      operationId: getEquityCurve
+      tags: [equity]
+      summary: Get equity curve for a backtest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Equity curve data points
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EquityPoint"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +331,260 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Strategy:
+      type: object
+      required: [id, name, type, symbol, timeframe, parameters, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands]
+        symbol:
+          type: string
+        timeframe:
+          type: string
+          enum: [1d, 1h, 4h, 1w]
+        parameters:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+
+    StrategyInput:
+      type: object
+      required: [name, type, symbol, timeframe, parameters]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        type:
+          type: string
+          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands]
+        symbol:
+          type: string
+          minLength: 1
+        timeframe:
+          type: string
+          enum: [1d, 1h, 4h, 1w]
+        parameters:
+          type: object
+          additionalProperties: true
+
+    StrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        type:
+          type: string
+          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands]
+        symbol:
+          type: string
+        timeframe:
+          type: string
+          enum: [1d, 1h, 4h, 1w]
+        parameters:
+          type: object
+          additionalProperties: true
+
+    StrategyPerformance:
+      type: object
+      required: [strategyId, totalBacktests, avgReturn, bestReturn, worstReturn, avgSharpe, avgWinRate, avgMaxDrawdown]
+      properties:
+        strategyId:
+          type: integer
+        totalBacktests:
+          type: integer
+        avgReturn:
+          type: number
+        bestReturn:
+          type: number
+        worstReturn:
+          type: number
+        avgSharpe:
+          type: number
+        avgWinRate:
+          type: number
+        avgMaxDrawdown:
+          type: number
+
+    BacktestInput:
+      type: object
+      required: [strategyId, symbol, startDate, endDate, initialCapital]
+      properties:
+        strategyId:
+          type: integer
+        symbol:
+          type: string
+          minLength: 1
+        startDate:
+          type: string
+        endDate:
+          type: string
+        initialCapital:
+          type: number
+          minimum: 1
+
+    Backtest:
+      type: object
+      required: [id, strategyId, symbol, startDate, endDate, initialCapital, status, createdAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          type: integer
+        strategyName:
+          type: ["string", "null"]
+        symbol:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        initialCapital:
+          type: number
+        finalCapital:
+          type: ["number", "null"]
+        totalReturn:
+          type: ["number", "null"]
+        annualizedReturn:
+          type: ["number", "null"]
+        maxDrawdown:
+          type: ["number", "null"]
+        sharpeRatio:
+          type: ["number", "null"]
+        winRate:
+          type: ["number", "null"]
+        totalTrades:
+          type: ["integer", "null"]
+        profitFactor:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [pending, running, complete, failed]
+        createdAt:
+          type: string
+
+    BacktestDetail:
+      type: object
+      required: [id, strategyId, symbol, startDate, endDate, initialCapital, status, createdAt]
+      properties:
+        id:
+          type: integer
+        strategyId:
+          type: integer
+        strategyName:
+          type: ["string", "null"]
+        symbol:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        initialCapital:
+          type: number
+        finalCapital:
+          type: ["number", "null"]
+        totalReturn:
+          type: ["number", "null"]
+        annualizedReturn:
+          type: ["number", "null"]
+        maxDrawdown:
+          type: ["number", "null"]
+        sharpeRatio:
+          type: ["number", "null"]
+        winRate:
+          type: ["number", "null"]
+        totalTrades:
+          type: ["integer", "null"]
+        profitFactor:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [pending, running, complete, failed]
+        createdAt:
+          type: string
+        trades:
+          type: array
+          items:
+            $ref: "#/components/schemas/Trade"
+        equityCurve:
+          type: array
+          items:
+            $ref: "#/components/schemas/EquityPoint"
+
+    BacktestSummary:
+      type: object
+      required: [totalBacktests, totalStrategies, avgReturn, bestReturn, worstReturn, totalTrades]
+      properties:
+        totalBacktests:
+          type: integer
+        totalStrategies:
+          type: integer
+        avgReturn:
+          type: number
+        bestReturn:
+          type: number
+        worstReturn:
+          type: number
+        totalTrades:
+          type: integer
+        topStrategy:
+          type: ["string", "null"]
+
+    Trade:
+      type: object
+      required: [id, backtestId, symbol, side, entryDate, exitDate, entryPrice, exitPrice, quantity, pnl, pnlPercent]
+      properties:
+        id:
+          type: integer
+        backtestId:
+          type: integer
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [long, short]
+        entryDate:
+          type: string
+        exitDate:
+          type: string
+        entryPrice:
+          type: number
+        exitPrice:
+          type: number
+        quantity:
+          type: number
+        pnl:
+          type: number
+        pnlPercent:
+          type: number
+
+    EquityPoint:
+      type: object
+      required: [date, value, drawdown]
+      properties:
+        date:
+          type: string
+        value:
+          type: number
+        drawdown:
+          type: number
