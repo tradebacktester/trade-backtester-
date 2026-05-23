@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   CandlestickSeries,
   HistogramSeries,
   ColorType,
   CrosshairMode,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
   type Time,
+  type SeriesMarker,
 } from "lightweight-charts";
 import {
   useGetKlines,
@@ -36,7 +39,12 @@ import {
   StepForward,
   Clapperboard,
   X,
+  TrendingUp,
+  TrendingDown,
+  RotateCcw,
 } from "lucide-react";
+
+// ── Constants ──────────────────────────────────────────────────────
 
 const SYMBOLS = [
   { value: "BTCUSDT", label: "BTC/USDT" },
@@ -70,6 +78,9 @@ const SPEEDS = [
 ];
 
 const MIN_CANDLES = 30;
+const STARTING_CAPITAL = 10_000;
+
+// ── Types ──────────────────────────────────────────────────────────
 
 type OhlcState = {
   open: number;
@@ -88,6 +99,26 @@ type KlineBar = {
   volume: number;
 };
 
+type Position = {
+  price: number;
+  time: number;
+  units: number;
+  capitalAtEntry: number;
+};
+
+type SimTrade = {
+  id: number;
+  entryPrice: number;
+  entryTime: number;
+  exitPrice: number;
+  exitTime: number;
+  units: number;
+  pnl: number;
+  pnlPct: number;
+};
+
+// ── Helpers ────────────────────────────────────────────────────────
+
 function fmt(n: number) {
   return n.toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -103,6 +134,18 @@ function fmtDate(unixSec: number) {
   });
 }
 
+function fmtPnl(n: number) {
+  const sign = n >= 0 ? "+" : "";
+  return `${sign}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtPct(n: number) {
+  const sign = n >= 0 ? "+" : "";
+  return `${sign}${n.toFixed(2)}%`;
+}
+
+// ── Component ──────────────────────────────────────────────────────
+
 export default function ChartPage() {
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [interval, setInterval] = useState<GetKlinesInterval>(GetKlinesInterval["1d"]);
@@ -114,11 +157,18 @@ export default function ChartPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState(500);
 
+  // Trading simulation state
+  const [position, setPosition] = useState<Position | null>(null);
+  const [trades, setTrades] = useState<SimTrade[]>([]);
+  const [equity, setEquity] = useState(STARTING_CAPITAL);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const sortedKlinesRef = useRef<KlineBar[]>([]);
+  const markersRef = useRef<SeriesMarker<Time>[]>([]);
 
   const queryClient = useQueryClient();
   const params = { symbol, interval, limit: 500 };
@@ -131,19 +181,96 @@ export default function ChartPage() {
     },
   });
 
+  // ── Trading helpers ─────────────────────────────────────────────
+
+  const applyMarkers = useCallback(() => {
+    if (markersPluginRef.current) {
+      markersPluginRef.current.setMarkers([...markersRef.current]);
+    }
+  }, []);
+
+  const resetTrading = useCallback(() => {
+    setPosition(null);
+    setTrades([]);
+    setEquity(STARTING_CAPITAL);
+    markersRef.current = [];
+    applyMarkers();
+  }, [applyMarkers]);
+
+  const handleBuy = useCallback((bar: KlineBar) => {
+    if (position) return;
+    const price = bar.close;
+    const units = equity / price;
+    setPosition({ price, time: bar.time, units, capitalAtEntry: equity });
+
+    const marker: SeriesMarker<Time> = {
+      time: bar.time as Time,
+      position: "belowBar",
+      color: "hsl(150, 90%, 55%)",
+      shape: "arrowUp",
+      text: `B $${fmt(price)}`,
+      size: 1,
+    };
+    markersRef.current = [...markersRef.current, marker].sort(
+      (a, b) => (a.time as number) - (b.time as number)
+    );
+    applyMarkers();
+  }, [position, equity, applyMarkers]);
+
+  const handleSell = useCallback((bar: KlineBar, pos: Position) => {
+    const exitPrice = bar.close;
+    const exitValue = pos.units * exitPrice;
+    const pnl = exitValue - pos.capitalAtEntry;
+    const pnlPct = (pnl / pos.capitalAtEntry) * 100;
+    const newEquity = pos.capitalAtEntry + pnl;
+
+    const trade: SimTrade = {
+      id: Date.now(),
+      entryPrice: pos.price,
+      entryTime: pos.time,
+      exitPrice,
+      exitTime: bar.time,
+      units: pos.units,
+      pnl,
+      pnlPct,
+    };
+
+    setTrades((prev) => [...prev, trade]);
+    setPosition(null);
+    setEquity(newEquity);
+
+    const marker: SeriesMarker<Time> = {
+      time: bar.time as Time,
+      position: "aboveBar",
+      color: pnl >= 0 ? "hsl(150, 90%, 55%)" : "hsl(0, 85%, 60%)",
+      shape: "arrowDown",
+      text: `S ${fmtPct(pnlPct)}`,
+      size: 1,
+    };
+    markersRef.current = [...markersRef.current, marker].sort(
+      (a, b) => (a.time as number) - (b.time as number)
+    );
+    applyMarkers();
+  }, [applyMarkers]);
+
   // ── Replay helpers ──────────────────────────────────────────────
 
   const enterReplay = useCallback(() => {
     setIsPlaying(false);
     setReplayIndex(MIN_CANDLES);
     setReplayMode(true);
+    setPosition(null);
+    setTrades([]);
+    setEquity(STARTING_CAPITAL);
+    markersRef.current = [];
   }, []);
 
   const exitReplay = useCallback(() => {
     setIsPlaying(false);
     setReplayMode(false);
     setOhlcDisplay(null);
-  }, []);
+    resetTrading();
+  }, [resetTrading]);
 
   const stepForward = useCallback(() => {
     setReplayIndex((i) => Math.min(i + 1, sortedKlinesRef.current.length));
@@ -163,7 +290,6 @@ export default function ChartPage() {
     setReplayIndex(sortedKlinesRef.current.length);
   }, []);
 
-  // Exit replay when symbol or interval changes
   const handleSymbolChange = useCallback(
     (val: string) => {
       if (replayMode) exitReplay();
@@ -180,17 +306,14 @@ export default function ChartPage() {
     [replayMode, exitReplay]
   );
 
-  // ── Auto-play interval ──────────────────────────────────────────
+  // ── Auto-play ───────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isPlaying || !replayMode) return;
     const id = window.setInterval(() => {
       setReplayIndex((i) => {
         const total = sortedKlinesRef.current.length;
-        if (i >= total) {
-          setIsPlaying(false);
-          return i;
-        }
+        if (i >= total) { setIsPlaying(false); return i; }
         return i + 1;
       });
     }, replaySpeed);
@@ -207,10 +330,26 @@ export default function ChartPage() {
       if (e.key === "ArrowLeft") { e.preventDefault(); stepBack(); }
       if (e.key === " ") { e.preventDefault(); setIsPlaying((p) => !p); }
       if (e.key === "Escape") exitReplay();
+      if (e.key === "b" || e.key === "B") {
+        const bar = sortedKlinesRef.current[replayIndexRef.current - 1];
+        if (bar) handleBuy(bar);
+      }
+      if (e.key === "s" || e.key === "S") {
+        if (positionRef.current) {
+          const bar = sortedKlinesRef.current[replayIndexRef.current - 1];
+          if (bar) handleSell(bar, positionRef.current);
+        }
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [replayMode, stepForward, stepBack, exitReplay]);
+  }, [replayMode, stepForward, stepBack, exitReplay, handleBuy, handleSell]);
+
+  // Keep refs in sync for use in keyboard handler (avoids stale closure)
+  const replayIndexRef = useRef(replayIndex);
+  useEffect(() => { replayIndexRef.current = replayIndex; }, [replayIndex]);
+  const positionRef = useRef(position);
+  useEffect(() => { positionRef.current = position; }, [position]);
 
   // ── Chart init ──────────────────────────────────────────────────
 
@@ -233,25 +372,11 @@ export default function ChartPage() {
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: {
-          color: "hsl(190, 90%, 50%)",
-          width: 1,
-          style: 2,
-          labelBackgroundColor: "hsl(230, 15%, 14%)",
-        },
-        horzLine: {
-          color: "hsl(190, 90%, 50%)",
-          width: 1,
-          style: 2,
-          labelBackgroundColor: "hsl(230, 15%, 14%)",
-        },
+        vertLine: { color: "hsl(190, 90%, 50%)", width: 1, style: 2, labelBackgroundColor: "hsl(230, 15%, 14%)" },
+        horzLine: { color: "hsl(190, 90%, 50%)", width: 1, style: 2, labelBackgroundColor: "hsl(230, 15%, 14%)" },
       },
       rightPriceScale: { borderColor: "hsl(230, 15%, 20%)" },
-      timeScale: {
-        borderColor: "hsl(230, 15%, 20%)",
-        timeVisible: true,
-        secondsVisible: false,
-      },
+      timeScale: { borderColor: "hsl(230, 15%, 20%)", timeVisible: true, secondsVisible: false },
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -271,9 +396,7 @@ export default function ChartPage() {
       priceScaleId: "volume",
     });
 
-    chart.priceScale("volume").applyOptions({
-      scaleMargins: { top: 0.82, bottom: 0 },
-    });
+    chart.priceScale("volume").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
     chart.subscribeCrosshairMove((param) => {
       if (param.time && candleSeriesRef.current) {
@@ -293,6 +416,8 @@ export default function ChartPage() {
       }
       setOhlcDisplay(null);
     });
+
+    markersPluginRef.current = createSeriesMarkers(candleSeries, []);
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
@@ -314,6 +439,7 @@ export default function ChartPage() {
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
+      markersPluginRef.current = null;
     };
   }, []);
 
@@ -328,23 +454,14 @@ export default function ChartPage() {
     const slice = replayMode ? sorted.slice(0, replayIndex) : sorted;
 
     candleSeriesRef.current.setData(
-      slice.map((k) => ({
-        time: k.time as Time,
-        open: k.open,
-        high: k.high,
-        low: k.low,
-        close: k.close,
-      }))
+      slice.map((k) => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close }))
     );
 
     volumeSeriesRef.current.setData(
       slice.map((k) => ({
         time: k.time as Time,
         value: k.volume,
-        color:
-          k.close >= k.open
-            ? "hsla(150, 90%, 50%, 0.35)"
-            : "hsla(0, 85%, 60%, 0.35)",
+        color: k.close >= k.open ? "hsla(150, 90%, 50%, 0.35)" : "hsla(0, 85%, 60%, 0.35)",
       }))
     );
 
@@ -360,12 +477,9 @@ export default function ChartPage() {
   const sorted = sortedKlinesRef.current;
   const total = sorted.length;
 
-  // In replay mode, the "current" bar is the last visible one
   const currentBar = replayMode
     ? sorted[Math.min(replayIndex, total) - 1] ?? null
-    : klines && klines.length > 0
-    ? klines[klines.length - 1]
-    : null;
+    : klines && klines.length > 0 ? klines[klines.length - 1] : null;
 
   const isUp = currentBar ? currentBar.close >= currentBar.open : true;
   const changePercent = currentBar
@@ -373,13 +487,25 @@ export default function ChartPage() {
     : null;
 
   const displayLabel = SYMBOLS.find((s) => s.value === symbol)?.label ?? symbol;
-
-  const displayBar =
-    ohlcDisplay ?? (currentBar ? { ...currentBar, time: "" } : null);
-
+  const displayBar = ohlcDisplay ?? (currentBar ? { ...currentBar, time: "" } : null);
   const replayProgress = total > 0 ? (replayIndex / total) * 100 : 0;
-  const currentDate =
-    replayMode && currentBar ? fmtDate(currentBar.time) : null;
+  const currentDate = replayMode && currentBar ? fmtDate(currentBar.time) : null;
+
+  // Trading derived values
+  const unrealizedPnl = position && currentBar
+    ? (currentBar.close - position.price) * position.units
+    : null;
+  const unrealizedPct = position && currentBar
+    ? ((currentBar.close - position.price) / position.price) * 100
+    : null;
+
+  const wins = trades.filter((t) => t.pnl > 0).length;
+  const winRate = trades.length > 0 ? (wins / trades.length) * 100 : 0;
+  const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
+  const equityGain = equity - STARTING_CAPITAL;
+  const equityGainPct = (equityGain / STARTING_CAPITAL) * 100;
+
+  // ── Render ──────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -388,9 +514,7 @@ export default function ChartPage() {
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Live Chart</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Real-time candlestick data from Binance
-            </p>
+            <p className="text-sm text-muted-foreground mt-0.5">Real-time candlestick data from Binance</p>
           </div>
           {replayMode && (
             <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 font-mono tracking-widest text-[10px] px-2 py-0.5">
@@ -400,25 +524,14 @@ export default function ChartPage() {
         </div>
         <div className="flex items-center gap-2">
           {!replayMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isFetching}
-              data-testid="button-refresh"
-              className="gap-2"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
-              />
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching} data-testid="button-refresh" className="gap-2">
+              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
               Refresh
             </Button>
           )}
           {!replayMode ? (
             <Button
-              variant="outline"
-              size="sm"
-              onClick={enterReplay}
+              variant="outline" size="sm" onClick={enterReplay}
               disabled={!klines || klines.length < MIN_CANDLES}
               data-testid="button-enter-replay"
               className="gap-2 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
@@ -427,13 +540,7 @@ export default function ChartPage() {
               Replay
             </Button>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={exitReplay}
-              data-testid="button-exit-replay"
-              className="gap-2 text-muted-foreground hover:text-foreground"
-            >
+            <Button variant="ghost" size="sm" onClick={exitReplay} data-testid="button-exit-replay" className="gap-2 text-muted-foreground hover:text-foreground">
               <X className="h-3.5 w-3.5" />
               Exit Replay
             </Button>
@@ -444,22 +551,12 @@ export default function ChartPage() {
       {/* Symbol + Interval controls */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={symbol} onValueChange={handleSymbolChange}>
-          <SelectTrigger
-            className="w-40"
-            data-testid="select-symbol"
-            disabled={replayMode}
-          >
+          <SelectTrigger className="w-40" data-testid="select-symbol" disabled={replayMode}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {SYMBOLS.map((s) => (
-              <SelectItem
-                key={s.value}
-                value={s.value}
-                data-testid={`option-symbol-${s.value}`}
-              >
-                {s.label}
-              </SelectItem>
+              <SelectItem key={s.value} value={s.value} data-testid={`option-symbol-${s.value}`}>{s.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -483,23 +580,9 @@ export default function ChartPage() {
 
         {currentBar && !replayMode && (
           <div className="flex items-center gap-3 ml-auto">
-            <span
-              className="text-lg font-mono font-bold"
-              data-testid="text-last-price"
-            >
-              ${fmt(currentBar.close)}
-            </span>
-            <Badge
-              variant="outline"
-              data-testid="badge-change"
-              className={
-                isUp
-                  ? "border-green-500 text-green-400"
-                  : "border-red-500 text-red-400"
-              }
-            >
-              {isUp ? "+" : ""}
-              {changePercent}%
+            <span className="text-lg font-mono font-bold" data-testid="text-last-price">${fmt(currentBar.close)}</span>
+            <Badge variant="outline" data-testid="badge-change" className={isUp ? "border-green-500 text-green-400" : "border-red-500 text-red-400"}>
+              {isUp ? "+" : ""}{changePercent}%
             </Badge>
           </div>
         )}
@@ -507,81 +590,26 @@ export default function ChartPage() {
 
       {/* Replay toolbar */}
       {replayMode && (
-        <div
-          className="flex flex-col gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3"
-          data-testid="replay-toolbar"
-        >
-          {/* Controls row */}
+        <div className="flex flex-col gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3" data-testid="replay-toolbar">
           <div className="flex items-center gap-2 flex-wrap">
             {/* Transport */}
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={jumpToStart}
-                disabled={replayIndex <= MIN_CANDLES}
-                title="Jump to start (⏮)"
-                data-testid="replay-jump-start"
-              >
-                <SkipBack className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={stepBack}
-                disabled={replayIndex <= MIN_CANDLES}
-                title="Step back (←)"
-                data-testid="replay-step-back"
-              >
-                <StepBack className="h-4 w-4" />
-              </Button>
-
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={jumpToStart} disabled={replayIndex <= MIN_CANDLES} title="Jump to start" data-testid="replay-jump-start"><SkipBack className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={stepBack} disabled={replayIndex <= MIN_CANDLES} title="Step back (←)" data-testid="replay-step-back"><StepBack className="h-4 w-4" /></Button>
               <Button
                 size="icon"
-                className={`h-9 w-9 ${
-                  isPlaying
-                    ? "bg-amber-500 hover:bg-amber-600 text-black"
-                    : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30"
-                }`}
+                className={`h-9 w-9 ${isPlaying ? "bg-amber-500 hover:bg-amber-600 text-black" : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30"}`}
                 onClick={() => setIsPlaying((p) => !p)}
                 disabled={replayIndex >= total}
                 title="Play / Pause (Space)"
                 data-testid="replay-play-pause"
               >
-                {isPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4 ml-0.5" />
-                )}
+                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
               </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={stepForward}
-                disabled={replayIndex >= total}
-                title="Step forward (→)"
-                data-testid="replay-step-forward"
-              >
-                <StepForward className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={jumpToEnd}
-                disabled={replayIndex >= total}
-                title="Jump to end (⏭)"
-                data-testid="replay-jump-end"
-              >
-                <SkipForward className="h-4 w-4" />
-              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={stepForward} disabled={replayIndex >= total} title="Step forward (→)" data-testid="replay-step-forward"><StepForward className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={jumpToEnd} disabled={replayIndex >= total} title="Jump to end" data-testid="replay-jump-end"><SkipForward className="h-4 w-4" /></Button>
             </div>
 
-            {/* Separator */}
             <div className="w-px h-6 bg-border mx-1" />
 
             {/* Speed */}
@@ -589,156 +617,77 @@ export default function ChartPage() {
               <span className="text-xs text-muted-foreground font-mono">Speed</span>
               <div className="flex items-center gap-1">
                 {SPEEDS.map((s) => (
-                  <button
-                    key={s.value}
-                    onClick={() => setReplaySpeed(s.value)}
-                    data-testid={`replay-speed-${s.value}`}
-                    className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
-                      replaySpeed === s.value
-                        ? "bg-amber-500/30 text-amber-300 border border-amber-500/40"
-                        : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {s.label}
-                  </button>
+                  <button key={s.value} onClick={() => setReplaySpeed(s.value)} data-testid={`replay-speed-${s.value}`}
+                    className={`px-2 py-1 text-xs font-mono rounded transition-colors ${replaySpeed === s.value ? "bg-amber-500/30 text-amber-300 border border-amber-500/40" : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                  >{s.label}</button>
                 ))}
               </div>
             </div>
 
             {/* Candle info */}
             <div className="ml-auto flex items-center gap-3">
-              {currentDate && (
-                <span className="text-sm font-mono text-amber-300/80">
-                  {currentDate}
-                </span>
-              )}
+              {currentDate && <span className="text-sm font-mono text-amber-300/80">{currentDate}</span>}
               {currentBar && (
-                <span
-                  className={`text-base font-mono font-bold ${
-                    isUp ? "text-green-400" : "text-red-400"
-                  }`}
-                >
+                <span className={`text-base font-mono font-bold ${isUp ? "text-green-400" : "text-red-400"}`}>
                   ${fmt(currentBar.close)}
                 </span>
               )}
-              <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                {replayIndex} / {total}
-              </span>
+              <span className="text-xs font-mono text-muted-foreground tabular-nums">{replayIndex} / {total}</span>
             </div>
           </div>
 
           {/* Scrubber */}
           <div className="flex items-center gap-2">
             <input
-              type="range"
-              min={MIN_CANDLES}
-              max={total}
-              value={replayIndex}
-              onChange={(e) => {
-                setIsPlaying(false);
-                setReplayIndex(Number(e.target.value));
-              }}
+              type="range" min={MIN_CANDLES} max={total} value={replayIndex}
+              onChange={(e) => { setIsPlaying(false); setReplayIndex(Number(e.target.value)); }}
               data-testid="replay-scrubber"
-              className="flex-1 h-1.5 accent-amber-400 cursor-pointer"
+              className="flex-1 h-1.5 cursor-pointer"
               style={{ accentColor: "hsl(38, 100%, 50%)" }}
             />
-            <span className="text-xs font-mono text-muted-foreground tabular-nums w-10 text-right">
-              {replayProgress.toFixed(0)}%
-            </span>
+            <span className="text-xs font-mono text-muted-foreground tabular-nums w-10 text-right">{replayProgress.toFixed(0)}%</span>
           </div>
 
-          {/* Keyboard hint */}
-          <p className="text-[10px] text-muted-foreground/50 font-mono">
-            ← → step · Space play/pause · Esc exit
-          </p>
+          <p className="text-[10px] text-muted-foreground/50 font-mono">← → step · Space play/pause · B buy · S sell · Esc exit</p>
         </div>
       )}
 
       {/* OHLC crosshair line */}
       {displayBar && (
-        <div
-          className="flex items-center gap-4 text-xs font-mono text-muted-foreground"
-          data-testid="ohlc-display"
-        >
-          {ohlcDisplay?.time && (
-            <span className="text-foreground/50">{ohlcDisplay.time}</span>
-          )}
-          <span>
-            O <span className="text-foreground">{fmt(displayBar.open)}</span>
-          </span>
-          <span>
-            H <span className="text-green-400">{fmt(displayBar.high)}</span>
-          </span>
-          <span>
-            L <span className="text-red-400">{fmt(displayBar.low)}</span>
-          </span>
-          <span>
-            C{" "}
-            <span
-              className={
-                displayBar.close >= displayBar.open
-                  ? "text-green-400"
-                  : "text-red-400"
-              }
-            >
-              {fmt(displayBar.close)}
-            </span>
-          </span>
+        <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground" data-testid="ohlc-display">
+          {ohlcDisplay?.time && <span className="text-foreground/50">{ohlcDisplay.time}</span>}
+          <span>O <span className="text-foreground">{fmt(displayBar.open)}</span></span>
+          <span>H <span className="text-green-400">{fmt(displayBar.high)}</span></span>
+          <span>L <span className="text-red-400">{fmt(displayBar.low)}</span></span>
+          <span>C <span className={displayBar.close >= displayBar.open ? "text-green-400" : "text-red-400"}>{fmt(displayBar.close)}</span></span>
           {replayMode && changePercent && (
-            <span
-              className={
-                isUp
-                  ? "text-green-400 ml-2"
-                  : "text-red-400 ml-2"
-              }
-            >
-              {isUp ? "+" : ""}{changePercent}%
-            </span>
+            <span className={isUp ? "text-green-400 ml-2" : "text-red-400 ml-2"}>{isUp ? "+" : ""}{changePercent}%</span>
           )}
         </div>
       )}
 
       {/* Chart */}
-      <div
-        className={`relative flex-1 min-h-[480px] bg-card border rounded-lg overflow-hidden transition-colors ${
-          replayMode ? "border-amber-500/30" : "border-border"
-        }`}
-      >
-        {isLoading && (
-          <div className="absolute inset-0 z-10 p-4">
-            <Skeleton className="w-full h-full" />
-          </div>
-        )}
+      <div className={`relative flex-1 min-h-[400px] bg-card border rounded-lg overflow-hidden transition-colors ${replayMode ? "border-amber-500/30" : "border-border"}`}>
+        {isLoading && <div className="absolute inset-0 z-10 p-4"><Skeleton className="w-full h-full" /></div>}
 
         {error && !isLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-center p-6">
               <AlertCircle className="h-8 w-8 text-destructive" />
               <p className="text-sm text-muted-foreground">
-                {(error as { data?: { error?: string } })?.data?.error ??
-                  "Failed to load chart data"}
+                {(error as { data?: { error?: string } })?.data?.error ?? "Failed to load chart data"}
               </p>
-              <Button size="sm" variant="outline" onClick={handleRefresh}>
-                Try again
-              </Button>
+              <Button size="sm" variant="outline" onClick={handleRefresh}>Try again</Button>
             </div>
           </div>
         )}
 
-        <div
-          ref={chartContainerRef}
-          className="w-full h-full"
-          data-testid="chart-container"
-        />
+        <div ref={chartContainerRef} className="w-full h-full" data-testid="chart-container" />
 
-        {/* Watermark */}
         <div className="absolute top-3 left-3 pointer-events-none select-none">
-          <span className="text-3xl font-bold font-mono text-foreground/5">
-            {displayLabel}
-          </span>
+          <span className="text-3xl font-bold font-mono text-foreground/5">{displayLabel}</span>
         </div>
 
-        {/* Replay overlay when paused at end */}
         {replayMode && replayIndex >= total && total > 0 && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none">
             <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-mono px-3 py-1.5 rounded-full">
@@ -748,31 +697,164 @@ export default function ChartPage() {
         )}
       </div>
 
-      {/* Stats row */}
-      {currentBar && (
+      {/* Trading panel (replay mode only) */}
+      {replayMode && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3" data-testid="trading-panel">
+
+          {/* Buy / Sell + Position */}
+          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Position</span>
+              {trades.length > 0 && (
+                <button
+                  onClick={resetTrading}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  title="Reset trading session"
+                >
+                  <RotateCcw className="h-3 w-3" /> Reset
+                </button>
+              )}
+            </div>
+
+            {/* Position info */}
+            {position ? (
+              <div className="bg-green-500/5 border border-green-500/20 rounded-md p-3 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-xs font-mono text-green-400 font-semibold">LONG</span>
+                </div>
+                <p className="text-sm font-mono text-foreground">Entry: <span className="font-bold">${fmt(position.price)}</span></p>
+                <p className="text-xs font-mono text-muted-foreground">{fmtDate(position.time)}</p>
+                {unrealizedPnl !== null && unrealizedPct !== null && (
+                  <div className={`mt-2 pt-2 border-t border-border ${unrealizedPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    <p className="text-base font-mono font-bold">{fmtPnl(unrealizedPnl)}</p>
+                    <p className="text-xs font-mono">{fmtPct(unrealizedPct)} unrealized</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground/60 font-mono text-center py-2">No open position</div>
+            )}
+
+            {/* Buttons */}
+            <div className="grid grid-cols-2 gap-2 mt-auto">
+              <Button
+                size="sm"
+                disabled={!currentBar || !!position}
+                onClick={() => currentBar && handleBuy(currentBar)}
+                data-testid="button-buy"
+                className="bg-green-600 hover:bg-green-700 text-white font-mono font-bold disabled:opacity-30 gap-1.5"
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                BUY <span className="text-[10px] opacity-70">[B]</span>
+              </Button>
+              <Button
+                size="sm"
+                disabled={!currentBar || !position}
+                onClick={() => currentBar && position && handleSell(currentBar, position)}
+                data-testid="button-sell"
+                className="bg-red-600 hover:bg-red-700 text-white font-mono font-bold disabled:opacity-30 gap-1.5"
+              >
+                <TrendingDown className="h-3.5 w-3.5" />
+                SELL <span className="text-[10px] opacity-70">[S]</span>
+              </Button>
+            </div>
+
+            {currentBar && (
+              <p className="text-[10px] text-center font-mono text-muted-foreground/50">
+                at market close ${fmt(currentBar.close)}
+              </p>
+            )}
+          </div>
+
+          {/* Performance stats */}
+          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Performance</span>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  label: "Equity",
+                  value: `$${equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  sub: fmtPct(equityGainPct),
+                  color: equityGain >= 0 ? "text-green-400" : "text-red-400",
+                },
+                {
+                  label: "Realized P&L",
+                  value: fmtPnl(totalPnl),
+                  sub: `${trades.length} trade${trades.length !== 1 ? "s" : ""}`,
+                  color: totalPnl >= 0 ? "text-green-400" : "text-red-400",
+                },
+                {
+                  label: "Win Rate",
+                  value: trades.length > 0 ? `${winRate.toFixed(0)}%` : "—",
+                  sub: trades.length > 0 ? `${wins}W / ${trades.length - wins}L` : "no trades yet",
+                  color: winRate >= 50 ? "text-green-400" : "text-red-400",
+                },
+                {
+                  label: "Starting Capital",
+                  value: `$${STARTING_CAPITAL.toLocaleString()}`,
+                  sub: "per session",
+                  color: "text-muted-foreground",
+                },
+              ].map((stat) => (
+                <div key={stat.label} className="space-y-0.5">
+                  <p className="text-[10px] text-muted-foreground/70 font-mono uppercase">{stat.label}</p>
+                  <p className={`text-sm font-mono font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-[10px] text-muted-foreground/50 font-mono">{stat.sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Trade log */}
+          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Trade Log</span>
+            {trades.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground/50 font-mono text-center">No closed trades yet.<br />Press B to buy, S to sell.</p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto max-h-[160px] space-y-1.5 pr-1">
+                {[...trades].reverse().map((t, i) => (
+                  <div
+                    key={t.id}
+                    data-testid={`trade-row-${i}`}
+                    className={`rounded-md px-2.5 py-2 border text-xs font-mono ${t.pnl >= 0 ? "bg-green-500/5 border-green-500/15" : "bg-red-500/5 border-red-500/15"}`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-muted-foreground/70">#{trades.length - i}</span>
+                      <span className={`font-bold ${t.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {fmtPnl(t.pnl)} ({fmtPct(t.pnlPct)})
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground/60">
+                      <span>B ${fmt(t.entryPrice)}</span>
+                      <span>→</span>
+                      <span>S ${fmt(t.exitPrice)}</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/40 mt-0.5">
+                      {fmtDate(t.entryTime)} → {fmtDate(t.exitTime)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stats row (live mode only) */}
+      {!replayMode && currentBar && (
         <div className="grid grid-cols-4 gap-3" data-testid="stats-row">
           {[
             { label: "Open", value: `$${fmt(currentBar.open)}` },
             { label: "High", value: `$${fmt(currentBar.high)}` },
             { label: "Low", value: `$${fmt(currentBar.low)}` },
-            {
-              label: "Volume",
-              value: currentBar.volume.toLocaleString(undefined, {
-                maximumFractionDigits: 0,
-              }),
-            },
+            { label: "Volume", value: currentBar.volume.toLocaleString(undefined, { maximumFractionDigits: 0 }) },
           ].map((item) => (
-            <div
-              key={item.label}
-              className="bg-card border border-border rounded-lg p-3"
-            >
+            <div key={item.label} className="bg-card border border-border rounded-lg p-3">
               <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-              <p
-                className="text-sm font-mono font-semibold"
-                data-testid={`stat-${item.label.toLowerCase()}`}
-              >
-                {item.value}
-              </p>
+              <p className="text-sm font-mono font-semibold" data-testid={`stat-${item.label.toLowerCase()}`}>{item.value}</p>
             </div>
           ))}
         </div>
