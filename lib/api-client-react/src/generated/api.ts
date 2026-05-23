@@ -24,8 +24,10 @@ import type {
   BacktestDetail,
   BacktestInput,
   BacktestSummary,
+  CandleBar,
   EquityPoint,
   ErrorResponse,
+  GetKlinesParams,
   HealthStatus,
   ListBacktestsParams,
   Strategy,
@@ -44,6 +46,90 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
+export const getGetKlinesUrl = (params: GetKlinesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/klines?${stringifiedParams}` : `/api/klines`
+}
+
+/**
+ * @summary Fetch candlestick (OHLCV) data from Binance
+ */
+export const getKlines = async (params: GetKlinesParams, options?: RequestInit): Promise<CandleBar[]> => {
+
+  return customFetch<CandleBar[]>(getGetKlinesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetKlinesQueryKey = (params?: GetKlinesParams,) => {
+    return [
+    `/api/klines`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetKlinesQueryOptions = <TData = Awaited<ReturnType<typeof getKlines>>, TError = ErrorType<ErrorResponse>>(params: GetKlinesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKlines>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetKlinesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getKlines>>> = ({ signal }) => getKlines(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getKlines>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetKlinesQueryResult = NonNullable<Awaited<ReturnType<typeof getKlines>>>
+export type GetKlinesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Fetch candlestick (OHLCV) data from Binance
+ */
+
+export function useGetKlines<TData = Awaited<ReturnType<typeof getKlines>>, TError = ErrorType<ErrorResponse>>(
+ params: GetKlinesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getKlines>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetKlinesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
 
 
 

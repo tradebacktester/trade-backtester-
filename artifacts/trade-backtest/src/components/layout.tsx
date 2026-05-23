@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, TrendingUp, History, Settings } from "lucide-react";
+import { LayoutDashboard, TrendingUp, History, CandlestickChart } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "Live Chart", url: "/chart", icon: CandlestickChart },
     { title: "Strategies", url: "/strategies", icon: TrendingUp },
     { title: "Backtests", url: "/backtests", icon: History },
   ];

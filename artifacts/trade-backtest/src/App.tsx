@@ -14,6 +14,7 @@ import EditStrategy from "@/pages/strategies/edit";
 import Backtests from "@/pages/backtests/index";
 import NewBacktest from "@/pages/backtests/new";
 import BacktestDetail from "@/pages/backtests/detail";
+import ChartPage from "@/pages/chart";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,8 @@ function Router() {
       <Route path="/backtests" component={Backtests} />
       <Route path="/backtests/new" component={NewBacktest} />
       <Route path="/backtests/:id" component={BacktestDetail} />
+
+      <Route path="/chart" component={ChartPage} />
       
       <Route component={NotFound} />
     </Switch>

@@ -9,6 +9,30 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Fetch candlestick (OHLCV) data from Binance
+ */
+export const getKlinesQueryLimitMax = 1000;
+
+
+
+export const GetKlinesQueryParams = zod.object({
+  "symbol": zod.coerce.string(),
+  "interval": zod.enum(['1m', '5m', '15m', '1h', '4h', '1d', '1w']),
+  "limit": zod.coerce.number().min(1).max(getKlinesQueryLimitMax).optional()
+})
+
+export const GetKlinesResponseItem = zod.object({
+  "time": zod.number().describe('Unix timestamp in seconds'),
+  "open": zod.number(),
+  "high": zod.number(),
+  "low": zod.number(),
+  "close": zod.number(),
+  "volume": zod.number()
+})
+export const GetKlinesResponse = zod.array(GetKlinesResponseItem)
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

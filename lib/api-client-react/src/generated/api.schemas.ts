@@ -5,6 +5,16 @@
  * Trade Backtesting API
  * OpenAPI spec version: 0.1.0
  */
+export interface CandleBar {
+  /** Unix timestamp in seconds */
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -254,6 +264,29 @@ export interface BacktestSummary {
   /** @nullable */
   topStrategy?: string | null;
 }
+
+export type GetKlinesParams = {
+symbol: string;
+interval: GetKlinesInterval;
+/**
+ * @minimum 1
+ * @maximum 1000
+ */
+limit?: number;
+};
+
+export type GetKlinesInterval = typeof GetKlinesInterval[keyof typeof GetKlinesInterval];
+
+
+export const GetKlinesInterval = {
+  '1m': '1m',
+  '5m': '5m',
+  '15m': '15m',
+  '1h': '1h',
+  '4h': '4h',
+  '1d': '1d',
+  '1w': '1w',
+} as const;
 
 export type ListBacktestsParams = {
 strategyId?: number;
