@@ -15,6 +15,7 @@ import Backtests from "@/pages/backtests/index";
 import NewBacktest from "@/pages/backtests/new";
 import BacktestDetail from "@/pages/backtests/detail";
 import ChartPage from "@/pages/chart";
+import SettingsPage from "@/pages/settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,7 +29,7 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={() => <Redirect to="/strategies" />} />
+      <Route path="/" component={() => <Redirect to="/dashboard" />} />
       <Route path="/dashboard" component={Dashboard} />
       
       <Route path="/strategies" component={Strategies} />
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/backtests/:id" component={BacktestDetail} />
 
       <Route path="/chart" component={ChartPage} />
+      <Route path="/settings" component={SettingsPage} />
       
       <Route component={NotFound} />
     </Switch>
