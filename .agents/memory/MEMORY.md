@@ -1,0 +1,1 @@
+- [Chart architecture](chart-architecture.md) — multi-chart approach: main LW chart + optional sub-chart (RSI/MACD) + optional multi-TF chart, all created/destroyed reactively via useEffect.
