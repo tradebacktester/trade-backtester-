@@ -15,6 +15,7 @@ import EditStrategy from "@/pages/strategies/edit";
 import Backtests from "@/pages/backtests/index";
 import NewBacktest from "@/pages/backtests/new";
 import BacktestDetail from "@/pages/backtests/detail";
+import BacktestBuilder from "@/pages/backtests/builder";
 import ChartPage from "@/pages/chart";
 import SettingsPage from "@/pages/settings";
 
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/strategies/:id/edit" component={EditStrategy} />
       
       <Route path="/backtests" component={Backtests} />
+      <Route path="/backtests/builder" component={BacktestBuilder} />
       <Route path="/backtests/new" component={NewBacktest} />
       <Route path="/backtests/:id" component={BacktestDetail} />
 

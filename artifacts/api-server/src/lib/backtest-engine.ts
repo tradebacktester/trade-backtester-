@@ -17,12 +17,19 @@ export interface TradeResult {
   quantity: number;
   pnl: number;
   pnlPercent: number;
+  duration: number; // days
 }
 
 export interface EquityPoint {
   date: string;
   value: number;
   drawdown: number;
+}
+
+export interface MonthlyReturn {
+  month: string;
+  pnl: number;
+  pct: number;
 }
 
 export interface BacktestResult {
@@ -36,6 +43,15 @@ export interface BacktestResult {
   winRate: number;
   totalTrades: number;
   profitFactor: number;
+  avgWin: number;
+  avgLoss: number;
+  avgRR: number;
+  consecutiveWins: number;
+  consecutiveLosses: number;
+  avgTradeDuration: number;
+  bestTrade: number;
+  worstTrade: number;
+  monthlyReturns: MonthlyReturn[];
 }
 
 function sma(prices: number[], period: number): (number | null)[] {
@@ -103,7 +119,6 @@ function generatePriceData(symbol: string, startDate: string, endDate: string): 
   const basePrice = seeds[symbol] ?? 100;
   const vol = volatilities[symbol] ?? 0.02;
 
-  // Seeded pseudo-random for reproducibility
   let seed = symbol.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   function rand(): number {
     seed = (seed * 1664525 + 1013904223) & 0xffffffff;
@@ -272,6 +287,14 @@ function runStrategy(
   return signals;
 }
 
+function daysBetween(d1: string, d2: string): number {
+  return Math.abs((new Date(d2).getTime() - new Date(d1).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function monthKey(dateStr: string): string {
+  return dateStr.slice(0, 7); // "yyyy-MM"
+}
+
 export function runBacktest(
   symbol: string,
   strategyType: string,
@@ -293,6 +316,15 @@ export function runBacktest(
       winRate: 0,
       totalTrades: 0,
       profitFactor: 0,
+      avgWin: 0,
+      avgLoss: 0,
+      avgRR: 0,
+      consecutiveWins: 0,
+      consecutiveLosses: 0,
+      avgTradeDuration: 0,
+      bestTrade: 0,
+      worstTrade: 0,
+      monthlyReturns: [],
     };
   }
 
@@ -308,6 +340,7 @@ export function runBacktest(
     const quantity = (capital * 0.95) / entryPrice;
     const pnl = (exitPrice - entryPrice) * quantity;
     const pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100;
+    const duration = daysBetween(entryBar.date, exitBar.date);
     capital += pnl;
     trades.push({
       symbol,
@@ -319,6 +352,7 @@ export function runBacktest(
       quantity,
       pnl,
       pnlPercent,
+      duration,
     });
   }
 
@@ -356,6 +390,42 @@ export function runBacktest(
   const grossLoss = Math.abs(losers.reduce((a, t) => a + t.pnl, 0));
   const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
 
+  const avgWin = winners.length > 0 ? winners.reduce((a, t) => a + t.pnlPercent, 0) / winners.length : 0;
+  const avgLoss = losers.length > 0 ? Math.abs(losers.reduce((a, t) => a + t.pnlPercent, 0) / losers.length) : 0;
+  const avgRR = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? 999 : 0;
+
+  // Consecutive wins/losses
+  let maxConsWins = 0, maxConsLosses = 0, curWins = 0, curLosses = 0;
+  for (const t of trades) {
+    if (t.pnl > 0) {
+      curWins++;
+      curLosses = 0;
+      maxConsWins = Math.max(maxConsWins, curWins);
+    } else {
+      curLosses++;
+      curWins = 0;
+      maxConsLosses = Math.max(maxConsLosses, curLosses);
+    }
+  }
+
+  const avgTradeDuration = trades.length > 0
+    ? trades.reduce((a, t) => a + t.duration, 0) / trades.length
+    : 0;
+
+  const pnlPcts = trades.map((t) => t.pnlPercent);
+  const bestTrade = pnlPcts.length > 0 ? Math.max(...pnlPcts) : 0;
+  const worstTrade = pnlPcts.length > 0 ? Math.min(...pnlPcts) : 0;
+
+  // Monthly returns
+  const monthlyMap = new Map<string, number>();
+  for (const t of trades) {
+    const m = monthKey(t.exitDate);
+    monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
+  }
+  const monthlyReturns: MonthlyReturn[] = Array.from(monthlyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, pnl]) => ({ month, pnl, pct: (pnl / initialCapital) * 100 }));
+
   // Sharpe ratio approximation (daily returns)
   const dailyReturns: number[] = [];
   for (let i = 1; i < equityCurve.length; i++) {
@@ -381,5 +451,14 @@ export function runBacktest(
     winRate,
     totalTrades: trades.length,
     profitFactor,
+    avgWin,
+    avgLoss,
+    avgRR,
+    consecutiveWins: maxConsWins,
+    consecutiveLosses: maxConsLosses,
+    avgTradeDuration,
+    bestTrade,
+    worstTrade,
+    monthlyReturns,
   };
 }
