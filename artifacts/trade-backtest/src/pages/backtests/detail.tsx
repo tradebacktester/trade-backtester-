@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { motion } from "framer-motion";
 import { useRoute, Link, useLocation } from "wouter";
 import {
   useGetBacktest,
@@ -15,7 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
-  ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote
+  ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
+  Share2, Globe, Check
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -230,6 +232,34 @@ export default function BacktestDetail() {
     );
   }
 
+  const [isPublished, setIsPublished] = useState(() =>
+    localStorage.getItem(`published_bt_${id}`) === "true"
+  );
+  const [shareCopied, setShareCopied] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = window.location.href;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setShareCopied(true);
+    toast({ title: "Link copied!", description: "Backtest URL is ready to share." });
+    setTimeout(() => setShareCopied(false), 2000);
+  }, [toast]);
+
+  const handlePublish = useCallback(() => {
+    localStorage.setItem(`published_bt_${id}`, "true");
+    setIsPublished(true);
+    navigator.clipboard.writeText(window.location.href).catch(() => {});
+    toast({ title: "Published!", description: "Results are now shareable. Link copied." });
+  }, [id, toast]);
+
   // ─── Compute Analytics ─────────────────────────────────────────────────────
 
   const analytics = useMemo(() => {
@@ -365,7 +395,12 @@ export default function BacktestDetail() {
   const isRunning = backtest.status === "pending" || backtest.status === "running";
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+    >
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
@@ -388,6 +423,27 @@ export default function BacktestDetail() {
             </Link>{" "}
             ({backtest.startDate} to {backtest.endDate})
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline" size="icon"
+            onClick={handleShare}
+            title="Share backtest link"
+            className="neon-hover-subtle"
+          >
+            {shareCopied
+              ? <Check className="h-4 w-4 text-green-500" />
+              : <Share2 className="h-4 w-4" />}
+          </Button>
+          {isPublished ? (
+            <Badge className="bg-green-500/10 text-green-400 border border-green-500/20 px-3 py-1.5 flex items-center gap-1.5">
+              <Globe className="h-3 w-3" />Published
+            </Badge>
+          ) : (
+            <Button variant="outline" size="sm" onClick={handlePublish} className="neon-hover-subtle">
+              <Globe className="mr-1.5 h-3.5 w-3.5" />Publish
+            </Button>
+          )}
         </div>
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -899,6 +955,6 @@ export default function BacktestDetail() {
           </Tabs.Content>
         </Tabs.Root>
       )}
-    </div>
+    </motion.div>
   );
 }

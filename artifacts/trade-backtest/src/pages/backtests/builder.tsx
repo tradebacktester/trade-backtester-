@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "wouter";
 import { useCreateStrategy, useCreateBacktest, getListStrategiesQueryKey, getListBacktestsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -290,7 +291,12 @@ export default function BacktestBuilder() {
   const stepLabels = ["Choose Strategy", "Configure Logic", "Run Settings"];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <motion.div
+      className="space-y-6 max-w-7xl mx-auto"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+    >
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>

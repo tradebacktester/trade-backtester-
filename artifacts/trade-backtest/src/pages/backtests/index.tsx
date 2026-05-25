@@ -1,13 +1,41 @@
 import React from "react";
 import { Link } from "wouter";
 import { useListBacktests } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Play, Activity, Cpu, TrendingUp, TrendingDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-2">
+      {/* Header row */}
+      <div className="flex gap-4 px-4 py-2.5">
+        {[140, 60, 120, 70, 70, 60, 60, 60].map((w, i) => (
+          <div key={i} className="skeleton-shimmer h-3 rounded" style={{ width: w }} />
+        ))}
+      </div>
+      {/* Data rows */}
+      {Array.from({ length: 5 }).map((_, ri) => (
+        <div
+          key={ri}
+          className="flex gap-4 items-center px-4 py-3.5 rounded-xl border border-white/[0.05]"
+          style={{ animationDelay: `${ri * 0.06}s` }}
+        >
+          {[140, 60, 120, 70, 70, 60, 60, 80].map((w, ci) => (
+            <div
+              key={ci}
+              className="skeleton-shimmer h-3.5 rounded"
+              style={{ width: w }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Backtests() {
   const { data: backtests, isLoading } = useListBacktests();
@@ -20,7 +48,8 @@ export default function Backtests() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="float-up flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Backtests</h1>
           <p className="text-muted-foreground">All historical backtest runs across your strategies.</p>
@@ -42,36 +71,48 @@ export default function Backtests() {
       </div>
 
       {/* Summary stats */}
-      {completed.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-card">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total Runs</div>
-            <div className="text-2xl font-bold font-mono">{backtests?.length ?? 0}</div>
-          </div>
-          <div className="p-4 rounded-xl border border-border bg-card">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Avg Return</div>
-            <div className={`text-2xl font-bold font-mono ${avgReturn != null && avgReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
-              {avgReturn != null ? `${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(2)}%` : "—"}
-            </div>
-          </div>
-          <div className="p-4 rounded-xl border border-border bg-card">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Best Return</div>
-            <div className="text-2xl font-bold font-mono text-green-500">
-              {bestReturn != null ? `+${bestReturn.toFixed(2)}%` : "—"}
-            </div>
-          </div>
+      {(isLoading || completed.length > 0) && (
+        <div className="float-up-1 grid grid-cols-3 gap-4">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="glass-card rounded-xl p-4">
+                <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
+                <div className="skeleton-shimmer h-7 w-24 rounded" />
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="glass-card neon-hover-subtle rounded-xl p-4 border border-white/[0.07]">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total Runs</div>
+                <div className="text-2xl font-bold font-mono glow-text">{backtests?.length ?? 0}</div>
+              </div>
+              <div className="glass-card neon-hover-subtle rounded-xl p-4 border border-white/[0.07]">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Avg Return</div>
+                <div className={`text-2xl font-bold font-mono ${avgReturn != null && avgReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {avgReturn != null ? `${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(2)}%` : "—"}
+                </div>
+              </div>
+              <div className="glass-card neon-hover-subtle rounded-xl p-4 border border-white/[0.07]">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Best Return</div>
+                <div className="text-2xl font-bold font-mono text-green-500">
+                  {bestReturn != null ? `+${bestReturn.toFixed(2)}%` : "—"}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      <Card className="border-border">
+      {/* Main table card */}
+      <Card className="float-up-2 glass-card border-0">
         <CardContent className="pt-6">
           {isLoading ? (
-            <Skeleton className="h-[400px] w-full" />
+            <TableSkeleton />
           ) : backtests && backtests.length > 0 ? (
-            <div className="rounded-xl border border-border overflow-hidden">
+            <div className="rounded-xl border border-white/[0.07] overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
+                  <TableRow className="hover:bg-transparent border-white/[0.07]">
                     <TableHead>Strategy</TableHead>
                     <TableHead>Symbol</TableHead>
                     <TableHead>Period</TableHead>
@@ -84,10 +125,14 @@ export default function Backtests() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {backtests.map((bt) => {
+                  {backtests.map((bt, i) => {
                     const isPositive = bt.totalReturn != null && bt.totalReturn >= 0;
                     return (
-                      <TableRow key={bt.id} className="cursor-pointer hover:bg-muted/30">
+                      <TableRow
+                        key={bt.id}
+                        className="cursor-pointer hover:bg-white/[0.03] border-white/[0.05] transition-colors duration-150"
+                        style={{ animationDelay: `${i * 0.04}s` }}
+                      >
                         <TableCell className="font-medium">
                           <Link href={`/strategies/${bt.strategyId}`} className="hover:underline text-primary">
                             {bt.strategyName || `Strategy #${bt.strategyId}`}
@@ -132,7 +177,7 @@ export default function Backtests() {
               </Table>
             </div>
           ) : (
-            <div className="text-center py-16 text-muted-foreground border border-dashed rounded-xl flex flex-col items-center gap-4">
+            <div className="text-center py-16 text-muted-foreground border border-dashed border-white/[0.07] rounded-xl flex flex-col items-center gap-4">
               <Activity className="h-10 w-10 opacity-20" />
               <div>
                 <h3 className="text-lg font-medium text-foreground">No backtests yet</h3>

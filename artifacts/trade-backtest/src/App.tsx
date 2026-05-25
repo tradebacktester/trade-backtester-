@@ -18,6 +18,7 @@ import BacktestDetail from "@/pages/backtests/detail";
 import BacktestBuilder from "@/pages/backtests/builder";
 import ChartPage from "@/pages/chart";
 import SettingsPage from "@/pages/settings";
+import NewsPage from "@/pages/news";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/backtests/:id" component={BacktestDetail} />
 
       <Route path="/chart" component={ChartPage} />
+      <Route path="/news" component={NewsPage} />
       <Route path="/settings" component={SettingsPage} />
       
       <Route component={NotFound} />

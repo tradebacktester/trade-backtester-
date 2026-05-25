@@ -162,6 +162,99 @@
   @apply text-red-500 font-mono;
 }
 
+/* ── Glassmorphism ───────────────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255,255,255,0.035);
+  backdrop-filter: blur(16px) saturate(200%);
+  -webkit-backdrop-filter: blur(16px) saturate(200%);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.glass-card {
+  background: rgba(255,255,255,0.04) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+}
+
+/* ── Neon Glow Hover ─────────────────────────────────────────────────────── */
+.neon-hover {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.2s ease !important;
+}
+.neon-hover:hover {
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.35),
+              0 0 24px hsl(var(--primary) / 0.25),
+              0 0 48px hsl(var(--primary) / 0.1),
+              0 8px 32px rgba(0,0,0,0.45) !important;
+  border-color: hsl(var(--primary) / 0.4) !important;
+  transform: translateY(-2px);
+}
+.neon-hover-subtle {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease !important;
+}
+.neon-hover-subtle:hover {
+  box-shadow: 0 0 16px hsl(var(--primary) / 0.18), 0 4px 20px rgba(0,0,0,0.35) !important;
+  border-color: hsl(var(--primary) / 0.25) !important;
+}
+
+/* ── Shimmer Skeleton ────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -1200px 0; }
+  100% { background-position:  1200px 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.03) 0%,
+    rgba(255,255,255,0.10) 50%,
+    rgba(255,255,255,0.03) 100%
+  );
+  background-size: 1200px 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: 0.5rem;
+}
+
+/* ── Floating Entrance ───────────────────────────────────────────────────── */
+@keyframes float-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.float-up {
+  animation: float-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.float-up-1 { animation: float-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+.float-up-2 { animation: float-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both; }
+.float-up-3 { animation: float-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+.float-up-4 { animation: float-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.20s both; }
+
+/* ── Tab Slide Transition ────────────────────────────────────────────────── */
+@keyframes tab-slide-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.tab-transition[data-state=active] {
+  animation: tab-slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Inertia Scroll ──────────────────────────────────────────────────────── */
+.inertia-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* ── Glow Text ───────────────────────────────────────────────────────────── */
+.glow-text {
+  text-shadow: 0 0 20px hsl(var(--primary) / 0.5), 0 0 40px hsl(var(--primary) / 0.25);
+}
+
+/* ── Impact Badge Colors ─────────────────────────────────────────────────── */
+.impact-high   { background: rgba(239,68,68,0.12);  color: #f87171; border-color: rgba(239,68,68,0.25); }
+.impact-medium { background: rgba(245,158,11,0.12); color: #fbbf24; border-color: rgba(245,158,11,0.25); }
+.impact-low    { background: rgba(34,197,94,0.12);  color: #4ade80; border-color: rgba(34,197,94,0.25); }
+.impact-holiday { background: rgba(148,163,184,0.12); color: #94a3b8; border-color: rgba(148,163,184,0.2); }
+
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;

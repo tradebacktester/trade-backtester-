@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import strategiesRouter from "./strategies";
 import backtestsRouter from "./backtests";
 import chartRouter from "./chart";
+import newsRouter from "./news";
 
 const router: IRouter = Router();
 
@@ -10,5 +11,6 @@ router.use(healthRouter);
 router.use(strategiesRouter);
 router.use(backtestsRouter);
 router.use(chartRouter);
+router.use(newsRouter);
 
 export default router;
