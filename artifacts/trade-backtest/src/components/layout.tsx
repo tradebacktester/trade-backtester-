@@ -14,15 +14,15 @@ import {
 import { useSettings } from "@/lib/settings-context";
 
 const NAV_ITEMS = [
-  { title: "Dashboard",  url: "/dashboard",  icon: LayoutDashboard },
-  { title: "Charts",     url: "/chart",      icon: CandlestickChart },
-  { title: "Demo",       url: "/demo",       icon: Zap },
-  { title: "AI",         url: "/ai",         icon: Brain },
-  { title: "Journal",    url: "/backtests",  icon: FlaskConical },
-  { title: "Analytics",  url: "/strategies", icon: BarChart2 },
-  { title: "News",       url: "/news",       icon: Newspaper },
-  { title: "Settings",   url: "/settings",   icon: Settings },
-] as const;
+  { title: "Dashboard",  url: "/dashboard",  icon: LayoutDashboard, mobile: true  },
+  { title: "Charts",     url: "/chart",      icon: CandlestickChart, mobile: true  },
+  { title: "Demo",       url: "/demo",       icon: Zap,             mobile: true  },
+  { title: "AI",         url: "/ai",         icon: Brain,           mobile: true  },
+  { title: "Journal",    url: "/backtests",  icon: FlaskConical,    mobile: false },
+  { title: "Analytics",  url: "/strategies", icon: BarChart2,       mobile: false },
+  { title: "News",       url: "/news",       icon: Newspaper,       mobile: false },
+  { title: "Settings",   url: "/settings",   icon: Settings,        mobile: true  },
+];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -175,7 +175,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             : "0 -4px 16px rgba(0,0,0,0.08)",
         }}
       >
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter(item => item.mobile).map((item) => {
           const active = isActive(item.url);
           return (
             <Link key={item.title} href={item.url} className="flex-1">
