@@ -20,6 +20,7 @@ import ChartPage from "@/pages/chart";
 import SettingsPage from "@/pages/settings";
 import NewsPage from "@/pages/news";
 import DemoPage from "@/pages/demo";
+import AiAssistant from "@/pages/ai-assistant";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +49,7 @@ function Router() {
 
       <Route path="/chart" component={ChartPage} />
       <Route path="/demo" component={DemoPage} />
+      <Route path="/ai" component={AiAssistant} />
       <Route path="/news" component={NewsPage} />
       <Route path="/settings" component={SettingsPage} />
       

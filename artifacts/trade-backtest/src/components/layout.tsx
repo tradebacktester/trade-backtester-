@@ -9,14 +9,16 @@ import {
   Newspaper,
   Zap,
   TrendingUp,
+  Brain,
 } from "lucide-react";
 import { useSettings } from "@/lib/settings-context";
 
 const NAV_ITEMS = [
   { title: "Dashboard",  url: "/dashboard",  icon: LayoutDashboard },
   { title: "Charts",     url: "/chart",      icon: CandlestickChart },
-  { title: "Journal",    url: "/backtests",  icon: FlaskConical },
   { title: "Demo",       url: "/demo",       icon: Zap },
+  { title: "AI",         url: "/ai",         icon: Brain },
+  { title: "Journal",    url: "/backtests",  icon: FlaskConical },
   { title: "Analytics",  url: "/strategies", icon: BarChart2 },
   { title: "News",       url: "/news",       icon: Newspaper },
   { title: "Settings",   url: "/settings",   icon: Settings },

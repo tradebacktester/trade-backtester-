@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   createChart,
   createSeriesMarkers,
@@ -24,7 +24,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -59,7 +61,7 @@ import {
   Layers,
 } from "lucide-react";
 import {
-  calcSMA, calcEMA, calcBB, calcRSI, calcMACD,
+  calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic, generateSimData,
   loadLayouts, saveLayouts, loadIndicators, persistIndicators,
   type DrawnObject, type DrawTool, type DrawStart, type OhlcState,
   type KlineBar, type Position, type SimTrade,
@@ -69,27 +71,56 @@ import {
 // ── Constants ──────────────────────────────────────────────────────────
 
 const SYMBOLS = [
-  { value: "BTCUSDT",  label: "BTC/USDT",  category: "Crypto" },
-  { value: "ETHUSDT",  label: "ETH/USDT",  category: "Crypto" },
-  { value: "SOLUSDT",  label: "SOL/USDT",  category: "Crypto" },
-  { value: "BNBUSDT",  label: "BNB/USDT",  category: "Crypto" },
-  { value: "XRPUSDT",  label: "XRP/USDT",  category: "Crypto" },
-  { value: "ADAUSDT",  label: "ADA/USDT",  category: "Crypto" },
-  { value: "DOGEUSDT", label: "DOGE/USDT", category: "Crypto" },
-  { value: "AVAXUSDT", label: "AVAX/USDT", category: "Crypto" },
-  { value: "DOTUSDT",  label: "DOT/USDT",  category: "Crypto" },
-  { value: "LINKUSDT", label: "LINK/USDT", category: "Crypto" },
-  { value: "LTCUSDT",  label: "LTC/USDT",  category: "Crypto" },
-  { value: "NEARUSDT", label: "NEAR/USDT", category: "Crypto" },
-  { value: "OPUSDT",   label: "OP/USDT",   category: "Layer2" },
-  { value: "ARBUSDT",  label: "ARB/USDT",  category: "Layer2" },
-  { value: "SUIUSDT",  label: "SUI/USDT",  category: "Layer2" },
-  { value: "MATICUSDT",label: "MATIC/USDT",category: "Layer2" },
-  { value: "ATOMUSDT", label: "ATOM/USDT", category: "Layer1" },
-  { value: "APTUSDT",  label: "APT/USDT",  category: "Layer1" },
-  { value: "INJUSDT",  label: "INJ/USDT",  category: "DeFi" },
-  { value: "AAVEUSDT", label: "AAVE/USDT", category: "DeFi" },
-];
+  // ── Crypto ──────────────────────────────────────────────────────
+  { value: "BTCUSDT",  label: "BTC/USDT",  category: "Crypto",      sim: false, basePrice: 67420  },
+  { value: "ETHUSDT",  label: "ETH/USDT",  category: "Crypto",      sim: false, basePrice: 3521   },
+  { value: "SOLUSDT",  label: "SOL/USDT",  category: "Crypto",      sim: false, basePrice: 182    },
+  { value: "BNBUSDT",  label: "BNB/USDT",  category: "Crypto",      sim: false, basePrice: 608    },
+  { value: "XRPUSDT",  label: "XRP/USDT",  category: "Crypto",      sim: false, basePrice: 0.623  },
+  { value: "ADAUSDT",  label: "ADA/USDT",  category: "Crypto",      sim: false, basePrice: 0.457  },
+  { value: "DOGEUSDT", label: "DOGE/USDT", category: "Crypto",      sim: false, basePrice: 0.152  },
+  { value: "AVAXUSDT", label: "AVAX/USDT", category: "Crypto",      sim: false, basePrice: 36     },
+  { value: "LINKUSDT", label: "LINK/USDT", category: "Crypto",      sim: false, basePrice: 18.9   },
+  { value: "LTCUSDT",  label: "LTC/USDT",  category: "Crypto",      sim: false, basePrice: 84     },
+  { value: "DOTUSDT",  label: "DOT/USDT",  category: "Crypto",      sim: false, basePrice: 7.4    },
+  { value: "NEARUSDT", label: "NEAR/USDT", category: "Crypto",      sim: false, basePrice: 5.8    },
+  { value: "OPUSDT",   label: "OP/USDT",   category: "Crypto",      sim: false, basePrice: 2.4    },
+  { value: "ARBUSDT",  label: "ARB/USDT",  category: "Crypto",      sim: false, basePrice: 1.1    },
+  { value: "INJUSDT",  label: "INJ/USDT",  category: "Crypto",      sim: false, basePrice: 28.4   },
+  { value: "AAVEUSDT", label: "AAVE/USDT", category: "Crypto",      sim: false, basePrice: 110    },
+  // ── Futures ─────────────────────────────────────────────────────
+  { value: "BTCPERP",  label: "BTC Perp",  category: "Futures",     sim: true,  basePrice: 67500  },
+  { value: "ETHPERP",  label: "ETH Perp",  category: "Futures",     sim: true,  basePrice: 3530   },
+  { value: "SOLPERP",  label: "SOL Perp",  category: "Futures",     sim: true,  basePrice: 183    },
+  // ── Forex ───────────────────────────────────────────────────────
+  { value: "EURUSD",   label: "EUR/USD",   category: "Forex",       sim: true,  basePrice: 1.0825 },
+  { value: "GBPUSD",   label: "GBP/USD",   category: "Forex",       sim: true,  basePrice: 1.2685 },
+  { value: "USDJPY",   label: "USD/JPY",   category: "Forex",       sim: true,  basePrice: 153.45 },
+  { value: "AUDUSD",   label: "AUD/USD",   category: "Forex",       sim: true,  basePrice: 0.6530 },
+  { value: "USDCAD",   label: "USD/CAD",   category: "Forex",       sim: true,  basePrice: 1.3680 },
+  { value: "USDCHF",   label: "USD/CHF",   category: "Forex",       sim: true,  basePrice: 0.9020 },
+  { value: "NZDUSD",   label: "NZD/USD",   category: "Forex",       sim: true,  basePrice: 0.5985 },
+  { value: "EURGBP",   label: "EUR/GBP",   category: "Forex",       sim: true,  basePrice: 0.8535 },
+  // ── Indices ─────────────────────────────────────────────────────
+  { value: "SPX500",   label: "S&P 500",   category: "Indices",     sim: true,  basePrice: 5280   },
+  { value: "NAS100",   label: "Nasdaq 100",category: "Indices",     sim: true,  basePrice: 18420  },
+  { value: "DOW30",    label: "Dow Jones", category: "Indices",     sim: true,  basePrice: 39500  },
+  { value: "UK100",    label: "FTSE 100",  category: "Indices",     sim: true,  basePrice: 8320   },
+  { value: "GER40",    label: "DAX 40",    category: "Indices",     sim: true,  basePrice: 18700  },
+  { value: "JPN225",   label: "Nikkei 225",category: "Indices",     sim: true,  basePrice: 38200  },
+  // ── Commodities ─────────────────────────────────────────────────
+  { value: "XAUUSD",   label: "Gold",      category: "Commodities", sim: true,  basePrice: 2320   },
+  { value: "XAGUSD",   label: "Silver",    category: "Commodities", sim: true,  basePrice: 27.4   },
+  { value: "WTIUSD",   label: "WTI Oil",   category: "Commodities", sim: true,  basePrice: 82.5   },
+  { value: "NATGAS",   label: "Nat. Gas",  category: "Commodities", sim: true,  basePrice: 2.1    },
+  // ── Stocks ──────────────────────────────────────────────────────
+  { value: "AAPL",     label: "Apple",     category: "Stocks",      sim: true,  basePrice: 178    },
+  { value: "TSLA",     label: "Tesla",     category: "Stocks",      sim: true,  basePrice: 185    },
+  { value: "NVDA",     label: "Nvidia",    category: "Stocks",      sim: true,  basePrice: 880    },
+  { value: "MSFT",     label: "Microsoft", category: "Stocks",      sim: true,  basePrice: 420    },
+  { value: "AMZN",     label: "Amazon",    category: "Stocks",      sim: true,  basePrice: 188    },
+  { value: "GOOGL",    label: "Alphabet",  category: "Stocks",      sim: true,  basePrice: 170    },
+] as const;
 
 const INTERVALS = [
   { value: "1m", label: "1m" },
@@ -264,15 +295,35 @@ export default function ChartPage() {
   useEffect(() => { drawingsRef.current = drawings; }, [drawings]);
 
   const queryClient = useQueryClient();
+
+  // ── Sim symbol support ─────────────────────────────────────────────
+  const currentSymbolDef = SYMBOLS.find(s => s.value === symbol);
+  const isSim = currentSymbolDef?.sim ?? false;
+  const displayLabel = currentSymbolDef?.label ?? symbol;
+  const displayCategory = currentSymbolDef?.category ?? "Crypto";
+
   const params = { symbol, interval, limit: 500 };
 
-  const { data: klines, isLoading, error, isFetching } = useGetKlines(params, {
+  const { data: apiKlines, isLoading: apiLoading, error: apiError, isFetching } = useGetKlines(params, {
     query: {
       queryKey: getGetKlinesQueryKey(params),
       staleTime: 30_000,
       refetchInterval: replayMode ? false : 60_000,
+      enabled: !isSim,
     },
   });
+
+  // For simulated symbols, generate deterministic OHLCV data
+  const simBars = useMemo(() => {
+    if (!isSim || !currentSymbolDef) return null;
+    const intervalSec = interval === "1m" ? 60 : interval === "5m" ? 300 : interval === "15m" ? 900 :
+      interval === "1h" ? 3600 : interval === "4h" ? 14400 : interval === "1w" ? 604800 : 86400;
+    return generateSimData(symbol, currentSymbolDef.basePrice, 500, intervalSec);
+  }, [isSim, symbol, currentSymbolDef, interval]);
+
+  const klines = isSim ? simBars : apiKlines;
+  const isLoading = isSim ? false : apiLoading;
+  const error = isSim ? null : apiError;
 
   const multiTfParams = { symbol, interval: multiTfInterval, limit: 300 };
   const { data: multiTfKlines } = useGetKlines(multiTfParams, {
@@ -285,8 +336,10 @@ export default function ChartPage() {
 
   // ── Derived ────────────────────────────────────────────────────────
   const hasSubChart = indicators.some(i => !i.isOverlay && i.enabled);
-  const hasRSI  = !!indicators.find(i => i.id === "rsi")?.enabled;
-  const hasMACD = !!indicators.find(i => i.id === "macd")?.enabled;
+  const hasRSI   = !!indicators.find(i => i.id === "rsi")?.enabled;
+  const hasMACD  = !!indicators.find(i => i.id === "macd")?.enabled;
+  const hasATR   = !!indicators.find(i => i.id === "atr")?.enabled;
+  const hasStoch = !!indicators.find(i => i.id === "stoch")?.enabled;
 
   const sorted = sortedKlinesRef.current;
   const total = sorted.length;
@@ -295,7 +348,6 @@ export default function ChartPage() {
     : klines && klines.length > 0 ? klines[klines.length - 1] : null;
   const isUp = currentBar ? currentBar.close >= currentBar.open : true;
   const changePercent = currentBar ? (((currentBar.close - currentBar.open) / currentBar.open) * 100).toFixed(2) : null;
-  const displayLabel = SYMBOLS.find(s => s.value === symbol)?.label ?? symbol;
   const displayBar = ohlcDisplay ?? (currentBar ? { ...currentBar, time: "" } : null);
   const replayProgress = total > 0 ? (replayIndex / total) * 100 : 0;
   const currentDate = replayMode && currentBar ? fmtDate(currentBar.time) : null;
@@ -309,11 +361,13 @@ export default function ChartPage() {
   const equityGainPct = (equityGain / STARTING_CAPITAL) * 100;
 
   const DRAW_TOOLS: { id: DrawTool; icon: React.ReactNode; label: string; key: string }[] = [
-    { id: "cursor",    icon: <MousePointer2 className="h-3.5 w-3.5" />, label: "Select",  key: "Esc" },
-    { id: "hline",     icon: <Minus className="h-3.5 w-3.5" />,         label: "H-Line",  key: "H" },
-    { id: "trendline", icon: <GitCommit className="h-3.5 w-3.5 rotate-45" />, label: "Trend", key: "T" },
-    { id: "fibonacci", icon: <Hash className="h-3.5 w-3.5" />,          label: "Fib",     key: "F" },
-    { id: "eraser",    icon: <Eraser className="h-3.5 w-3.5" />,        label: "Erase",   key: "E" },
+    { id: "cursor",    icon: <MousePointer2 className="h-3.5 w-3.5" />,          label: "Select",    key: "Esc" },
+    { id: "hline",     icon: <Minus className="h-3.5 w-3.5" />,                  label: "H-Line",    key: "H" },
+    { id: "trendline", icon: <GitCommit className="h-3.5 w-3.5 rotate-45" />,    label: "Trend",     key: "T" },
+    { id: "ray",       icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="2" y1="12" x2="12" y2="2"/><circle cx="12" cy="2" r="1.5" fill="currentColor"/></svg>, label: "Ray", key: "R" },
+    { id: "fibonacci", icon: <Hash className="h-3.5 w-3.5" />,                   label: "Fib",       key: "F" },
+    { id: "rectangle", icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="4" width="10" height="6" rx="1"/></svg>, label: "Zone", key: "Z" },
+    { id: "eraser",    icon: <Eraser className="h-3.5 w-3.5" />,                 label: "Erase",     key: "E" },
   ];
 
   // ── Coord helpers ──────────────────────────────────────────────────
@@ -341,6 +395,8 @@ export default function ChartPage() {
     if (last.kind === "hline") candleSeriesRef.current.removePriceLine(last.priceLine);
     if (last.kind === "trendline") chartRef.current.removeSeries(last.series);
     if (last.kind === "fibonacci") last.priceLines.forEach(pl => candleSeriesRef.current!.removePriceLine(pl));
+    if (last.kind === "rectangle") chartRef.current.removeSeries(last.series);
+    if (last.kind === "ray") chartRef.current.removeSeries(last.series);
     setDrawings(prev => prev.slice(0, -1));
   }, []);
 
@@ -362,7 +418,7 @@ export default function ChartPage() {
       return;
     }
 
-    if (activeTool === "trendline" || activeTool === "fibonacci") {
+    if (activeTool === "trendline" || activeTool === "fibonacci" || activeTool === "ray" || activeTool === "rectangle") {
       if (!drawStart) {
         setDrawStart({ x, y, price, time });
       } else {
@@ -383,6 +439,49 @@ export default function ChartPage() {
           series.setData(pts);
           setDrawings(prev => [...prev, {
             kind: "trendline", series, id, color: drawColor,
+            p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 },
+          }]);
+        } else if (activeTool === "ray") {
+          // Ray: extends from p1 through p2 by adding many extra points
+          const bars = sortedKlinesRef.current;
+          const slope = t2 !== t1 ? (p2 - p1) / (t2 - t1) : 0;
+          const tStart = Math.min(t1, t2);
+          const tEnd = bars.length > 0 ? bars[bars.length - 1].time + 100 * 86400 : t2 + 100 * 86400;
+          const pts = [
+            { time: tStart as Time, value: p1 },
+            { time: (tStart + (tEnd - tStart) / 2) as Time, value: p1 + slope * (tStart + (tEnd - tStart) / 2 - t1) },
+            { time: tEnd as Time, value: p1 + slope * (tEnd - t1) },
+          ];
+          const series = chartRef.current!.addSeries(LineSeries, {
+            color: drawColor, lineWidth: 1,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+            lineStyle: LineStyle.SparseDotted,
+          });
+          series.setData(pts);
+          setDrawings(prev => [...prev, {
+            kind: "ray", series, id, color: drawColor,
+            p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 },
+          }]);
+        } else if (activeTool === "rectangle") {
+          // Rectangle: draw 4 corners + close as a box
+          const tMin = Math.min(t1, t2) as Time;
+          const tMax = Math.max(t1, t2) as Time;
+          const pMin = Math.min(p1, p2);
+          const pMax = Math.max(p1, p2);
+          const pts = [
+            { time: tMin, value: pMax },
+            { time: tMax, value: pMax },
+            { time: tMax, value: pMin },
+            { time: tMin, value: pMin },
+            { time: tMin, value: pMax },
+          ];
+          const series = chartRef.current!.addSeries(LineSeries, {
+            color: drawColor, lineWidth: 1,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          });
+          series.setData(pts);
+          setDrawings(prev => [...prev, {
+            kind: "rectangle", series, id, color: drawColor,
             p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 },
           }]);
         } else {
@@ -638,7 +737,7 @@ export default function ChartPage() {
     const bars = sortedKlinesRef.current;
     const seriesMap = indicatorSeriesRef.current;
 
-    const overlayIds: IndicatorId[] = ["sma20", "sma50", "ema20", "ema50", "bb"];
+    const overlayIds: IndicatorId[] = ["sma20", "sma50", "ema9", "ema20", "ema50", "bb", "vwap"];
 
     for (const ind of indicators.filter(i => overlayIds.includes(i.id as IndicatorId))) {
       if (ind.enabled) {
@@ -651,7 +750,7 @@ export default function ChartPage() {
           if (bars.length >= ind.period)
             s.setData(calcSMA(bars, ind.period).map(d => ({ time: d.time as Time, value: d.value })));
         }
-        if (ind.id === "ema20" || ind.id === "ema50") {
+        if (ind.id === "ema9" || ind.id === "ema20" || ind.id === "ema50") {
           let s = seriesMap.get(ind.id) as ISeriesApi<"Line"> | undefined;
           if (!s) {
             s = chart.addSeries(LineSeries, { color: ind.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
@@ -676,6 +775,15 @@ export default function ChartPage() {
             arr[1].setData(middle.map(d => ({ time: d.time as Time, value: d.value })));
             arr[2].setData(lower.map(d => ({ time: d.time as Time, value: d.value })));
           }
+        }
+        if (ind.id === "vwap") {
+          let s = seriesMap.get("vwap") as ISeriesApi<"Line"> | undefined;
+          if (!s) {
+            s = chart.addSeries(LineSeries, { color: ind.color, lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false });
+            seriesMap.set("vwap", s);
+          }
+          if (bars.length > 1)
+            s.setData(calcVWAP(bars).map(d => ({ time: d.time as Time, value: d.value })));
         }
       } else {
         const existing = seriesMap.get(ind.id);
@@ -780,11 +888,43 @@ export default function ChartPage() {
       if (!subPrimarySeriesRef.current) subPrimarySeriesRef.current = macdLine;
     }
 
+    // ATR
+    if (hasATR && bars.length > 15) {
+      const atrData = calcATR(bars, 14);
+      const atrSeries = sc.addSeries(LineSeries, {
+        color: "hsl(260,80%,68%)", lineWidth: 2,
+        priceLineVisible: false, lastValueVisible: true, title: "ATR",
+      });
+      atrSeries.setData(atrData.map(d => ({ time: d.time as Time, value: d.value })));
+      subSeriesRef.current.set("atr", atrSeries);
+      if (!subPrimarySeriesRef.current) subPrimarySeriesRef.current = atrSeries;
+    }
+
+    // Stochastic
+    if (hasStoch && bars.length > 17) {
+      const stochData = calcStochastic(bars, 14, 3);
+      const kSeries = sc.addSeries(LineSeries, {
+        color: "hsl(150,90%,55%)", lineWidth: 2,
+        priceLineVisible: false, lastValueVisible: true, title: "%K",
+      });
+      const dSeries = sc.addSeries(LineSeries, {
+        color: "hsl(0,85%,62%)", lineWidth: 1, lineStyle: LineStyle.Dashed,
+        priceLineVisible: false, lastValueVisible: false, title: "%D",
+      });
+      kSeries.createPriceLine({ price: 80, color: "hsla(0,85%,62%,0.4)", lineStyle: LineStyle.Dashed, lineWidth: 1, axisLabelVisible: true, title: "80" });
+      kSeries.createPriceLine({ price: 20, color: "hsla(150,90%,55%,0.4)", lineStyle: LineStyle.Dashed, lineWidth: 1, axisLabelVisible: true, title: "20" });
+      kSeries.setData(stochData.k.map(d => ({ time: d.time as Time, value: d.value })));
+      dSeries.setData(stochData.d.map(d => ({ time: d.time as Time, value: d.value })));
+      subSeriesRef.current.set("stoch-k", kSeries);
+      subSeriesRef.current.set("stoch-d", dSeries);
+      if (!subPrimarySeriesRef.current) subPrimarySeriesRef.current = kSeries;
+    }
+
     // Sync visible range from main chart
     const mainRange = chartRef.current?.timeScale().getVisibleLogicalRange();
     if (mainRange) try { sc.timeScale().setVisibleLogicalRange(mainRange); } catch { /* ignore */ }
 
-  }, [klines, hasSubChart, hasRSI, hasMACD]);
+  }, [klines, hasSubChart, hasRSI, hasMACD, hasATR, hasStoch]);
 
   // ── Multi-TF chart ─────────────────────────────────────────────────
 
@@ -984,7 +1124,9 @@ export default function ChartPage() {
               </div>
             )}
           </div>
-          <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>Binance · Live</span>
+          <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>
+            {isSim ? `${displayCategory} · Sim` : "Binance · Live"}
+          </span>
         </div>
 
         <div className="flex items-center gap-1 flex-wrap"  style={{ rowGap: "4px" }}>
@@ -1177,8 +1319,22 @@ export default function ChartPage() {
           <SelectTrigger className="h-8 text-xs font-mono border flex-shrink-0" disabled={replayMode} style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", minWidth: "7rem", maxWidth: "9rem" }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
-            {SYMBOLS.map(s => <SelectItem key={s.value} value={s.value} className="text-xs font-mono">{s.label}</SelectItem>)}
+          <SelectContent className="max-h-80">
+            {(["Crypto", "Futures", "Forex", "Indices", "Commodities", "Stocks"] as const).map(cat => {
+              const items = SYMBOLS.filter(s => s.category === cat);
+              if (!items.length) return null;
+              return (
+                <SelectGroup key={cat}>
+                  <SelectLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 py-1">{cat}</SelectLabel>
+                  {items.map(s => (
+                    <SelectItem key={s.value} value={s.value} className="text-xs font-mono">
+                      <span>{s.label}</span>
+                      {s.sim && <span className="ml-1.5 text-[9px] opacity-50 font-sans">SIM</span>}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              );
+            })}
           </SelectContent>
         </Select>
 
@@ -1291,54 +1447,6 @@ export default function ChartPage() {
               </div>
             )}
 
-            {/* Drawing toolbar - BOTTOM horizontal bar */}
-            <div
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[25] flex items-center gap-1 px-2 py-1.5 rounded-2xl"
-              style={{ background: "rgba(10,12,18,0.9)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)", maxWidth: "calc(100% - 2rem)" }}
-            >
-              {DRAW_TOOLS.map(tool => (
-                <button
-                  key={tool.id}
-                  onClick={() => setActiveTool(tool.id)}
-                  title={`${tool.label} [${tool.key}]`}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
-                  style={activeTool === tool.id
-                    ? { background: tool.id === "eraser" ? "rgba(239,68,68,0.2)" : "rgba(0,229,255,0.15)", color: tool.id === "eraser" ? "hsl(0,85%,65%)" : "hsl(190,90%,65%)", boxShadow: tool.id === "eraser" ? "0 0 12px rgba(239,68,68,0.3)" : "0 0 12px rgba(0,229,255,0.25)", border: `1px solid ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.3)"}` }
-                    : { color: "hsl(220,14%,50%)", border: "1px solid transparent" }}
-                >
-                  {tool.icon}
-                </button>
-              ))}
-              <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
-              {DRAW_COLORS.map(c => (
-                <button
-                  key={c.value}
-                  onClick={() => setDrawColor(c.value)}
-                  title={c.label}
-                  className="h-4 w-4 rounded-full flex-shrink-0 transition-all"
-                  style={{ background: c.value, transform: drawColor === c.value ? "scale(1.4)" : "scale(1)", boxShadow: drawColor === c.value ? `0 0 8px ${c.value}` : "none", outline: drawColor === c.value ? `2px solid ${c.value}` : "none", outlineOffset: "2px" }}
-                />
-              ))}
-              {drawings.length > 0 && (
-                <>
-                  <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
-                  <button
-                    onClick={() => {
-                      drawings.forEach(d => {
-                        if (d.kind === "hline") candleSeriesRef.current?.removePriceLine(d.priceLine);
-                        if (d.kind === "trendline") chartRef.current?.removeSeries(d.series);
-                        if (d.kind === "fibonacci") d.priceLines.forEach(pl => candleSeriesRef.current?.removePriceLine(pl));
-                      });
-                      setDrawings([]);
-                    }}
-                    className="h-6 px-2 flex items-center justify-center rounded-lg text-[9px] font-mono transition-all flex-shrink-0"
-                    style={{ color: "hsl(0,85%,60%)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
-                    title="Clear all drawings"
-                  ><Trash2 className="h-3 w-3" /></button>
-                </>
-              )}
-            </div>
-
             {/* Watermark */}
             <div className="absolute top-3 left-3 pointer-events-none select-none" style={{ zIndex: 5 }}>
               <span className="text-4xl font-bold font-mono" style={{ color: "rgba(255,255,255,0.025)" }}>{displayLabel}</span>
@@ -1355,23 +1463,75 @@ export default function ChartPage() {
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 25 }}>
                 <span className="text-xs font-mono px-3 py-1.5 rounded-full" style={{ background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.25)", color: "hsl(190,90%,65%)", boxShadow: "0 0 20px rgba(0,229,255,0.15)" }}>
                   {activeTool === "hline" && "Click to place horizontal line"}
-                  {activeTool === "trendline" && (drawStart ? "Click second point to finish trend line" : "Click to set start point")}
-                  {activeTool === "fibonacci" && (drawStart ? "Click second point for Fibonacci levels" : "Click high or low point to start")}
+                  {activeTool === "trendline" && (drawStart ? "Click 2nd point to finish" : "Click to set start point")}
+                  {activeTool === "ray" && (drawStart ? "Click 2nd point — ray extends infinitely" : "Click start point")}
+                  {activeTool === "rectangle" && (drawStart ? "Click opposite corner to finish zone" : "Click first corner")}
+                  {activeTool === "fibonacci" && (drawStart ? "Click second point for Fib levels" : "Click high or low to start")}
                   {activeTool === "eraser" && "Click to erase last drawing · Esc to cancel"}
                 </span>
               </div>
             )}
           </div>
 
-          {/* ── RSI / MACD sub-chart ─────────────────────────────── */}
+          {/* ── Drawing toolbar — BELOW chart ────────────────────── */}
+          <div
+            className="flex items-center gap-1 px-2 py-1.5 rounded-2xl overflow-x-auto"
+            style={{ background: "rgba(10,12,18,0.88)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.09)", boxShadow: "0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)", flexShrink: 0 }}
+          >
+            {DRAW_TOOLS.map(tool => (
+              <button
+                key={tool.id}
+                onClick={() => setActiveTool(tool.id)}
+                title={`${tool.label} [${tool.key}]`}
+                className="h-8 w-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
+                style={activeTool === tool.id
+                  ? { background: tool.id === "eraser" ? "rgba(239,68,68,0.2)" : "rgba(0,229,255,0.15)", color: tool.id === "eraser" ? "hsl(0,85%,65%)" : "hsl(190,90%,65%)", boxShadow: tool.id === "eraser" ? "0 0 12px rgba(239,68,68,0.3)" : "0 0 12px rgba(0,229,255,0.25)", border: `1px solid ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.3)"}` }
+                  : { color: "hsl(220,14%,50%)", border: "1px solid transparent" }}
+              >
+                {tool.icon}
+              </button>
+            ))}
+            <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
+            {DRAW_COLORS.map(c => (
+              <button
+                key={c.value}
+                onClick={() => setDrawColor(c.value)}
+                title={c.label}
+                className="h-4 w-4 rounded-full flex-shrink-0 transition-all"
+                style={{ background: c.value, transform: drawColor === c.value ? "scale(1.4)" : "scale(1)", boxShadow: drawColor === c.value ? `0 0 8px ${c.value}` : "none", outline: drawColor === c.value ? `2px solid ${c.value}` : "none", outlineOffset: "2px" }}
+              />
+            ))}
+            {drawings.length > 0 && (
+              <>
+                <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
+                <button
+                  onClick={() => {
+                    drawings.forEach(d => {
+                      if (d.kind === "hline") candleSeriesRef.current?.removePriceLine(d.priceLine);
+                      if (d.kind === "trendline" || d.kind === "rectangle" || d.kind === "ray") chartRef.current?.removeSeries(d.series);
+                      if (d.kind === "fibonacci") d.priceLines.forEach(pl => candleSeriesRef.current?.removePriceLine(pl));
+                    });
+                    setDrawings([]);
+                  }}
+                  className="h-6 px-2 flex items-center justify-center rounded-lg text-[9px] font-mono transition-all flex-shrink-0"
+                  style={{ color: "hsl(0,85%,60%)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+                  title="Clear all drawings"
+                ><Trash2 className="h-3 w-3" /></button>
+              </>
+            )}
+          </div>
+
+          {/* ── Sub-chart: RSI / MACD / ATR / Stoch ─────────────── */}
           {hasSubChart && (
             <div
               className="relative rounded-xl overflow-hidden border flex-shrink-0"
               style={{ height: 120, borderColor: "rgba(255,255,255,0.06)", boxShadow: "0 4px 24px rgba(0,0,0,0.3)" }}
             >
-              <div className="absolute flex items-center gap-2 px-3 pt-2 pb-0 z-10 pointer-events-none">
-                {hasRSI  && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>RSI 14</span>}
-                {hasMACD && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>MACD 12/26/9</span>}
+              <div className="absolute flex items-center gap-2 px-3 pt-2 pb-0 z-10 pointer-events-none flex-wrap">
+                {hasRSI   && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>RSI 14</span>}
+                {hasMACD  && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>MACD 12/26/9</span>}
+                {hasATR   && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "hsl(260,80%,72%)", border: "1px solid rgba(139,92,246,0.2)" }}>ATR 14</span>}
+                {hasStoch && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.12)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.2)" }}>Stoch 14/3</span>}
               </div>
               <div ref={subChartContainerRef} className="w-full h-full" />
             </div>
