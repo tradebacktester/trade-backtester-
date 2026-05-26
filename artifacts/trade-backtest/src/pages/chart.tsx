@@ -69,16 +69,26 @@ import {
 // ── Constants ──────────────────────────────────────────────────────────
 
 const SYMBOLS = [
-  { value: "BTCUSDT", label: "BTC/USDT" },
-  { value: "ETHUSDT", label: "ETH/USDT" },
-  { value: "SOLUSDT", label: "SOL/USDT" },
-  { value: "BNBUSDT", label: "BNB/USDT" },
-  { value: "XRPUSDT", label: "XRP/USDT" },
-  { value: "ADAUSDT", label: "ADA/USDT" },
-  { value: "DOGEUSDT", label: "DOGE/USDT" },
-  { value: "AVAXUSDT", label: "AVAX/USDT" },
-  { value: "DOTUSDT", label: "DOT/USDT" },
-  { value: "MATICUSDT", label: "MATIC/USDT" },
+  { value: "BTCUSDT",  label: "BTC/USDT",  category: "Crypto" },
+  { value: "ETHUSDT",  label: "ETH/USDT",  category: "Crypto" },
+  { value: "SOLUSDT",  label: "SOL/USDT",  category: "Crypto" },
+  { value: "BNBUSDT",  label: "BNB/USDT",  category: "Crypto" },
+  { value: "XRPUSDT",  label: "XRP/USDT",  category: "Crypto" },
+  { value: "ADAUSDT",  label: "ADA/USDT",  category: "Crypto" },
+  { value: "DOGEUSDT", label: "DOGE/USDT", category: "Crypto" },
+  { value: "AVAXUSDT", label: "AVAX/USDT", category: "Crypto" },
+  { value: "DOTUSDT",  label: "DOT/USDT",  category: "Crypto" },
+  { value: "LINKUSDT", label: "LINK/USDT", category: "Crypto" },
+  { value: "LTCUSDT",  label: "LTC/USDT",  category: "Crypto" },
+  { value: "NEARUSDT", label: "NEAR/USDT", category: "Crypto" },
+  { value: "OPUSDT",   label: "OP/USDT",   category: "Layer2" },
+  { value: "ARBUSDT",  label: "ARB/USDT",  category: "Layer2" },
+  { value: "SUIUSDT",  label: "SUI/USDT",  category: "Layer2" },
+  { value: "MATICUSDT",label: "MATIC/USDT",category: "Layer2" },
+  { value: "ATOMUSDT", label: "ATOM/USDT", category: "Layer1" },
+  { value: "APTUSDT",  label: "APT/USDT",  category: "Layer1" },
+  { value: "INJUSDT",  label: "INJ/USDT",  category: "DeFi" },
+  { value: "AAVEUSDT", label: "AAVE/USDT", category: "DeFi" },
 ];
 
 const INTERVALS = [
@@ -939,11 +949,11 @@ export default function ChartPage() {
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-3 h-full">
+    <div className="flex flex-col gap-2 h-full" style={{ maxWidth: "100%", overflow: "hidden" }}>
 
       {/* ── Header ───────────────────────────────────────────────── */}
       <div
-        className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl px-4 sm:px-5 py-3 border"
+        className="rounded-xl px-3 sm:px-4 py-2.5 border"
         style={{
           background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
           backdropFilter: "blur(12px)",
@@ -951,31 +961,33 @@ export default function ChartPage() {
           boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)",
         }}
       >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight" style={{ background: "linear-gradient(135deg, hsl(190,90%,65%), hsl(210,80%,75%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight flex-shrink-0" style={{ background: "linear-gradient(135deg, hsl(190,90%,65%), hsl(210,80%,75%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               Live Chart
             </h1>
-            <p className="text-xs text-muted-foreground/70 mt-0.5 font-mono">Real-time Binance data</p>
+            {replayMode && (
+              <span className="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full border flex-shrink-0" style={{ background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }}>
+                ● REPLAY
+              </span>
+            )}
+            {currentBar && !replayMode && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-sm sm:text-base font-mono font-bold flex-shrink-0" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
+                  ${fmt(currentBar.close)}
+                </span>
+                <span className="text-[11px] font-mono px-1.5 py-0.5 rounded flex-shrink-0" style={isUp
+                  ? { background: "rgba(52,211,153,0.1)", color: "hsl(150,90%,58%)" }
+                  : { background: "rgba(239,68,68,0.1)", color: "hsl(0,85%,62%)" }}>
+                  {isUp ? "+" : ""}{changePercent}%
+                </span>
+              </div>
+            )}
           </div>
-          {replayMode && (
-            <span className="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full border" style={{ background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)", boxShadow: "0 0 12px rgba(245,158,11,0.15)" }}>
-              ● REPLAY
-            </span>
-          )}
-          {drawings.length > 0 && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1" style={{ background: "rgba(0,229,255,0.08)", borderColor: "rgba(0,229,255,0.25)", color: "hsl(190,90%,65%)" }}>
-              <Pencil className="h-2.5 w-2.5" /> {drawings.length}
-            </span>
-          )}
-          {indicators.some(i => i.enabled) && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1" style={{ background: "rgba(150,90%,55%,0.08)", borderColor: "rgba(150,180,255,0.25)", color: "hsl(200,80%,65%)" }}>
-              <Layers className="h-2.5 w-2.5" /> {indicators.filter(i => i.enabled).map(i => i.label.split(" ")[0]).join(" · ")}
-            </span>
-          )}
+          <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>Binance · Live</span>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-wrap"  style={{ rowGap: "4px" }}>
           {/* Indicators button */}
           <div className="relative">
             <button
@@ -1160,9 +1172,9 @@ export default function ChartPage() {
       )}
 
       {/* ── Controls row ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
         <Select value={symbol} onValueChange={handleSymbolChange}>
-          <SelectTrigger className="w-32 sm:w-36 h-8 text-xs font-mono border flex-shrink-0" disabled={replayMode} style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}>
+          <SelectTrigger className="h-8 text-xs font-mono border flex-shrink-0" disabled={replayMode} style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", minWidth: "7rem", maxWidth: "9rem" }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1175,7 +1187,7 @@ export default function ChartPage() {
             <button
               key={iv.value}
               onClick={() => handleIntervalChange(iv.value)}
-              className="px-2 sm:px-2.5 py-1 text-[11px] font-mono rounded-md transition-all"
+              className="px-2 py-1 text-[11px] font-mono rounded-md transition-all"
               style={interval === iv.value
                 ? { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)", boxShadow: "0 0 12px rgba(0,229,255,0.15), inset 0 1px 0 rgba(0,229,255,0.1)" }
                 : { color: "hsl(220,14%,55%)" }}
@@ -1185,78 +1197,56 @@ export default function ChartPage() {
           ))}
         </div>
 
-        {currentBar && !replayMode && (
-          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-            <span className="text-base sm:text-lg font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: isUp ? "0 0 20px rgba(52,211,153,0.4)" : "0 0 20px rgba(239,68,68,0.4)" }}>
-              ${fmt(currentBar.close)}
-            </span>
-            <span className="text-xs font-mono px-2 py-0.5 rounded-md border" style={isUp
-              ? { background: "rgba(52,211,153,0.08)", borderColor: "rgba(52,211,153,0.25)", color: "hsl(150,90%,58%)" }
-              : { background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)", color: "hsl(0,85%,62%)" }}>
-              {isUp ? "+" : ""}{changePercent}%
-            </span>
-          </div>
+        {replayMode && currentDate && (
+          <span className="text-xs font-mono flex-shrink-0" style={{ color: "hsl(38,100%,65%)" }}>{currentDate}</span>
         )}
       </div>
 
       {/* ── Replay toolbar ───────────────────────────────────────── */}
       {replayMode && (
-        <div className="flex flex-col gap-2 rounded-xl px-4 py-3 border" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02))", borderColor: "rgba(245,158,11,0.2)", boxShadow: "0 0 30px rgba(245,158,11,0.06), inset 0 1px 0 rgba(245,158,11,0.08)" }}>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-0.5">
-              {[
-                { icon: <SkipBack className="h-3.5 w-3.5" />, onClick: jumpToStart, disabled: replayIndex <= MIN_CANDLES },
-                { icon: <StepBack className="h-3.5 w-3.5" />, onClick: stepBack, disabled: replayIndex <= MIN_CANDLES },
-              ].map((btn, i) => (
-                <button key={i} onClick={btn.onClick} disabled={btn.disabled} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30 hover:bg-white/5" style={{ color: "hsl(220,14%,65%)" }}>{btn.icon}</button>
-              ))}
+        <div className="flex flex-col gap-1.5 rounded-xl px-3 py-2.5 border" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02))", borderColor: "rgba(245,158,11,0.2)" }}>
+          <div className="flex items-center gap-2 flex-wrap" style={{ rowGap: "6px" }}>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button onClick={jumpToStart} disabled={replayIndex <= MIN_CANDLES} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><SkipBack className="h-3.5 w-3.5" /></button>
+              <button onClick={stepBack} disabled={replayIndex <= MIN_CANDLES} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><StepBack className="h-3.5 w-3.5" /></button>
               <button
                 onClick={() => setIsPlaying(p => !p)}
                 disabled={replayIndex >= total}
                 className="h-9 w-9 flex items-center justify-center rounded-lg border transition-all disabled:opacity-30"
                 style={isPlaying
                   ? { background: "hsl(38,100%,55%)", borderColor: "transparent", color: "#000", boxShadow: "0 0 20px rgba(245,158,11,0.5)" }
-                  : { background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,60%)", boxShadow: "0 0 12px rgba(245,158,11,0.1)" }}
+                  : { background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,60%)" }}
               >
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
               </button>
-              {[
-                { icon: <StepForward className="h-3.5 w-3.5" />, onClick: stepForward, disabled: replayIndex >= total },
-                { icon: <SkipForward className="h-3.5 w-3.5" />, onClick: jumpToEnd, disabled: replayIndex >= total },
-              ].map((btn, i) => (
-                <button key={i} onClick={btn.onClick} disabled={btn.disabled} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30 hover:bg-white/5" style={{ color: "hsl(220,14%,65%)" }}>{btn.icon}</button>
+              <button onClick={stepForward} disabled={replayIndex >= total} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><StepForward className="h-3.5 w-3.5" /></button>
+              <button onClick={jumpToEnd} disabled={replayIndex >= total} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><SkipForward className="h-3.5 w-3.5" /></button>
+            </div>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              {SPEEDS.map(s => (
+                <button key={s.value} onClick={() => setReplaySpeed(s.value)} className="px-1.5 py-0.5 text-[10px] font-mono rounded transition-all"
+                  style={replaySpeed === s.value ? { background: "rgba(245,158,11,0.2)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.3)" } : { color: "hsl(220,14%,45%)" }}>
+                  {s.label}
+                </button>
               ))}
             </div>
-            <div className="w-px h-5 bg-white/10" />
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,50%)" }}>Speed</span>
-              <div className="flex gap-0.5">
-                {SPEEDS.map(s => (
-                  <button key={s.value} onClick={() => setReplaySpeed(s.value)} className="px-2 py-0.5 text-[11px] font-mono rounded transition-all"
-                    style={replaySpeed === s.value ? { background: "rgba(245,158,11,0.2)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.3)" } : { color: "hsl(220,14%,50%)" }}>
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="ml-auto flex items-center gap-3">
-              {currentDate && <span className="text-xs font-mono" style={{ color: "hsl(38,100%,65%)" }}>{currentDate}</span>}
+            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
               {currentBar && <span className="text-sm font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${fmt(currentBar.close)}</span>}
-              <span className="text-[11px] font-mono tabular-nums" style={{ color: "hsl(220,14%,45%)" }}>{replayIndex}/{total}</span>
+              <span className="text-[10px] font-mono tabular-nums" style={{ color: "hsl(220,14%,45%)" }}>{replayIndex}/{total}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <input type="range" min={MIN_CANDLES} max={total} value={replayIndex}
               onChange={e => { setIsPlaying(false); setReplayIndex(Number(e.target.value)); }}
-              className="flex-1 h-1 cursor-pointer rounded-full" style={{ accentColor: "hsl(38,100%,55%)" }} />
-            <span className="text-[10px] font-mono tabular-nums w-8 text-right" style={{ color: "hsl(220,14%,45%)" }}>{replayProgress.toFixed(0)}%</span>
+              className="flex-1 h-1.5 cursor-pointer rounded-full" style={{ accentColor: "hsl(38,100%,55%)" }} />
+            <span className="text-[10px] font-mono tabular-nums" style={{ color: "hsl(220,14%,40%)", width: "2.5rem", textAlign: "right" }}>{replayProgress.toFixed(0)}%</span>
           </div>
-          <p className="text-[10px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>← → step · Space play/pause · B buy · S sell · H/T/F draw · Esc exit</p>
+          <p className="text-[9px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,32%)" }}>← → step · Space play/pause · B buy · S sell · Esc exit</p>
         </div>
       )}
 
       {/* ── Chart area ───────────────────────────────────────────── */}
-      <div className="flex gap-3 flex-1 min-h-0">
+      <div className="flex flex-col lg:flex-row gap-2 flex-1 min-h-0">
 
         {/* ── Charts column ────────────────────────────────────── */}
         <div className="flex-1 flex flex-col gap-2 min-h-0">
@@ -1266,7 +1256,7 @@ export default function ChartPage() {
             className="relative rounded-xl overflow-hidden"
             style={{
               flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto",
-              minHeight: (hasSubChart || showMultiTf) ? 260 : "min(500px, calc(100svh - 280px))",
+              minHeight: (hasSubChart || showMultiTf) ? "min(260px, 38svh)" : "min(480px, calc(100svh - 240px))",
               height: (hasSubChart || showMultiTf) ? "55%" : undefined,
               border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)",
               boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)",
@@ -1293,57 +1283,6 @@ export default function ChartPage() {
               onMouseDown={handleChartMouseDown}
             />
 
-            {/* Floating OHLC popup near crosshair */}
-            {ohlcDisplay && ohlcDisplay.pxX !== undefined && ohlcDisplay.pxY !== undefined && (
-              <div
-                className="absolute z-30 pointer-events-none"
-                style={{
-                  left: (ohlcDisplay.pxX ?? 0) > (chartContainerRef.current?.clientWidth ?? 600) / 2
-                    ? Math.max(0, (ohlcDisplay.pxX ?? 0) - 168)
-                    : (ohlcDisplay.pxX ?? 0) + 14,
-                  top: Math.max(8, Math.min((ohlcDisplay.pxY ?? 0) - 10, (chartContainerRef.current?.clientHeight ?? 480) - 130)),
-                }}
-              >
-                <div
-                  className="rounded-xl px-3 py-2 text-[11px] font-mono space-y-0.5"
-                  style={{
-                    background: "rgba(8,10,16,0.92)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    backdropFilter: "blur(16px)",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-                    minWidth: 150,
-                  }}
-                >
-                  {ohlcDisplay.time && <div className="text-[9px] mb-1" style={{ color: "hsl(220,14%,40%)" }}>{ohlcDisplay.time}</div>}
-                  {[
-                    { l: "O", v: ohlcDisplay.open,  c: "hsl(220,14%,70%)" },
-                    { l: "H", v: ohlcDisplay.high,  c: "hsl(150,90%,58%)" },
-                    { l: "L", v: ohlcDisplay.low,   c: "hsl(0,85%,62%)" },
-                    { l: "C", v: ohlcDisplay.close, c: ohlcDisplay.close >= ohlcDisplay.open ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" },
-                  ].map(({ l, v, c }) => (
-                    <div key={l} className="flex justify-between gap-4">
-                      <span style={{ color: "hsl(220,14%,45%)" }}>{l}</span>
-                      <span style={{ color: c, fontWeight: 600 }}>{fmt(v)}</span>
-                    </div>
-                  ))}
-                  {ohlcDisplay.volume !== undefined && (
-                    <div className="flex justify-between gap-4 pt-0.5 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-                      <span style={{ color: "hsl(220,14%,45%)" }}>V</span>
-                      <span style={{ color: "hsl(220,14%,65%)" }}>{ohlcDisplay.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                    </div>
-                  )}
-                  {(() => {
-                    const chg = ((ohlcDisplay.close - ohlcDisplay.open) / ohlcDisplay.open) * 100;
-                    return (
-                      <div className="flex justify-between gap-4">
-                        <span style={{ color: "hsl(220,14%,45%)" }}>Δ</span>
-                        <span style={{ color: chg >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", fontWeight: 600 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
 
             {/* Drawing start-point indicator */}
             {drawStart && (
@@ -1352,17 +1291,17 @@ export default function ChartPage() {
               </div>
             )}
 
-            {/* Drawing toolbar */}
+            {/* Drawing toolbar - BOTTOM horizontal bar */}
             <div
-              className="absolute top-3 right-3 z-25 flex flex-col gap-1.5 p-1.5 rounded-xl"
-              style={{ background: "rgba(10,12,18,0.85)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[25] flex items-center gap-1 px-2 py-1.5 rounded-2xl"
+              style={{ background: "rgba(10,12,18,0.9)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)", maxWidth: "calc(100% - 2rem)" }}
             >
               {DRAW_TOOLS.map(tool => (
                 <button
                   key={tool.id}
                   onClick={() => setActiveTool(tool.id)}
                   title={`${tool.label} [${tool.key}]`}
-                  className="group relative h-8 w-8 flex items-center justify-center rounded-lg transition-all"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
                   style={activeTool === tool.id
                     ? { background: tool.id === "eraser" ? "rgba(239,68,68,0.2)" : "rgba(0,229,255,0.15)", color: tool.id === "eraser" ? "hsl(0,85%,65%)" : "hsl(190,90%,65%)", boxShadow: tool.id === "eraser" ? "0 0 12px rgba(239,68,68,0.3)" : "0 0 12px rgba(0,229,255,0.25)", border: `1px solid ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.3)"}` }
                     : { color: "hsl(220,14%,50%)", border: "1px solid transparent" }}
@@ -1370,19 +1309,19 @@ export default function ChartPage() {
                   {tool.icon}
                 </button>
               ))}
-              <div className="h-px bg-white/10 my-0.5" />
+              <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
               {DRAW_COLORS.map(c => (
                 <button
                   key={c.value}
                   onClick={() => setDrawColor(c.value)}
                   title={c.label}
-                  className="h-5 w-5 rounded-full mx-1.5 transition-all"
-                  style={{ background: c.value, transform: drawColor === c.value ? "scale(1.3)" : "scale(1)", boxShadow: drawColor === c.value ? `0 0 10px ${c.value}, 0 0 20px ${c.value}60` : "none", outline: drawColor === c.value ? `2px solid ${c.value}` : "none", outlineOffset: "2px" }}
+                  className="h-4 w-4 rounded-full flex-shrink-0 transition-all"
+                  style={{ background: c.value, transform: drawColor === c.value ? "scale(1.4)" : "scale(1)", boxShadow: drawColor === c.value ? `0 0 8px ${c.value}` : "none", outline: drawColor === c.value ? `2px solid ${c.value}` : "none", outlineOffset: "2px" }}
                 />
               ))}
               {drawings.length > 0 && (
                 <>
-                  <div className="h-px bg-white/10 my-0.5" />
+                  <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
                   <button
                     onClick={() => {
                       drawings.forEach(d => {
@@ -1392,10 +1331,10 @@ export default function ChartPage() {
                       });
                       setDrawings([]);
                     }}
-                    className="h-6 w-8 mx-auto flex items-center justify-center rounded text-[9px] font-mono transition-all"
-                    style={{ color: "hsl(220,14%,40%)", background: "rgba(255,255,255,0.03)" }}
+                    className="h-6 px-2 flex items-center justify-center rounded-lg text-[9px] font-mono transition-all flex-shrink-0"
+                    style={{ color: "hsl(0,85%,60%)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
                     title="Clear all drawings"
-                  >ALL</button>
+                  ><Trash2 className="h-3 w-3" /></button>
                 </>
               )}
             </div>
@@ -1456,7 +1395,7 @@ export default function ChartPage() {
 
         {/* ── Trading sim sidebar (replay mode) ────────────────── */}
         {replayMode && (
-          <div className="w-52 flex flex-col gap-3 overflow-y-auto shrink-0">
+          <div className="w-full lg:w-52 flex flex-col gap-3 overflow-y-auto shrink-0">
             {/* Position + Buy/Sell */}
             <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
               <div className="flex items-center justify-between">

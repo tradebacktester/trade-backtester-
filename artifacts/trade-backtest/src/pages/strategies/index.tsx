@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useListStrategies } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -239,9 +239,13 @@ function StrategyCard({
 
 export default function Strategies() {
   const { data: strategies, isLoading } = useListStrategies();
-  const [tab, setTab] = useState<"mine" | "sample">("mine");
-
   const hasOwn = (strategies?.length ?? 0) > 0;
+  const [tab, setTab] = useState<"mine" | "sample">(hasOwn ? "mine" : "sample");
+
+  // Auto-switch to samples when user has no strategies
+  useEffect(() => {
+    if (!isLoading && !hasOwn) setTab("sample");
+  }, [isLoading, hasOwn]);
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 pb-24 sm:pb-8">
