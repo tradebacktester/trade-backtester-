@@ -100,7 +100,7 @@ function StatBox({
 }) {
   return (
     <div
-      className="relative overflow-hidden p-4 rounded-xl border border-border flex flex-col gap-1 bg-card"
+      className="neon-hover-subtle relative overflow-hidden p-4 rounded-xl border border-border flex flex-col gap-1 bg-card"
       style={accent ? { borderColor: `${accent}30`, background: `${accent}08` } : {}}
     >
       {accent && (
@@ -498,7 +498,7 @@ export default function BacktestDetail() {
           </Tabs.List>
 
           {/* ── TAB 1: Overview ─────────────────────────────────────── */}
-          <Tabs.Content value="overview" className="space-y-6">
+          <Tabs.Content value="overview" className="space-y-6 tab-transition">
             {/* Stats grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               <StatBox
@@ -544,7 +544,7 @@ export default function BacktestDetail() {
             </div>
 
             {/* Equity curve */}
-            <Card className="border-border">
+            <Card className="glass-card border-0">
               <CardHeader>
                 <CardTitle>Equity Curve</CardTitle>
                 <CardDescription>Portfolio value over time with drawdown overlay</CardDescription>
@@ -611,7 +611,7 @@ export default function BacktestDetail() {
           </Tabs.Content>
 
           {/* ── TAB 2: Analytics ────────────────────────────────────── */}
-          <Tabs.Content value="analytics" className="space-y-6">
+          <Tabs.Content value="analytics" className="space-y-6 tab-transition">
             {!analytics ? (
               <div className="py-16 text-center text-muted-foreground">Not enough trade data to compute analytics.</div>
             ) : (
@@ -806,7 +806,7 @@ export default function BacktestDetail() {
           </Tabs.Content>
 
           {/* ── TAB 3: Trade Journal ─────────────────────────────────── */}
-          <Tabs.Content value="journal" className="space-y-4">
+          <Tabs.Content value="journal" className="space-y-4 tab-transition">
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
               <div className="flex gap-2 items-center flex-wrap">

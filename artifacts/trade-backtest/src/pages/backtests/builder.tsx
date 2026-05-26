@@ -350,7 +350,7 @@ export default function BacktestBuilder() {
                 <button
                   key={d.type}
                   onClick={() => selectStrategy(d.type)}
-                  className="relative text-left p-5 rounded-xl border transition-all duration-200 group"
+                  className="relative text-left p-5 rounded-xl border transition-all duration-200 group hover:scale-[1.03] hover:shadow-lg"
                   style={{
                     background: isSelected
                       ? `linear-gradient(135deg, ${d.gradientFrom}18, ${d.gradientTo}10)`
@@ -382,7 +382,7 @@ export default function BacktestBuilder() {
 
           {/* Strategy detail card */}
           <div
-            className="p-5 rounded-xl border"
+            className="p-5 rounded-xl border glass-panel"
             style={{
               background: `linear-gradient(135deg, ${def.gradientFrom}10, ${def.gradientTo}08)`,
               borderColor: `${def.color}30`,
@@ -714,6 +714,6 @@ export default function BacktestBuilder() {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

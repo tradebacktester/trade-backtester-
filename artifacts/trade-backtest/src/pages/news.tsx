@@ -7,7 +7,7 @@ import {
   Newspaper, Calendar, TrendingUp, Globe2, AlertTriangle,
   Clock, ChevronLeft, ChevronRight, RefreshCw, Filter
 } from "lucide-react";
-import { format, parse } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,12 +43,23 @@ const FLAG: Record<string, string> = {
 };
 
 function parseEventDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
   try {
-    // Forex Factory format: "May 27 2026" or "05-27-2026"
-    if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
-      return parse(dateStr, "MM-dd-yyyy", new Date());
+    const formats = [
+      "MM-dd-yyyy",
+      "MMM dd yyyy",
+      "MMM d yyyy",
+      "MMMM dd yyyy",
+      "MMMM d yyyy",
+      "yyyy-MM-dd",
+    ];
+    for (const fmt of formats) {
+      const d = parse(dateStr, fmt, new Date());
+      if (isValid(d)) return d;
     }
-    return parse(dateStr, "MMM dd yyyy", new Date());
+    const direct = new Date(dateStr);
+    if (isValid(direct)) return direct;
+    return null;
   } catch {
     return null;
   }
@@ -222,7 +233,9 @@ export default function NewsPage() {
   const grouped = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const e of filtered) {
-      const key = e.date;
+      // Normalize to YYYY-MM-DD so all events on the same calendar day are grouped together
+      const d = parseEventDate(e.date);
+      const key = d && isValid(d) ? format(d, "yyyy-MM-dd") : e.date.slice(0, 10);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }

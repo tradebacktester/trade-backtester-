@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, avg, max, min, count, sum, sql } from "drizzle-orm";
+import { eq, avg, max, min, count, sum, sql, inArray } from "drizzle-orm";
 import { db, backtestsTable, strategiesTable, tradesTable, equityCurveTable } from "@workspace/db";
 import {
   CreateBacktestBody,
@@ -100,7 +100,7 @@ router.get("/backtests", async (req, res): Promise<void> => {
   // Fetch strategy names
   const strategyIds = [...new Set(rows.map((r) => r.strategyId))];
   const strategies = strategyIds.length > 0
-    ? await db.select().from(strategiesTable).where(sql`${strategiesTable.id} = ANY(${strategyIds})`)
+    ? await db.select().from(strategiesTable).where(inArray(strategiesTable.id, strategyIds))
     : [];
   const stratMap = new Map(strategies.map((s) => [s.id, s.name]));
 

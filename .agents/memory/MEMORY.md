@@ -1,3 +1,4 @@
 - [Chart architecture](chart-architecture.md) — multi-chart approach: main LW chart + optional sub-chart (RSI/MACD) + optional multi-TF chart, all created/destroyed reactively via useEffect.
 - [Backtest winRate format](backtest-winrate.md) — engine returns winRate as 0–100 (percent), so display as-is; do NOT multiply by 100 again in the UI.
 - [DB provisioning](db-provisioning.md) — DB may show "not provisioned" after workflow restarts; run `pnpm --filter @workspace/db run push-force` to re-apply schema when tables are missing.
+- [Drizzle inArray vs ANY](drizzle-inarray.md) — use `inArray(col, array)` from drizzle-orm for array membership queries; raw sql`col = ANY(${array})` generates invalid SQL and causes 500 errors.
