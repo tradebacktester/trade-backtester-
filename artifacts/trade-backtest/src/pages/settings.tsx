@@ -129,28 +129,33 @@ function Row({
 }) {
   return (
     <div
-      className="flex items-start sm:items-center gap-4 px-4 py-4 transition-all duration-150"
+      className="flex flex-col gap-3 px-4 py-4 transition-all duration-150"
       style={{
         background: "rgba(255,255,255,0.02)",
-        borderTop: last ? undefined : "none",
         borderBottom: "1px solid rgba(255,255,255,0.05)",
       }}
     >
-      <span
-        className="h-9 w-9 flex items-center justify-center rounded-xl shrink-0"
-        style={{
-          background: `${iconColor}18`,
-          border: `1px solid ${iconColor}28`,
-          boxShadow: `0 0 12px ${iconColor}12`,
-        }}
-      >
-        <Icon className="h-4 w-4" style={{ color: iconColor }} />
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium" style={{ color: "hsl(220,14%,85%)" }}>{title}</p>
-        <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "hsl(220,14%,42%)" }}>{desc}</p>
+      <div className="flex items-center gap-3">
+        <span
+          className="h-9 w-9 flex items-center justify-center rounded-xl shrink-0"
+          style={{
+            background: `${iconColor}18`,
+            border: `1px solid ${iconColor}28`,
+            boxShadow: `0 0 12px ${iconColor}12`,
+          }}
+        >
+          <Icon className="h-4 w-4" style={{ color: iconColor }} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium" style={{ color: "hsl(220,14%,85%)" }}>{title}</p>
+          <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "hsl(220,14%,42%)" }}>{desc}</p>
+        </div>
       </div>
-      {children && <div className="shrink-0 flex items-center">{children}</div>}
+      {children && (
+        <div className="pl-12 flex items-center flex-wrap gap-2">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -221,7 +226,7 @@ export default function SettingsPage() {
 
       {/* Header */}
       <div
-        className="rounded-2xl px-6 py-5 relative overflow-hidden"
+        className="rounded-2xl px-4 sm:px-6 py-4 sm:py-5 relative overflow-hidden"
         style={{
           background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)",
           border: "1px solid rgba(255,255,255,0.08)",
@@ -229,8 +234,8 @@ export default function SettingsPage() {
         }}
       >
         <div
-          className="absolute -top-10 -right-10 h-32 w-32 rounded-full opacity-10"
-          style={{ background: "radial-gradient(circle, hsl(var(--primary)), transparent)" }}
+          className="absolute top-0 right-0 h-24 w-24 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, hsl(var(--primary)), transparent)", opacity: 0.08, transform: "translate(30%, -30%)" }}
         />
         <div className="relative">
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: `hsl(var(--primary))` }}>

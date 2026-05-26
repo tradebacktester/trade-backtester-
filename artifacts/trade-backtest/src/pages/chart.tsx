@@ -943,7 +943,7 @@ export default function ChartPage() {
 
       {/* ── Header ───────────────────────────────────────────────── */}
       <div
-        className="flex items-center justify-between rounded-xl px-5 py-3 border"
+        className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl px-4 sm:px-5 py-3 border"
         style={{
           background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
           backdropFilter: "blur(12px)",
@@ -951,7 +951,7 @@ export default function ChartPage() {
           boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)",
         }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <div>
             <h1 className="text-2xl font-bold tracking-tight" style={{ background: "linear-gradient(135deg, hsl(190,90%,65%), hsl(210,80%,75%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               Live Chart
@@ -975,7 +975,7 @@ export default function ChartPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 flex-shrink-0">
           {/* Indicators button */}
           <div className="relative">
             <button
@@ -985,7 +985,7 @@ export default function ChartPage() {
                 ? { background: "rgba(0,229,255,0.12)", borderColor: "rgba(0,229,255,0.3)", color: "hsl(190,90%,65%)" }
                 : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
             >
-              <BarChart2 className="h-3.5 w-3.5" /> Indicators
+              <BarChart2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Indicators</span>
             </button>
 
             {showIndicators && (
@@ -1042,7 +1042,7 @@ export default function ChartPage() {
                 : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
             >
               <SplitSquareVertical className="h-3.5 w-3.5" />
-              Multi-TF
+              <span className="hidden sm:inline">Multi-TF</span>
             </button>
             {showMultiTf && (
               <div onClick={e => e.stopPropagation()}>
@@ -1070,7 +1070,7 @@ export default function ChartPage() {
                 ? { background: "rgba(38,100%,55%,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }
                 : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
             >
-              <FolderOpen className="h-3.5 w-3.5" /> Layouts
+              <FolderOpen className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Layouts</span>
             </button>
 
             {showLayoutPanel && (
@@ -1130,7 +1130,7 @@ export default function ChartPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
               style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
             >
-              <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} /> Refresh
+              <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} /> <span className="hidden sm:inline">Refresh</span>
             </button>
           )}
           {!replayMode ? (
@@ -1140,7 +1140,7 @@ export default function ChartPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
               style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,60%)", boxShadow: "0 0 16px rgba(245,158,11,0.08)" }}
             >
-              <Clapperboard className="h-3.5 w-3.5" /> Replay
+              <Clapperboard className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Replay</span>
             </button>
           ) : (
             <button
@@ -1148,7 +1148,7 @@ export default function ChartPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all text-muted-foreground hover:text-foreground"
               style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}
             >
-              <X className="h-3 w-3" /> Exit Replay
+              <X className="h-3 w-3" /> <span className="hidden sm:inline">Exit Replay</span>
             </button>
           )}
         </div>
@@ -1160,9 +1160,9 @@ export default function ChartPage() {
       )}
 
       {/* ── Controls row ─────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
         <Select value={symbol} onValueChange={handleSymbolChange}>
-          <SelectTrigger className="w-36 h-8 text-xs font-mono border" disabled={replayMode} style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}>
+          <SelectTrigger className="w-32 sm:w-36 h-8 text-xs font-mono border flex-shrink-0" disabled={replayMode} style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1170,12 +1170,12 @@ export default function ChartPage() {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-0.5 rounded-lg p-0.5 border" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="flex items-center gap-0.5 rounded-lg p-0.5 border flex-shrink-0" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
           {INTERVALS.map(iv => (
             <button
               key={iv.value}
               onClick={() => handleIntervalChange(iv.value)}
-              className="px-2.5 py-1 text-[11px] font-mono rounded-md transition-all"
+              className="px-2 sm:px-2.5 py-1 text-[11px] font-mono rounded-md transition-all"
               style={interval === iv.value
                 ? { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)", boxShadow: "0 0 12px rgba(0,229,255,0.15), inset 0 1px 0 rgba(0,229,255,0.1)" }
                 : { color: "hsl(220,14%,55%)" }}
@@ -1186,8 +1186,8 @@ export default function ChartPage() {
         </div>
 
         {currentBar && !replayMode && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-lg font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: isUp ? "0 0 20px rgba(52,211,153,0.4)" : "0 0 20px rgba(239,68,68,0.4)" }}>
+          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+            <span className="text-base sm:text-lg font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: isUp ? "0 0 20px rgba(52,211,153,0.4)" : "0 0 20px rgba(239,68,68,0.4)" }}>
               ${fmt(currentBar.close)}
             </span>
             <span className="text-xs font-mono px-2 py-0.5 rounded-md border" style={isUp
@@ -1266,7 +1266,7 @@ export default function ChartPage() {
             className="relative rounded-xl overflow-hidden"
             style={{
               flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto",
-              minHeight: (hasSubChart || showMultiTf) ? 300 : 400,
+              minHeight: (hasSubChart || showMultiTf) ? 260 : "min(500px, calc(100svh - 280px))",
               height: (hasSubChart || showMultiTf) ? "55%" : undefined,
               border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)",
               boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)",
@@ -1550,22 +1550,6 @@ export default function ChartPage() {
         )}
       </div>
 
-      {/* ── Live stats bar (non-replay) ──────────────────────────── */}
-      {!replayMode && currentBar && (
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { label: "Open",   value: `$${fmt(currentBar.open)}` },
-            { label: "High",   value: `$${fmt(currentBar.high)}` },
-            { label: "Low",    value: `$${fmt(currentBar.low)}` },
-            { label: "Volume", value: currentBar.volume.toLocaleString(undefined, { maximumFractionDigits: 0 }) },
-          ].map((item, i) => (
-            <div key={item.label} className="rounded-xl p-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01))", borderColor: "rgba(255,255,255,0.06)", boxShadow: "0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)", transform: `perspective(800px) rotateX(${i % 2 === 0 ? "1" : "-1"}deg)` }}>
-              <p className="text-[9px] font-mono uppercase tracking-wider mb-1" style={{ color: "hsl(220,14%,40%)" }}>{item.label}</p>
-              <p className="text-sm font-mono font-bold" style={{ color: "hsl(220,14%,80%)" }}>{item.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

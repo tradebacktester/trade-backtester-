@@ -14,7 +14,7 @@ import { useSettings } from "@/lib/settings-context";
 const NAV_ITEMS = [
   { title: "Dashboard",  url: "/dashboard",  icon: LayoutDashboard },
   { title: "Charts",     url: "/chart",      icon: CandlestickChart },
-  { title: "Backtester", url: "/backtests",  icon: FlaskConical },
+  { title: "Journal",    url: "/backtests",  icon: FlaskConical },
   { title: "Analytics",  url: "/strategies", icon: BarChart2 },
   { title: "News",       url: "/news",       icon: Newspaper },
   { title: "Settings",   url: "/settings",   icon: Settings },
@@ -151,9 +151,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Main content ──────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-auto inertia-scroll" style={{ paddingTop: "56px" }}>
-        <style>{`@media (max-width: 767px) { main { padding-top: 0 !important; padding-bottom: 68px !important; } }`}</style>
-        <div className="mx-auto max-w-7xl px-4 md:px-6 py-5 md:py-6 h-full">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto inertia-scroll" style={{ paddingTop: "56px" }}>
+        <style>{`@media (max-width: 767px) { main { padding-top: 0 !important; padding-bottom: 72px !important; } }`}</style>
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-5 md:py-6 h-full overflow-x-hidden">
           {children}
         </div>
       </main>

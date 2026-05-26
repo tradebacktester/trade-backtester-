@@ -47,9 +47,9 @@ export const ListStrategiesResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
+  "type": zod.string(),
   "symbol": zod.string(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
+  "timeframe": zod.string(),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -84,9 +84,9 @@ export const GetStrategyResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
+  "type": zod.string(),
   "symbol": zod.string(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
+  "timeframe": zod.string(),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -105,9 +105,9 @@ export const UpdateStrategyParams = zod.object({
 export const UpdateStrategyBody = zod.object({
   "name": zod.string().min(1).optional(),
   "description": zod.string().optional(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']).optional(),
+  "type": zod.string().optional(),
   "symbol": zod.string().optional(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']).optional(),
+  "timeframe": zod.string().optional(),
   "parameters": zod.record(zod.string(), zod.unknown()).optional()
 })
 
@@ -115,9 +115,9 @@ export const UpdateStrategyResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
+  "type": zod.string(),
   "symbol": zod.string(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
+  "timeframe": zod.string(),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })

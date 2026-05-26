@@ -1,203 +1,427 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "wouter";
-import { useListBacktests } from "@workspace/api-client-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useListBacktests, useDeleteBacktest } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Play, Activity, Cpu, TrendingUp, TrendingDown } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { format } from "date-fns";
+import {
+  Play, Cpu, TrendingUp, TrendingDown, Activity,
+  Trash2, ChevronRight, Search, MoreVertical, BookOpen,
+} from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
-function TableSkeleton() {
+function StatCard({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="space-y-2">
-      {/* Header row */}
-      <div className="flex gap-4 px-4 py-2.5">
-        {[140, 60, 120, 70, 70, 60, 60, 60].map((w, i) => (
-          <div key={i} className="skeleton-shimmer h-3 rounded" style={{ width: w }} />
-        ))}
-      </div>
-      {/* Data rows */}
-      {Array.from({ length: 5 }).map((_, ri) => (
-        <div
-          key={ri}
-          className="flex gap-4 items-center px-4 py-3.5 rounded-xl border border-white/[0.05]"
-          style={{ animationDelay: `${ri * 0.06}s` }}
-        >
-          {[140, 60, 120, 70, 70, 60, 60, 80].map((w, ci) => (
-            <div
-              key={ci}
-              className="skeleton-shimmer h-3.5 rounded"
-              style={{ width: w }}
-            />
-          ))}
-        </div>
-      ))}
+    <div
+      className="rounded-xl p-3 sm:p-4 border flex flex-col gap-1"
+      style={{
+        background: "linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01))",
+        borderColor: "rgba(255,255,255,0.07)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
+    >
+      <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>{label}</p>
+      <p className="text-xl sm:text-2xl font-bold font-mono" style={{ color: color ?? "hsl(220,14%,85%)" }}>{value}</p>
     </div>
   );
 }
 
-export default function Backtests() {
+function SkeletonCard() {
+  return (
+    <div
+      className="rounded-2xl p-4 border animate-pulse"
+      style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)" }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="skeleton-shimmer h-4 w-32 rounded" />
+        <div className="skeleton-shimmer h-5 w-16 rounded-full" />
+      </div>
+      <div className="skeleton-shimmer h-7 w-24 rounded mb-2" />
+      <div className="flex gap-3 mt-3">
+        {[60, 48, 48].map((w, i) => <div key={i} className="skeleton-shimmer h-3 rounded" style={{ width: w }} />)}
+      </div>
+    </div>
+  );
+}
+
+export default function Journal() {
   const { data: backtests, isLoading } = useListBacktests();
+  const { mutate: deleteBacktest } = useDeleteBacktest();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "wins" | "losses">("all");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [menuId, setMenuId] = useState<number | null>(null);
 
   const completed = backtests?.filter((b) => b.status === "complete") ?? [];
   const avgReturn = completed.length
     ? completed.reduce((a, b) => a + (b.totalReturn ?? 0), 0) / completed.length
     : null;
-  const bestReturn = completed.length ? Math.max(...completed.map((b) => b.totalReturn ?? -Infinity)) : null;
+  const bestReturn = completed.length
+    ? Math.max(...completed.map((b) => b.totalReturn ?? -Infinity))
+    : null;
+
+  const filtered = (backtests ?? []).filter((b) => {
+    const q = search.toLowerCase();
+    const matchSearch =
+      !q ||
+      (b.strategyName ?? "").toLowerCase().includes(q) ||
+      (b.symbol ?? "").toLowerCase().includes(q);
+    const matchFilter =
+      filter === "all" ||
+      (filter === "wins" && (b.totalReturn ?? 0) >= 0) ||
+      (filter === "losses" && (b.totalReturn ?? 0) < 0);
+    return matchSearch && matchFilter;
+  });
+
+  function handleDelete(id: number) {
+    setDeletingId(id);
+    deleteBacktest(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["listBacktests"] });
+          setDeletingId(null);
+          setMenuId(null);
+        },
+        onError: () => setDeletingId(null),
+      }
+    );
+  }
+
+  const winCount = completed.filter((b) => (b.totalReturn ?? 0) >= 0).length;
+  const lossCount = completed.filter((b) => (b.totalReturn ?? 0) < 0).length;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4 sm:gap-6 pb-24 sm:pb-8">
+
       {/* Header */}
-      <div className="float-up flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Backtests</h1>
-          <p className="text-muted-foreground">All historical backtest runs across your strategies.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/backtests/builder">
-              <Cpu className="mr-2 h-4 w-4" />
-              Strategy Builder
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/backtests/new">
-              <Play className="mr-2 h-4 w-4" />
-              Run Backtest
-            </Link>
-          </Button>
+      <div
+        className="float-up rounded-2xl px-4 sm:px-6 py-4 sm:py-5 border relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
+          borderColor: "rgba(255,255,255,0.07)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)",
+        }}
+      >
+        <div
+          className="absolute -top-8 -right-8 h-28 w-28 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, hsl(var(--primary)), transparent)", opacity: 0.08 }}
+        />
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "rgba(0,229,255,0.12)", border: "1px solid rgba(0,229,255,0.2)" }}
+            >
+              <BookOpen className="h-5 w-5" style={{ color: "hsl(190,90%,65%)" }} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: "hsl(220,14%,92%)" }}>
+                Journal
+              </h1>
+              <p className="text-xs sm:text-sm mt-0.5" style={{ color: "hsl(220,14%,42%)" }}>
+                All historical backtest runs
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="hidden sm:flex"
+            >
+              <Link href="/backtests/builder">
+                <Cpu className="mr-1.5 h-3.5 w-3.5" />
+                Builder
+              </Link>
+            </Button>
+            <Button size="sm" asChild>
+              <Link href="/backtests/new">
+                <Play className="mr-1.5 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Run Backtest</span>
+                <span className="sm:hidden">Run</span>
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Summary stats */}
+      {/* Summary stat cards */}
       {(isLoading || completed.length > 0) && (
-        <div className="float-up-1 grid grid-cols-3 gap-4">
+        <div className="float-up-1 grid grid-cols-3 gap-2 sm:gap-4">
           {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="glass-card rounded-xl p-4">
-                <div className="skeleton-shimmer h-3 w-20 rounded mb-3" />
-                <div className="skeleton-shimmer h-7 w-24 rounded" />
+            [1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl p-3 sm:p-4 border animate-pulse" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)" }}>
+                <div className="skeleton-shimmer h-2.5 w-14 rounded mb-2" />
+                <div className="skeleton-shimmer h-6 w-16 rounded" />
               </div>
             ))
           ) : (
             <>
-              <div className="glass-card neon-hover-subtle rounded-xl p-4 border border-white/[0.07]">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Total Runs</div>
-                <div className="text-2xl font-bold font-mono glow-text">{backtests?.length ?? 0}</div>
-              </div>
-              <div className="glass-card neon-hover-subtle rounded-xl p-4 border border-white/[0.07]">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Avg Return</div>
-                <div className={`text-2xl font-bold font-mono ${avgReturn != null && avgReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
-                  {avgReturn != null ? `${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(2)}%` : "—"}
-                </div>
-              </div>
-              <div className="glass-card neon-hover-subtle rounded-xl p-4 border border-white/[0.07]">
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Best Return</div>
-                <div className="text-2xl font-bold font-mono text-green-500">
-                  {bestReturn != null ? `+${bestReturn.toFixed(2)}%` : "—"}
-                </div>
-              </div>
+              <StatCard label="Total Runs" value={String(backtests?.length ?? 0)} />
+              <StatCard
+                label="Avg Return"
+                value={avgReturn != null ? `${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(1)}%` : "—"}
+                color={avgReturn != null && avgReturn >= 0 ? "hsl(150,80%,55%)" : "hsl(0,85%,62%)"}
+              />
+              <StatCard
+                label="Best"
+                value={bestReturn != null ? `+${bestReturn.toFixed(1)}%` : "—"}
+                color="hsl(150,80%,55%)"
+              />
             </>
           )}
         </div>
       )}
 
-      {/* Main table card */}
-      <Card className="float-up-2 glass-card border-0">
-        <CardContent className="pt-6">
-          {isLoading ? (
-            <TableSkeleton />
-          ) : backtests && backtests.length > 0 ? (
-            <div className="rounded-xl border border-white/[0.07] overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent border-white/[0.07]">
-                    <TableHead>Strategy</TableHead>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead className="text-right">Return</TableHead>
-                    <TableHead className="text-right">Max DD</TableHead>
-                    <TableHead className="text-right">Sharpe</TableHead>
-                    <TableHead className="text-right">Win Rate</TableHead>
-                    <TableHead className="text-right">Status</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {backtests.map((bt, i) => {
-                    const isPositive = bt.totalReturn != null && bt.totalReturn >= 0;
-                    return (
-                      <TableRow
-                        key={bt.id}
-                        className="cursor-pointer hover:bg-white/[0.03] border-white/[0.05] transition-colors duration-150"
-                        style={{ animationDelay: `${i * 0.04}s` }}
-                      >
-                        <TableCell className="font-medium">
-                          <Link href={`/strategies/${bt.strategyId}`} className="hover:underline text-primary">
-                            {bt.strategyName || `Strategy #${bt.strategyId}`}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{bt.symbol}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{bt.startDate} → {bt.endDate}</TableCell>
-                        <TableCell className="text-right">
-                          <span className={`font-mono font-semibold flex items-center justify-end gap-1 ${isPositive ? "text-green-500" : "text-red-500"}`}>
-                            {isPositive
-                              ? <TrendingUp className="h-3.5 w-3.5" />
-                              : <TrendingDown className="h-3.5 w-3.5" />}
-                            {bt.totalReturn != null ? `${bt.totalReturn.toFixed(2)}%` : "—"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-red-400">
-                          {bt.maxDrawdown != null ? `-${Math.abs(bt.maxDrawdown).toFixed(2)}%` : "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {bt.sharpeRatio != null ? bt.sharpeRatio.toFixed(2) : "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {bt.winRate != null ? `${bt.winRate.toFixed(1)}%` : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant={bt.status === "complete" ? "default" : bt.status === "failed" ? "destructive" : "secondary"}
-                            className="text-[10px]"
-                          >
-                            {bt.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/backtests/${bt.id}`}>Results →</Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+      {/* Search + filter bar */}
+      <div className="float-up-2 flex flex-col sm:flex-row gap-2">
+        <div
+          className="relative flex-1"
+        >
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: "hsl(220,14%,40%)" }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search strategy, symbol…"
+            className="w-full h-9 pl-9 pr-3 text-xs sm:text-sm rounded-xl outline-none transition-all"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "hsl(220,14%,80%)",
+            }}
+          />
+        </div>
+        <div
+          className="flex items-center gap-0.5 p-0.5 rounded-xl self-start sm:self-auto"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          {(["all", "wins", "losses"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className="px-3 py-1.5 text-xs font-mono rounded-lg transition-all capitalize"
+              style={filter === f
+                ? {
+                  background: "rgba(0,229,255,0.12)",
+                  color: "hsl(190,90%,65%)",
+                  boxShadow: "0 0 12px rgba(0,229,255,0.08)",
+                }
+                : { color: "hsl(220,14%,45%)" }}
+            >
+              {f === "all" ? `All ${backtests?.length ?? 0}` : f === "wins" ? `Wins ${winCount}` : `Losses ${lossCount}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Cards list */}
+      <div className="float-up-2 flex flex-col gap-2.5">
+        {isLoading ? (
+          [1, 2, 3, 4, 5].map((i) => <SkeletonCard key={i} />)
+        ) : filtered.length === 0 ? (
+          <div
+            className="rounded-2xl border p-10 flex flex-col items-center gap-4 text-center"
+            style={{ borderColor: "rgba(255,255,255,0.06)", borderStyle: "dashed" }}
+          >
+            <Activity className="h-10 w-10 opacity-15" />
+            <div>
+              <h3 className="text-base font-medium mb-1" style={{ color: "hsl(220,14%,70%)" }}>
+                {search || filter !== "all" ? "No matching entries" : "No backtests yet"}
+              </h3>
+              <p className="text-xs" style={{ color: "hsl(220,14%,38%)" }}>
+                {search || filter !== "all"
+                  ? "Try adjusting your search or filter"
+                  : "Run your first backtest to start building your journal"}
+              </p>
             </div>
-          ) : (
-            <div className="text-center py-16 text-muted-foreground border border-dashed border-white/[0.07] rounded-xl flex flex-col items-center gap-4">
-              <Activity className="h-10 w-10 opacity-20" />
-              <div>
-                <h3 className="text-lg font-medium text-foreground">No backtests yet</h3>
-                <p className="text-sm">Run your first backtest or use the Strategy Builder to get started.</p>
-              </div>
-              <div className="flex gap-3">
-                <Button variant="outline" asChild>
-                  <Link href="/backtests/builder">
-                    <Cpu className="mr-2 h-4 w-4" />
-                    Strategy Builder
-                  </Link>
+            {!search && filter === "all" && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/backtests/builder"><Cpu className="mr-1.5 h-3.5 w-3.5" />Builder</Link>
                 </Button>
-                <Button asChild>
+                <Button size="sm" asChild>
                   <Link href="/backtests/new">Run Backtest</Link>
                 </Button>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </div>
+        ) : (
+          filtered.map((bt, i) => {
+            const isPos = (bt.totalReturn ?? 0) >= 0;
+            const isDeleting = deletingId === bt.id;
+            return (
+              <div
+                key={bt.id}
+                className="relative rounded-2xl border transition-all"
+                style={{
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",
+                  borderColor: "rgba(255,255,255,0.07)",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)",
+                  animationDelay: `${i * 0.04}s`,
+                  opacity: isDeleting ? 0.5 : 1,
+                }}
+              >
+                <div className="flex items-start gap-3 p-3 sm:p-4">
+
+                  {/* Return color strip */}
+                  <div
+                    className="hidden sm:block w-1 self-stretch rounded-full flex-shrink-0"
+                    style={{ background: isPos ? "hsl(150,80%,45%)" : "hsl(0,85%,55%)" }}
+                  />
+
+                  {/* Main content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Top row: name + return */}
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <Link
+                        href={`/strategies/${bt.strategyId}`}
+                        className="text-sm sm:text-base font-semibold truncate hover:underline"
+                        style={{ color: "hsl(190,90%,65%)" }}
+                      >
+                        {bt.strategyName || `Strategy #${bt.strategyId}`}
+                      </Link>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isPos
+                          ? <TrendingUp className="h-3.5 w-3.5" style={{ color: "hsl(150,90%,58%)" }} />
+                          : <TrendingDown className="h-3.5 w-3.5" style={{ color: "hsl(0,85%,62%)" }} />}
+                        <span
+                          className="text-base sm:text-lg font-bold font-mono"
+                          style={{ color: isPos ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}
+                        >
+                          {isPos ? "+" : ""}{(bt.totalReturn ?? 0).toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Meta row */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2.5">
+                      <span
+                        className="text-xs font-mono px-2 py-0.5 rounded-md"
+                        style={{ background: "rgba(255,255,255,0.05)", color: "hsl(220,14%,55%)" }}
+                      >
+                        {bt.symbol}
+                      </span>
+                      <span className="text-[11px]" style={{ color: "hsl(220,14%,38%)" }}>
+                        {bt.startDate} → {bt.endDate}
+                      </span>
+                      <span
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border"
+                        style={
+                          bt.status === "complete"
+                            ? { background: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.2)", color: "hsl(150,80%,55%)" }
+                            : bt.status === "failed"
+                            ? { background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.2)", color: "hsl(0,85%,60%)" }
+                            : { background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.2)", color: "hsl(38,100%,60%)" }
+                        }
+                      >
+                        {bt.status}
+                      </span>
+                    </div>
+
+                    {/* Stats grid */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Max DD", value: bt.maxDrawdown != null ? `-${Math.abs(bt.maxDrawdown).toFixed(1)}%` : "—", color: "hsl(0,85%,62%)" },
+                        { label: "Sharpe", value: bt.sharpeRatio != null ? bt.sharpeRatio.toFixed(2) : "—", color: "hsl(220,14%,70%)" },
+                        { label: "Win Rate", value: bt.winRate != null ? `${bt.winRate.toFixed(1)}%` : "—", color: "hsl(220,14%,70%)" },
+                      ].map((stat) => (
+                        <div
+                          key={stat.label}
+                          className="rounded-lg px-2 py-1.5"
+                          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
+                        >
+                          <p className="text-[9px] font-mono uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,35%)" }}>
+                            {stat.label}
+                          </p>
+                          <p className="text-xs sm:text-sm font-mono font-semibold" style={{ color: stat.color }}>
+                            {stat.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions column */}
+                  <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                    <Link
+                      href={`/backtests/${bt.id}`}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg transition-all"
+                      style={{
+                        background: "rgba(0,229,255,0.08)",
+                        border: "1px solid rgba(0,229,255,0.15)",
+                        color: "hsl(190,90%,65%)",
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuId(menuId === bt.id ? null : bt.id);
+                      }}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg transition-all"
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.07)",
+                        color: "hsl(220,14%,45%)",
+                      }}
+                    >
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </button>
+
+                    {/* Context menu */}
+                    {menuId === bt.id && (
+                      <div
+                        className="absolute right-3 top-12 z-30 rounded-xl p-1.5 w-36 shadow-2xl"
+                        style={{
+                          background: "hsl(222,28%,10%)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
+                        }}
+                      >
+                        <Link
+                          href={`/backtests/${bt.id}`}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all hover:bg-white/5"
+                          style={{ color: "hsl(220,14%,70%)" }}
+                          onClick={() => setMenuId(null)}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                          View results
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(bt.id)}
+                          disabled={isDeleting}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all hover:bg-red-500/10"
+                          style={{ color: "hsl(0,85%,62%)" }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {isDeleting ? "Deleting…" : "Delete"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Mobile Builder button (bottom) */}
+      <div className="sm:hidden fixed bottom-20 right-4 z-20">
+        <Button variant="outline" size="sm" asChild className="shadow-lg">
+          <Link href="/backtests/builder">
+            <Cpu className="mr-1.5 h-3.5 w-3.5" />
+            Builder
+          </Link>
+        </Button>
+      </div>
+
+      {/* Click-away to close menu */}
+      {menuId !== null && (
+        <div className="fixed inset-0 z-20" onClick={() => setMenuId(null)} />
+      )}
     </div>
   );
 }
