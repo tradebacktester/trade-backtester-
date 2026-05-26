@@ -115,69 +115,247 @@ function StatBox({
 
 // ─── Trade Journal Note ───────────────────────────────────────────────────────
 
+const SESSIONS = [
+  { id: "london", label: "London", color: "#6366f1" },
+  { id: "ny", label: "New York", color: "#0ea5e9" },
+  { id: "asia", label: "Asia", color: "#f59e0b" },
+  { id: "overlap", label: "Overlap", color: "#10b981" },
+];
+
+const EMOTIONS_PRE = ["😤 Fearful", "😌 Calm", "🎯 Focused", "🤑 Greedy", "😴 Tired", "⚡ Excited"];
+const EMOTIONS_POST = ["😤 Regret", "😌 Satisfied", "🎯 Disciplined", "😔 Disappointed", "🤗 Proud", "😮 Surprised"];
+const MISTAKES = ["Oversize", "Chased entry", "No stop loss", "FOMO", "Moved SL", "Early exit", "Revenge trade"];
+
+const STRATEGY_TAGS: { label: string; color: string }[] = [
+  { label: "trend", color: "#6366f1" },
+  { label: "breakout", color: "#0ea5e9" },
+  { label: "reversal", color: "#ec4899" },
+  { label: "momentum", color: "#10b981" },
+  { label: "fomo", color: "#f59e0b" },
+  { label: "planned", color: "#22c55e" },
+  { label: "scalp", color: "#a78bfa" },
+  { label: "swing", color: "#38bdf8" },
+];
+
 function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: number }) {
   const key = `trade_note_${backtestId}_${tradeId}`;
+
   const [note, setNote] = useState(() => localStorage.getItem(key) ?? "");
   const [tags, setTags] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(key + "_tags") ?? "[]"); } catch { return []; }
   });
   const [newTag, setNewTag] = useState("");
+  const [session, setSession] = useState(() => localStorage.getItem(key + "_session") ?? "");
+  const [emotionPre, setEmotionPre] = useState(() => localStorage.getItem(key + "_emotion_pre") ?? "");
+  const [emotionPost, setEmotionPost] = useState(() => localStorage.getItem(key + "_emotion_post") ?? "");
+  const [confidence, setConfidence] = useState(() => parseInt(localStorage.getItem(key + "_confidence") ?? "0"));
+  const [mistakes, setMistakes] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(key + "_mistakes") ?? "[]"); } catch { return []; }
+  });
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  function saveNote(val: string) {
-    setNote(val);
-    localStorage.setItem(key, val);
+  function persist<T>(suffix: string, value: T) {
+    localStorage.setItem(key + suffix, typeof value === "string" ? value : JSON.stringify(value));
   }
+
   function addTag() {
     if (!newTag.trim()) return;
     const updated = [...new Set([...tags, newTag.trim()])];
     setTags(updated);
-    localStorage.setItem(key + "_tags", JSON.stringify(updated));
+    persist("_tags", updated);
     setNewTag("");
   }
   function removeTag(t: string) {
     const updated = tags.filter((x) => x !== t);
     setTags(updated);
-    localStorage.setItem(key + "_tags", JSON.stringify(updated));
+    persist("_tags", updated);
+  }
+  function toggleMistake(m: string) {
+    const updated = mistakes.includes(m) ? mistakes.filter(x => x !== m) : [...mistakes, m];
+    setMistakes(updated);
+    persist("_mistakes", updated);
+  }
+  function setAndPersistSession(s: string) {
+    const val = session === s ? "" : s;
+    setSession(val);
+    persist("_session", val);
   }
 
-  const TAG_COLORS: Record<string, string> = {
-    "trend": "#6366f1", "breakout": "#0ea5e9", "reversal": "#ec4899",
-    "momentum": "#10b981", "fomo": "#f59e0b", "planned": "#22c55e",
-  };
+  const hasContent = note || tags.length > 0 || session || emotionPre || emotionPost || confidence > 0 || mistakes.length > 0;
 
   return (
-    <div className="p-4 bg-muted/20 rounded-lg border border-border/50 space-y-3">
-      <div className="flex items-center gap-2">
-        <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Trade Journal Note</span>
-      </div>
-      <textarea
-        className="w-full text-sm bg-transparent resize-none outline-none placeholder:text-muted-foreground/50 min-h-[60px] font-mono"
-        placeholder="Add notes about this trade setup, execution, or outcome..."
-        value={note}
-        onChange={(e) => saveNote(e.target.value)}
-      />
-      <div className="flex flex-wrap gap-1.5 items-center">
-        {tags.map((t) => (
-          <span
-            key={t}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium cursor-pointer"
-            style={{ background: `${TAG_COLORS[t] ?? "#6366f1"}20`, color: TAG_COLORS[t] ?? "#6366f1", border: `1px solid ${TAG_COLORS[t] ?? "#6366f1"}40` }}
-            onClick={() => removeTag(t)}
-          >
-            #{t} ×
+    <div
+      className="rounded-xl border transition-all duration-200"
+      style={{
+        background: "rgba(255,255,255,0.02)",
+        borderColor: hasContent ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.06)",
+      }}
+    >
+      {/* Header – always visible */}
+      <button
+        className="w-full flex items-center gap-2 px-4 py-3 text-left"
+        onClick={() => setIsExpanded(v => !v)}
+      >
+        <StickyNote className="h-3.5 w-3.5 shrink-0" style={{ color: hasContent ? "hsl(38,100%,60%)" : "hsl(220,14%,40%)" }} />
+        <span className="flex-1 text-xs font-medium uppercase tracking-wider" style={{ color: hasContent ? "hsl(220,14%,75%)" : "hsl(220,14%,42%)" }}>
+          Trade Journal
+          {hasContent && " ·"}
+          {session && <span className="ml-1 text-[10px] font-normal" style={{ color: SESSIONS.find(s => s.id === session)?.color }}>{SESSIONS.find(s => s.id === session)?.label}</span>}
+          {emotionPre && <span className="ml-1 text-[10px]">{emotionPre.split(" ")[0]}</span>}
+          {confidence > 0 && <span className="ml-1 text-[10px]">{"★".repeat(confidence)}</span>}
+        </span>
+        {tags.length > 0 && (
+          <span className="flex gap-1">
+            {tags.slice(0, 3).map(t => {
+              const tc = STRATEGY_TAGS.find(s => s.label === t)?.color ?? "#6366f1";
+              return <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: `${tc}20`, color: tc }}>#{t}</span>;
+            })}
+            {tags.length > 3 && <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>+{tags.length - 3}</span>}
           </span>
-        ))}
-        <div className="flex items-center gap-1">
-          <input
-            value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTag()}
-            placeholder="+ tag"
-            className="text-[11px] bg-transparent outline-none placeholder:text-muted-foreground/40 w-16 font-mono"
-          />
+        )}
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform" style={{ color: "hsl(220,14%,40%)", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }} />
+      </button>
+
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-4 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+
+          {/* Session & Confidence */}
+          <div className="pt-3 flex flex-wrap gap-4 items-start">
+            <div>
+              <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,38%)" }}>Session</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {SESSIONS.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => setAndPersistSession(s.id)}
+                    className="px-2.5 py-1 text-[10px] rounded-lg font-mono transition-all"
+                    style={session === s.id
+                      ? { background: `${s.color}25`, color: s.color, border: `1px solid ${s.color}50` }
+                      : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,38%)" }}>Confidence</p>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    onClick={() => { const v = confidence === star ? 0 : star; setConfidence(v); persist("_confidence", v.toString()); }}
+                    className="text-lg transition-all"
+                    style={{ color: star <= confidence ? "#f59e0b" : "rgba(255,255,255,0.12)", filter: star <= confidence ? "drop-shadow(0 0 6px #f59e0b80)" : "none" }}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Emotions */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,38%)" }}>Emotion Before</p>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOTIONS_PRE.map(e => (
+                  <button
+                    key={e}
+                    onClick={() => { const v = emotionPre === e ? "" : e; setEmotionPre(v); persist("_emotion_pre", v); }}
+                    className="px-2 py-1 text-[10px] rounded-lg transition-all"
+                    style={emotionPre === e
+                      ? { background: "rgba(99,102,241,0.2)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.4)" }
+                      : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,38%)" }}>Emotion After</p>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOTIONS_POST.map(e => (
+                  <button
+                    key={e}
+                    onClick={() => { const v = emotionPost === e ? "" : e; setEmotionPost(v); persist("_emotion_post", v); }}
+                    className="px-2 py-1 text-[10px] rounded-lg transition-all"
+                    style={emotionPost === e
+                      ? { background: "rgba(14,165,233,0.2)", color: "#38bdf8", border: "1px solid rgba(14,165,233,0.4)" }
+                      : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Strategy Tags */}
+          <div>
+            <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,38%)" }}>Strategy Tags</p>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {STRATEGY_TAGS.map(({ label, color }) => (
+                <button
+                  key={label}
+                  onClick={() => tags.includes(label) ? removeTag(label) : (() => { const u = [...new Set([...tags, label])]; setTags(u); persist("_tags", u); })()}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono transition-all"
+                  style={tags.includes(label)
+                    ? { background: `${color}25`, color, border: `1px solid ${color}50` }
+                    : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}
+                >
+                  #{label}
+                </button>
+              ))}
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                <input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addTag()}
+                  placeholder="+ custom"
+                  className="text-[10px] bg-transparent outline-none placeholder:opacity-30 w-14 font-mono"
+                  style={{ color: "hsl(220,14%,65%)" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Mistakes */}
+          <div>
+            <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,38%)" }}>Mistake Log</p>
+            <div className="flex flex-wrap gap-1.5">
+              {MISTAKES.map(m => (
+                <button
+                  key={m}
+                  onClick={() => toggleMistake(m)}
+                  className="px-2.5 py-1 text-[10px] font-mono rounded-lg transition-all"
+                  style={mistakes.includes(m)
+                    ? { background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.35)" }
+                    : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,38%)" }}>Notes</p>
+            <textarea
+              className="w-full text-xs bg-transparent resize-none outline-none placeholder:opacity-30 min-h-[64px] font-mono rounded-lg p-3 transition-colors"
+              style={{ border: "1px solid rgba(255,255,255,0.07)", color: "hsl(220,14%,80%)" }}
+              placeholder="Trade setup, execution notes, lessons learned…"
+              value={note}
+              onChange={(e) => { setNote(e.target.value); persist("", e.target.value); }}
+              onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(255,255,255,0.15)"; }}
+              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

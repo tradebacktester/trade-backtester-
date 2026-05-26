@@ -149,7 +149,7 @@ export default function Backtests() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm text-red-400">
-                          {bt.maxDrawdown != null ? `−${bt.maxDrawdown.toFixed(2)}%` : "—"}
+                          {bt.maxDrawdown != null ? `-${Math.abs(bt.maxDrawdown).toFixed(2)}%` : "—"}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {bt.sharpeRatio != null ? bt.sharpeRatio.toFixed(2) : "—"}

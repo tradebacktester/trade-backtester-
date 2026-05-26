@@ -1038,21 +1038,27 @@ export default function ChartPage() {
               onClick={() => setShowMultiTf(v => !v)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
               style={showMultiTf
-                ? { background: "rgba(150,90%,55%,0.12)", borderColor: "rgba(100,180,255,0.3)", color: "hsl(200,80%,65%)" }
+                ? { background: "rgba(100,180,255,0.12)", borderColor: "rgba(100,180,255,0.3)", color: "hsl(200,80%,65%)" }
                 : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
             >
               <SplitSquareVertical className="h-3.5 w-3.5" />
-              {showMultiTf ? (
+              Multi-TF
+            </button>
+            {showMultiTf && (
+              <div onClick={e => e.stopPropagation()}>
                 <Select value={multiTfInterval} onValueChange={v => setMultiTfInterval(v as GetKlinesInterval)}>
-                  <SelectTrigger className="h-auto border-0 p-0 text-xs font-mono bg-transparent focus:ring-0 w-10" onClick={e => e.stopPropagation()}>
+                  <SelectTrigger
+                    className="h-8 text-xs font-mono border"
+                    style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(100,180,255,0.25)", color: "hsl(200,80%,65%)", width: "4.5rem" }}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {INTERVALS.map(iv => <SelectItem key={iv.value} value={iv.value} className="text-xs font-mono">{iv.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              ) : "Multi-TF"}
-            </button>
+              </div>
+            )}
           </div>
 
           {/* Layout save/load */}
@@ -1421,12 +1427,12 @@ export default function ChartPage() {
           {/* ── RSI / MACD sub-chart ─────────────────────────────── */}
           {hasSubChart && (
             <div
-              className="rounded-xl overflow-hidden border flex-shrink-0"
+              className="relative rounded-xl overflow-hidden border flex-shrink-0"
               style={{ height: 120, borderColor: "rgba(255,255,255,0.06)", boxShadow: "0 4px 24px rgba(0,0,0,0.3)" }}
             >
-              <div className="flex items-center gap-2 px-3 pt-1.5 pb-0" style={{ position: "absolute", zIndex: 10 }}>
-                {hasRSI  && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.12)", color: "hsl(38,100%,60%)" }}>RSI 14</span>}
-                {hasMACD && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.1)", color: "hsl(190,90%,65%)" }}>MACD 12/26/9</span>}
+              <div className="absolute flex items-center gap-2 px-3 pt-2 pb-0 z-10 pointer-events-none">
+                {hasRSI  && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>RSI 14</span>}
+                {hasMACD && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>MACD 12/26/9</span>}
               </div>
               <div ref={subChartContainerRef} className="w-full h-full" />
             </div>
@@ -1435,12 +1441,12 @@ export default function ChartPage() {
           {/* ── Multi-TF chart ───────────────────────────────────── */}
           {showMultiTf && (
             <div
-              className="rounded-xl overflow-hidden border flex-shrink-0"
-              style={{ height: 200, borderColor: "rgba(100,180,255,0.15)", boxShadow: "0 4px 24px rgba(0,0,0,0.3)" }}
+              className="relative rounded-xl overflow-hidden border flex-shrink-0"
+              style={{ height: 200, borderColor: "rgba(100,180,255,0.2)", boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(100,180,255,0.08)" }}
             >
-              <div className="flex items-center gap-2 px-3 pt-1.5" style={{ position: "absolute", zIndex: 10 }}>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(100,180,255,0.1)", color: "hsl(200,80%,65%)" }}>
-                  {displayLabel} · {INTERVALS.find(i => i.value === multiTfInterval)?.label ?? multiTfInterval}
+              <div className="absolute flex items-center gap-2 px-3 pt-2 z-10 pointer-events-none">
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(100,180,255,0.12)", color: "hsl(200,80%,70%)", border: "1px solid rgba(100,180,255,0.25)" }}>
+                  MTF · {displayLabel} · {INTERVALS.find(i => i.value === multiTfInterval)?.label ?? multiTfInterval}
                 </span>
               </div>
               <div ref={multiTfContainerRef} className="w-full h-full" />
