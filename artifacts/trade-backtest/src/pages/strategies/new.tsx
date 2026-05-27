@@ -1,243 +1,308 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useCreateStrategy, getListStrategiesQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save } from "lucide-react";
-import { StrategyInputType, StrategyInputTimeframe } from "@workspace/api-client-react/src/generated/api.schemas";
+import { ArrowLeft, Save, CheckCircle, Sparkles } from "lucide-react";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  type: z.enum(["sma_crossover", "ema_crossover", "rsi", "macd", "bollinger_bands"] as const),
-  symbol: z.string().min(1, "Symbol is required"),
-  timeframe: z.enum(["1d", "1h", "4h", "1w"] as const),
-  parameters: z.record(z.any()),
-});
+const STRATEGY_TYPES = [
+  { value: "sma_crossover",   label: "SMA Crossover",          desc: "Fast/slow SMA crossover signals" },
+  { value: "ema_crossover",   label: "EMA Crossover",          desc: "Fast/slow EMA crossover signals" },
+  { value: "rsi",             label: "RSI Mean Reversion",     desc: "Oversold/overbought RSI entries" },
+  { value: "macd",            label: "MACD Trend",             desc: "MACD histogram trend following" },
+  { value: "bollinger_bands", label: "Bollinger Bands",        desc: "Breakout on band expansion" },
+  { value: "ict_ob",          label: "ICT Order Block",        desc: "Institutional order block entries" },
+];
 
-type FormValues = z.infer<typeof formSchema>;
+const SYMBOLS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "SPX500", "EUR/USD", "GBP/USD"];
 
-const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
+const TIMEFRAMES = [
+  { value: "1m", label: "1 Minute" },
+  { value: "5m", label: "5 Minutes" },
+  { value: "15m", label: "15 Minutes" },
+  { value: "1h", label: "1 Hour" },
+  { value: "4h", label: "4 Hours" },
+  { value: "1d", label: "Daily" },
+  { value: "1w", label: "Weekly" },
+];
 
-const defaultParameters: Record<string, any> = {
-  sma_crossover: { fastPeriod: 10, slowPeriod: 50 },
-  ema_crossover: { fastPeriod: 9, slowPeriod: 21 },
-  rsi: { period: 14, oversold: 30, overbought: 70 },
-  macd: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
+const DEFAULT_PARAMS: Record<string, Record<string, number>> = {
+  sma_crossover:   { fastPeriod: 10, slowPeriod: 50 },
+  ema_crossover:   { fastPeriod: 9,  slowPeriod: 21 },
+  rsi:             { period: 14, oversold: 30, overbought: 70 },
+  macd:            { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
   bollinger_bands: { period: 20, stdDev: 2 },
+  ict_ob:          { lookback: 20, minSize: 3, confirmCandles: 2 },
 };
+
+const LS_KEY = "tt_local_strategies";
+
+export interface LocalStrategy {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  symbol: string;
+  timeframe: string;
+  parameters: Record<string, number>;
+  createdAt: string;
+  local: true;
+}
+
+export function loadLocalStrategies(): LocalStrategy[] {
+  try {
+    const v = localStorage.getItem(LS_KEY);
+    return v ? JSON.parse(v) : [];
+  } catch { return []; }
+}
+
+function saveLocalStrategy(s: LocalStrategy) {
+  try {
+    const existing = loadLocalStrategies();
+    localStorage.setItem(LS_KEY, JSON.stringify([s, ...existing]));
+  } catch {}
+}
 
 export default function NewStrategy() {
   const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const createStrategy = useCreateStrategy();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState("ema_crossover");
+  const [symbol, setSymbol] = useState("BTC/USDT");
+  const [timeframe, setTimeframe] = useState("1h");
+  const [params, setParams] = useState<Record<string, number>>(DEFAULT_PARAMS.ema_crossover);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      type: "sma_crossover",
-      symbol: "AAPL",
-      timeframe: "1d",
-      parameters: defaultParameters.sma_crossover,
-    },
-  });
+  function handleTypeChange(newType: string) {
+    setType(newType);
+    setParams(DEFAULT_PARAMS[newType] ?? {});
+  }
 
-  const selectedType = form.watch("type");
+  function validate() {
+    const e: Record<string, string> = {};
+    if (!name.trim()) e.name = "Strategy name is required";
+    if (!symbol) e.symbol = "Please select a symbol";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
 
-  React.useEffect(() => {
-    form.setValue("parameters", defaultParameters[selectedType]);
-  }, [selectedType, form]);
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validate()) return;
+    setSaving(true);
+    setTimeout(() => {
+      const strategy: LocalStrategy = {
+        id: `local_${Date.now()}`,
+        name: name.trim(),
+        description: description.trim(),
+        type,
+        symbol,
+        timeframe,
+        parameters: params,
+        createdAt: new Date().toISOString(),
+        local: true,
+      };
+      saveLocalStrategy(strategy);
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setLocation("/strategies"), 1000);
+    }, 600);
+  }
 
-  function onSubmit(data: FormValues) {
-    createStrategy.mutate(
-      { data: data as any },
-      {
-        onSuccess: (strategy) => {
-          queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
-          toast({
-            title: "Strategy Created",
-            description: "Your strategy has been successfully created.",
-          });
-          setLocation(`/strategies/${strategy.id}`);
-        },
-        onError: (error) => {
-          toast({
-            title: "Error",
-            description: error.error || "Failed to create strategy",
-            variant: "destructive",
-          });
-        },
-      }
+  const inputStyle = {
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.09)",
+    color: "hsl(220,14%,82%)",
+    borderRadius: "12px",
+    padding: "10px 14px",
+    fontSize: "13px",
+    width: "100%",
+    outline: "none",
+    fontFamily: "inherit",
+    transition: "border-color 0.2s",
+  };
+
+  const labelStyle = {
+    fontSize: "11px",
+    fontWeight: 600,
+    fontFamily: "monospace",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+    color: "hsl(220,14%,45%)",
+    marginBottom: "6px",
+    display: "block",
+  };
+
+  if (saved) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-20">
+        <div className="h-16 w-16 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)" }}>
+          <CheckCircle className="h-8 w-8" style={{ color: "hsl(150,90%,58%)" }} />
+        </div>
+        <h2 className="text-xl font-bold" style={{ color: "hsl(220,14%,90%)" }}>Strategy Created!</h2>
+        <p className="text-sm font-mono" style={{ color: "hsl(220,14%,45%)" }}>Redirecting to Analytics…</p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/strategies">
+    <div className="flex flex-col gap-5 max-w-2xl mx-auto pb-8">
+
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Link href="/strategies">
+          <span className="h-9 w-9 flex items-center justify-center rounded-xl cursor-pointer transition-all"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,55%)" }}>
             <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">New Strategy</h1>
-          <p className="text-muted-foreground">Configure a new systematic trading strategy.</p>
+          </span>
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: "hsl(220,14%,92%)" }}>New Strategy</h1>
+          <p className="text-xs font-mono" style={{ color: "hsl(220,14%,42%)" }}>Configure a systematic trading strategy</p>
         </div>
       </div>
 
-      <Card className="border-border">
-        <CardContent className="pt-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Strategy Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. BTC Daily SMA Crossover" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Description (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Describe the rationale behind this strategy..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        {/* Name */}
+        <div className="rounded-2xl border p-4 flex flex-col gap-4"
+          style={{ background: "rgba(255,255,255,0.015)", borderColor: "rgba(255,255,255,0.07)" }}>
+          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>Basic Info</p>
 
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Strategy Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="sma_crossover">SMA Crossover</SelectItem>
-                          <SelectItem value="ema_crossover">EMA Crossover</SelectItem>
-                          <SelectItem value="rsi">RSI Mean Reversion</SelectItem>
-                          <SelectItem value="macd">MACD Trend</SelectItem>
-                          <SelectItem value="bollinger_bands">Bollinger Bands Breakout</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <div>
+            <label style={labelStyle}>Strategy Name *</label>
+            <input
+              value={name}
+              onChange={e => { setName(e.target.value); setErrors(v => ({ ...v, name: "" })); }}
+              placeholder="e.g. BTC EMA Crossover 4H"
+              style={{ ...inputStyle, borderColor: errors.name ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.09)" }}
+            />
+            {errors.name && <p className="text-[11px] font-mono mt-1.5" style={{ color: "hsl(0,85%,62%)" }}>{errors.name}</p>}
+          </div>
 
-                <FormField
-                  control={form.control}
-                  name="symbol"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Default Symbol</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="font-mono">
-                            <SelectValue placeholder="Select symbol" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {SYMBOLS.map((s) => (
-                            <SelectItem key={s} value={s} className="font-mono">{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <div>
+            <label style={labelStyle}>Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Describe the rationale behind this strategy…"
+              rows={3}
+              style={{ ...inputStyle, resize: "none" }}
+            />
+          </div>
+        </div>
 
-                <FormField
-                  control={form.control}
-                  name="timeframe"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Timeframe</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select timeframe" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="1h">1 Hour</SelectItem>
-                          <SelectItem value="4h">4 Hours</SelectItem>
-                          <SelectItem value="1d">Daily</SelectItem>
-                          <SelectItem value="1w">Weekly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+        {/* Strategy type */}
+        <div className="rounded-2xl border p-4 flex flex-col gap-3"
+          style={{ background: "rgba(255,255,255,0.015)", borderColor: "rgba(255,255,255,0.07)" }}>
+          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>Strategy Type</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {STRATEGY_TYPES.map(st => (
+              <button
+                key={st.value}
+                type="button"
+                onClick={() => handleTypeChange(st.value)}
+                className="flex flex-col gap-0.5 p-3 rounded-xl border text-left transition-all"
+                style={type === st.value ? {
+                  background: "rgba(0,229,255,0.08)",
+                  borderColor: "rgba(0,229,255,0.3)",
+                  boxShadow: "0 0 16px rgba(0,229,255,0.06)",
+                } : {
+                  background: "rgba(255,255,255,0.02)",
+                  borderColor: "rgba(255,255,255,0.07)",
+                }}
+              >
+                <span className="text-xs font-semibold font-mono"
+                  style={{ color: type === st.value ? "hsl(190,90%,65%)" : "hsl(220,14%,72%)" }}>
+                  {st.label}
+                </span>
+                <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>{st.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-              <div className="border border-border rounded-lg p-4 bg-muted/20">
-                <h3 className="text-sm font-medium mb-4">Strategy Parameters</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {Object.entries(form.watch("parameters") || {}).map(([key, value]) => (
-                    <FormItem key={key}>
-                      <FormLabel className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          value={value as number}
-                          onChange={(e) => {
-                            const params = { ...form.getValues("parameters"), [key]: Number(e.target.value) };
-                            form.setValue("parameters", params, { shouldValidate: true });
-                          }}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  ))}
+        {/* Symbol + Timeframe */}
+        <div className="rounded-2xl border p-4 flex flex-col gap-4"
+          style={{ background: "rgba(255,255,255,0.015)", borderColor: "rgba(255,255,255,0.07)" }}>
+          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>Market Settings</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label style={labelStyle}>Symbol *</label>
+              <select
+                value={symbol}
+                onChange={e => { setSymbol(e.target.value); setErrors(v => ({ ...v, symbol: "" })); }}
+                style={{ ...inputStyle, cursor: "pointer" }}
+              >
+                {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              {errors.symbol && <p className="text-[11px] font-mono mt-1.5" style={{ color: "hsl(0,85%,62%)" }}>{errors.symbol}</p>}
+            </div>
+            <div>
+              <label style={labelStyle}>Timeframe</label>
+              <select value={timeframe} onChange={e => setTimeframe(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+                {TIMEFRAMES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Parameters */}
+        {Object.keys(params).length > 0 && (
+          <div className="rounded-2xl border p-4 flex flex-col gap-4"
+            style={{ background: "rgba(255,255,255,0.015)", borderColor: "rgba(255,255,255,0.07)" }}>
+            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>
+              Strategy Parameters
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {Object.entries(params).map(([key, value]) => (
+                <div key={key}>
+                  <label style={labelStyle}>
+                    {key.replace(/([A-Z])/g, " $1").trim()}
+                  </label>
+                  <input
+                    type="number"
+                    value={value}
+                    onChange={e => setParams(p => ({ ...p, [key]: Number(e.target.value) }))}
+                    style={inputStyle}
+                  />
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-              <div className="flex justify-end">
-                <Button type="submit" disabled={createStrategy.isPending}>
-                  {createStrategy.isPending ? "Saving..." : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Create Strategy
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+          style={{
+            background: saving
+              ? "rgba(0,229,255,0.1)"
+              : "linear-gradient(135deg, hsl(190,90%,40%), hsl(210,80%,50%))",
+            color: "#fff",
+            border: "1px solid rgba(0,229,255,0.2)",
+            boxShadow: saving ? "none" : "0 8px 32px rgba(0,229,255,0.25)",
+          }}
+        >
+          {saving ? (
+            <>
+              <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              Saving…
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Create Strategy
+            </>
+          )}
+        </button>
+
+        <p className="text-center text-[11px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>
+          Strategies are saved locally on this device
+        </p>
+      </form>
     </div>
   );
 }
