@@ -163,8 +163,8 @@ const MIN_CANDLES = 30;
 const STARTING_CAPITAL = 10_000;
 
 // Shared chart visual config used for main + sub + multitf charts
-const CHART_BG = "hsl(222,28%,7%)";
-const CHART_TEXT = "hsl(220,14%,60%)";
+const CHART_BG = "hsl(222,22%,8%)";
+const CHART_TEXT = "hsl(218,12%,52%)";
 const CHART_FONT = "'JetBrains Mono', Menlo, monospace";
 
 // ── Helpers ────────────────────────────────────────────────────────────
