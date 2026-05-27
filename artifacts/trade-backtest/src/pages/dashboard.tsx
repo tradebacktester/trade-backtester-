@@ -3,12 +3,12 @@ import { useGetBacktestSummary, useListBacktests } from "@workspace/api-client-r
 import { Link } from "wouter";
 import {
   TrendingUp, TrendingDown, DollarSign, Percent, Target, Shield,
-  Clock, BarChart2, Zap, Activity, ArrowUpRight, Play, Globe,
-  Bitcoin, Brain, Wifi, WifiOff, CandlestickChart,
+  Clock, BarChart2, Zap, Activity, ArrowUpRight, Play,
+  Globe, Bitcoin, Brain, CandlestickChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/* ── helpers ──────────────────────────────────────────────────────── */
+/* ── Helpers ──────────────────────────────────────────────────────── */
 function fmtPct(v: number | null | undefined, sign = true) {
   if (v == null) return "—";
   return `${sign && v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
@@ -18,8 +18,27 @@ function fmtNum(v: number | null | undefined, d = 2) {
   return v.toFixed(d);
 }
 
-/* ── Shimmer skeleton ────────────────────────────────────────────── */
-function Skeleton({ className = "" }: { className?: string }) {
+/* ── Design tokens ────────────────────────────────────────────────── */
+const C = {
+  text:    "hsl(0,0%,84%)",
+  sub:     "hsl(0,0%,44%)",
+  muted:   "hsl(0,0%,34%)",
+  border:  "rgba(255,255,255,0.07)",
+  surface: "hsl(0,0%,11%)",
+  surfaceHover: "rgba(255,255,255,0.04)",
+  positive: "#34d399",
+  negative: "#f87171",
+  amber:   "#fbbf24",
+};
+
+const CARD: React.CSSProperties = {
+  background: C.surface,
+  border: `1px solid ${C.border}`,
+  boxShadow: "0 2px 12px rgba(0,0,0,0.28)",
+};
+
+/* ── Skeleton ─────────────────────────────────────────────────────── */
+function Skel({ className = "" }: { className?: string }) {
   return (
     <div
       className={`rounded-lg animate-pulse ${className}`}
@@ -28,53 +47,16 @@ function Skeleton({ className = "" }: { className?: string }) {
   );
 }
 
-/* ── Base card style ─────────────────────────────────────────────── */
-const CARD: React.CSSProperties = {
-  background: "linear-gradient(145deg, rgba(255,255,255,0.042) 0%, rgba(255,255,255,0.016) 100%)",
-  border: "1px solid rgba(255,255,255,0.072)",
-  boxShadow: "0 4px 18px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.04)",
-};
-
-/* ── Stat card ───────────────────────────────────────────────────── */
-function StatCard({
-  icon: Icon, iconColor, label, value, accent, isLoading = false,
-}: {
-  icon: React.ElementType; iconColor: string; label: string;
-  value: React.ReactNode; accent?: string; isLoading?: boolean;
-}) {
+/* ── Section label ────────────────────────────────────────────────── */
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl p-4 flex flex-col gap-3"
-      style={CARD}
-    >
-      {accent && (
-        <div
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: `linear-gradient(90deg,transparent,${accent}45,transparent)` }}
-        />
-      )}
-      <span
-        className="h-9 w-9 flex items-center justify-center rounded-xl flex-shrink-0"
-        style={{ background: `${iconColor}12`, border: `1px solid ${iconColor}22` }}
-      >
-        <Icon className="h-[15px] w-[15px]" style={{ color: iconColor }} />
-      </span>
-      <div>
-        <p className="text-[10px] uppercase tracking-wider mb-1.5 font-mono"
-          style={{ color: "hsl(218,12%,38%)" }}>{label}</p>
-        {isLoading
-          ? <Skeleton className="h-7 w-20" />
-          : <p className="text-[22px] font-bold font-mono leading-none"
-              style={accent ? { color: accent } : { color: "hsl(218,14%,88%)" }}>
-              {value}
-            </p>
-        }
-      </div>
-    </div>
+    <p className="text-[10px] font-mono uppercase tracking-widest mb-3" style={{ color: C.muted }}>
+      {children}
+    </p>
   );
 }
 
-/* ── Section panel ───────────────────────────────────────────────── */
+/* ── Panel ────────────────────────────────────────────────────────── */
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-2xl p-4 sm:p-5 ${className}`} style={CARD}>
@@ -83,17 +65,45 @@ function Panel({ children, className = "" }: { children: React.ReactNode; classN
   );
 }
 
-/* ── Section label ───────────────────────────────────────────────── */
-function SectionLabel({ children }: { children: React.ReactNode }) {
+/* ── Stat card ────────────────────────────────────────────────────── */
+function StatCard({
+  icon: Icon, label, value, accent, isLoading = false,
+}: {
+  icon: React.ElementType; label: string; value: React.ReactNode;
+  accent?: string; isLoading?: boolean;
+}) {
+  const iconColor = accent ?? "hsl(0,0%,50%)";
   return (
-    <p className="text-[10px] font-mono uppercase tracking-widest mb-3"
-      style={{ color: "hsl(218,12%,38%)" }}>
-      {children}
-    </p>
+    <div className="relative overflow-hidden rounded-2xl p-4 flex flex-col gap-3" style={CARD}>
+      {accent && (
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{ background: `linear-gradient(90deg,transparent,${accent}40,transparent)` }}
+        />
+      )}
+      <span
+        className="h-8 w-8 flex items-center justify-center rounded-xl flex-shrink-0"
+        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <Icon className="h-[14px] w-[14px]" style={{ color: iconColor }} />
+      </span>
+      <div>
+        <p className="text-[10px] uppercase tracking-wider mb-1.5 font-mono" style={{ color: C.muted }}>
+          {label}
+        </p>
+        {isLoading
+          ? <Skel className="h-6 w-16" />
+          : <p className="text-[20px] font-bold font-mono leading-none"
+              style={accent ? { color: accent } : { color: C.text }}>
+              {value}
+            </p>
+        }
+      </div>
+    </div>
   );
 }
 
-/* ── Watchlist item ──────────────────────────────────────────────── */
+/* ── Watchlist ────────────────────────────────────────────────────── */
 interface WatchItem { symbol: string; price: string; change: number; sub: string }
 const WATCHLIST: WatchItem[] = [
   { symbol: "BTC/USD", price: "67,420", change: 2.14,  sub: "Bitcoin" },
@@ -107,20 +117,18 @@ const WATCHLIST: WatchItem[] = [
 function WatchRow({ item }: { item: WatchItem }) {
   const up = item.change >= 0;
   return (
-    <div className="flex items-center justify-between py-2.5 border-b last:border-0"
-      style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+    <div
+      className="flex items-center justify-between py-2.5"
+      style={{ borderBottom: `1px solid ${C.border}` }}
+    >
       <div>
-        <p className="text-sm font-mono font-semibold" style={{ color: "hsl(218,14%,82%)" }}>
-          {item.symbol}
-        </p>
-        <p className="text-[10px] font-mono" style={{ color: "hsl(218,12%,38%)" }}>{item.sub}</p>
+        <p className="text-sm font-mono font-semibold" style={{ color: C.text }}>{item.symbol}</p>
+        <p className="text-[10px] font-mono" style={{ color: C.muted }}>{item.sub}</p>
       </div>
       <div className="text-right">
-        <p className="text-sm font-mono font-bold" style={{ color: "hsl(218,14%,80%)" }}>
-          {item.price}
-        </p>
+        <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{item.price}</p>
         <p className="text-[11px] font-mono font-semibold"
-          style={{ color: up ? "#34d399" : "#f87171" }}>
+          style={{ color: up ? C.positive : C.negative }}>
           {up ? "+" : ""}{item.change.toFixed(2)}%
         </p>
       </div>
@@ -128,119 +136,67 @@ function WatchRow({ item }: { item: WatchItem }) {
   );
 }
 
-/* ── Trading session ─────────────────────────────────────────────── */
+/* ── Trading sessions ─────────────────────────────────────────────── */
 interface Session { name: string; hours: string; status: "open" | "closed" | "overlap"; tz: string }
 const SESSIONS: Session[] = [
-  { name: "Sydney",  hours: "22:00–07:00", status: "closed",  tz: "AEST" },
-  { name: "Tokyo",   hours: "00:00–09:00", status: "closed",  tz: "JST" },
-  { name: "London",  hours: "08:00–17:00", status: "open",    tz: "BST" },
-  { name: "New York",hours: "13:00–22:00", status: "overlap", tz: "EST" },
+  { name: "Sydney",   hours: "22:00–07:00", status: "closed",  tz: "AEST" },
+  { name: "Tokyo",    hours: "00:00–09:00", status: "closed",  tz: "JST" },
+  { name: "London",   hours: "08:00–17:00", status: "open",    tz: "BST" },
+  { name: "New York", hours: "13:00–22:00", status: "overlap", tz: "EST" },
 ];
-
 const SESSION_COLOR: Record<string, string> = {
-  open: "#34d399", closed: "hsl(218,12%,38%)", overlap: "hsl(38,95%,58%)"
+  open: C.positive, closed: "hsl(0,0%,30%)", overlap: C.amber,
 };
 const SESSION_LABEL: Record<string, string> = {
-  open: "Open", closed: "Closed", overlap: "Active"
+  open: "Open", closed: "Closed", overlap: "Active",
 };
 
 function SessionRow({ s }: { s: Session }) {
   const color = SESSION_COLOR[s.status];
   return (
-    <div className="flex items-center justify-between py-2.5 border-b last:border-0"
-      style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+    <div
+      className="flex items-center justify-between py-2.5"
+      style={{ borderBottom: `1px solid ${C.border}` }}
+    >
       <div className="flex items-center gap-2.5">
-        <span className="h-2 w-2 rounded-full flex-shrink-0"
-          style={{ background: color, boxShadow: s.status !== "closed" ? `0 0 6px ${color}90` : "none" }} />
+        <span
+          className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+          style={{ background: color }}
+        />
         <div>
-          <p className="text-xs font-mono font-semibold" style={{ color: "hsl(218,14%,80%)" }}>
-            {s.name}
-          </p>
-          <p className="text-[10px] font-mono" style={{ color: "hsl(218,12%,38%)" }}>
-            {s.hours} {s.tz}
-          </p>
+          <p className="text-xs font-mono font-semibold" style={{ color: C.text }}>{s.name}</p>
+          <p className="text-[10px] font-mono" style={{ color: C.muted }}>{s.hours} {s.tz}</p>
         </div>
       </div>
-      <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full"
-        style={{
-          color,
-          background: `${color}12`,
-          border: `1px solid ${color}28`,
-        }}>
+      <span
+        className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full"
+        style={{ color, background: `${color}12`, border: `1px solid ${color}28` }}
+      >
         {SESSION_LABEL[s.status]}
       </span>
     </div>
   );
 }
 
-/* ── AI insight preview card ─────────────────────────────────────── */
-interface Insight { icon: React.ElementType; color: string; title: string; body: string; tag: string }
-const AI_INSIGHTS: Insight[] = [
-  {
-    icon: Bitcoin, color: "#f59e0b",
-    title: "Crypto Outlook",
-    body: "BTC holding above $65K support with bullish structure. ETH showing relative strength.",
-    tag: "Bullish",
-  },
-  {
-    icon: Globe, color: "hsl(210,90%,62%)",
-    title: "Forex Signals",
-    body: "DXY strength pressuring EUR/USD near 1.0820 support. GBP remains range-bound.",
-    tag: "Neutral",
-  },
-  {
-    icon: BarChart2, color: "#a78bfa",
-    title: "Equities",
-    body: "SPX consolidating near ATH. Tech (QQQ) leading. Watch for breakout above 5,300.",
-    tag: "Watch",
-  },
-];
-
-function InsightCard({ item }: { item: Insight }) {
-  const Icon = item.icon;
-  return (
-    <Link href="/ai">
-      <div className="rounded-2xl p-4 cursor-pointer transition-colors duration-150 hover:border-white/10"
-        style={{
-          ...CARD,
-          borderColor: `${item.color}20`,
-        }}>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="h-7 w-7 flex items-center justify-center rounded-xl flex-shrink-0"
-            style={{ background: `${item.color}12`, border: `1px solid ${item.color}28` }}>
-            <Icon className="h-3.5 w-3.5" style={{ color: item.color }} />
-          </span>
-          <p className="text-xs font-mono font-semibold" style={{ color: "hsl(218,14%,78%)" }}>
-            {item.title}
-          </p>
-          <span className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full"
-            style={{ color: item.color, background: `${item.color}12`, border: `1px solid ${item.color}25` }}>
-            {item.tag}
-          </span>
-        </div>
-        <p className="text-[11px] font-mono leading-relaxed" style={{ color: "hsl(218,12%,50%)" }}>
-          {item.body}
-        </p>
-      </div>
-    </Link>
-  );
-}
-
-/* ── Demo account summary ────────────────────────────────────────── */
+/* ── Demo account ─────────────────────────────────────────────────── */
 function DemoSummary() {
   const items = [
-    { label: "Balance",     value: "$10,000.00", color: "hsl(218,14%,82%)" },
-    { label: "Equity",      value: "$10,284.50",  color: "#34d399" },
-    { label: "Open P&L",    value: "+$284.50",    color: "#34d399" },
-    { label: "Margin Used", value: "$1,200.00",   color: "hsl(38,95%,58%)" },
+    { label: "Balance",     value: "$10,000.00", color: C.text },
+    { label: "Equity",      value: "$10,284.50", color: C.positive },
+    { label: "Open P&L",    value: "+$284.50",   color: C.positive },
+    { label: "Margin Used", value: "$1,200.00",  color: C.amber },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-2">
       {items.map(it => (
-        <div key={it.label} className="rounded-xl px-3 py-2.5"
-          style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}>
-          <p className="text-[10px] font-mono uppercase tracking-wider mb-1"
-            style={{ color: "hsl(218,12%,36%)" }}>{it.label}</p>
+        <div
+          key={it.label}
+          className="rounded-xl px-3 py-2.5"
+          style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}
+        >
+          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>
+            {it.label}
+          </p>
           <p className="text-sm font-mono font-bold" style={{ color: it.color }}>{it.value}</p>
         </div>
       ))}
@@ -248,60 +204,103 @@ function DemoSummary() {
   );
 }
 
-/* ── Recent backtest row ─────────────────────────────────────────── */
-function RecentRow({ bt, i }: { bt: any; i: number }) {
-  const isPos = (bt.totalReturn ?? 0) >= 0;
+/* ── AI insight card ──────────────────────────────────────────────── */
+interface Insight { icon: React.ElementType; title: string; body: string; tag: string; tagColor: string }
+const AI_INSIGHTS: Insight[] = [
+  { icon: Bitcoin,  title: "Crypto",   body: "BTC holding $65K support with bullish structure. ETH showing relative strength.",  tag: "Bullish", tagColor: C.positive },
+  { icon: Globe,    title: "Forex",    body: "DXY strength pressuring EUR/USD near 1.0820. GBP remains range-bound.",              tag: "Neutral", tagColor: C.amber },
+  { icon: BarChart2,title: "Equities", body: "SPX consolidating near ATH. Tech leading. Watch for breakout above 5,300.",          tag: "Watch",   tagColor: C.sub },
+];
+
+function InsightCard({ item }: { item: Insight }) {
+  const Icon = item.icon;
   return (
-    <Link href={`/backtests/${bt.id}`}>
+    <Link href="/ai">
       <div
-        className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors duration-150 cursor-pointer group"
-        style={{ border: "1px solid transparent" }}
+        className="rounded-2xl p-4 cursor-pointer transition-colors duration-150"
+        style={CARD}
         onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
         }}
         onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.background = "";
-          (e.currentTarget as HTMLElement).style.borderColor = "transparent";
+          (e.currentTarget as HTMLElement).style.borderColor = C.border;
         }}
       >
-        <div className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{
-            background: isPos ? "rgba(52,211,153,0.09)" : "rgba(239,68,68,0.09)",
-            border: `1px solid ${isPos ? "rgba(52,211,153,0.18)" : "rgba(239,68,68,0.18)"}`,
-          }}>
-          {isPos
-            ? <TrendingUp className="h-3.5 w-3.5" style={{ color: "#34d399" }} />
-            : <TrendingDown className="h-3.5 w-3.5" style={{ color: "#f87171" }} />}
+        <div className="flex items-center gap-2 mb-2.5">
+          <span
+            className="h-7 w-7 flex items-center justify-center rounded-xl flex-shrink-0"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <Icon className="h-3.5 w-3.5" style={{ color: "hsl(0,0%,60%)" }} />
+          </span>
+          <p className="text-xs font-mono font-semibold" style={{ color: C.text }}>{item.title}</p>
+          <span
+            className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+            style={{ color: item.tagColor, background: `${item.tagColor}12`, border: `1px solid ${item.tagColor}25` }}
+          >
+            {item.tag}
+          </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate" style={{ color: "hsl(218,14%,82%)" }}>
-            {bt.strategyName || `Strategy #${bt.strategyId}`}
-          </p>
-          <p className="text-[11px] font-mono" style={{ color: "hsl(218,12%,40%)" }}>
-            {bt.symbol} · {bt.startDate?.slice(0, 7)}
-          </p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <p className={`text-sm font-bold font-mono ${isPos ? "text-emerald-400" : "text-red-400"}`}>
-            {fmtPct(bt.totalReturn)}
-          </p>
-          <p className="text-[10px] font-mono" style={{ color: "hsl(218,12%,38%)" }}>
-            WR: {bt.winRate != null ? `${bt.winRate.toFixed(0)}%` : "—"}
-          </p>
-        </div>
-        <ArrowUpRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-30 transition-opacity flex-shrink-0"
-          style={{ color: "hsl(218,12%,55%)" }} />
+        <p className="text-[11px] font-mono leading-relaxed" style={{ color: C.sub }}>{item.body}</p>
       </div>
     </Link>
   );
 }
 
-/* ── Main page ───────────────────────────────────────────────────── */
+/* ── Recent backtest row ──────────────────────────────────────────── */
+function RecentRow({ bt }: { bt: any }) {
+  const isPos = (bt.totalReturn ?? 0) >= 0;
+  return (
+    <Link href={`/backtests/${bt.id}`}>
+      <div
+        className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors duration-150 cursor-pointer group"
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.background = C.surfaceHover;
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.background = "";
+        }}
+      >
+        <div
+          className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{
+            background: isPos ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
+            border: `1px solid ${isPos ? "rgba(52,211,153,0.16)" : "rgba(248,113,113,0.16)"}`,
+          }}
+        >
+          {isPos
+            ? <TrendingUp className="h-3.5 w-3.5" style={{ color: C.positive }} />
+            : <TrendingDown className="h-3.5 w-3.5" style={{ color: C.negative }} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate" style={{ color: C.text }}>
+            {bt.strategyName || `Strategy #${bt.strategyId}`}
+          </p>
+          <p className="text-[11px] font-mono" style={{ color: C.muted }}>
+            {bt.symbol} · {bt.startDate?.slice(0, 7)}
+          </p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-sm font-bold font-mono" style={{ color: isPos ? C.positive : C.negative }}>
+            {fmtPct(bt.totalReturn)}
+          </p>
+          <p className="text-[10px] font-mono" style={{ color: C.muted }}>
+            WR: {bt.winRate != null ? `${bt.winRate.toFixed(0)}%` : "—"}
+          </p>
+        </div>
+        <ArrowUpRight
+          className="h-3.5 w-3.5 opacity-0 group-hover:opacity-30 transition-opacity flex-shrink-0"
+          style={{ color: C.sub }}
+        />
+      </div>
+    </Link>
+  );
+}
+
+/* ── Main page ────────────────────────────────────────────────────── */
 export default function Dashboard() {
   const { data: summary, isLoading: loadingSummary } = useGetBacktestSummary();
   const { data: backtests, isLoading: loadingBacktests } = useListBacktests();
-
   const isLoading = loadingSummary || loadingBacktests;
 
   const analytics = useMemo(() => {
@@ -309,21 +308,20 @@ export default function Dashboard() {
     const completed = backtests.filter((b: any) => b.status === "complete");
     if (!completed.length) return null;
     const wins = completed.filter((b: any) => (b.totalReturn ?? 0) > 0);
-    const allReturns = completed.map((b: any) => b.totalReturn ?? 0);
-    const allPf = completed.map((b: any) => b.profitFactor ?? 0).filter((v: number) => v > 0);
-    const allWr = completed.map((b: any) => b.winRate ?? 0).filter((v: number) => v > 0);
-    const allSharpe = completed.map((b: any) => b.sharpeRatio ?? 0);
-    const allDd = completed.map((b: any) => b.maxDrawdown ?? 0);
+    const nums = (fn: (b: any) => number) => completed.map(fn);
     const avg = (arr: number[]) => arr.length ? arr.reduce((a: number, b: number) => a + b, 0) / arr.length : 0;
+    const allReturns = nums((b: any) => b.totalReturn ?? 0);
+    const allPf = nums((b: any) => b.profitFactor ?? 0).filter((v: number) => v > 0);
+    const allWr = nums((b: any) => b.winRate ?? 0).filter((v: number) => v > 0);
+    const allSharpe = nums((b: any) => b.sharpeRatio ?? 0);
+    const allDd = nums((b: any) => b.maxDrawdown ?? 0);
     return {
-      completed,
       wins,
       avgWR: avg(allWr),
       avgPF: avg(allPf),
       avgSharpe: avg(allSharpe),
       avgDD: avg(allDd),
       bestReturn: Math.max(...allReturns),
-      worstReturn: Math.min(...allReturns),
     };
   }, [backtests]);
 
@@ -335,20 +333,13 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col gap-4 pb-4">
 
-      {/* ── Header ────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1
-            className="text-2xl sm:text-3xl font-bold tracking-tight"
-            style={{
-              background: "linear-gradient(135deg, hsl(218,16%,88%) 40%, hsl(210,90%,65%))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: "hsl(0,0%,88%)" }}>
             Dashboard
           </h1>
-          <p className="text-xs mt-0.5 font-mono" style={{ color: "hsl(218,12%,42%)" }}>
+          <p className="text-xs mt-0.5 font-mono" style={{ color: C.muted }}>
             Market overview &amp; performance summary
           </p>
         </div>
@@ -360,20 +351,20 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* ── Market Overview bar ───────────────────────────────────── */}
+      {/* Market overview bar */}
       <Panel>
-        <div className="flex items-center gap-2 mb-3">
-          <Wifi className="h-3.5 w-3.5" style={{ color: "#34d399" }} />
-          <SectionLabel>Market Overview</SectionLabel>
-        </div>
+        <SectionLabel>Market Overview</SectionLabel>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {WATCHLIST.map(w => (
-            <div key={w.symbol} className="rounded-xl px-3 py-2 text-center"
-              style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}>
-              <p className="text-[10px] font-mono mb-1" style={{ color: "hsl(218,12%,40%)" }}>{w.symbol}</p>
-              <p className="text-sm font-mono font-bold" style={{ color: "hsl(218,14%,82%)" }}>{w.price}</p>
+            <div
+              key={w.symbol}
+              className="rounded-xl px-3 py-2 text-center"
+              style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}
+            >
+              <p className="text-[10px] font-mono mb-1" style={{ color: C.muted }}>{w.symbol}</p>
+              <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{w.price}</p>
               <p className="text-[11px] font-mono font-semibold"
-                style={{ color: w.change >= 0 ? "#34d399" : "#f87171" }}>
+                style={{ color: w.change >= 0 ? C.positive : C.negative }}>
                 {w.change >= 0 ? "+" : ""}{w.change.toFixed(2)}%
               </p>
             </div>
@@ -381,27 +372,27 @@ export default function Dashboard() {
         </div>
       </Panel>
 
-      {/* ── Performance stat cards ────────────────────────────────── */}
+      {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        <StatCard icon={TrendingUp} iconColor="#34d399" label="Best Return" accent="#34d399"
+        <StatCard icon={TrendingUp} label="Best Return" accent={C.positive}
           value={isLoading ? null : fmtPct(summary?.bestReturn)} isLoading={isLoading} />
-        <StatCard icon={Percent} iconColor="hsl(210,90%,62%)" label="Avg Win Rate" accent="hsl(210,90%,62%)"
+        <StatCard icon={Percent} label="Avg Win Rate"
           value={isLoading ? null : analytics ? `${analytics.avgWR.toFixed(1)}%` : "—"} isLoading={isLoading} />
-        <StatCard icon={Target} iconColor="hsl(38,95%,58%)" label="Profit Factor" accent="hsl(38,95%,58%)"
+        <StatCard icon={Target} label="Profit Factor"
           value={isLoading ? null : analytics ? fmtNum(analytics.avgPF) : "—"} isLoading={isLoading} />
-        <StatCard icon={Zap} iconColor="#a78bfa" label="Avg Sharpe"
+        <StatCard icon={Zap} label="Avg Sharpe"
           value={isLoading ? null : analytics ? fmtNum(analytics.avgSharpe) : "—"} isLoading={isLoading} />
-        <StatCard icon={Clock} iconColor="hsl(218,12%,52%)" label="Total Backtests"
+        <StatCard icon={Clock} label="Total Backtests"
           value={isLoading ? null : (summary?.totalBacktests ?? 0)} isLoading={isLoading} />
-        <StatCard icon={Shield} iconColor="#f87171" label="Avg Drawdown" accent="#f87171"
+        <StatCard icon={Shield} label="Avg Drawdown" accent={C.negative}
           value={isLoading ? null : analytics ? `-${Math.abs(analytics.avgDD).toFixed(1)}%` : "—"} isLoading={isLoading} />
-        <StatCard icon={DollarSign} iconColor="#34d399" label="Best Trade" accent="#34d399"
+        <StatCard icon={DollarSign} label="Best Trade" accent={C.positive}
           value={isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—"} isLoading={isLoading} />
-        <StatCard icon={Activity} iconColor="hsl(210,90%,62%)" label="Total Trades"
+        <StatCard icon={Activity} label="Total Trades"
           value={isLoading ? null : (summary?.totalTrades ?? 0)} isLoading={isLoading} />
       </div>
 
-      {/* ── Middle row: Watchlist + Sessions ─────────────────────── */}
+      {/* Middle row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Watchlist */}
@@ -409,24 +400,34 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-1">
             <SectionLabel>Watchlist</SectionLabel>
             <Link href="/chart">
-              <span className="text-[10px] font-mono flex items-center gap-1 transition-opacity hover:opacity-70 cursor-pointer"
-                style={{ color: "hsl(210,90%,62%)" }}>
+              <span
+                className="text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-70 mb-3"
+                style={{ color: C.sub }}
+              >
                 <CandlestickChart className="h-3 w-3" />
                 View Charts
               </span>
             </Link>
           </div>
           <div>
-            {WATCHLIST.map(w => <WatchRow key={w.symbol} item={w} />)}
+            {WATCHLIST.map((w, i) => (
+              <div key={w.symbol} style={i === WATCHLIST.length - 1 ? { borderBottom: "none" } : {}}>
+                <WatchRow item={w} />
+              </div>
+            ))}
           </div>
         </Panel>
 
-        {/* Right column: Trading Sessions + Demo Account */}
+        {/* Right column */}
         <div className="flex flex-col gap-4">
           <Panel>
             <SectionLabel>Trading Sessions</SectionLabel>
             <div>
-              {SESSIONS.map(s => <SessionRow key={s.name} s={s} />)}
+              {SESSIONS.map((s, i) => (
+                <div key={s.name} style={i === SESSIONS.length - 1 ? { borderBottom: "none" } : {}}>
+                  <SessionRow s={s} />
+                </div>
+              ))}
             </div>
           </Panel>
 
@@ -434,8 +435,8 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-3">
               <SectionLabel>Demo Account</SectionLabel>
               <Link href="/demo">
-                <span className="text-[10px] font-mono transition-opacity hover:opacity-70 cursor-pointer"
-                  style={{ color: "hsl(210,90%,62%)" }}>
+                <span className="text-[10px] font-mono cursor-pointer transition-opacity hover:opacity-70"
+                  style={{ color: C.sub }}>
                   Open Demo →
                 </span>
               </Link>
@@ -445,17 +446,18 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── AI Insights preview ───────────────────────────────────── */}
+      {/* AI Insights */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Brain className="h-3.5 w-3.5" style={{ color: "#a78bfa" }} />
-            <p className="text-[10px] font-mono uppercase tracking-widest"
-              style={{ color: "hsl(218,12%,38%)" }}>AI Insights</p>
+            <Brain className="h-3.5 w-3.5" style={{ color: C.sub }} />
+            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>
+              AI Insights
+            </p>
           </div>
           <Link href="/ai">
-            <span className="text-[10px] font-mono transition-opacity hover:opacity-70 cursor-pointer flex items-center gap-1"
-              style={{ color: "hsl(210,90%,62%)" }}>
+            <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-70"
+              style={{ color: C.sub }}>
               Full Analysis <ArrowUpRight className="h-3 w-3" />
             </span>
           </Link>
@@ -465,35 +467,31 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Recent Backtests ─────────────────────────────────────── */}
+      {/* Recent backtests */}
       <Panel>
         <div className="flex items-center justify-between mb-2">
           <SectionLabel>Recent Backtests</SectionLabel>
           <Link href="/backtests">
-            <span className="text-[10px] font-mono transition-opacity hover:opacity-70 cursor-pointer flex items-center gap-1"
-              style={{ color: "hsl(210,90%,62%)" }}>
+            <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-70"
+              style={{ color: C.sub }}>
               View All <ArrowUpRight className="h-3 w-3" />
             </span>
           </Link>
         </div>
         {isLoading ? (
           <div className="flex flex-col gap-2">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12" />)}
+            {[...Array(4)].map((_, i) => <Skel key={i} className="h-11" />)}
           </div>
         ) : recentBacktests.length ? (
           <div>
-            {recentBacktests.map((bt: any, i: number) => <RecentRow key={bt.id} bt={bt} i={i} />)}
+            {recentBacktests.map((bt: any) => <RecentRow key={bt.id} bt={bt} />)}
           </div>
         ) : (
           <div className="py-10 text-center">
-            <BarChart2 className="h-8 w-8 mx-auto mb-3 opacity-20" />
-            <p className="text-sm font-mono" style={{ color: "hsl(218,12%,36%)" }}>
-              No backtests yet
-            </p>
+            <BarChart2 className="h-8 w-8 mx-auto mb-3 opacity-15" style={{ color: C.sub }} />
+            <p className="text-sm font-mono" style={{ color: C.muted }}>No backtests yet</p>
             <Link href="/backtests/new">
-              <Button variant="outline" size="sm" className="mt-3">
-                Run your first backtest
-              </Button>
+              <Button variant="outline" size="sm" className="mt-3">Run your first backtest</Button>
             </Link>
           </div>
         )}

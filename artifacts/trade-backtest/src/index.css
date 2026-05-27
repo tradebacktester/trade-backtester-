@@ -66,79 +66,80 @@
   --radius-xl: calc(var(--radius) + 6px);
 }
 
-/* ── Premium Charcoal Dark Color System ────────────────────────────── */
+/* ── Monochrome Graphite Design System ─────────────────────────────── */
 :root {
-  /* Charcoal backgrounds — softer than pure black */
-  --background: 222 22% 8%;
-  --foreground: 218 16% 90%;
-  --border: 222 18% 17%;
+  /* Near-black charcoal backgrounds */
+  --background: 0 0% 7%;
+  --foreground: 0 0% 90%;
+  --border: 0 0% 15%;
 
   /* Graphite card surfaces */
-  --card: 222 20% 11%;
-  --card-foreground: 218 16% 88%;
-  --card-border: 222 18% 17%;
+  --card: 0 0% 11%;
+  --card-foreground: 0 0% 88%;
+  --card-border: 0 0% 16%;
 
-  --popover: 222 20% 12%;
-  --popover-foreground: 218 16% 88%;
-  --popover-border: 222 18% 18%;
+  --popover: 0 0% 12%;
+  --popover-foreground: 0 0% 88%;
+  --popover-border: 0 0% 17%;
 
-  /* Premium blue accent */
-  --primary: 210 90% 58%;
-  --primary-foreground: 222 22% 8%;
-  --secondary: 222 18% 16%;
-  --secondary-foreground: 218 16% 88%;
+  /* Monochrome primary — near white */
+  --primary: 0 0% 92%;
+  --primary-foreground: 0 0% 8%;
+
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 85%;
 
   /* Muted graphite */
-  --muted: 222 18% 14%;
-  --muted-foreground: 218 14% 52%;
+  --muted: 0 0% 13%;
+  --muted-foreground: 0 0% 50%;
 
-  --accent: 210 90% 58%;
-  --accent-foreground: 222 22% 8%;
+  --accent: 0 0% 92%;
+  --accent-foreground: 0 0% 8%;
 
-  --destructive: 0 78% 58%;
+  --destructive: 0 72% 55%;
   --destructive-foreground: 0 0% 100%;
 
-  --sidebar: 222 22% 9%;
-  --sidebar-foreground: 218 14% 82%;
-  --sidebar-border: 222 18% 15%;
-  --sidebar-primary: 210 90% 58%;
-  --sidebar-primary-foreground: 222 22% 8%;
-  --sidebar-accent: 222 18% 16%;
-  --sidebar-accent-foreground: 218 16% 88%;
-  --sidebar-ring: 210 90% 58%;
+  --sidebar: 0 0% 8%;
+  --sidebar-foreground: 0 0% 82%;
+  --sidebar-border: 0 0% 14%;
+  --sidebar-primary: 0 0% 90%;
+  --sidebar-primary-foreground: 0 0% 8%;
+  --sidebar-accent: 0 0% 15%;
+  --sidebar-accent-foreground: 0 0% 88%;
+  --sidebar-ring: 0 0% 60%;
 
-  --input: 222 18% 17%;
-  --ring: 210 90% 58%;
+  --input: 0 0% 16%;
+  --ring: 0 0% 60%;
 
-  --chart-1: 210 90% 58%;
-  --chart-2: 150 80% 50%;
-  --chart-3: 38 95% 55%;
-  --chart-4: 270 75% 62%;
-  --chart-5: 0 78% 58%;
+  /* Chart semantic colors — keep meaningful data colors */
+  --chart-1: 210 80% 60%;
+  --chart-2: 150 75% 50%;
+  --chart-3: 38 90% 55%;
+  --chart-4: 270 65% 62%;
+  --chart-5: 0 72% 58%;
 
   --app-font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --app-font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* Premium rounded corners everywhere */
   --radius: 0.75rem;
 
-  --button-outline: rgba(255,255,255,0.09);
+  --button-outline: rgba(255,255,255,0.08);
   --badge-outline: rgba(255,255,255,0.05);
 
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255,0.035);
-  --elevate-2: rgba(255,255,255,0.07);
+  --opaque-button-border-intensity: 8;
+  --elevate-1: rgba(255,255,255,0.03);
+  --elevate-2: rgba(255,255,255,0.06);
 
-  /* Softer layered shadows */
-  --shadow-2xs: 0px 1px 0px 0px rgba(0,0,0,0.15);
-  --shadow-xs: 0px 2px 4px 0px rgba(0,0,0,0.18);
-  --shadow-sm: 0px 2px 8px rgba(0,0,0,0.2), 0px 1px 2px rgba(0,0,0,0.15);
-  --shadow: 0px 4px 12px rgba(0,0,0,0.22), 0px 1px 3px rgba(0,0,0,0.15);
-  --shadow-md: 0px 4px 16px rgba(0,0,0,0.24), 0px 2px 6px rgba(0,0,0,0.16);
-  --shadow-lg: 0px 8px 24px rgba(0,0,0,0.28), 0px 4px 8px rgba(0,0,0,0.16);
-  --shadow-xl: 0px 12px 36px rgba(0,0,0,0.32), 0px 6px 12px rgba(0,0,0,0.18);
-  --shadow-2xl: 0px 20px 60px rgba(0,0,0,0.40);
+  /* Clean, simple shadows — no glow */
+  --shadow-2xs: 0px 1px 2px rgba(0,0,0,0.18);
+  --shadow-xs:  0px 2px 4px rgba(0,0,0,0.22);
+  --shadow-sm:  0px 2px 8px rgba(0,0,0,0.28);
+  --shadow:     0px 4px 12px rgba(0,0,0,0.30);
+  --shadow-md:  0px 4px 16px rgba(0,0,0,0.32);
+  --shadow-lg:  0px 8px 24px rgba(0,0,0,0.36);
+  --shadow-xl:  0px 12px 36px rgba(0,0,0,0.40);
+  --shadow-2xl: 0px 20px 60px rgba(0,0,0,0.48);
 
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -148,22 +149,20 @@
   --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 
-  /* ── Safe area inset custom properties ── */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 
-  /* ── Layout heights ── */
-  --desktop-nav-height: 56px;
-  --mobile-nav-height: 68px;
+  --desktop-nav-height: 52px;
+  --mobile-nav-height: 64px;
 }
 
 .dark {
-  /* Using same variables as root to force dark mode everywhere */
+  /* Dark mode uses :root values — always dark */
 }
 
-/* ── App Shell ──────────────────────────────────────────────────────────── */
+/* ── App Shell ──────────────────────────────────────────────────────── */
 html {
   height: 100%;
   overflow: hidden;
@@ -174,8 +173,8 @@ html {
 body {
   height: 100%;
   overflow: hidden;
-  background-color: hsl(222, 22%, 8%);
-  background-attachment: scroll;
+  /* Flat charcoal — no gradient, no GPU layers */
+  background-color: hsl(0, 0%, 7%);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -185,54 +184,36 @@ body {
   overflow: hidden;
 }
 
-/* Subtle desktop gradient — no fixed attachment to avoid GPU tearing */
-@media (min-width: 768px) {
-  body {
-    background-image:
-      radial-gradient(ellipse 70% 45% at 50% -5%, rgba(59,130,246,0.05) 0%, transparent 65%),
-      radial-gradient(ellipse 50% 35% at 85% 100%, rgba(99,102,241,0.04) 0%, transparent 55%),
-      linear-gradient(180deg, hsl(222, 22%, 8%) 0%, hsl(222, 24%, 7%) 100%);
-  }
-}
-
 @layer base {
   * {
     @apply border-border;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.07) transparent;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
     box-sizing: border-box;
   }
   *::-webkit-scrollbar { width: 3px; height: 3px; }
   *::-webkit-scrollbar-track { background: transparent; }
-  *::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
-  *::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
+  *::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
 
-/* ── App Layout Shell ─────────────────────────────────────────────────────── */
+/* ── App Layout Shell ──────────────────────────────────────────────── */
 
-/* Root layout container — strict height, no overflow, GPU layer */
+/* Root container — no will-change to avoid unnecessary GPU layer */
 .tt-root {
   display: flex;
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  background: hsl(222, 22%, 8%);
-  /* Promote to GPU composite layer to prevent render tearing */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: contents;
+  background: hsl(0, 0%, 7%);
 }
 
-/* Desktop top nav */
+/* Desktop top nav — simple, no GPU promotion */
 .tt-desktop-nav {
-  will-change: transform;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  contain: layout style;
 }
 
 /* Main scrollable content */
@@ -244,14 +225,11 @@ body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   overscroll-behavior-x: none;
-  /* Desktop: offset for fixed top nav */
   padding-top: var(--desktop-nav-height);
-  /* Prevent width overflow */
   max-width: 100vw;
   width: 100%;
 }
 
-/* Mobile main content area */
 @media (max-width: 767px) {
   .tt-main {
     padding-top: max(8px, var(--safe-top)) !important;
@@ -259,16 +237,12 @@ body {
   }
 }
 
-/* Mobile bottom nav — GPU layer to prevent flicker */
+/* Mobile bottom nav — contain instead of will-change */
 .tt-bottom-nav {
-  will-change: transform;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  contain: layout style;
 }
 
-/* Chart page — flex layout fills available height */
+/* Chart page */
 .tt-chart-page {
   overflow: hidden;
 }
@@ -287,171 +261,123 @@ body {
   }
 }
 
-/* ── Premium Glassmorphism — optimized ───────────────────────────── */
-.glass-panel {
-  background: rgba(255,255,255,0.032);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.075);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.055);
-}
-
-.glass-card {
-  background: rgba(255,255,255,0.038) !important;
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045) !important;
-}
-
-/* Reduce blur cost on mobile for smooth scrolling */
-@media (max-width: 767px) {
-  .glass-panel,
-  .glass-card {
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-  .neon-hover:hover {
-    transform: none;
-  }
-}
-
-/* ── Premium card style — floating feel ─────────────────────────── */
+/* ── Monochrome Card — clean, flat ────────────────────────────────── */
 .premium-card {
-  background: linear-gradient(145deg, rgba(255,255,255,0.042), rgba(255,255,255,0.018));
-  border: 1px solid rgba(255,255,255,0.075);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.04) inset;
+  background: hsl(0, 0%, 11%);
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.28);
   border-radius: 1rem;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
 .premium-card:hover {
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset;
-  border-color: rgba(255,255,255,0.11);
+  border-color: rgba(255,255,255,0.12);
 }
 
-/* ── Neon Glow Hover ─────────────────────────────────────────────── */
+/* ── Glass panel — simplified, no blur ──────────────────────────── */
+.glass-panel {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.28);
+}
+
+.glass-card {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.24) !important;
+}
+
+/* ── Neon hover — neutered, no glow ────────────────────────────── */
 .neon-hover {
-  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.2s ease !important;
+  transition: border-color 0.2s ease !important;
 }
 .neon-hover:hover {
-  box-shadow:
-    0 0 0 1px hsl(var(--primary) / 0.3),
-    0 0 20px hsl(var(--primary) / 0.18),
-    0 0 40px hsl(var(--primary) / 0.08),
-    0 8px 28px rgba(0,0,0,0.38) !important;
-  border-color: hsl(var(--primary) / 0.35) !important;
-  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.15) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.36) !important;
+  transform: none !important;
 }
 .neon-hover-subtle {
-  transition: box-shadow 0.25s ease, border-color 0.25s ease !important;
+  transition: border-color 0.2s ease !important;
 }
 .neon-hover-subtle:hover {
-  box-shadow: 0 0 14px hsl(var(--primary) / 0.15), 0 4px 18px rgba(0,0,0,0.3) !important;
-  border-color: hsl(var(--primary) / 0.22) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
 }
 
-/* ── Shimmer Skeleton ────────────────────────────────────────────── */
+/* ── Skeleton ─────────────────────────────────────────────────────── */
 @keyframes shimmer {
-  0%   { background-position: -1000px 0; }
-  100% { background-position:  1000px 0; }
+  0%   { background-position: -800px 0; }
+  100% { background-position:  800px 0; }
 }
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.025) 0%,
-    rgba(255,255,255,0.08)  50%,
-    rgba(255,255,255,0.025) 100%
+    rgba(255,255,255,0.03) 0%,
+    rgba(255,255,255,0.07) 50%,
+    rgba(255,255,255,0.03) 100%
   );
-  background-size: 1000px 100%;
-  animation: shimmer 1.8s infinite linear;
+  background-size: 800px 100%;
+  animation: shimmer 1.6s infinite linear;
   border-radius: 0.5rem;
 }
 
-/* ── Float-up Entrance ──────────────────────────────────────────── */
-@keyframes float-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
-}
-.float-up   { animation: float-up 0.38s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.float-up-1 { animation: float-up 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both; }
-.float-up-2 { animation: float-up 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
-.float-up-3 { animation: float-up 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both; }
-.float-up-4 { animation: float-up 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both; }
-
-/* ── Tab Slide Transition ────────────────────────────────────────── */
-@keyframes tab-slide-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0);   }
-}
-.tab-transition[data-state=active] {
-  animation: tab-slide-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* ── Mobile sheet slide-up ───────────────────────────────────────── */
+/* ── Sheet slide-up ───────────────────────────────────────────────── */
 @keyframes tt-slide-up {
   from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 .tt-slide-up {
-  animation: tt-slide-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: tt-slide-up 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* ── Page fade-in ────────────────────────────────────────────────── */
+/* ── Page fade ────────────────────────────────────────────────────── */
 @keyframes page-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .page-enter {
-  animation: page-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: page-enter 0.2s ease both;
 }
 
-/* ── Smooth inertia scroll ──────────────────────────────────────── */
-.inertia-scroll {
-  -webkit-overflow-scrolling: touch;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-}
-
-/* ── Global overflow prevention ─────────────────────────────────── */
+/* ── Global overflow prevention ──────────────────────────────────── */
 html, body, #root {
   overflow-x: hidden;
   max-width: 100vw;
 }
 
-/* ── No scrollbar ────────────────────────────────────────────────── */
+/* ── No scrollbar ─────────────────────────────────────────────────── */
 .scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
-/* ── Glow text ──────────────────────────────────────────────────── */
+/* ── Glow text — removed ──────────────────────────────────────────── */
 .glow-text {
-  text-shadow: 0 0 18px hsl(var(--primary) / 0.45), 0 0 36px hsl(var(--primary) / 0.2);
+  /* Intentionally blank — no glow */
 }
 
-/* ── Profit / Loss ──────────────────────────────────────────────── */
+/* ── P&L colors ───────────────────────────────────────────────────── */
 .profit { @apply text-emerald-400 font-mono; }
 .loss   { @apply text-red-400 font-mono; }
 
-/* ── Economic impact badge colors ───────────────────────────────── */
-.impact-high    { background: rgba(239,68,68,0.1);   color: #f87171; border-color: rgba(239,68,68,0.22); }
-.impact-medium  { background: rgba(245,158,11,0.1);  color: #fbbf24; border-color: rgba(245,158,11,0.22); }
-.impact-low     { background: rgba(34,197,94,0.1);   color: #4ade80; border-color: rgba(34,197,94,0.22); }
-.impact-holiday { background: rgba(148,163,184,0.1); color: #94a3b8; border-color: rgba(148,163,184,0.18); }
+/* ── Economic impact badges ───────────────────────────────────────── */
+.impact-high    { background: rgba(239,68,68,0.1);   color: #f87171; border-color: rgba(239,68,68,0.2); }
+.impact-medium  { background: rgba(245,158,11,0.1);  color: #fbbf24; border-color: rgba(245,158,11,0.2); }
+.impact-low     { background: rgba(34,197,94,0.1);   color: #4ade80; border-color: rgba(34,197,94,0.2); }
+.impact-holiday { background: rgba(148,163,184,0.08); color: #94a3b8; border-color: rgba(148,163,184,0.15); }
 
-/* ── Touch tap highlight ─────────────────────────────────────────── */
+/* ── Touch tap highlight ──────────────────────────────────────────── */
 @media (max-width: 767px) {
   button, [role="button"], a {
-    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.07);
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
-/* ── Mobile page padding util ────────────────────────────────────── */
-.mobile-page-padding {
-  padding-left: 12px;
-  padding-right: 12px;
+/* ── Inertia scroll ───────────────────────────────────────────────── */
+.inertia-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
 }
 
 @layer utilities {
