@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Brain, TrendingUp, TrendingDown, Minus,
   Globe, Bitcoin, BarChart2, DollarSign,
@@ -266,6 +266,10 @@ export default function AiAssistant() {
   const overallColor = SENT[overallSentiment].color;
   const overallLabel = SENT[overallSentiment].label;
 
+  useEffect(() => {
+    document.querySelector(".tt-main")?.scrollTo({ top: 0, behavior: "instant" });
+  }, [tab]);
+
   function handleRefresh() {
     if (refreshing) return;
     setRefreshing(true);
@@ -280,7 +284,7 @@ export default function AiAssistant() {
   ];
 
   return (
-    <div className="flex flex-col gap-4 pb-6" style={{ maxWidth: "100%", overflow: "hidden" }}>
+    <div className="flex flex-col gap-4 pb-6">
 
       {/* Header */}
       <div
@@ -360,7 +364,7 @@ export default function AiAssistant() {
 
       {/* Overview */}
       {tab === "overview" && (
-        <div className="flex flex-col gap-3">
+        <div key="overview" className="flex flex-col gap-3">
           {/* Overall sentiment */}
           <div className="rounded-2xl p-4 sm:p-5" style={CARD}>
             <p className="text-[10px] font-mono uppercase tracking-widest mb-3" style={{ color: C.muted }}>
@@ -406,7 +410,7 @@ export default function AiAssistant() {
 
       {/* News */}
       {tab === "news" && (
-        <div className="flex flex-col gap-2">
+        <div key="news" className="flex flex-col gap-2">
           <p className="text-[10px] font-mono uppercase tracking-widest px-1" style={{ color: C.muted }}>
             Market News
           </p>
@@ -416,7 +420,7 @@ export default function AiAssistant() {
 
       {/* ICT */}
       {tab === "ict" && (
-        <div className="flex flex-col gap-3">
+        <div key="ict" className="flex flex-col gap-3">
           <div
             className="flex items-start gap-2 rounded-xl px-4 py-3"
             style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.15)" }}
@@ -454,7 +458,7 @@ export default function AiAssistant() {
 
       {/* Calendar */}
       {tab === "calendar" && (
-        <div className="flex flex-col gap-3">
+        <div key="calendar" className="flex flex-col gap-3">
           <p className="text-[10px] font-mono uppercase tracking-widest px-1" style={{ color: C.muted }}>
             Today's High-Impact Events
           </p>
