@@ -18,23 +18,23 @@ function fmtNum(v: number | null | undefined, d = 2) {
   return v.toFixed(d);
 }
 
-/* ── Design tokens ────────────────────────────────────────────────── */
+/* ── Design tokens — pure white theme ────────────────────────────── */
 const C = {
-  text:    "hsl(0,0%,84%)",
-  sub:     "hsl(0,0%,44%)",
-  muted:   "hsl(0,0%,34%)",
-  border:  "rgba(255,255,255,0.07)",
-  surface: "hsl(0,0%,11%)",
-  surfaceHover: "rgba(255,255,255,0.04)",
-  positive: "#34d399",
-  negative: "#f87171",
-  amber:   "#fbbf24",
+  text:        "#111111",
+  sub:         "#666666",
+  muted:       "#999999",
+  border:      "rgba(0,0,0,0.09)",
+  surface:     "#f7f7f7",
+  surfaceHov:  "rgba(0,0,0,0.03)",
+  positive:    "#16a34a",
+  negative:    "#dc2626",
+  amber:       "#d97706",
 };
 
 const CARD: React.CSSProperties = {
-  background: C.surface,
-  border: `1px solid ${C.border}`,
-  boxShadow: "0 2px 12px rgba(0,0,0,0.28)",
+  background:  "#f7f7f7",
+  border:      "1px solid rgba(0,0,0,0.09)",
+  boxShadow:   "0 1px 4px rgba(0,0,0,0.06)",
 };
 
 /* ── Skeleton ─────────────────────────────────────────────────────── */
@@ -42,7 +42,7 @@ function Skel({ className = "" }: { className?: string }) {
   return (
     <div
       className={`rounded-lg animate-pulse ${className}`}
-      style={{ background: "rgba(255,255,255,0.06)" }}
+      style={{ background: "rgba(0,0,0,0.06)" }}
     />
   );
 }
@@ -72,20 +72,19 @@ function StatCard({
   icon: React.ElementType; label: string; value: React.ReactNode;
   accent?: string; isLoading?: boolean;
 }) {
-  const iconColor = accent ?? "hsl(0,0%,50%)";
   return (
     <div className="relative overflow-hidden rounded-2xl p-4 flex flex-col gap-3" style={CARD}>
       {accent && (
         <div
           className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: `linear-gradient(90deg,transparent,${accent}40,transparent)` }}
+          style={{ background: `linear-gradient(90deg,transparent,${accent}60,transparent)` }}
         />
       )}
       <span
         className="h-8 w-8 flex items-center justify-center rounded-xl flex-shrink-0"
-        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ background: "#efefef", border: "1px solid rgba(0,0,0,0.08)" }}
       >
-        <Icon className="h-[14px] w-[14px]" style={{ color: iconColor }} />
+        <Icon className="h-[14px] w-[14px]" style={{ color: accent ?? "#888" }} />
       </span>
       <div>
         <p className="text-[10px] uppercase tracking-wider mb-1.5 font-mono" style={{ color: C.muted }}>
@@ -94,7 +93,7 @@ function StatCard({
         {isLoading
           ? <Skel className="h-6 w-16" />
           : <p className="text-[20px] font-bold font-mono leading-none"
-              style={accent ? { color: accent } : { color: C.text }}>
+              style={{ color: accent ?? C.text }}>
               {value}
             </p>
         }
@@ -114,12 +113,12 @@ const WATCHLIST: WatchItem[] = [
   { symbol: "GOLD",    price: "2,318",  change: 0.74,  sub: "Commodity" },
 ];
 
-function WatchRow({ item }: { item: WatchItem }) {
+function WatchRow({ item, last }: { item: WatchItem; last: boolean }) {
   const up = item.change >= 0;
   return (
     <div
       className="flex items-center justify-between py-2.5"
-      style={{ borderBottom: `1px solid ${C.border}` }}
+      style={last ? {} : { borderBottom: "1px solid rgba(0,0,0,0.07)" }}
     >
       <div>
         <p className="text-sm font-mono font-semibold" style={{ color: C.text }}>{item.symbol}</p>
@@ -127,8 +126,7 @@ function WatchRow({ item }: { item: WatchItem }) {
       </div>
       <div className="text-right">
         <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{item.price}</p>
-        <p className="text-[11px] font-mono font-semibold"
-          style={{ color: up ? C.positive : C.negative }}>
+        <p className="text-[11px] font-mono font-semibold" style={{ color: up ? C.positive : C.negative }}>
           {up ? "+" : ""}{item.change.toFixed(2)}%
         </p>
       </div>
@@ -144,25 +142,18 @@ const SESSIONS: Session[] = [
   { name: "London",   hours: "08:00–17:00", status: "open",    tz: "BST" },
   { name: "New York", hours: "13:00–22:00", status: "overlap", tz: "EST" },
 ];
-const SESSION_COLOR: Record<string, string> = {
-  open: C.positive, closed: "hsl(0,0%,30%)", overlap: C.amber,
-};
-const SESSION_LABEL: Record<string, string> = {
-  open: "Open", closed: "Closed", overlap: "Active",
-};
+const SCOL: Record<string, string> = { open: "#16a34a", closed: "#ccc", overlap: "#d97706" };
+const SLBL: Record<string, string> = { open: "Open", closed: "Closed", overlap: "Active" };
 
-function SessionRow({ s }: { s: Session }) {
-  const color = SESSION_COLOR[s.status];
+function SessionRow({ s, last }: { s: Session; last: boolean }) {
+  const color = SCOL[s.status];
   return (
     <div
       className="flex items-center justify-between py-2.5"
-      style={{ borderBottom: `1px solid ${C.border}` }}
+      style={last ? {} : { borderBottom: "1px solid rgba(0,0,0,0.07)" }}
     >
       <div className="flex items-center gap-2.5">
-        <span
-          className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-          style={{ background: color }}
-        />
+        <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
         <div>
           <p className="text-xs font-mono font-semibold" style={{ color: C.text }}>{s.name}</p>
           <p className="text-[10px] font-mono" style={{ color: C.muted }}>{s.hours} {s.tz}</p>
@@ -170,15 +161,15 @@ function SessionRow({ s }: { s: Session }) {
       </div>
       <span
         className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full"
-        style={{ color, background: `${color}12`, border: `1px solid ${color}28` }}
+        style={{ color, background: `${color}12`, border: `1px solid ${color}30` }}
       >
-        {SESSION_LABEL[s.status]}
+        {SLBL[s.status]}
       </span>
     </div>
   );
 }
 
-/* ── Demo account ─────────────────────────────────────────────────── */
+/* ── Demo summary ─────────────────────────────────────────────────── */
 function DemoSummary() {
   const items = [
     { label: "Balance",     value: "$10,000.00", color: C.text },
@@ -192,7 +183,7 @@ function DemoSummary() {
         <div
           key={it.label}
           className="rounded-xl px-3 py-2.5"
-          style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}
+          style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}
         >
           <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>
             {it.label}
@@ -204,12 +195,12 @@ function DemoSummary() {
   );
 }
 
-/* ── AI insight card ──────────────────────────────────────────────── */
+/* ── AI insight cards ─────────────────────────────────────────────── */
 interface Insight { icon: React.ElementType; title: string; body: string; tag: string; tagColor: string }
 const AI_INSIGHTS: Insight[] = [
-  { icon: Bitcoin,  title: "Crypto",   body: "BTC holding $65K support with bullish structure. ETH showing relative strength.",  tag: "Bullish", tagColor: C.positive },
-  { icon: Globe,    title: "Forex",    body: "DXY strength pressuring EUR/USD near 1.0820. GBP remains range-bound.",              tag: "Neutral", tagColor: C.amber },
-  { icon: BarChart2,title: "Equities", body: "SPX consolidating near ATH. Tech leading. Watch for breakout above 5,300.",          tag: "Watch",   tagColor: C.sub },
+  { icon: Bitcoin,   title: "Crypto",   body: "BTC holding $65K support with bullish structure. ETH showing relative strength.",  tag: "Bullish", tagColor: C.positive },
+  { icon: Globe,     title: "Forex",    body: "DXY strength pressuring EUR/USD near 1.0820. GBP remains range-bound.",              tag: "Neutral", tagColor: C.amber },
+  { icon: BarChart2, title: "Equities", body: "SPX consolidating near ATH. Tech leading. Watch for breakout above 5,300.",          tag: "Watch",   tagColor: C.muted },
 ];
 
 function InsightCard({ item }: { item: Insight }) {
@@ -219,24 +210,20 @@ function InsightCard({ item }: { item: Insight }) {
       <div
         className="rounded-2xl p-4 cursor-pointer transition-colors duration-150"
         style={CARD}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.borderColor = C.border;
-        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.16)"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
       >
         <div className="flex items-center gap-2 mb-2.5">
           <span
             className="h-7 w-7 flex items-center justify-center rounded-xl flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "#efefef", border: "1px solid rgba(0,0,0,0.08)" }}
           >
-            <Icon className="h-3.5 w-3.5" style={{ color: "hsl(0,0%,60%)" }} />
+            <Icon className="h-3.5 w-3.5" style={{ color: "#555" }} />
           </span>
           <p className="text-xs font-mono font-semibold" style={{ color: C.text }}>{item.title}</p>
           <span
             className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full"
-            style={{ color: item.tagColor, background: `${item.tagColor}12`, border: `1px solid ${item.tagColor}25` }}
+            style={{ color: item.tagColor, background: `${item.tagColor}12`, border: `1px solid ${item.tagColor}30` }}
           >
             {item.tag}
           </span>
@@ -254,18 +241,14 @@ function RecentRow({ bt }: { bt: any }) {
     <Link href={`/backtests/${bt.id}`}>
       <div
         className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors duration-150 cursor-pointer group"
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.background = C.surfaceHover;
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.background = "";
-        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.surfaceHov; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ""; }}
       >
         <div
           className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{
-            background: isPos ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
-            border: `1px solid ${isPos ? "rgba(52,211,153,0.16)" : "rgba(248,113,113,0.16)"}`,
+            background: isPos ? "rgba(22,163,74,0.08)" : "rgba(220,38,38,0.08)",
+            border: `1px solid ${isPos ? "rgba(22,163,74,0.2)" : "rgba(220,38,38,0.2)"}`,
           }}
         >
           {isPos
@@ -288,10 +271,8 @@ function RecentRow({ bt }: { bt: any }) {
             WR: {bt.winRate != null ? `${bt.winRate.toFixed(0)}%` : "—"}
           </p>
         </div>
-        <ArrowUpRight
-          className="h-3.5 w-3.5 opacity-0 group-hover:opacity-30 transition-opacity flex-shrink-0"
-          style={{ color: C.sub }}
-        />
+        <ArrowUpRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-30 transition-opacity flex-shrink-0"
+          style={{ color: C.sub }} />
       </div>
     </Link>
   );
@@ -307,21 +288,13 @@ export default function Dashboard() {
     if (!backtests?.length) return null;
     const completed = backtests.filter((b: any) => b.status === "complete");
     if (!completed.length) return null;
-    const wins = completed.filter((b: any) => (b.totalReturn ?? 0) > 0);
-    const nums = (fn: (b: any) => number) => completed.map(fn);
     const avg = (arr: number[]) => arr.length ? arr.reduce((a: number, b: number) => a + b, 0) / arr.length : 0;
-    const allReturns = nums((b: any) => b.totalReturn ?? 0);
-    const allPf = nums((b: any) => b.profitFactor ?? 0).filter((v: number) => v > 0);
-    const allWr = nums((b: any) => b.winRate ?? 0).filter((v: number) => v > 0);
-    const allSharpe = nums((b: any) => b.sharpeRatio ?? 0);
-    const allDd = nums((b: any) => b.maxDrawdown ?? 0);
     return {
-      wins,
-      avgWR: avg(allWr),
-      avgPF: avg(allPf),
-      avgSharpe: avg(allSharpe),
-      avgDD: avg(allDd),
-      bestReturn: Math.max(...allReturns),
+      avgWR:     avg(completed.map((b: any) => b.winRate ?? 0).filter((v: number) => v > 0)),
+      avgPF:     avg(completed.map((b: any) => b.profitFactor ?? 0).filter((v: number) => v > 0)),
+      avgSharpe: avg(completed.map((b: any) => b.sharpeRatio ?? 0)),
+      avgDD:     avg(completed.map((b: any) => b.maxDrawdown ?? 0)),
+      bestReturn: Math.max(...completed.map((b: any) => b.totalReturn ?? 0)),
     };
   }, [backtests]);
 
@@ -336,9 +309,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: "hsl(0,0%,88%)" }}>
-            Dashboard
-          </h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: C.text }}>Dashboard</h1>
           <p className="text-xs mt-0.5 font-mono" style={{ color: C.muted }}>
             Market overview &amp; performance summary
           </p>
@@ -359,7 +330,7 @@ export default function Dashboard() {
             <div
               key={w.symbol}
               className="rounded-xl px-3 py-2 text-center"
-              style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}
+              style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}
             >
               <p className="text-[10px] font-mono mb-1" style={{ color: C.muted }}>{w.symbol}</p>
               <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{w.price}</p>
@@ -374,22 +345,14 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        <StatCard icon={TrendingUp} label="Best Return" accent={C.positive}
-          value={isLoading ? null : fmtPct(summary?.bestReturn)} isLoading={isLoading} />
-        <StatCard icon={Percent} label="Avg Win Rate"
-          value={isLoading ? null : analytics ? `${analytics.avgWR.toFixed(1)}%` : "—"} isLoading={isLoading} />
-        <StatCard icon={Target} label="Profit Factor"
-          value={isLoading ? null : analytics ? fmtNum(analytics.avgPF) : "—"} isLoading={isLoading} />
-        <StatCard icon={Zap} label="Avg Sharpe"
-          value={isLoading ? null : analytics ? fmtNum(analytics.avgSharpe) : "—"} isLoading={isLoading} />
-        <StatCard icon={Clock} label="Total Backtests"
-          value={isLoading ? null : (summary?.totalBacktests ?? 0)} isLoading={isLoading} />
-        <StatCard icon={Shield} label="Avg Drawdown" accent={C.negative}
-          value={isLoading ? null : analytics ? `-${Math.abs(analytics.avgDD).toFixed(1)}%` : "—"} isLoading={isLoading} />
-        <StatCard icon={DollarSign} label="Best Trade" accent={C.positive}
-          value={isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—"} isLoading={isLoading} />
-        <StatCard icon={Activity} label="Total Trades"
-          value={isLoading ? null : (summary?.totalTrades ?? 0)} isLoading={isLoading} />
+        <StatCard icon={TrendingUp}  label="Best Return"    accent={C.positive} value={isLoading ? null : fmtPct(summary?.bestReturn)} isLoading={isLoading} />
+        <StatCard icon={Percent}     label="Avg Win Rate"   value={isLoading ? null : analytics ? `${analytics.avgWR.toFixed(1)}%` : "—"} isLoading={isLoading} />
+        <StatCard icon={Target}      label="Profit Factor"  value={isLoading ? null : analytics ? fmtNum(analytics.avgPF) : "—"} isLoading={isLoading} />
+        <StatCard icon={Zap}         label="Avg Sharpe"     value={isLoading ? null : analytics ? fmtNum(analytics.avgSharpe) : "—"} isLoading={isLoading} />
+        <StatCard icon={Clock}       label="Total Backtests" value={isLoading ? null : (summary?.totalBacktests ?? 0)} isLoading={isLoading} />
+        <StatCard icon={Shield}      label="Avg Drawdown"   accent={C.negative} value={isLoading ? null : analytics ? `-${Math.abs(analytics.avgDD).toFixed(1)}%` : "—"} isLoading={isLoading} />
+        <StatCard icon={DollarSign}  label="Best Trade"     accent={C.positive} value={isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—"} isLoading={isLoading} />
+        <StatCard icon={Activity}    label="Total Trades"   value={isLoading ? null : (summary?.totalTrades ?? 0)} isLoading={isLoading} />
       </div>
 
       {/* Middle row */}
@@ -400,43 +363,26 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-1">
             <SectionLabel>Watchlist</SectionLabel>
             <Link href="/chart">
-              <span
-                className="text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-70 mb-3"
-                style={{ color: C.sub }}
-              >
-                <CandlestickChart className="h-3 w-3" />
-                View Charts
+              <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70 mb-3"
+                style={{ color: C.sub }}>
+                <CandlestickChart className="h-3 w-3" /> View Charts
               </span>
             </Link>
           </div>
-          <div>
-            {WATCHLIST.map((w, i) => (
-              <div key={w.symbol} style={i === WATCHLIST.length - 1 ? { borderBottom: "none" } : {}}>
-                <WatchRow item={w} />
-              </div>
-            ))}
-          </div>
+          {WATCHLIST.map((w, i) => <WatchRow key={w.symbol} item={w} last={i === WATCHLIST.length - 1} />)}
         </Panel>
 
-        {/* Right column */}
         <div className="flex flex-col gap-4">
           <Panel>
             <SectionLabel>Trading Sessions</SectionLabel>
-            <div>
-              {SESSIONS.map((s, i) => (
-                <div key={s.name} style={i === SESSIONS.length - 1 ? { borderBottom: "none" } : {}}>
-                  <SessionRow s={s} />
-                </div>
-              ))}
-            </div>
+            {SESSIONS.map((s, i) => <SessionRow key={s.name} s={s} last={i === SESSIONS.length - 1} />)}
           </Panel>
 
           <Panel>
             <div className="flex items-center justify-between mb-3">
               <SectionLabel>Demo Account</SectionLabel>
               <Link href="/demo">
-                <span className="text-[10px] font-mono cursor-pointer transition-opacity hover:opacity-70"
-                  style={{ color: C.sub }}>
+                <span className="text-[10px] font-mono cursor-pointer hover:opacity-70" style={{ color: C.sub }}>
                   Open Demo →
                 </span>
               </Link>
@@ -450,13 +396,11 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Brain className="h-3.5 w-3.5" style={{ color: C.sub }} />
-            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>
-              AI Insights
-            </p>
+            <Brain className="h-3.5 w-3.5" style={{ color: C.muted }} />
+            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>AI Insights</p>
           </div>
           <Link href="/ai">
-            <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-70"
+            <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70"
               style={{ color: C.sub }}>
               Full Analysis <ArrowUpRight className="h-3 w-3" />
             </span>
@@ -472,7 +416,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-2">
           <SectionLabel>Recent Backtests</SectionLabel>
           <Link href="/backtests">
-            <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-opacity hover:opacity-70"
+            <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70"
               style={{ color: C.sub }}>
               View All <ArrowUpRight className="h-3 w-3" />
             </span>
@@ -483,9 +427,7 @@ export default function Dashboard() {
             {[...Array(4)].map((_, i) => <Skel key={i} className="h-11" />)}
           </div>
         ) : recentBacktests.length ? (
-          <div>
-            {recentBacktests.map((bt: any) => <RecentRow key={bt.id} bt={bt} />)}
-          </div>
+          <div>{recentBacktests.map((bt: any) => <RecentRow key={bt.id} bt={bt} />)}</div>
         ) : (
           <div className="py-10 text-center">
             <BarChart2 className="h-8 w-8 mx-auto mb-3 opacity-15" style={{ color: C.sub }} />
