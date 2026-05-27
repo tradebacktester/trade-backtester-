@@ -64,24 +64,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const moreActive = DESKTOP_MORE.some(i => isActive(i.url));
   const mobileMoreActive = MOBILE_MORE.some(i => isActive(i.url));
 
-  const navBg = isDark ? "rgba(6,8,14,0.85)" : "rgba(248,250,253,0.88)";
+  const navBg = isDark ? "rgba(6,8,14,0.9)" : "rgba(248,250,253,0.92)";
   const navBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
   const dim = isDark ? "hsl(220,14%,46%)" : "hsl(220,14%,42%)";
-  const mobileBg = isDark ? "rgba(5,7,12,0.95)" : "rgba(250,251,254,0.95)";
+  const mobileBg = isDark ? "rgba(5,7,12,0.97)" : "rgba(250,251,254,0.98)";
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans flex flex-col">
+    <div className="tt-root">
 
       {/* ── DESKTOP TOP NAV ─────────────────────────────────────── */}
       <header
-        className="fixed top-0 inset-x-0 z-50 hidden md:flex items-center h-14"
+        className="tt-desktop-nav fixed top-0 inset-x-0 z-50 hidden md:flex items-center h-14"
         style={{
           background: navBg,
-          backdropFilter: "blur(32px) saturate(200%)",
-          WebkitBackdropFilter: "blur(32px) saturate(200%)",
+          backdropFilter: "blur(24px) saturate(180%)",
+          WebkitBackdropFilter: "blur(24px) saturate(180%)",
           borderBottom: `1px solid ${navBorder}`,
           boxShadow: isDark
-            ? "0 1px 0 rgba(255,255,255,0.04), 0 4px 32px rgba(0,0,0,0.55)"
+            ? "0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.5)"
             : "0 1px 0 rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.08)",
         }}
       >
@@ -92,7 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className="flex items-center justify-center h-7 w-7 rounded-lg transition-all duration-200 group-hover:scale-105"
               style={{
                 background: "linear-gradient(135deg, hsl(190,90%,42%), hsl(210,80%,52%))",
-                boxShadow: "0 0 18px rgba(0,229,255,0.45)",
+                boxShadow: "0 0 16px rgba(0,229,255,0.4)",
               }}
             >
               <TrendingUp className="h-4 w-4 text-white" />
@@ -196,9 +196,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <div
                 className="absolute right-0 top-[calc(100%+8px)] w-48 rounded-2xl p-1.5 flex flex-col gap-0.5"
                 style={{
-                  background: isDark ? "rgba(7,9,17,0.97)" : "rgba(248,250,254,0.99)",
+                  background: isDark ? "rgba(7,9,17,0.98)" : "rgba(248,250,254,0.99)",
                   border: `1px solid ${navBorder}`,
-                  backdropFilter: "blur(32px)",
+                  backdropFilter: "blur(24px)",
                   boxShadow: isDark
                     ? "0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)"
                     : "0 16px 48px rgba(0,0,0,0.15)",
@@ -240,108 +240,99 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── MAIN CONTENT ────────────────────────────────────────── */}
-      <main
-        className="flex-1 overflow-x-hidden overflow-y-auto"
-        style={{ paddingTop: "56px" }}
-      >
-        <style>{`
-          @media (max-width: 767px) {
-            main { padding-top: 0 !important; padding-bottom: 72px !important; }
-          }
-          @keyframes tt-slide-up {
-            from { transform: translateY(100%); opacity: 0; }
-            to   { transform: translateY(0);    opacity: 1; }
-          }
-        `}</style>
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-5 md:py-6 h-full overflow-x-hidden">
+      <main className="tt-main">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-5 md:py-6">
           {children}
         </div>
       </main>
 
       {/* ── MOBILE BOTTOM NAV ───────────────────────────────────── */}
       <nav
-        className="fixed bottom-0 inset-x-0 z-50 flex md:hidden items-stretch h-16"
+        className="tt-bottom-nav fixed bottom-0 inset-x-0 z-50 flex md:hidden"
         style={{
           background: mobileBg,
-          backdropFilter: "blur(32px) saturate(200%)",
-          WebkitBackdropFilter: "blur(32px) saturate(200%)",
+          backdropFilter: "blur(16px) saturate(160%)",
+          WebkitBackdropFilter: "blur(16px) saturate(160%)",
           borderTop: `1px solid ${navBorder}`,
-          boxShadow: "0 -4px 32px rgba(0,0,0,0.55), 0 -1px 0 rgba(255,255,255,0.04)",
+          boxShadow: "0 -4px 24px rgba(0,0,0,0.5), 0 -1px 0 rgba(255,255,255,0.04)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
-        {MOBILE_MAIN.map((item) => {
-          const active = isActive(item.url);
-          return (
-            <Link key={item.title} href={item.url} className="flex-1">
-              <span
-                className="flex flex-col items-center justify-center gap-[3px] h-full w-full cursor-pointer select-none transition-all duration-150 active:scale-90"
-                style={{ WebkitTapHighlightColor: "transparent" }}
-              >
+        <div className="flex items-stretch w-full h-16">
+          {MOBILE_MAIN.map((item) => {
+            const active = isActive(item.url);
+            return (
+              <Link key={item.title} href={item.url} className="flex-1">
                 <span
-                  className="flex items-center justify-center w-10 h-6 rounded-xl transition-all duration-200"
-                  style={active ? (item.home ? {
-                    background: "linear-gradient(135deg, rgba(0,229,255,0.2), rgba(59,130,246,0.15))",
-                    boxShadow: "0 0 18px rgba(0,229,255,0.32), 0 0 0 1px rgba(0,229,255,0.3)",
-                  } : {
-                    background: "hsl(var(--primary) / 0.15)",
-                    boxShadow: "0 0 14px hsl(var(--primary) / 0.28)",
-                  }) : {}}
+                  className="flex flex-col items-center justify-center gap-[3px] h-full w-full cursor-pointer select-none transition-all duration-150 active:scale-[0.88]"
+                  style={{ WebkitTapHighlightColor: "transparent" }}
                 >
-                  <item.icon
+                  <span
+                    className="flex items-center justify-center w-10 h-[26px] rounded-xl transition-all duration-200"
+                    style={active ? (item.home ? {
+                      background: "linear-gradient(135deg, rgba(0,229,255,0.2), rgba(59,130,246,0.15))",
+                      boxShadow: "0 0 16px rgba(0,229,255,0.3), 0 0 0 1px rgba(0,229,255,0.28)",
+                    } : {
+                      background: "hsl(var(--primary) / 0.15)",
+                      boxShadow: "0 0 12px hsl(var(--primary) / 0.25)",
+                    }) : {}}
+                  >
+                    <item.icon
+                      style={{
+                        height: "17px", width: "17px",
+                        transition: "all 0.18s",
+                        ...(active ? (item.home ? {
+                          color: "hsl(190,90%,65%)",
+                          filter: "drop-shadow(0 0 4px rgba(0,229,255,0.65))",
+                        } : {
+                          color: "hsl(var(--primary))",
+                          filter: "drop-shadow(0 0 4px hsl(var(--primary) / 0.55))",
+                        }) : { color: dim }),
+                      }}
+                    />
+                  </span>
+                  <span
+                    className="text-[9.5px] font-medium tracking-wide"
                     style={{
-                      height: "17px", width: "17px",
-                      transition: "all 0.2s",
-                      ...(active ? (item.home ? {
-                        color: "hsl(190,90%,65%)",
-                        filter: "drop-shadow(0 0 5px rgba(0,229,255,0.7))",
-                      } : {
-                        color: "hsl(var(--primary))",
-                        filter: "drop-shadow(0 0 5px hsl(var(--primary) / 0.6))",
-                      }) : { color: dim }),
+                      transition: "color 0.18s",
+                      ...(active ? (item.home ? { color: "hsl(190,90%,65%)" } : { color: "hsl(var(--primary))" }) : { color: dim }),
                     }}
-                  />
+                  >
+                    {item.title}
+                  </span>
                 </span>
-                <span
-                  className="text-[9px] font-medium tracking-wide"
-                  style={{
-                    transition: "color 0.2s",
-                    ...(active ? (item.home ? { color: "hsl(190,90%,65%)" } : { color: "hsl(var(--primary))" }) : { color: dim }),
-                  }}
-                >
-                  {item.title}
-                </span>
-              </span>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
 
-        {/* More button */}
-        <button
-          onClick={() => setSheetOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center gap-[3px] h-full cursor-pointer select-none transition-all duration-150 active:scale-90"
-          style={{ WebkitTapHighlightColor: "transparent" }}
-        >
-          <span
-            className="flex items-center justify-center w-10 h-6 rounded-xl transition-all duration-200"
-            style={mobileMoreActive ? {
-              background: "hsl(var(--primary) / 0.15)",
-              boxShadow: "0 0 14px hsl(var(--primary) / 0.28)",
-            } : {}}
+          {/* More button */}
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-[3px] h-full cursor-pointer select-none transition-all duration-150 active:scale-[0.88]"
+            style={{ WebkitTapHighlightColor: "transparent" }}
           >
-            <MoreHorizontal
-              style={{
-                height: "17px", width: "17px",
-                color: mobileMoreActive ? "hsl(var(--primary))" : dim,
-              }}
-            />
-          </span>
-          <span
-            className="text-[9px] font-medium tracking-wide"
-            style={{ color: mobileMoreActive ? "hsl(var(--primary))" : dim }}
-          >
-            More
-          </span>
-        </button>
+            <span
+              className="flex items-center justify-center w-10 h-[26px] rounded-xl transition-all duration-200"
+              style={mobileMoreActive ? {
+                background: "hsl(var(--primary) / 0.15)",
+                boxShadow: "0 0 12px hsl(var(--primary) / 0.25)",
+              } : {}}
+            >
+              <MoreHorizontal
+                style={{
+                  height: "17px", width: "17px",
+                  color: mobileMoreActive ? "hsl(var(--primary))" : dim,
+                }}
+              />
+            </span>
+            <span
+              className="text-[9.5px] font-medium tracking-wide"
+              style={{ color: mobileMoreActive ? "hsl(var(--primary))" : dim }}
+            >
+              More
+            </span>
+          </button>
+        </div>
       </nav>
 
       {/* ── MOBILE MORE SHEET ────────────────────────────────────── */}
@@ -349,50 +340,51 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <>
           <div
             className="fixed inset-0 z-[60] md:hidden"
-            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
             onClick={() => setSheetOpen(false)}
           />
           <div
-            className="fixed bottom-0 inset-x-0 z-[61] md:hidden rounded-t-[28px] pb-8"
+            className="tt-slide-up fixed inset-x-0 z-[61] md:hidden rounded-t-[24px]"
             style={{
-              background: isDark ? "rgba(6,8,16,0.98)" : "rgba(248,250,254,0.99)",
+              bottom: 0,
+              background: isDark ? "hsl(222,28%,9%)" : "rgba(248,250,254,0.99)",
               borderTop: `1px solid ${navBorder}`,
               borderLeft: `1px solid ${navBorder}`,
               borderRight: `1px solid ${navBorder}`,
-              backdropFilter: "blur(40px)",
-              boxShadow: "0 -12px 60px rgba(0,0,0,0.65)",
-              animation: "tt-slide-up 0.22s cubic-bezier(0.32,0.72,0,1)",
+              boxShadow: "0 -12px 48px rgba(0,0,0,0.6)",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
             }}
           >
+            {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} />
+              <div className="h-1 w-10 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }} />
             </div>
 
             <div className="flex items-center justify-between px-5 py-3">
-              <p className="text-xs font-mono uppercase tracking-widest" style={{ color: dim }}>More options</p>
+              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: dim }}>More options</p>
               <button
                 onClick={() => setSheetOpen(false)}
-                className="h-7 w-7 flex items-center justify-center rounded-full transition-all"
+                className="h-7 w-7 flex items-center justify-center rounded-full transition-all active:scale-90"
                 style={{ background: "rgba(255,255,255,0.07)", color: dim }}
               >
                 <X style={{ height: "14px", width: "14px" }} />
               </button>
             </div>
 
-            <div className="px-4 flex flex-col gap-1.5">
+            <div className="px-4 flex flex-col gap-2">
               {MOBILE_MORE.map(item => {
                 const active = isActive(item.url);
                 return (
                   <Link key={item.title} href={item.url} onClick={() => setSheetOpen(false)}>
                     <span
-                      className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl cursor-pointer transition-all"
+                      className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl cursor-pointer transition-all active:scale-[0.98]"
                       style={active ? {
                         background: "hsl(var(--primary) / 0.1)",
                         border: "1px solid hsl(var(--primary) / 0.22)",
                         color: "hsl(var(--primary))",
                       } : {
                         background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                        border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.06)",
+                        border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.06)",
                         color: isDark ? "hsl(220,14%,72%)" : "hsl(220,14%,25%)",
                       }}
                     >

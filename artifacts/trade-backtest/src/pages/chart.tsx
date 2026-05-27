@@ -1089,7 +1089,7 @@ export default function ChartPage() {
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-2 h-full" style={{ maxWidth: "100%", overflow: "hidden" }}>
+    <div className="tt-chart-page flex flex-col gap-2" style={{ maxWidth: "100%", overflow: "hidden" }}>
 
       {/* ── Header ───────────────────────────────────────────────── */}
       <div

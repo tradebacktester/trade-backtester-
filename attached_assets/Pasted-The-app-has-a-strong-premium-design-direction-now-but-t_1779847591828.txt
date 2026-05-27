@@ -1,0 +1,72 @@
+The app has a strong premium design direction now, but there are major mobile rendering and layout architecture issues that need a full optimization pass.
+
+CRITICAL MOBILE UI FIXES:
+
+TOP SCREEN GLITCH:
+
+- Fix the horizontal glitch/render tearing lines appearing at the top of the screen
+- This appears to be caused by overlapping layers, bad rendering optimization, or z-index conflicts
+- Optimize GPU rendering and mobile viewport scaling
+- Ensure clean rendering on Chrome mobile browsers
+
+CHART RENDERING FIXES:
+
+- The chart section is not scaling properly for mobile
+- Fix overlapping UI layers on top of the chart
+- Prevent cards and floating elements from clipping into chart area
+- Improve chart responsiveness and rendering performance
+- Make chart feel smooth and stable like TradingView mobile
+
+MOBILE LAYOUT ARCHITECTURE:
+
+- Rebuild the app using proper mobile-first responsive structure
+- Prevent any element from overflowing outside viewport
+- Fix all spacing inconsistencies
+- Ensure all containers scale dynamically to screen size
+- Remove any horizontal scrolling unless intentionally required
+
+NAVIGATION FIXES:
+
+- Bottom navbar design is good direction but needs refinement
+- Improve spacing between icons
+- Add proper responsive sizing
+- Add active tab animations/glow
+- Ensure navbar never overlaps content
+
+DEMO TAB FIXES:
+
+- Demo trading page has severe UI rendering issues
+- Fix overlapping cards and chart components
+- Ensure leverage/account cards scale correctly on mobile
+- Improve paper trading workflow
+- Make UI clean and stable
+
+AI TAB FIXES:
+
+- AI tab currently glitches during rendering/loading
+- Fix all UI refresh and state rendering issues
+- Improve loading transitions and response containers
+
+PERFORMANCE OPTIMIZATION:
+
+- Reduce unnecessary heavy rendering effects
+- Optimize animations for mobile devices
+- Improve FPS and scrolling smoothness
+- Prevent UI flickering during transitions
+- Optimize chart rendering performance
+
+VISUAL QUALITY:
+
+- Keep premium dark blue/black trading aesthetic
+- Maintain glow effects but optimize them properly
+- Improve visual hierarchy
+- Add cleaner spacing and alignment
+- Make app feel like a professional mobile trading platform
+
+IMPORTANT:
+
+- PRIORITIZE MOBILE USERS FIRST
+- Fix all viewport/rendering issues completely
+- Ensure smooth stable rendering across all tabs
+- Prevent overlapping UI components everywhere
+- Maintain premium TradingView/Binance inspired design language
