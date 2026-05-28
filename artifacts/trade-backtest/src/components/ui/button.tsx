@@ -5,25 +5,32 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
-" hover-elevate active-elevate-2",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
+  " hover-elevate active-elevate-2" +
+  " transition-[box-shadow,transform,background-color,border-color,opacity] duration-[180ms] ease-out",
   {
     variants: {
       variant: {
         default:
-           // @replit: no hover, and add primary border
-           "bg-primary text-primary-foreground border border-primary-border",
+          "bg-primary text-primary-foreground border border-primary-border" +
+          " [box-shadow:var(--shadow-btn)]" +
+          " hover:[box-shadow:var(--shadow-btn-hover)] hover:-translate-y-px" +
+          " active:[box-shadow:var(--shadow-btn-active)] active:translate-y-0",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm border-destructive-border",
+          "bg-destructive text-destructive-foreground border border-destructive-border" +
+          " [box-shadow:var(--shadow-btn)]" +
+          " hover:[box-shadow:var(--shadow-btn-hover)] hover:-translate-y-px" +
+          " active:[box-shadow:var(--shadow-btn-active)] active:translate-y-0",
         outline:
-          // @replit Shows the background color of whatever card / sidebar / accent background it is inside of.
-          // Inherits the current text color. Uses shadow-xs. no shadow on active
-          // No hover state
-          " border [border-color:var(--button-outline)] shadow-xs active:shadow-none ",
+          "border [border-color:var(--button-outline)]" +
+          " [box-shadow:var(--shadow-xs)]" +
+          " hover:[box-shadow:var(--shadow-sm)] hover:-translate-y-px" +
+          " active:[box-shadow:var(--shadow-2xs)] active:translate-y-0",
         secondary:
-          // @replit border, no hover, no shadow, secondary border.
-          "border bg-secondary text-secondary-foreground border border-secondary-border ",
-        // @replit no hover, transparent border
+          "border bg-secondary text-secondary-foreground border-secondary-border" +
+          " [box-shadow:var(--shadow-xs)]" +
+          " hover:[box-shadow:var(--shadow-sm)] hover:-translate-y-px" +
+          " active:[box-shadow:var(--shadow-2xs)] active:translate-y-0",
         ghost: "border border-transparent",
         link: "text-primary underline-offset-4 hover:underline",
       },

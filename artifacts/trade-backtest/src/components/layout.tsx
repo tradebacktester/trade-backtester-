@@ -83,7 +83,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         style={{
           background: T.navBg,
           borderBottom: `1px solid ${T.navBorder}`,
-          boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
+          boxShadow: "var(--shadow-nav)",
         }}
       >
         {/* Logo */}
@@ -113,7 +113,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             return (
               <Link key={item.title} href={item.url}>
                 <span
-                  className="flex items-center gap-1.5 cursor-pointer select-none transition-colors duration-150"
+                  className="flex items-center gap-1.5 cursor-pointer select-none"
                   style={item.home ? {
                     padding: "5px 14px",
                     borderRadius: "10px",
@@ -122,15 +122,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     background: active ? T.activeBg : "#f5f5f5",
                     color: active ? T.active : T.dim,
                     border: `1px solid ${active ? T.activeBdr : "rgba(0,0,0,0.08)"}`,
+                    boxShadow: active ? "var(--shadow-tab-active)" : "var(--shadow-2xs)",
+                    transition: "box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease",
                   } : {
                     padding: "5px 10px",
                     borderRadius: "8px",
                     fontSize: "13px",
                     fontWeight: 500,
-                    border: "1px solid transparent",
+                    border: `1px solid ${active ? T.activeBdr : "transparent"}`,
                     background: active ? T.activeBg : "transparent",
                     color: active ? T.active : T.dim,
-                    borderColor: active ? T.activeBdr : "transparent",
+                    boxShadow: active ? "var(--shadow-tab-active)" : "none",
+                    transition: "box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease",
                   }}
                 >
                   <item.icon style={{ height: "13px", width: "13px", flexShrink: 0 }} />
@@ -166,8 +169,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 className="absolute right-0 top-[calc(100%+6px)] w-44 rounded-2xl p-1.5 flex flex-col gap-0.5"
                 style={{
                   background: "#fff",
-                  border: "1px solid rgba(0,0,0,0.1)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)",
+                  border: "1px solid rgba(0,0,0,0.09)",
+                  boxShadow: "var(--shadow-dropdown)",
                   zIndex: 200,
                 }}
               >
@@ -220,6 +223,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           background: T.mobileBg,
           borderTop: `1px solid ${T.navBorder}`,
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          boxShadow: "0 -1px 0 rgba(0,0,0,0.05), 0 -4px 16px rgba(0,0,0,0.06)",
         }}
       >
         <div className="flex items-end w-full" style={{ height: "64px" }}>
@@ -309,10 +313,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               bottom: 0,
               borderRadius: "20px 20px 0 0",
               background: T.sheetBg,
-              borderTop: "1px solid rgba(0,0,0,0.09)",
-              borderLeft: "1px solid rgba(0,0,0,0.09)",
-              borderRight: "1px solid rgba(0,0,0,0.09)",
-              boxShadow: "0 -8px 32px rgba(0,0,0,0.12)",
+              borderTop: "1px solid rgba(0,0,0,0.08)",
+              borderLeft: "1px solid rgba(0,0,0,0.08)",
+              borderRight: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: "var(--shadow-sheet)",
               paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
             }}
           >
