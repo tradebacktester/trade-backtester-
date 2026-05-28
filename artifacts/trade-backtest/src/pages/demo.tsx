@@ -7,7 +7,7 @@ import {
 import {
   TrendingUp, TrendingDown, RotateCcw, Zap, Activity,
   Target, BarChart2, Layers, AlertCircle, Clock,
-  ChevronDown,
+  ChevronDown, X,
 } from "lucide-react";
 
 type OrderSide = "buy" | "sell";
@@ -26,6 +26,20 @@ interface DemoTrade {
   openTime: number;
   closeTime?: number;
   status: "open" | "closed";
+}
+
+type DemoOrderType = "market" | "limit" | "stop";
+
+interface PendingOrder {
+  id: number;
+  symbol: string;
+  side: OrderSide;
+  orderType: "limit" | "stop";
+  triggerPrice: number;
+  size: number;
+  leverage: number;
+  margin: number;
+  createdAt: number;
 }
 
 interface OhlcCandle {
@@ -134,7 +148,11 @@ type DemoDrawnLine =
 /* ══════════════════════════════════════════════════════════════════
    LIVE CANDLESTICK CHART
 ══════════════════════════════════════════════════════════════════ */
-function DemoChart({ symbol, livePrice }: { symbol: string; livePrice: number }) {
+function DemoChart({ symbol, livePrice, openPositions }: {
+  symbol: string;
+  livePrice: number;
+  openPositions: DemoTrade[];
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
   const seriesRef    = useRef<ISeriesApi<"Candlestick", CandlestickSeriesOptions> | null>(null);
@@ -235,6 +253,33 @@ function DemoChart({ symbol, livePrice }: { symbol: string; livePrice: number })
 
     series.update(updated as Parameters<typeof series.update>[0]);
   }, [livePrice]);
+
+  /* Position entry price lines */
+  const posLinesRef = useRef<Map<number, IPriceLine>>(new Map());
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    const currentIds = new Set(openPositions.map(p => p.id));
+    posLinesRef.current.forEach((line, id) => {
+      if (!currentIds.has(id)) {
+        try { series.removePriceLine(line); } catch { /**/ }
+        posLinesRef.current.delete(id);
+      }
+    });
+    openPositions.forEach(pos => {
+      if (!posLinesRef.current.has(pos.id)) {
+        const line = series.createPriceLine({
+          price: pos.entryPrice,
+          color: pos.side === "buy" ? "hsl(150,80%,55%)" : "hsl(0,78%,60%)",
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: `${pos.side === "buy" ? "▲ Long" : "▼ Short"} ${pos.leverage}x`,
+        });
+        posLinesRef.current.set(pos.id, line);
+      }
+    });
+  }, [openPositions]);
 
   // ── Drawing tools ──────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<DemoDrawTool>("cursor");
@@ -555,6 +600,10 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
   const [riskPct, setRiskPct]             = useState(5);
   const [tab, setTab]                     = useState<"trade" | "positions" | "history" | "analytics">("trade");
   const [showMarkets, setShowMarkets]     = useState(false);
+  const [orderType, setOrderType]         = useState<DemoOrderType>("market");
+  const [limitPrice, setLimitPrice]       = useState("");
+  const [stopPrice, setStopPrice]         = useState("");
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const livePrice = useSimPrice(selectedSymbol.price);
 
   const openPositions    = trades.filter(t => t.status === "open");
@@ -576,14 +625,50 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
 
   function placeOrder(side: OrderSide) {
     if (margin > freeMargin) return;
-    const trade: DemoTrade = {
-      id: Date.now(), symbol: selectedSymbol.value, side,
-      entryPrice: livePrice, size: positionSize, leverage, margin,
-      openTime: Date.now(), status: "open",
-    };
-    setTrades(prev => [trade, ...prev]);
-    setBalance(b => b - margin);
+    if (orderType === "market") {
+      const trade: DemoTrade = {
+        id: Date.now(), symbol: selectedSymbol.value, side,
+        entryPrice: livePrice, size: positionSize, leverage, margin,
+        openTime: Date.now(), status: "open",
+      };
+      setTrades(prev => [trade, ...prev]);
+      setBalance(b => b - margin);
+    } else {
+      const rawPrice = orderType === "limit" ? limitPrice : stopPrice;
+      const triggerPrice = Number(rawPrice);
+      if (!triggerPrice || triggerPrice <= 0) return;
+      const pending: PendingOrder = {
+        id: Date.now(), symbol: selectedSymbol.value, side,
+        orderType, triggerPrice, size: positionSize, leverage, margin,
+        createdAt: Date.now(),
+      };
+      setPendingOrders(prev => [...prev, pending]);
+      setBalance(b => b - margin);
+    }
   }
+
+  // Trigger pending limit/stop orders when price crosses the trigger level
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!pendingOrders.length) return;
+    const triggered: PendingOrder[] = [];
+    const remaining: PendingOrder[] = [];
+    for (const order of pendingOrders) {
+      const hit = order.orderType === "limit"
+        ? (order.side === "buy" ? livePrice <= order.triggerPrice : livePrice >= order.triggerPrice)
+        : (order.side === "buy" ? livePrice >= order.triggerPrice : livePrice <= order.triggerPrice);
+      if (hit) triggered.push(order); else remaining.push(order);
+    }
+    if (!triggered.length) return;
+    triggered.forEach(order => {
+      setTrades(prev => [...prev, {
+        id: order.id, symbol: order.symbol, side: order.side,
+        entryPrice: order.triggerPrice, size: order.size, leverage: order.leverage, margin: order.margin,
+        openTime: Date.now(), status: "open",
+      }]);
+    });
+    setPendingOrders(remaining);
+  }, [livePrice]);
 
   function closePosition(tradeId: number, closePrice: number) {
     let pnlAmount = 0; let marginBack = 0;
@@ -695,7 +780,11 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
       {tab === "trade" && (
         <div className="flex flex-col gap-3">
 
-          {/* ── Live Chart ── */}
+          {/* ── Main trading area: chart left, order panel right ── */}
+          <div className="flex flex-col lg:flex-row gap-3 items-start">
+
+          {/* Chart column */}
+          <div className="flex-1 min-w-0">
           <Card className="overflow-hidden">
             {/* Chart header */}
             <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b"
@@ -729,15 +818,51 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
 
             {/* Chart canvas */}
             <div className="px-1 pb-1 pt-1">
-              <DemoChart symbol={selectedSymbol.value} livePrice={livePrice} />
+              <DemoChart symbol={selectedSymbol.value} livePrice={livePrice} openPositions={openPositions} />
             </div>
           </Card>
+          </div>
 
-          {/* ── Order panel + Markets side by side ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-
-            {/* Order panel */}
+          {/* ── Order panel column ── */}
+          <div className="w-full lg:w-[288px] flex-shrink-0 flex flex-col gap-3">
             <Card className="p-4 flex flex-col gap-4">
+
+              {/* Order type selector */}
+              <div>
+                <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(218,12%,36%)" }}>Order Type</p>
+                <div className="flex gap-0.5 p-0.5 rounded-xl" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.065)" }}>
+                  {(["market", "limit", "stop"] as DemoOrderType[]).map(ot => (
+                    <button key={ot} onClick={() => setOrderType(ot)}
+                      className="flex-1 py-1.5 text-[10px] font-mono rounded-lg transition-all"
+                      style={orderType === ot
+                        ? { background: "rgba(59,130,246,0.16)", color: ACCENT, border: "1px solid rgba(59,130,246,0.22)" }
+                        : { color: "hsl(218,12%,44%)", border: "1px solid transparent" }}>
+                      {ot.charAt(0).toUpperCase() + ot.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price input for limit/stop */}
+              {orderType !== "market" && (
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(218,12%,36%)" }}>
+                    {orderType === "limit" ? "Limit Price" : "Stop Price"}
+                  </p>
+                  <input
+                    type="number"
+                    value={orderType === "limit" ? limitPrice : stopPrice}
+                    onChange={e => orderType === "limit" ? setLimitPrice(e.target.value) : setStopPrice(e.target.value)}
+                    placeholder={fmtPrice(livePrice)}
+                    className="w-full text-xs font-mono px-3 py-2 rounded-lg outline-none"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(218,14%,80%)" }}
+                  />
+                  <p className="text-[9px] font-mono mt-1.5" style={{ color: "hsl(218,12%,40%)" }}>
+                    {orderType === "limit" ? "Buy below / Sell above market" : "Buy above / Sell below market"}
+                  </p>
+                </div>
+              )}
+
               {/* Leverage */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -806,7 +931,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
               <div className="grid grid-cols-2 gap-2">
                 {(["buy", "sell"] as OrderSide[]).map(side => (
                   <button key={side}
-                    disabled={margin > freeMargin}
+                    disabled={margin > freeMargin || (orderType !== "market" && !(orderType === "limit" ? limitPrice : stopPrice))}
                     onClick={() => placeOrder(side)}
                     className="py-3.5 rounded-xl font-bold text-sm transition-all disabled:opacity-30 active:scale-[0.97]"
                     style={side === "buy" ? {
@@ -823,12 +948,41 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
                   >
                     <div className="flex items-center justify-center gap-1.5">
                       {side === "buy" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                      {side.toUpperCase()}
+                      {orderType === "market" ? side.toUpperCase() : `${side === "buy" ? "BUY" : "SELL"} ${orderType.toUpperCase()}`}
                     </div>
                   </button>
                 ))}
               </div>
             </Card>
+
+            {/* Pending orders */}
+            {pendingOrders.length > 0 && (
+              <Card className="p-3 flex flex-col gap-2">
+                <p className="text-[9px] font-mono uppercase tracking-widest px-1" style={{ color: "hsl(218,12%,36%)" }}>
+                  Pending Orders ({pendingOrders.length})
+                </p>
+                {pendingOrders.map(o => (
+                  <div key={o.id} className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                    style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-mono font-semibold" style={{ color: o.side === "buy" ? "hsl(150,80%,55%)" : "hsl(0,78%,60%)" }}>
+                        {o.side.toUpperCase()} {o.orderType.toUpperCase()} @ {fmtPrice(o.triggerPrice)}
+                      </p>
+                      <p className="text-[10px] font-mono truncate" style={{ color: "hsl(218,12%,40%)" }}>
+                        {o.size.toFixed(4)} · {o.leverage}x · {fmtUSD(o.margin)} margin
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setPendingOrders(prev => prev.filter(p => p.id !== o.id)); setBalance(b => b + o.margin); }}
+                      className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-lg transition-all"
+                      style={{ color: "hsl(0,78%,60%)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </Card>
+            )}
 
             {/* Market list */}
             <Card className="p-3 flex flex-col gap-2">
@@ -841,6 +995,8 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
                 ))}
               </div>
             </Card>
+
+          </div>
           </div>
         </div>
       )}

@@ -264,6 +264,16 @@ export default function ChartPage() {
   const [trades, setTrades] = useState<SimTrade[]>([]);
   const [equity, setEquity] = useState(STARTING_CAPITAL);
 
+  // Order panel
+  const [showOrderPanel, setShowOrderPanel] = useState(false);
+  const [chartOrderType, setChartOrderType] = useState<"market" | "limit" | "stop">("market");
+  const [chartLimitPrice, setChartLimitPrice] = useState("");
+  const [chartStopPrice, setChartStopPrice] = useState("");
+  const [chartLeverage, setChartLeverage] = useState(1);
+  type PendingChartOrder = { id: number; side: "buy" | "sell"; orderType: "limit" | "stop"; price: number };
+  const [pendingChartOrders, setPendingChartOrders] = useState<PendingChartOrder[]>([]);
+  const entryPriceLineRef = useRef<import("lightweight-charts").IPriceLine | null>(null);
+
   // Drawing tools
   const [activeTool, setActiveTool] = useState<DrawTool>("cursor");
   const [drawColor, setDrawColor] = useState(DRAW_COLORS[0].value);
@@ -382,6 +392,26 @@ export default function ChartPage() {
 
   const unrealizedPnl = position && currentBar ? (currentBar.close - position.price) * position.units : null;
   const unrealizedPct = position && currentBar ? ((currentBar.close - position.price) / position.price) * 100 : null;
+
+  // Monitor pending chart orders — trigger when bar price crosses the trigger level
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (!pendingChartOrders.length || !currentBar) return;
+    const price = currentBar.close;
+    const toTrigger = pendingChartOrders.filter(o =>
+      o.orderType === "limit"
+        ? (o.side === "buy" ? price <= o.price : price >= o.price)
+        : (o.side === "buy" ? price >= o.price : price <= o.price)
+    );
+    if (!toTrigger.length) return;
+    toTrigger.forEach(o => {
+      if (o.side === "buy" && !positionRef.current) handleBuy(currentBar, o.price);
+      else if (o.side === "sell" && positionRef.current) handleSell(currentBar, positionRef.current);
+    });
+    setPendingChartOrders(prev => prev.filter(o => !toTrigger.includes(o)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBar]);
+
   const wins = trades.filter(t => t.pnl > 0).length;
   const winRate = trades.length > 0 ? (wins / trades.length) * 100 : 0;
   const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
@@ -550,26 +580,41 @@ export default function ChartPage() {
     markersRef.current = []; applyMarkers();
   }, [applyMarkers]);
 
-  const handleBuy = useCallback((bar: KlineBar) => {
+  const handleBuy = useCallback((bar: KlineBar, priceOverride?: number) => {
     if (position) return;
-    const units = equity / bar.close;
-    setPosition({ price: bar.close, time: bar.time, units, capitalAtEntry: equity });
+    const entryPrice = priceOverride ?? bar.close;
+    const units = (equity * chartLeverage) / entryPrice;
+    setPosition({ price: entryPrice, time: bar.time, units, capitalAtEntry: equity });
+    // Add entry price line
+    if (candleSeriesRef.current) {
+      if (entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } }
+      entryPriceLineRef.current = candleSeriesRef.current.createPriceLine({
+        price: entryPrice, color: "hsl(150,90%,55%)", lineWidth: 1,
+        lineStyle: 2, axisLabelVisible: true,
+        title: `▲ Long ${chartLeverage}x`,
+      });
+    }
     const marker: SeriesMarker<Time> = {
       time: bar.time as Time, position: "belowBar",
       color: "hsl(150,90%,55%)", shape: "arrowUp",
-      text: `B $${fmt(bar.close)}`, size: 1,
+      text: `B $${fmt(entryPrice)}`, size: 1,
     };
     markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
     applyMarkers();
-  }, [position, equity, applyMarkers]);
+  }, [position, equity, chartLeverage, applyMarkers]);
 
   const handleSell = useCallback((bar: KlineBar, pos: Position) => {
-    const exitValue = pos.units * bar.close;
-    const pnl = exitValue - pos.capitalAtEntry;
+    // Correct leveraged P&L: units * price change (collateral is pos.capitalAtEntry)
+    const pnl = pos.units * (bar.close - pos.price);
     const pnlPct = (pnl / pos.capitalAtEntry) * 100;
     setTrades(prev => [...prev, { id: Date.now(), entryPrice: pos.price, entryTime: pos.time, exitPrice: bar.close, exitTime: bar.time, units: pos.units, pnl, pnlPct }]);
     setPosition(null);
     setEquity(pos.capitalAtEntry + pnl);
+    // Remove entry price line
+    if (candleSeriesRef.current && entryPriceLineRef.current) {
+      try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ }
+      entryPriceLineRef.current = null;
+    }
     const marker: SeriesMarker<Time> = {
       time: bar.time as Time, position: "aboveBar",
       color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)",
@@ -1377,6 +1422,15 @@ export default function ChartPage() {
             )}
           </div>
 
+          <button
+            onClick={() => setShowOrderPanel(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+            style={showOrderPanel
+              ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" }
+              : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
+          >
+            <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Trade</span>
+          </button>
           {!replayMode && (
             <button
               onClick={handleRefresh}
@@ -1670,9 +1724,138 @@ export default function ChartPage() {
           )}
         </div>
 
-        {/* ── Trading sim sidebar (replay mode) ────────────────── */}
-        {replayMode && (
-          <div className="w-full lg:w-52 flex flex-col gap-3 overflow-y-auto shrink-0">
+        {/* ── Trading sidebar ────────────────── */}
+        {(replayMode || showOrderPanel) && (
+          <div className="w-full lg:w-[264px] flex flex-col gap-3 overflow-y-auto shrink-0">
+
+            {/* Paper Trade panel — always-on, non-replay */}
+            {showOrderPanel && !replayMode && (
+              <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(52,211,153,0.15)", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(52,211,153,0.05)" }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "hsl(150,90%,55%)" }}>Paper Trade</span>
+                  {(trades.length > 0 || position) && (
+                    <button onClick={resetTrading} className="flex items-center gap-1 text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>
+                      <RotateCcw className="h-2.5 w-2.5" /> Reset
+                    </button>
+                  )}
+                </div>
+
+                {/* Order type */}
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Order Type</p>
+                  <div className="flex gap-0.5 p-0.5 rounded-lg border" style={{ background: "rgba(255,255,255,0.025)", borderColor: "rgba(255,255,255,0.07)" }}>
+                    {(["market", "limit", "stop"] as const).map(ot => (
+                      <button key={ot} onClick={() => setChartOrderType(ot)}
+                        className="flex-1 py-1.5 text-[10px] font-mono rounded-md transition-all"
+                        style={chartOrderType === ot
+                          ? { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.25)" }
+                          : { color: "hsl(220,14%,45%)", border: "1px solid transparent" }}>
+                        {ot.charAt(0).toUpperCase() + ot.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Price input */}
+                {chartOrderType !== "market" && (
+                  <div>
+                    <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>
+                      {chartOrderType === "limit" ? "Limit Price" : "Stop Price"}
+                    </p>
+                    <input type="number"
+                      value={chartOrderType === "limit" ? chartLimitPrice : chartStopPrice}
+                      onChange={e => chartOrderType === "limit" ? setChartLimitPrice(e.target.value) : setChartStopPrice(e.target.value)}
+                      placeholder={currentBar ? fmt(currentBar.close) : "price"}
+                      className="w-full text-xs font-mono px-2.5 py-2 rounded-lg outline-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }}
+                    />
+                  </div>
+                )}
+
+                {/* Leverage */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Leverage</p>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "hsl(38,95%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>{chartLeverage}x</span>
+                  </div>
+                  <div className="flex gap-1 flex-wrap">
+                    {[1, 2, 5, 10, 25].map(lev => (
+                      <button key={lev} onClick={() => setChartLeverage(lev)}
+                        className="px-2 py-0.5 text-[10px] font-mono rounded transition-all"
+                        style={chartLeverage === lev
+                          ? { background: "rgba(245,158,11,0.14)", color: "hsl(38,95%,65%)", border: "1px solid rgba(245,158,11,0.28)" }
+                          : { background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        {lev}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Open position display */}
+                {position && (
+                  <div className="rounded-lg p-3 border" style={{ background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.15)" }}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)", boxShadow: "0 0 6px hsl(150,90%,55%)" }} />
+                      <span className="text-xs font-mono font-semibold" style={{ color: "hsl(150,90%,60%)" }}>LONG {chartLeverage}x</span>
+                    </div>
+                    <p className="text-xs font-mono">Entry: <span className="font-bold">${fmt(position.price)}</span></p>
+                    {unrealizedPnl !== null && (
+                      <p className="text-sm font-mono font-bold mt-1" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: unrealizedPnl >= 0 ? "0 0 20px rgba(52,211,153,0.4)" : "0 0 20px rgba(239,68,68,0.4)" }}>{fmtPnl(unrealizedPnl)}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Equity + P&L summary */}
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                  <div><p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>Equity</p><p className="font-bold" style={{ color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p></div>
+                  <div><p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>P&L</p><p className="font-bold" style={{ color: totalPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(totalPnl)}</p></div>
+                </div>
+
+                {/* Buy / Sell / Close */}
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "BUY", disabled: !currentBar || !!position,
+                      onClick: () => {
+                        if (!currentBar) return;
+                        if (chartOrderType === "market") { handleBuy(currentBar); }
+                        else { const price = Number(chartOrderType === "limit" ? chartLimitPrice : chartStopPrice); if (price) setPendingChartOrders(prev => [...prev, { id: Date.now(), side: "buy" as const, orderType: chartOrderType as "limit" | "stop", price }]); }
+                      },
+                      style: { background: "linear-gradient(135deg, hsl(150,80%,28%), hsl(150,80%,22%))", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } },
+                    { label: position ? "CLOSE" : "SELL", disabled: !currentBar || !position,
+                      onClick: () => { if (currentBar && position) handleSell(currentBar, position); },
+                      style: { background: "linear-gradient(135deg, hsl(0,70%,28%), hsl(0,70%,22%))", borderColor: "rgba(239,68,68,0.3)", color: "hsl(0,85%,70%)" } },
+                  ].map(btn => (
+                    <button key={btn.label} disabled={btn.disabled} onClick={btn.onClick}
+                      className="flex items-center justify-center py-2 rounded-lg border font-mono font-bold text-xs transition-all disabled:opacity-25"
+                      style={btn.disabled ? { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(220,14%,40%)" } : btn.style}
+                    >{btn.label}</button>
+                  ))}
+                </div>
+                {currentBar && <p className="text-[10px] text-center font-mono" style={{ color: "hsl(220,14%,35%)" }}>price ${fmt(currentBar.close)}</p>}
+
+                {/* Pending orders */}
+                {pendingChartOrders.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>Pending ({pendingChartOrders.length})</p>
+                    {pendingChartOrders.map(o => (
+                      <div key={o.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+                        style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <p className="flex-1 text-[10px] font-mono" style={{ color: o.side === "buy" ? "hsl(150,80%,55%)" : "hsl(0,78%,60%)" }}>
+                          {o.side.toUpperCase()} {o.orderType.toUpperCase()} @ ${fmt(o.price)}
+                        </p>
+                        <button onClick={() => setPendingChartOrders(prev => prev.filter(p => p.id !== o.id))}
+                          className="h-5 w-5 flex items-center justify-center rounded" style={{ color: "hsl(0,78%,60%)" }}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Replay sim */}
+            {replayMode && (<>
             {/* Position + Buy/Sell */}
             <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
               <div className="flex items-center justify-between">
@@ -1762,6 +1945,7 @@ export default function ChartPage() {
                 </div>
               )}
             </div>
+            </>)}
           </div>
         )}
       </div>
