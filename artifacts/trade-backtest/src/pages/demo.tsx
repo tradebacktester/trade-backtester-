@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSimPrice } from "@/lib/use-sim-price";
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle,
   type IChartApi, type ISeriesApi, type CandlestickSeriesOptions,
@@ -101,22 +102,6 @@ function seedCandles(basePrice: number, count = 80): OhlcCandle[] {
     price = close;
   }
   return candles;
-}
-
-/* ── simulated live price ────────────────────────────────────────── */
-function useSimPrice(base: number) {
-  const [price, setPrice] = useState(base);
-  const baseRef = useRef(base);
-  baseRef.current = base;
-  useEffect(() => {
-    setPrice(baseRef.current);
-    const id = setInterval(
-      () => setPrice(p => Math.max(0.0001, p + (Math.random() - 0.5) * 0.0018 * p)),
-      900,
-    );
-    return () => clearInterval(id);
-  }, []);
-  return price;
 }
 
 /* ── Card wrapper ────────────────────────────────────────────────── */
@@ -610,7 +595,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
   const closedTrades     = trades.filter(t => t.status === "closed");
   const totalOpenPnl     = openPositions.reduce((acc, t) => {
     const diff = livePrice - t.entryPrice;
-    return acc + (t.side === "buy" ? diff : -diff) * t.size * t.leverage / t.entryPrice;
+    return acc + (t.side === "buy" ? diff : -diff) * t.size;
   }, 0);
   const equity           = balance + totalOpenPnl;
   const usedMargin       = openPositions.reduce((acc, t) => acc + t.margin, 0);
@@ -675,7 +660,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
     setTrades(prev => prev.map(t => {
       if (t.id !== tradeId || t.status !== "open") return t;
       const diff   = closePrice - t.entryPrice;
-      const pnl    = (t.side === "buy" ? diff : -diff) * t.size * t.leverage / t.entryPrice;
+      const pnl    = (t.side === "buy" ? diff : -diff) * t.size;
       const pnlPct = (pnl / t.margin) * 100;
       pnlAmount = pnl; marginBack = t.margin;
       return { ...t, exitPrice: closePrice, pnl, pnlPct, closeTime: Date.now(), status: "closed" };

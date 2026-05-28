@@ -89,15 +89,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <Link href="/dashboard">
           <span className="flex items-center gap-2 px-5 cursor-pointer select-none group">
-            <span
-              className="flex items-center justify-center h-6 w-6 rounded-lg"
-              style={{
-                background: "#f0f0f0",
-                border: "1px solid rgba(0,0,0,0.12)",
-              }}
-            >
-              <TrendingUp className="h-3.5 w-3.5" style={{ color: "#333" }} />
-            </span>
+            <img src="/logo.png" className="h-7 w-7 rounded-xl object-cover" alt="TradeTest logo" />
             <span className="text-sm font-semibold tracking-tight" style={{ color: "#111" }}>
               TradeTest
             </span>

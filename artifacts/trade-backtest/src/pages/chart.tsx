@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useSimPrice } from "@/lib/use-sim-price";
 import {
   createChart,
   createSeriesMarkers,
@@ -363,6 +364,10 @@ export default function ChartPage() {
   const isLoading = isSim ? false : apiLoading;
   const error = isSim ? null : apiError;
 
+  // Live ticking price for non-replay paper trade P&L
+  const lastKlineClose = klines && klines.length > 0 ? klines[klines.length - 1].close : 100;
+  const liveChartPrice = useSimPrice(lastKlineClose);
+
   const multiTfParams = { symbol, interval: multiTfInterval, limit: 300 };
   const { data: multiTfKlines } = useGetKlines(multiTfParams, {
     query: {
@@ -390,8 +395,10 @@ export default function ChartPage() {
   const replayProgress = total > 0 ? (replayIndex / total) * 100 : 0;
   const currentDate = replayMode && currentBar ? fmtDate(currentBar.time) : null;
 
-  const unrealizedPnl = position && currentBar ? (currentBar.close - position.price) * position.units : null;
-  const unrealizedPct = position && currentBar ? ((currentBar.close - position.price) / position.price) * 100 : null;
+  // In replay mode use the bar close; in live paper-trade mode use the ticking sim price
+  const livePrice = replayMode ? (currentBar?.close ?? 0) : liveChartPrice;
+  const unrealizedPnl = position ? (livePrice - position.price) * position.units : null;
+  const unrealizedPct = position ? ((livePrice - position.price) / position.price) * 100 : null;
 
   // Monitor pending chart orders — trigger when bar price crosses the trigger level
   // eslint-disable-next-line react-hooks/rules-of-hooks
