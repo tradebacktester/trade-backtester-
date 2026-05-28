@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  createChart, CandlestickSeries,
+  createChart, CandlestickSeries, LineSeries, LineStyle,
   type IChartApi, type ISeriesApi, type CandlestickSeriesOptions,
+  type IPriceLine, type Time,
 } from "lightweight-charts";
 import {
   TrendingUp, TrendingDown, RotateCcw, Zap, Activity,
@@ -120,6 +121,16 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
+const DEMO_DRAW_COLORS = [
+  "hsl(190,90%,55%)", "hsl(38,100%,55%)", "hsl(150,90%,55%)",
+  "hsl(0,85%,62%)",   "hsl(260,90%,70%)", "hsl(200,14%,75%)",
+];
+
+type DemoDrawTool = "cursor" | "hline" | "trendline" | "ray" | "eraser";
+type DemoDrawnLine =
+  | { kind: "hline"; priceLine: IPriceLine; color: string }
+  | { kind: "trendline"; series: ISeriesApi<"Line">; color: string };
+
 /* ══════════════════════════════════════════════════════════════════
    LIVE CANDLESTICK CHART
 ══════════════════════════════════════════════════════════════════ */
@@ -225,11 +236,183 @@ function DemoChart({ symbol, livePrice }: { symbol: string; livePrice: number })
     series.update(updated as Parameters<typeof series.update>[0]);
   }, [livePrice]);
 
+  // ── Drawing tools ──────────────────────────────────────────────────
+  const [activeTool, setActiveTool] = useState<DemoDrawTool>("cursor");
+  const [drawColor, setDrawColor]   = useState(DEMO_DRAW_COLORS[0]);
+  const [drawings, setDrawings]     = useState<DemoDrawnLine[]>([]);
+  const [drawStart, setDrawStart]   = useState<{ x: number; y: number; price: number; time: number } | null>(null);
+  const drawingsRef = useRef<DemoDrawnLine[]>([]);
+  useEffect(() => { drawingsRef.current = drawings; }, [drawings]);
+
+  function getCoords(e: React.MouseEvent<HTMLDivElement>) {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    const el = containerRef.current;
+    if (!chart || !series || !el) return null;
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const price = Number(series.coordinateToPrice(y) ?? 0);
+    const logical = chart.timeScale().coordinateToLogical(x) ?? 0;
+    const idx = Math.max(0, Math.min(Math.round(Number(logical)), candlesRef.current.length - 1));
+    const time = candlesRef.current[idx]?.time ?? 0;
+    return { x, y, price, time };
+  }
+
+  function handleDrawMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (activeTool === "cursor") return;
+    e.preventDefault();
+    const coords = getCoords(e);
+    if (!coords) return;
+
+    if (activeTool === "eraser") {
+      const list = drawingsRef.current;
+      if (!list.length) return;
+      const last = list[list.length - 1];
+      if (last.kind === "hline") seriesRef.current?.removePriceLine(last.priceLine);
+      if (last.kind === "trendline") chartRef.current?.removeSeries(last.series);
+      setDrawings(prev => prev.slice(0, -1));
+      return;
+    }
+
+    if (activeTool === "hline") {
+      if (!seriesRef.current) return;
+      const pl = seriesRef.current.createPriceLine({
+        price: coords.price, color: drawColor, lineWidth: 1 as const,
+        lineStyle: LineStyle.Dashed, axisLabelVisible: true,
+        title: coords.price.toFixed(2),
+      });
+      setDrawings(prev => [...prev, { kind: "hline", priceLine: pl, color: drawColor }]);
+      setActiveTool("cursor");
+      return;
+    }
+
+    if (activeTool === "trendline" || activeTool === "ray") {
+      if (!drawStart) {
+        setDrawStart(coords);
+      } else {
+        if (!chartRef.current) return;
+        const t1 = drawStart.time; const t2 = coords.time;
+        const pts = t1 <= t2
+          ? [{ time: t1 as Time, value: drawStart.price }, { time: t2 as Time, value: coords.price }]
+          : [{ time: t2 as Time, value: coords.price }, { time: t1 as Time, value: drawStart.price }];
+        const ls = chartRef.current.addSeries(LineSeries, {
+          color: drawColor, lineWidth: 1 as const,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          lineStyle: activeTool === "ray" ? LineStyle.SparseDotted : LineStyle.Solid,
+        });
+        ls.setData(pts);
+        setDrawings(prev => [...prev, { kind: "trendline", series: ls, color: drawColor }]);
+        setDrawStart(null);
+        setActiveTool("cursor");
+      }
+      return;
+    }
+  }
+
+  const DRAW_TOOL_DEFS: { id: DemoDrawTool; icon: string; title: string }[] = [
+    { id: "cursor",    icon: "↖", title: "Select (no draw)" },
+    { id: "hline",     icon: "—", title: "Horizontal Line" },
+    { id: "trendline", icon: "╱", title: "Trendline" },
+    { id: "ray",       icon: "↗", title: "Ray" },
+    { id: "eraser",    icon: "✕", title: "Erase Last" },
+  ];
+
   return (
-    <div
-      ref={containerRef}
-      style={{ width: "100%", height: 268, minHeight: 268 }}
-    />
+    <div className="relative select-none">
+      <div
+        ref={containerRef}
+        style={{ width: "100%", height: 268, minHeight: 268 }}
+      />
+
+      {/* Drawing overlay */}
+      <div
+        className="absolute inset-0 z-20"
+        style={{
+          cursor: activeTool === "cursor" ? "default" : activeTool === "eraser" ? "cell" : "crosshair",
+          pointerEvents: activeTool === "cursor" ? "none" : "auto",
+        }}
+        onMouseDown={handleDrawMouseDown}
+      />
+
+      {/* Start-point dot */}
+      {drawStart && (
+        <div className="absolute z-30 pointer-events-none" style={{ left: drawStart.x - 4, top: drawStart.y - 4 }}>
+          <div className="w-2 h-2 rounded-full border-2" style={{ borderColor: drawColor, background: `${drawColor}30`, boxShadow: `0 0 8px ${drawColor}` }} />
+        </div>
+      )}
+
+      {/* Drawing toolbar */}
+      <div
+        className="flex items-center gap-1 px-2 py-1.5 overflow-x-auto"
+        style={{
+          background: "rgba(8,10,16,0.92)",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+          backdropFilter: "blur(12px)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
+        {DRAW_TOOL_DEFS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => { setActiveTool(t.id); if (t.id !== activeTool) setDrawStart(null); }}
+            title={t.title}
+            className="h-7 min-w-[28px] px-1.5 flex items-center justify-center rounded-lg text-xs font-mono transition-all flex-shrink-0"
+            style={activeTool === t.id
+              ? {
+                  background: t.id === "eraser" ? "rgba(239,68,68,0.18)" : "rgba(0,229,255,0.15)",
+                  color: t.id === "eraser" ? "hsl(0,85%,65%)" : "hsl(190,90%,65%)",
+                  border: `1px solid ${t.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.3)"}`,
+                  boxShadow: t.id === "eraser" ? "0 0 10px rgba(239,68,68,0.15)" : "0 0 10px rgba(0,229,255,0.15)",
+                }
+              : { color: "hsl(220,14%,48%)", border: "1px solid transparent" }}
+          >
+            {t.icon}
+          </button>
+        ))}
+        <div className="w-px h-4 flex-shrink-0 mx-0.5" style={{ background: "rgba(255,255,255,0.08)" }} />
+        {DEMO_DRAW_COLORS.map(c => (
+          <button
+            key={c}
+            onClick={() => setDrawColor(c)}
+            className="h-3.5 w-3.5 rounded-full flex-shrink-0 transition-all"
+            style={{
+              background: c,
+              transform: drawColor === c ? "scale(1.45)" : "scale(1)",
+              outline: drawColor === c ? `2px solid ${c}` : "none",
+              outlineOffset: "2px",
+            }}
+          />
+        ))}
+        {drawings.length > 0 && (
+          <>
+            <div className="w-px h-4 flex-shrink-0 mx-0.5" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <button
+              onClick={() => {
+                drawingsRef.current.forEach(d => {
+                  if (d.kind === "hline") seriesRef.current?.removePriceLine(d.priceLine);
+                  if (d.kind === "trendline") chartRef.current?.removeSeries(d.series);
+                });
+                setDrawings([]);
+                setDrawStart(null);
+              }}
+              className="h-6 px-2 rounded-lg text-[10px] font-mono flex-shrink-0 transition-all"
+              style={{ color: "hsl(0,85%,60%)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+              title="Clear all drawings"
+            >
+              clear
+            </button>
+          </>
+        )}
+        {activeTool !== "cursor" && (
+          <span className="ml-auto text-[10px] font-mono flex-shrink-0" style={{ color: "hsl(190,90%,55%)" }}>
+            {activeTool === "hline" && "click to place"}
+            {(activeTool === "trendline" || activeTool === "ray") && (drawStart ? "click 2nd point" : "click start")}
+            {activeTool === "eraser" && "click to erase"}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -5,6 +5,8 @@ import {
   CandlestickSeries,
   HistogramSeries,
   LineSeries,
+  AreaSeries,
+  BarSeries,
   ColorType,
   CrosshairMode,
   LineStyle,
@@ -149,6 +151,16 @@ const DRAW_COLORS = [
   { value: "hsl(200,14%,75%)", label: "White" },
 ];
 
+const CHART_TYPES = [
+  { id: "candlestick" as const, label: "C",  title: "Candlestick" },
+  { id: "hollow"      as const, label: "HC", title: "Hollow Candle" },
+  { id: "heikin_ashi" as const, label: "HA", title: "Heikin Ashi" },
+  { id: "line"        as const, label: "L",  title: "Line" },
+  { id: "area"        as const, label: "A",  title: "Area" },
+  { id: "bar"         as const, label: "B",  title: "Bar" },
+] as const;
+type ChartType = typeof CHART_TYPES[number]["id"];
+
 const FIB_LEVELS = [
   { pct: 0,     color: "hsl(200,14%,65%)", label: "0%" },
   { pct: 0.236, color: "hsl(200,90%,60%)", label: "23.6%" },
@@ -188,6 +200,18 @@ function fmtPnl(n: number) {
 
 function fmtPct(n: number) {
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
+function calcHeikinAshi(bars: { time: number; open: number; high: number; low: number; close: number }[]) {
+  const ha: { time: number; open: number; high: number; low: number; close: number }[] = [];
+  for (let i = 0; i < bars.length; i++) {
+    const close = (bars[i].open + bars[i].high + bars[i].low + bars[i].close) / 4;
+    const open  = i === 0 ? (bars[i].open + bars[i].close) / 2 : (ha[i-1].open + ha[i-1].close) / 2;
+    const high  = Math.max(bars[i].high, open, close);
+    const low   = Math.min(bars[i].low,  open, close);
+    ha.push({ time: bars[i].time, open, high, low, close });
+  }
+  return ha;
 }
 
 function makeChartOptions(width: number, height: number, hideTimeScale = false) {
@@ -246,6 +270,9 @@ export default function ChartPage() {
   const [drawings, setDrawings] = useState<DrawnObject[]>([]);
   const [drawStart, setDrawStart] = useState<DrawStart | null>(null);
 
+  // Chart type
+  const [chartType, setChartType] = useState<ChartType>("candlestick");
+
   // ── Indicators state ───────────────────────────────────────────────
   const [indicators, setIndicators] = useState<IndicatorConfig[]>(loadIndicators);
   const [showIndicators, setShowIndicators] = useState(false);
@@ -263,6 +290,7 @@ export default function ChartPage() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const altSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const sortedKlinesRef = useRef<KlineBar[]>([]);
@@ -574,9 +602,14 @@ export default function ChartPage() {
   }, [replayMode, exitReplay]);
 
   const handleIntervalChange = useCallback((val: string) => {
-    if (replayMode) exitReplay();
+    if (replayMode) {
+      setIsPlaying(false);
+      setReplayIndex(MIN_CANDLES);
+      setPosition(null); setTrades([]); setEquity(STARTING_CAPITAL);
+      markersRef.current = [];
+    }
     setInterval(val as GetKlinesInterval);
-  }, [replayMode, exitReplay]);
+  }, [replayMode]);
 
   // ── Auto-play ──────────────────────────────────────────────────────
 
@@ -704,6 +737,7 @@ export default function ChartPage() {
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
+      altSeriesRef.current = null;
       volumeSeriesRef.current = null;
       markersPluginRef.current = null;
       indicatorSeriesRef.current.clear();
@@ -713,13 +747,79 @@ export default function ChartPage() {
   // ── Feed main chart data ───────────────────────────────────────────
 
   useEffect(() => {
-    if (!klines || !candleSeriesRef.current || !volumeSeriesRef.current) return;
+    const chart = chartRef.current;
+    if (!klines || !candleSeriesRef.current || !volumeSeriesRef.current || !chart) return;
     const sortedData = [...klines].sort((a, b) => a.time - b.time);
     sortedKlinesRef.current = sortedData;
     const slice = replayMode ? sortedData.slice(0, replayIndex) : sortedData;
-    candleSeriesRef.current.setData(slice.map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
-    volumeSeriesRef.current.setData(slice.map(k => ({ time: k.time as Time, value: k.volume, color: k.close >= k.open ? "hsla(150,90%,50%,0.3)" : "hsla(0,85%,60%,0.3)" })));
-    replayMode ? chartRef.current?.timeScale().scrollToPosition(4, false) : chartRef.current?.timeScale().fitContent();
+
+    volumeSeriesRef.current.setData(slice.map(k => ({
+      time: k.time as Time, value: k.volume,
+      color: k.close >= k.open ? "hsla(150,90%,50%,0.3)" : "hsla(0,85%,60%,0.3)",
+    })));
+
+    // Remove alt series when switching back to OHLC types
+    if (altSeriesRef.current && (chartType === "candlestick" || chartType === "hollow" || chartType === "heikin_ashi")) {
+      try { chart.removeSeries(altSeriesRef.current); } catch { /* ignore */ }
+      altSeriesRef.current = null;
+    }
+
+    if (chartType === "candlestick") {
+      candleSeriesRef.current.applyOptions({
+        upColor: "hsl(150,90%,52%)", downColor: "hsl(0,85%,58%)",
+        borderUpColor: "hsl(150,90%,52%)", borderDownColor: "hsl(0,85%,58%)",
+        wickUpColor: "hsl(150,80%,45%)", wickDownColor: "hsl(0,75%,50%)",
+      });
+      candleSeriesRef.current.setData(slice.map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
+    } else if (chartType === "hollow") {
+      candleSeriesRef.current.applyOptions({
+        upColor: "transparent", downColor: "hsl(0,85%,58%)",
+        borderUpColor: "hsl(150,90%,52%)", borderDownColor: "hsl(0,85%,58%)",
+        wickUpColor: "hsl(150,80%,45%)", wickDownColor: "hsl(0,75%,50%)",
+      });
+      candleSeriesRef.current.setData(slice.map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
+    } else if (chartType === "heikin_ashi") {
+      candleSeriesRef.current.applyOptions({
+        upColor: "hsl(150,90%,52%)", downColor: "hsl(0,85%,58%)",
+        borderUpColor: "hsl(150,90%,52%)", borderDownColor: "hsl(0,85%,58%)",
+        wickUpColor: "hsl(150,80%,45%)", wickDownColor: "hsl(0,75%,50%)",
+      });
+      const ha = calcHeikinAshi(slice);
+      candleSeriesRef.current.setData(ha.map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
+    } else {
+      // line / area / bar — clear candle, use alt series
+      candleSeriesRef.current.setData([]);
+      if (altSeriesRef.current) {
+        try { chart.removeSeries(altSeriesRef.current); } catch { /* ignore */ }
+        altSeriesRef.current = null;
+      }
+      if (chartType === "line") {
+        const s = chart.addSeries(LineSeries, {
+          color: "hsl(190,90%,55%)", lineWidth: 2,
+          priceLineVisible: true, lastValueVisible: true, crosshairMarkerVisible: true,
+        });
+        s.setData(slice.map(k => ({ time: k.time as Time, value: k.close })));
+        altSeriesRef.current = s;
+      } else if (chartType === "area") {
+        const s = chart.addSeries(AreaSeries, {
+          lineColor: "hsl(190,90%,55%)",
+          topColor: "hsla(190,90%,55%,0.32)",
+          bottomColor: "hsla(190,90%,55%,0.0)",
+          lineWidth: 2,
+          priceLineVisible: true, lastValueVisible: true, crosshairMarkerVisible: true,
+        });
+        s.setData(slice.map(k => ({ time: k.time as Time, value: k.close })));
+        altSeriesRef.current = s as unknown as ISeriesApi<"Line">;
+      } else if (chartType === "bar") {
+        const s = chart.addSeries(BarSeries, {
+          upColor: "hsl(150,90%,52%)", downColor: "hsl(0,85%,58%)",
+        });
+        s.setData(slice.map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
+        altSeriesRef.current = s as unknown as ISeriesApi<"Line">;
+      }
+    }
+
+    replayMode ? chart.timeScale().scrollToPosition(4, false) : chart.timeScale().fitContent();
 
     // Restore pending layout drawings
     if (pendingRestoreRef.current) {
@@ -727,7 +827,7 @@ export default function ChartPage() {
       pendingRestoreRef.current = null;
       restoreDrawingsFromData(toRestore, sortedData);
     }
-  }, [klines, replayMode, replayIndex]);
+  }, [klines, replayMode, replayIndex, chartType]);
 
   // ── Indicator overlay series (SMA, EMA, BB on main chart) ──────────
 
@@ -1349,6 +1449,23 @@ export default function ChartPage() {
                 : { color: "hsl(220,14%,55%)" }}
             >
               {iv.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Chart type selector */}
+        <div className="flex items-center gap-0.5 rounded-lg p-0.5 border flex-shrink-0" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
+          {CHART_TYPES.map(ct => (
+            <button
+              key={ct.id}
+              onClick={() => setChartType(ct.id)}
+              title={ct.title}
+              className="px-2 py-1 text-[11px] font-mono rounded-md transition-all"
+              style={chartType === ct.id
+                ? { background: "rgba(139,92,246,0.18)", color: "hsl(260,80%,75%)", boxShadow: "inset 0 1px 0 rgba(139,92,246,0.2)" }
+                : { color: "hsl(220,14%,50%)" }}
+            >
+              {ct.label}
             </button>
           ))}
         </div>

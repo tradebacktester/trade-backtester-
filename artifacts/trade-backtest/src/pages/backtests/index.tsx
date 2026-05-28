@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "wouter";
-import { useListBacktests, useDeleteBacktest } from "@workspace/api-client-react";
+import { useListBacktests, useDeleteBacktest, getListBacktestsQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   Play, Cpu, TrendingUp, TrendingDown, Activity,
@@ -65,7 +65,7 @@ export default function Journal() {
     setDeletingId(id);
     deleteBacktest({ id }, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["listBacktests"] });
+        queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
         setDeletingId(null);
         setMenuId(null);
       },
