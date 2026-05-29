@@ -307,6 +307,7 @@ export default function ChartPage() {
   const sortedKlinesRef = useRef<KlineBar[]>([]);
   const markersRef = useRef<SeriesMarker<Time>[]>([]);
   const drawingsRef = useRef<DrawnObject[]>([]);
+  const indicatorPanelRef = useRef<HTMLDivElement>(null);
 
   // Indicator overlay series (on main chart)
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line"> | ISeriesApi<"Line">[]>>(new Map());
@@ -1135,6 +1136,19 @@ export default function ChartPage() {
 
   useEffect(() => { persistIndicators(indicators); }, [indicators]);
 
+  // ── Close indicators panel on outside click ─────────────────────────
+
+  useEffect(() => {
+    if (!showIndicators) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (indicatorPanelRef.current && !indicatorPanelRef.current.contains(e.target as Node)) {
+        setShowIndicators(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showIndicators]);
+
   // ── Layout helpers ─────────────────────────────────────────────────
 
   function restoreDrawingsFromData(toRestore: SerializableDrawing[], bars: KlineBar[]) {
@@ -1181,9 +1195,11 @@ export default function ChartPage() {
 
   const serializeDrawings = useCallback((): SerializableDrawing[] => {
     return drawingsRef.current.map(d => {
-      if (d.kind === "hline")     return { kind: "hline",     id: d.id, price: d.price, color: d.color };
-      if (d.kind === "trendline") return { kind: "trendline", id: d.id, p1: d.p1, p2: d.p2, color: d.color };
-      return { kind: "fibonacci", id: d.id, high: d.high, low: d.low, color: d.color };
+      if (d.kind === "hline")     return { kind: "hline",     id: d.id, price: d.price, color: d.color } as SerializableDrawing;
+      if (d.kind === "trendline") return { kind: "trendline", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
+      if (d.kind === "fibonacci") return { kind: "fibonacci", id: d.id, high: d.high, low: d.low, color: d.color } as SerializableDrawing;
+      if (d.kind === "rectangle") return { kind: "rectangle", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
+      return { kind: "ray", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
     });
   }, []);
 
@@ -1283,7 +1299,7 @@ export default function ChartPage() {
 
         <div className="flex items-center gap-1 flex-wrap"  style={{ rowGap: "4px" }}>
           {/* Indicators button */}
-          <div className="relative">
+          <div className="relative" ref={indicatorPanelRef}>
             <button
               onClick={() => { setShowIndicators(v => !v); setShowLayoutPanel(false); }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
@@ -1291,15 +1307,31 @@ export default function ChartPage() {
                 ? { background: "rgba(0,229,255,0.12)", borderColor: "rgba(0,229,255,0.3)", color: "hsl(190,90%,65%)" }
                 : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
             >
-              <BarChart2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Indicators</span>
+              <BarChart2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Indicators</span>
+              {indicators.filter(i => i.enabled).length > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                  style={{ background: "rgba(0,229,255,0.25)", color: "hsl(190,90%,70%)" }}>
+                  {indicators.filter(i => i.enabled).length}
+                </span>
+              )}
             </button>
 
             {showIndicators && (
               <div
-                className="absolute right-0 top-full mt-1 z-50 rounded-xl p-3 w-52 flex flex-col gap-1"
+                className="absolute left-0 top-full mt-1 z-50 rounded-xl p-3 w-64 flex flex-col gap-1"
                 style={{ background: "hsl(222,28%,11%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)" }}
               >
-                <p className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1" style={{ color: "hsl(220,14%,40%)" }}>Overlays</p>
+                <div className="flex items-center justify-between px-1 mb-1">
+                  <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Overlays</p>
+                  {indicators.some(i => i.isOverlay && i.enabled) && (
+                    <button onClick={() => setIndicators(prev => prev.map(i => i.isOverlay ? { ...i, enabled: false } : i))}
+                      className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-all"
+                      style={{ color: "hsl(0,78%,65%)", background: "rgba(239,68,68,0.1)" }}>
+                      clear
+                    </button>
+                  )}
+                </div>
                 {indicators.filter(i => i.isOverlay).map(ind => (
                   <button
                     key={ind.id}
@@ -1313,11 +1345,20 @@ export default function ChartPage() {
                       <div className="w-2.5 h-0.5 rounded" style={{ background: ind.color }} />
                       {ind.label}
                     </div>
-                    {ind.enabled && <Check className="h-3 w-3" style={{ color: ind.color }} />}
+                    {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
                   </button>
                 ))}
                 <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.08)" }} />
-                <p className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1" style={{ color: "hsl(220,14%,40%)" }}>Sub-pane</p>
+                <div className="flex items-center justify-between px-1 mb-1">
+                  <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Sub-pane</p>
+                  {indicators.some(i => !i.isOverlay && i.enabled) && (
+                    <button onClick={() => setIndicators(prev => prev.map(i => !i.isOverlay ? { ...i, enabled: false } : i))}
+                      className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-all"
+                      style={{ color: "hsl(0,78%,65%)", background: "rgba(239,68,68,0.1)" }}>
+                      clear
+                    </button>
+                  )}
+                </div>
                 {indicators.filter(i => !i.isOverlay).map(ind => (
                   <button
                     key={ind.id}
@@ -1331,7 +1372,7 @@ export default function ChartPage() {
                       <div className="w-2.5 h-0.5 rounded" style={{ background: ind.color }} />
                       {ind.label}
                     </div>
-                    {ind.enabled && <Check className="h-3 w-3" style={{ color: ind.color }} />}
+                    {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
                   </button>
                 ))}
               </div>
@@ -1801,13 +1842,32 @@ export default function ChartPage() {
                 {/* Open position display */}
                 {position && (
                   <div className="rounded-lg p-3 border" style={{ background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.15)" }}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)", boxShadow: "0 0 6px hsl(150,90%,55%)" }} />
-                      <span className="text-xs font-mono font-semibold" style={{ color: "hsl(150,90%,60%)" }}>LONG {chartLeverage}x</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)", boxShadow: "0 0 6px hsl(150,90%,55%)" }} />
+                        <span className="text-xs font-mono font-semibold" style={{ color: "hsl(150,90%,60%)" }}>LONG {chartLeverage}x</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "hsl(190,90%,55%)" }} />
+                        <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(190,90%,55%)" }}>Live</span>
+                      </div>
                     </div>
-                    <p className="text-xs font-mono">Entry: <span className="font-bold">${fmt(position.price)}</span></p>
-                    {unrealizedPnl !== null && (
-                      <p className="text-sm font-mono font-bold mt-1" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: unrealizedPnl >= 0 ? "0 0 20px rgba(52,211,153,0.4)" : "0 0 20px rgba(239,68,68,0.4)" }}>{fmtPnl(unrealizedPnl)}</p>
+                    <div className="grid grid-cols-2 gap-1 text-xs font-mono mb-2">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>Entry</p>
+                        <p className="font-bold">${fmt(position.price)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>Current</p>
+                        <p className="font-bold">${fmt(liveChartPrice)}</p>
+                      </div>
+                    </div>
+                    {unrealizedPnl !== null && unrealizedPct !== null && (
+                      <div className="pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                        <p className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "hsl(220,14%,40%)" }}>Unrealized P&L</p>
+                        <p className="text-base font-mono font-bold" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: unrealizedPnl >= 0 ? "0 0 20px rgba(52,211,153,0.4)" : "0 0 20px rgba(239,68,68,0.4)" }}>{fmtPnl(unrealizedPnl)}</p>
+                        <p className="text-[10px] font-mono mt-0.5" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,50%)" : "hsl(0,78%,55%)" }}>{fmtPct(unrealizedPct)}</p>
+                      </div>
                     )}
                   </div>
                 )}

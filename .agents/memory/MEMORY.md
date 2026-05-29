@@ -2,3 +2,5 @@
 - [Backtest winRate format](backtest-winrate.md) — engine returns winRate as 0–100 (percent), so display as-is; do NOT multiply by 100 again in the UI.
 - [DB provisioning](db-provisioning.md) — DB may show "not provisioned" after workflow restarts; run `pnpm --filter @workspace/db run push-force` to re-apply schema when tables are missing.
 - [Drizzle inArray vs ANY](drizzle-inarray.md) — use `inArray(col, array)` from drizzle-orm for array membership queries; raw sql`col = ANY(${array})` generates invalid SQL and causes 500 errors.
+- [api-client-react dist build](api-client-react-dist.md) — must run `pnpm exec tsc -p lib/api-client-react/tsconfig.json` to emit dist/ before tsc --noEmit passes; package exports src directly but tsconfig uses composite project references.
+- [ErrorType and query options](api-error-query-options.md) — ErrorType<T> = ApiError<T> (extends Error); access error body via .data?.field not .error. TanStack Query v5 UseQueryOptions requires queryKey — cast `{ enabled: ... } as any` when passing partial query options to generated hooks.

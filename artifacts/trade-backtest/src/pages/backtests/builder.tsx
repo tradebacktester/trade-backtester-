@@ -275,12 +275,12 @@ export default function BacktestBuilder() {
     createStrategy.mutate(
       { data: { name: name.trim(), type: selectedType, symbol, timeframe: timeframe as any, parameters: params, description: def.logicSummary(params) } as any },
       {
-        onSuccess: (strategy) => {
+        onSuccess: (strategy: { id: number }) => {
           queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
           toast({ title: "Strategy saved!", description: `${name} created.` });
           setLocation(`/strategies/${strategy.id}`);
         },
-        onError: (err) => toast({ title: "Error", description: err.error ?? "Failed", variant: "destructive" }),
+        onError: (err: { data?: { error?: string } | null }) => toast({ title: "Error", description: err.data?.error ?? "Failed", variant: "destructive" }),
       }
     );
   }

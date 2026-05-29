@@ -140,7 +140,7 @@ function DemoChart({ symbol, livePrice, openPositions }: {
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
-  const seriesRef    = useRef<ISeriesApi<"Candlestick", CandlestickSeriesOptions> | null>(null);
+  const seriesRef    = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
   const candlesRef   = useRef<OhlcCandle[]>([]);
 
   /* Build chart once per symbol — tears down & rebuilds on symbol change */

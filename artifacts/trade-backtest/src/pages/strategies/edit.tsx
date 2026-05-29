@@ -52,7 +52,7 @@ export default function EditStrategy() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: strategy, isLoading } = useGetStrategy(id, { query: { enabled: !!id } });
+  const { data: strategy, isLoading } = useGetStrategy(id, { query: { enabled: !!id } as any });
   const updateStrategy = useUpdateStrategy();
   const deleteStrategy = useDeleteStrategy();
 
@@ -96,10 +96,10 @@ export default function EditStrategy() {
           });
           setLocation(`/strategies/${updatedStrategy.id}`);
         },
-        onError: (error) => {
+        onError: (error: { data?: { error?: string } | null }) => {
           toast({
             title: "Error",
-            description: error.error || "Failed to update strategy",
+            description: error.data?.error || "Failed to update strategy",
             variant: "destructive",
           });
         },
@@ -119,10 +119,10 @@ export default function EditStrategy() {
           });
           setLocation("/strategies");
         },
-        onError: (error) => {
+        onError: (error: { data?: { error?: string } | null }) => {
           toast({
             title: "Error",
-            description: error.error || "Failed to delete strategy",
+            description: error.data?.error || "Failed to delete strategy",
             variant: "destructive",
           });
         },

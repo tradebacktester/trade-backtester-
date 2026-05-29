@@ -106,7 +106,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link key={item.title} href={item.url}>
                 <span
                   className="flex items-center gap-1.5 cursor-pointer select-none"
-                  style={item.home ? {
+                  style={('home' in item && item.home) ? {
                     padding: "5px 14px",
                     borderRadius: "10px",
                     fontSize: "13px",
@@ -220,7 +220,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       >
         <div className="flex items-end w-full" style={{ height: "64px" }}>
           {MOBILE_MAIN.map((item) => {
-            const isHome = item.home === true;
+            const isHome = 'home' in item && item.home === true;
             const active = item.url ? isActive(item.url) : mobileMoreActive;
             const isMore = item.url === null;
 

@@ -379,17 +379,17 @@ export default function BacktestDetail() {
   const { data: backtest, isLoading } = useGetBacktest(id, {
     query: {
       enabled: !!id,
-      refetchInterval: (data) =>
+      refetchInterval: (data: any) =>
         data?.state?.data?.status === "running" || data?.state?.data?.status === "pending"
           ? 1000
           : false,
-    },
+    } as any,
   });
   const { data: trades, isLoading: isLoadingTrades } = useGetBacktestTrades(id, {
-    query: { enabled: !!id && backtest?.status === "complete" },
+    query: { enabled: !!id && backtest?.status === "complete" } as any,
   });
   const { data: equityCurve, isLoading: isLoadingEquity } = useGetEquityCurve(id, {
-    query: { enabled: !!id && backtest?.status === "complete" },
+    query: { enabled: !!id && backtest?.status === "complete" } as any,
   });
 
   const deleteBacktest = useDeleteBacktest();
@@ -403,8 +403,8 @@ export default function BacktestDetail() {
           toast({ title: "Backtest Deleted", description: "The backtest result has been removed." });
           setLocation("/backtests");
         },
-        onError: (error) => {
-          toast({ title: "Error", description: error.error || "Failed to delete backtest", variant: "destructive" });
+        onError: (error: { data?: { error?: string } | null }) => {
+          toast({ title: "Error", description: error.data?.error || "Failed to delete backtest", variant: "destructive" });
         },
       }
     );

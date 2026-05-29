@@ -13,9 +13,9 @@ export default function StrategyDetail() {
   const [, params] = useRoute("/strategies/:id");
   const id = parseInt(params?.id || "0", 10);
 
-  const { data: strategy, isLoading: isLoadingStrategy } = useGetStrategy(id, { query: { enabled: !!id } });
-  const { data: performance, isLoading: isLoadingPerf } = useGetStrategyPerformance(id, { query: { enabled: !!id } });
-  const { data: backtests, isLoading: isLoadingBacktests } = useListBacktests({ strategyId: id }, { query: { enabled: !!id } });
+  const { data: strategy, isLoading: isLoadingStrategy } = useGetStrategy(id, { query: { enabled: !!id } as any });
+  const { data: performance, isLoading: isLoadingPerf } = useGetStrategyPerformance(id, { query: { enabled: !!id } as any });
+  const { data: backtests, isLoading: isLoadingBacktests } = useListBacktests({ strategyId: id }, { query: { enabled: !!id } as any });
 
   if (isLoadingStrategy) {
     return <div className="space-y-6"><Skeleton className="h-10 w-[200px]" /><Skeleton className="h-40 w-full" /></div>;

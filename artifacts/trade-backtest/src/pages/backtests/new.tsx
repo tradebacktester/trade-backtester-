@@ -76,10 +76,10 @@ export default function NewBacktest() {
           });
           setLocation(`/backtests/${backtest.id}`);
         },
-        onError: (error) => {
+        onError: (error: { data?: { error?: string } | null }) => {
           toast({
             title: "Error",
-            description: error.error || "Failed to start backtest",
+            description: error.data?.error || "Failed to start backtest",
             variant: "destructive",
           });
         },
