@@ -1528,15 +1528,16 @@ export default function ChartPage() {
               onClick={enterReplay}
               disabled={!klines || klines.length < MIN_CANDLES}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,60%)", boxShadow: "0 0 16px rgba(245,158,11,0.08)" }}
+              style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.28)", color: "hsl(38,100%,62%)", boxShadow: "0 0 18px rgba(245,158,11,0.1)" }}
             >
-              <Clapperboard className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Replay</span>
+              <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: "hsl(38,100%,60%)", boxShadow: "0 0 6px hsl(38,100%,55%)" }} />
+              <span className="hidden sm:inline">Replay</span>
             </button>
           ) : (
             <button
               onClick={exitReplay}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all text-muted-foreground hover:text-foreground"
-              style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+              style={{ background: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.2)", color: "hsl(38,100%,50%)" }}
             >
               <X className="h-3 w-3" /> <span className="hidden sm:inline">Exit Replay</span>
             </button>
@@ -1613,44 +1614,80 @@ export default function ChartPage() {
 
       {/* ── Replay toolbar ───────────────────────────────────────── */}
       {replayMode && (
-        <div className="flex flex-col gap-1.5 rounded-xl px-3 py-2.5 border" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02))", borderColor: "rgba(245,158,11,0.2)" }}>
-          <div className="flex items-center gap-2 flex-wrap" style={{ rowGap: "6px" }}>
+        <div className="rounded-xl border" style={{ background: "linear-gradient(180deg, rgba(245,158,11,0.06) 0%, rgba(245,158,11,0.02) 100%)", borderColor: "rgba(245,158,11,0.18)" }}>
+          {/* Main controls row */}
+          <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: "1px solid rgba(245,158,11,0.08)" }}>
+
+            {/* Transport */}
             <div className="flex items-center gap-0.5 flex-shrink-0">
-              <button onClick={jumpToStart} disabled={replayIndex <= MIN_CANDLES} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><SkipBack className="h-3.5 w-3.5" /></button>
-              <button onClick={stepBack} disabled={replayIndex <= MIN_CANDLES} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><StepBack className="h-3.5 w-3.5" /></button>
-              <button
-                onClick={() => setIsPlaying(p => !p)}
-                disabled={replayIndex >= total}
-                className="h-9 w-9 flex items-center justify-center rounded-lg border transition-all disabled:opacity-30"
+              <button onClick={jumpToStart} disabled={replayIndex <= MIN_CANDLES} title="Jump to start"
+                className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5"
+                style={{ color: "hsl(220,14%,55%)" }}><SkipBack className="h-3 w-3" /></button>
+              <button onClick={stepBack} disabled={replayIndex <= MIN_CANDLES} title="Step back (←)"
+                className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5"
+                style={{ color: "hsl(220,14%,55%)" }}><StepBack className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setIsPlaying(p => !p)} disabled={replayIndex >= total} title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border transition-all disabled:opacity-25 mx-0.5"
                 style={isPlaying
-                  ? { background: "hsl(38,100%,55%)", borderColor: "transparent", color: "#000", boxShadow: "0 0 20px rgba(245,158,11,0.5)" }
-                  : { background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,60%)" }}
-              >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
+                  ? { background: "hsl(38,100%,52%)", borderColor: "transparent", color: "#000", boxShadow: "0 0 14px rgba(245,158,11,0.45)" }
+                  : { background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,62%)" }}>
+                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-px" />}
               </button>
-              <button onClick={stepForward} disabled={replayIndex >= total} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><StepForward className="h-3.5 w-3.5" /></button>
-              <button onClick={jumpToEnd} disabled={replayIndex >= total} className="h-8 w-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-30" style={{ color: "hsl(220,14%,65%)" }}><SkipForward className="h-3.5 w-3.5" /></button>
+              <button onClick={stepForward} disabled={replayIndex >= total} title="Step forward (→)"
+                className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5"
+                style={{ color: "hsl(220,14%,55%)" }}><StepForward className="h-3.5 w-3.5" /></button>
+              <button onClick={jumpToEnd} disabled={replayIndex >= total} title="Jump to end"
+                className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5"
+                style={{ color: "hsl(220,14%,55%)" }}><SkipForward className="h-3 w-3" /></button>
             </div>
-            <div className="flex items-center gap-0.5 flex-shrink-0">
+
+            <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
+
+            {/* Speed */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,35%)" }}>SPD</span>
               {SPEEDS.map(s => (
-                <button key={s.value} onClick={() => setReplaySpeed(s.value)} className="px-1.5 py-0.5 text-[10px] font-mono rounded transition-all"
-                  style={replaySpeed === s.value ? { background: "rgba(245,158,11,0.2)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.3)" } : { color: "hsl(220,14%,45%)" }}>
+                <button key={s.value} onClick={() => setReplaySpeed(s.value)}
+                  className="px-1.5 py-0.5 text-[10px] font-mono rounded transition-all"
+                  style={replaySpeed === s.value
+                    ? { background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.28)" }
+                    : { color: "hsl(220,14%,38%)", border: "1px solid transparent" }}>
                   {s.label}
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+
+            <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
+
+            {/* Scrubber */}
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <input type="range" min={MIN_CANDLES} max={total} value={replayIndex}
+                onChange={e => { setIsPlaying(false); setReplayIndex(Number(e.target.value)); }}
+                className="flex-1 h-1 cursor-pointer rounded-full"
+                style={{ accentColor: "hsl(38,100%,55%)" }} />
+            </div>
+
+            {/* Date + price + counter */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {currentDate && <span className="text-[10px] font-mono hidden md:block" style={{ color: "hsl(38,100%,55%)" }}>{currentDate}</span>}
               {currentBar && <span className="text-sm font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${fmt(currentBar.close)}</span>}
-              <span className="text-[10px] font-mono tabular-nums" style={{ color: "hsl(220,14%,45%)" }}>{replayIndex}/{total}</span>
+              <span className="text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded"
+                style={{ background: "rgba(245,158,11,0.08)", color: "hsl(38,100%,50%)", minWidth: "3.5rem", textAlign: "center" }}>
+                {replayIndex}<span style={{ color: "hsl(220,14%,35%)" }}>/{total}</span>
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input type="range" min={MIN_CANDLES} max={total} value={replayIndex}
-              onChange={e => { setIsPlaying(false); setReplayIndex(Number(e.target.value)); }}
-              className="flex-1 h-1.5 cursor-pointer rounded-full" style={{ accentColor: "hsl(38,100%,55%)" }} />
-            <span className="text-[10px] font-mono tabular-nums" style={{ color: "hsl(220,14%,40%)", width: "2.5rem", textAlign: "right" }}>{replayProgress.toFixed(0)}%</span>
+
+          {/* Keyboard hints */}
+          <div className="flex items-center gap-3 px-3 py-1.5">
+            {[["← →","step"],["Space","play"],["B","buy"],["S","sell"],["Esc","exit"]].map(([k,d]) => (
+              <span key={k} className="flex items-center gap-1 text-[9px] font-mono" style={{ color: "hsl(220,14%,28%)" }}>
+                <kbd className="px-1 rounded" style={{ background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,40%)", border: "1px solid rgba(255,255,255,0.06)" }}>{k}</kbd>
+                {d}
+              </span>
+            ))}
+            <span className="ml-auto text-[9px] font-mono" style={{ color: "hsl(220,14%,28%)" }}>{replayProgress.toFixed(0)}% complete</span>
           </div>
-          <p className="text-[9px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,32%)" }}>← → step · Space play/pause · B buy · S sell · Esc exit</p>
         </div>
       )}
 
@@ -1767,10 +1804,13 @@ export default function ChartPage() {
             </div>
 
             {replayMode && replayIndex >= total && total > 0 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 25 }}>
-                <span className="text-xs font-mono px-4 py-1.5 rounded-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }}>
-                  End of replay — all {total} candles shown
-                </span>
+              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 25 }}>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: "rgba(10,12,18,0.88)", border: "1px solid rgba(245,158,11,0.3)", boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 20px rgba(245,158,11,0.08)" }}>
+                  <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: "hsl(38,100%,58%)" }} />
+                  <span className="text-xs font-mono" style={{ color: "hsl(38,100%,62%)" }}>End of data</span>
+                  <span className="text-xs font-mono" style={{ color: "hsl(220,14%,40%)" }}>—</span>
+                  <span className="text-xs font-mono" style={{ color: "hsl(220,14%,50%)" }}>all {total} bars shown</span>
+                </div>
               </div>
             )}
             {activeTool !== "cursor" && (
@@ -2028,98 +2068,185 @@ export default function ChartPage() {
               </div>
             )}
 
-            {/* Replay sim */}
-            {replayMode && (<>
-            {/* Position + Buy/Sell */}
-            <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "hsl(220,14%,45%)" }}>Position</span>
-                {trades.length > 0 && (
-                  <button onClick={resetTrading} className="flex items-center gap-1 text-[10px] font-mono transition-colors" style={{ color: "hsl(220,14%,40%)" }}>
-                    <RotateCcw className="h-2.5 w-2.5" /> Reset
-                  </button>
-                )}
-              </div>
-              {position ? (
-                <div className="rounded-lg p-3 space-y-1 border" style={{ background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.15)" }}>
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)", boxShadow: "0 0 6px hsl(150,90%,55%)" }} />
-                    <span className="text-xs font-mono font-semibold" style={{ color: "hsl(150,90%,60%)" }}>LONG</span>
+            {/* ── Replay simulator ─────────────────────────────── */}
+            {replayMode && (
+              <div className="flex flex-col gap-3">
+
+                {/* Header: session info */}
+                <div className="rounded-xl border overflow-hidden" style={{ background: "linear-gradient(160deg, rgba(245,158,11,0.07) 0%, rgba(245,158,11,0.02) 100%)", borderColor: "rgba(245,158,11,0.18)" }}>
+                  <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid rgba(245,158,11,0.1)" }}>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "hsl(38,100%,60%)", boxShadow: "0 0 6px hsl(38,100%,55%)" }} />
+                      <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(38,100%,55%)" }}>Replay Mode</span>
+                    </div>
+                    <button onClick={resetTrading} className="flex items-center gap-1 text-[10px] font-mono transition-colors hover:opacity-80" style={{ color: "hsl(220,14%,38%)" }}>
+                      <RotateCcw className="h-2.5 w-2.5" /> Reset
+                    </button>
                   </div>
-                  <p className="text-sm font-mono">Entry: <span className="font-bold">${fmt(position.price)}</span></p>
-                  <p className="text-xs font-mono" style={{ color: "hsl(220,14%,50%)" }}>{fmtDate(position.time)}</p>
-                  {unrealizedPnl !== null && unrealizedPct !== null && (
-                    <div className="mt-2 pt-2 border-t border-white/10">
-                      <p className="text-base font-mono font-bold" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: unrealizedPnl >= 0 ? "0 0 20px rgba(52,211,153,0.4)" : "0 0 20px rgba(239,68,68,0.4)" }}>{fmtPnl(unrealizedPnl)}</p>
-                      <p className="text-xs font-mono" style={{ color: "hsl(220,14%,50%)" }}>{fmtPct(unrealizedPct)} unrealized</p>
+                  <div className="px-3 py-2.5">
+                    {currentDate && <p className="text-[10px] font-mono mb-1" style={{ color: "hsl(38,100%,50%)" }}>{currentDate}</p>}
+                    {currentBar ? (
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xl font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,60%)" : "hsl(0,85%,62%)" }}>${fmt(currentBar.close)}</span>
+                        {changePercent && (
+                          <span className="text-xs font-mono" style={{ color: isUp ? "hsl(150,90%,50%)" : "hsl(0,85%,55%)" }}>
+                            {isUp ? "+" : ""}{changePercent}%
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-7 flex items-center">
+                        <span className="text-xs font-mono" style={{ color: "hsl(220,14%,35%)" }}>Waiting for data…</span>
+                      </div>
+                    )}
+                    {/* Progress bar */}
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <div className="h-full rounded-full transition-all duration-150" style={{ width: `${replayProgress}%`, background: "linear-gradient(90deg, hsl(38,100%,45%), hsl(38,100%,60%))" }} />
+                      </div>
+                      <span className="text-[9px] font-mono tabular-nums flex-shrink-0" style={{ color: "hsl(220,14%,40%)" }}>{replayProgress.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Trade controls */}
+                <div className="rounded-xl border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+                  <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,42%)" }}>Position</span>
+                    {currentBar && <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,32%)" }}>at close ${fmt(currentBar.close)}</span>}
+                  </div>
+
+                  <div className="px-3 py-2.5">
+                    {position ? (
+                      <div className="rounded-lg px-3 py-2.5 mb-3 border" style={{ background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.18)" }}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)" }} />
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider" style={{ color: "hsl(150,90%,60%)" }}>Long</span>
+                          </div>
+                          <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>{fmtDate(position.time)}</span>
+                        </div>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-xs font-mono" style={{ color: "hsl(220,14%,50%)" }}>Entry <span className="text-sm font-bold" style={{ color: "hsl(220,14%,75%)" }}>${fmt(position.price)}</span></span>
+                          {unrealizedPnl !== null && unrealizedPct !== null && (
+                            <div className="text-right">
+                              <p className="text-sm font-mono font-bold leading-none" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)", textShadow: unrealizedPnl >= 0 ? "0 0 16px rgba(52,211,153,0.35)" : "0 0 16px rgba(239,68,68,0.35)" }}>
+                                {fmtPnl(unrealizedPnl)}
+                              </p>
+                              <p className="text-[10px] font-mono" style={{ color: unrealizedPnl >= 0 ? "hsl(150,80%,45%)" : "hsl(0,75%,55%)" }}>{fmtPct(unrealizedPct)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg px-3 py-2.5 mb-3 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                        <p className="text-[10px] font-mono" style={{ color: "hsl(220,14%,32%)" }}>No open position</p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        disabled={!currentBar || !!position}
+                        onClick={() => currentBar && handleBuy(currentBar)}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border font-mono font-bold text-sm transition-all disabled:opacity-20"
+                        style={(!currentBar || !!position)
+                          ? { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }
+                          : { background: "linear-gradient(160deg, hsl(150,75%,22%), hsl(150,75%,17%))", borderColor: "rgba(52,211,153,0.28)", color: "hsl(150,90%,65%)", boxShadow: "0 4px 18px rgba(52,211,153,0.12), inset 0 1px 0 rgba(52,211,153,0.12)" }}
+                      >
+                        <TrendingUp className="h-3.5 w-3.5" /> BUY
+                        <span className="text-[9px] opacity-50">[B]</span>
+                      </button>
+                      <button
+                        disabled={!currentBar || !position}
+                        onClick={() => currentBar && position && handleSell(currentBar, position)}
+                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border font-mono font-bold text-sm transition-all disabled:opacity-20"
+                        style={(!currentBar || !position)
+                          ? { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }
+                          : { background: "linear-gradient(160deg, hsl(0,65%,24%), hsl(0,65%,18%))", borderColor: "rgba(239,68,68,0.28)", color: "hsl(0,85%,68%)", boxShadow: "0 4px 18px rgba(239,68,68,0.12), inset 0 1px 0 rgba(239,68,68,0.1)" }}
+                      >
+                        <TrendingDown className="h-3.5 w-3.5" /> SELL
+                        <span className="text-[9px] opacity-50">[S]</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Session stats */}
+                <div className="rounded-xl border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+                  <div className="px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,42%)" }}>Session</span>
+                  </div>
+                  <div className="px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Equity</p>
+                      <p className="text-sm font-mono font-bold leading-none" style={{ color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
+                        ${equity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </p>
+                      <p className="text-[10px] font-mono mt-0.5" style={{ color: equityGain >= 0 ? "hsl(150,70%,40%)" : "hsl(0,70%,48%)" }}>{fmtPct(equityGainPct)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Realized P&L</p>
+                      <p className="text-sm font-mono font-bold leading-none" style={{ color: totalPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(totalPnl)}</p>
+                      <p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,38%)" }}>{trades.length} trade{trades.length !== 1 ? "s" : ""}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Win Rate</p>
+                      <p className="text-sm font-mono font-bold leading-none" style={{ color: trades.length > 0 ? (winRate >= 50 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)") : "hsl(220,14%,45%)" }}>
+                        {trades.length > 0 ? `${winRate.toFixed(0)}%` : "—"}
+                      </p>
+                      <p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,38%)" }}>
+                        {trades.length > 0 ? `${wins}W · ${trades.length - wins}L` : "no trades yet"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Capital</p>
+                      <p className="text-sm font-mono font-bold leading-none" style={{ color: "hsl(220,14%,58%)" }}>${STARTING_CAPITAL.toLocaleString()}</p>
+                      <p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,35%)" }}>starting</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Trade log */}
+                <div className="rounded-xl border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+                  <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,42%)" }}>Trade Log</span>
+                    {trades.length > 0 && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "hsl(220,14%,45%)" }}>{trades.length}</span>}
+                  </div>
+                  {trades.length === 0 ? (
+                    <div className="px-3 py-5 text-center">
+                      <p className="text-[10px] font-mono leading-relaxed" style={{ color: "hsl(220,14%,30%)" }}>No closed trades yet.<br />Press <kbd className="px-1 rounded" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,45%)" }}>B</kbd> to buy, <kbd className="px-1 rounded" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,45%)" }}>S</kbd> to sell.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-y-auto max-h-[180px] px-2 py-2 space-y-1.5">
+                      {[...trades].reverse().map((t, i) => (
+                        <div key={t.id} className="rounded-lg px-2.5 py-2 border"
+                          style={t.pnl >= 0
+                            ? { background: "rgba(52,211,153,0.04)", borderColor: "rgba(52,211,153,0.12)" }
+                            : { background: "rgba(239,68,68,0.04)", borderColor: "rgba(239,68,68,0.1)" }}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>#{trades.length - i}</span>
+                            <span className="text-xs font-mono font-bold" style={{ color: t.pnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
+                              {fmtPnl(t.pnl)} <span className="text-[10px] font-normal opacity-75">({fmtPct(t.pnlPct)})</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] font-mono" style={{ color: "hsl(220,14%,42%)" }}>
+                            <span style={{ color: "hsl(150,80%,50%)" }}>B</span>
+                            <span>${fmt(t.entryPrice)}</span>
+                            <span style={{ color: "hsl(220,14%,30%)" }}>→</span>
+                            <span style={{ color: "hsl(0,75%,60%)" }}>S</span>
+                            <span>${fmt(t.exitPrice)}</span>
+                          </div>
+                          <div className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(220,14%,30%)" }}>
+                            {fmtDate(t.entryTime)} → {fmtDate(t.exitTime)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="text-xs text-center py-3 font-mono" style={{ color: "hsl(220,14%,35%)" }}>No open position</div>
-              )}
-              <div className="grid grid-cols-2 gap-2 mt-auto">
-                {[
-                  { label: "BUY", key: "B", icon: <TrendingUp className="h-3.5 w-3.5" />, disabled: !currentBar || !!position, onClick: () => currentBar && handleBuy(currentBar), style: { background: "linear-gradient(135deg, hsl(150,80%,28%), hsl(150,80%,22%))", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)", boxShadow: "0 4px 20px rgba(52,211,153,0.15), inset 0 1px 0 rgba(52,211,153,0.1)" } },
-                  { label: "SELL", key: "S", icon: <TrendingDown className="h-3.5 w-3.5" />, disabled: !currentBar || !position, onClick: () => currentBar && position && handleSell(currentBar, position), style: { background: "linear-gradient(135deg, hsl(0,70%,28%), hsl(0,70%,22%))", borderColor: "rgba(239,68,68,0.3)", color: "hsl(0,85%,70%)", boxShadow: "0 4px 20px rgba(239,68,68,0.15), inset 0 1px 0 rgba(239,68,68,0.1)" } },
-                ].map(btn => (
-                  <button key={btn.label} disabled={btn.disabled} onClick={btn.onClick}
-                    className="flex items-center justify-center gap-1.5 py-2 rounded-lg border font-mono font-bold text-sm transition-all disabled:opacity-25"
-                    style={btn.disabled ? { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(220,14%,40%)" } : btn.style}
-                  >
-                    {btn.icon} {btn.label}
-                    <span className="text-[9px] opacity-60">[{btn.key}]</span>
-                  </button>
-                ))}
-              </div>
-              {currentBar && <p className="text-[10px] text-center font-mono" style={{ color: "hsl(220,14%,35%)" }}>at market close ${fmt(currentBar.close)}</p>}
-            </div>
 
-            {/* Performance */}
-            <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
-              <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "hsl(220,14%,45%)" }}>Performance</span>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "Equity",      value: `$${equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: fmtPct(equityGainPct), color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" },
-                  { label: "Realized P&L",value: fmtPnl(totalPnl), sub: `${trades.length} trade${trades.length !== 1 ? "s" : ""}`, color: totalPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" },
-                  { label: "Win Rate",    value: trades.length > 0 ? `${winRate.toFixed(0)}%` : "—", sub: trades.length > 0 ? `${wins}W / ${trades.length - wins}L` : "no trades yet", color: winRate >= 50 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" },
-                  { label: "Start Capital",value: `$${STARTING_CAPITAL.toLocaleString()}`, sub: "per session", color: "hsl(220,14%,60%)" },
-                ].map(stat => (
-                  <div key={stat.label}>
-                    <p className="text-[9px] font-mono uppercase tracking-wider mb-1" style={{ color: "hsl(220,14%,40%)" }}>{stat.label}</p>
-                    <p className="text-sm font-mono font-bold" style={{ color: stat.color }}>{stat.value}</p>
-                    <p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,38%)" }}>{stat.sub}</p>
-                  </div>
-                ))}
               </div>
-            </div>
-
-            {/* Trade log */}
-            <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
-              <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "hsl(220,14%,45%)" }}>Trade Log</span>
-              {trades.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <p className="text-xs font-mono text-center" style={{ color: "hsl(220,14%,35%)" }}>No closed trades yet.<br />Press B to buy, S to sell.</p>
-                </div>
-              ) : (
-                <div className="overflow-y-auto max-h-[150px] space-y-1.5 pr-1">
-                  {[...trades].reverse().map((t, i) => (
-                    <div key={t.id} className="rounded-lg px-2.5 py-2 border text-xs font-mono"
-                      style={t.pnl >= 0 ? { background: "rgba(52,211,153,0.04)", borderColor: "rgba(52,211,153,0.12)" } : { background: "rgba(239,68,68,0.04)", borderColor: "rgba(239,68,68,0.12)" }}>
-                      <div className="flex justify-between mb-0.5">
-                        <span style={{ color: "hsl(220,14%,40%)" }}>#{trades.length - i}</span>
-                        <span className="font-bold" style={{ color: t.pnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(t.pnl)} ({fmtPct(t.pnlPct)})</span>
-                      </div>
-                      <div className="flex justify-between" style={{ color: "hsl(220,14%,45%)" }}>
-                        <span>B ${fmt(t.entryPrice)}</span><span>→</span><span>S ${fmt(t.exitPrice)}</span>
-                      </div>
-                      <div className="text-[9px] mt-0.5" style={{ color: "hsl(220,14%,35%)" }}>{fmtDate(t.entryTime)} → {fmtDate(t.exitTime)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            </>)}
+            )}
           </div>
         )}
       </div>
