@@ -1313,6 +1313,8 @@ export default function ChartPage() {
           backdropFilter: "blur(12px)",
           borderColor: "rgba(255,255,255,0.07)",
           boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)",
+          position: "relative",
+          zIndex: 60,
         }}
       >
         <div className="flex items-center justify-between gap-2 mb-2">
@@ -1686,7 +1688,7 @@ export default function ChartPage() {
       <div className="flex flex-col lg:flex-row gap-2 flex-1 min-h-0">
 
         {/* ── Charts column ────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col gap-2 min-h-0">
+        <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto">
 
           {/* Main chart container */}
           <div

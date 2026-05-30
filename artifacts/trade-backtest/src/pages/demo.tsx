@@ -155,25 +155,80 @@ type DemoDrawnLine =
   | { kind: "hline"; priceLine: IPriceLine; color: string }
   | { kind: "trendline"; series: ISeriesApi<"Line">; color: string };
 
+/* ── Demo indicator definitions ──────────────────────────────────── */
+const DEMO_INDICATOR_DEFS = [
+  { id: "sma20",  label: "SMA 20",          color: "hsl(190,90%,55%)" },
+  { id: "sma50",  label: "SMA 50",          color: "hsl(38,100%,55%)" },
+  { id: "ema9",   label: "EMA 9",           color: "hsl(260,90%,72%)" },
+  { id: "ema20",  label: "EMA 20",          color: "hsl(150,90%,55%)" },
+  { id: "ema50",  label: "EMA 50",          color: "hsl(0,85%,62%)"   },
+  { id: "bb",     label: "Bollinger Bands", color: "hsl(200,80%,65%)" },
+  { id: "vwap",   label: "VWAP",            color: "hsl(320,80%,65%)" },
+] as const;
+
+function calcSMALocal(closes: number[], period: number): number[] {
+  return closes.map((_, i) =>
+    i < period - 1 ? NaN : closes.slice(i - period + 1, i + 1).reduce((s, v) => s + v, 0) / period
+  );
+}
+function calcEMALocal(closes: number[], period: number): number[] {
+  if (closes.length < period) return closes.map(() => NaN);
+  const k = 2 / (period + 1);
+  let ema = closes.slice(0, period).reduce((s, v) => s + v, 0) / period;
+  const out: number[] = new Array(period - 1).fill(NaN);
+  out.push(ema);
+  for (let i = period; i < closes.length; i++) { ema = closes[i] * k + ema * (1 - k); out.push(ema); }
+  return out;
+}
+function calcBBLocal(closes: number[], period = 20, mult = 2): { upper: number[]; mid: number[]; lower: number[] } {
+  const mid = calcSMALocal(closes, period);
+  const upper = closes.map((_, i) => {
+    if (i < period - 1) return NaN;
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean = mid[i];
+    const std = Math.sqrt(slice.reduce((s, v) => s + (v - mean) ** 2, 0) / period);
+    return mean + mult * std;
+  });
+  const lower = closes.map((_, i) => {
+    if (i < period - 1) return NaN;
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean = mid[i];
+    const std = Math.sqrt(slice.reduce((s, v) => s + (v - mean) ** 2, 0) / period);
+    return mean - mult * std;
+  });
+  return { upper, mid, lower };
+}
+function calcVWAPLocal(candles: OhlcCandle[]): number[] {
+  let cumPV = 0, cumV = 0;
+  return candles.map(c => {
+    const typicalPrice = (c.high + c.low + c.close) / 3;
+    const vol = c.high - c.low + 0.0001;
+    cumPV += typicalPrice * vol;
+    cumV  += vol;
+    return cumPV / cumV;
+  });
+}
+
 /* ══════════════════════════════════════════════════════════════════
    LIVE CANDLESTICK CHART
 ══════════════════════════════════════════════════════════════════ */
-function DemoChart({ symbol, livePrice, openPositions, interval = "1m", viralOn = false }: {
+function DemoChart({ symbol, livePrice, openPositions, interval = "1m", indicators = [] }: {
   symbol: string;
   livePrice: number;
   openPositions: DemoTrade[];
   interval?: string;
-  viralOn?: boolean;
+  indicators?: string[];
 }) {
-  const containerRef    = useRef<HTMLDivElement>(null);
-  const chartRef        = useRef<IChartApi | null>(null);
-  const seriesRef       = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
-  const candlesRef      = useRef<OhlcCandle[]>([]);
-  const viralSeriesRef  = useRef<ISeriesApi<"Line">[]>([]);
-  const doodleCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef       = useRef<HTMLDivElement>(null);
+  const chartRef           = useRef<IChartApi | null>(null);
+  const seriesRef          = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+  const candlesRef         = useRef<OhlcCandle[]>([]);
+  const indicatorSeriesRef = useRef<ISeriesApi<"Line">[]>([]);
+  const doodleCanvasRef    = useRef<HTMLCanvasElement | null>(null);
   const [doodlePaths, setDoodlePaths] = useState<{ points: {x: number; y: number}[]; color: string }[]>([]);
-  const isDoodlingRef   = useRef(false);
-  const currentDoodleRef = useRef<{x: number; y: number}[]>([]);
+  const isDoodlingRef      = useRef(false);
+  const currentDoodleRef   = useRef<{x: number; y: number}[]>([]);
+  const [chartEpoch, setChartEpoch] = useState(0);
 
   /* Build chart once per symbol or interval — tears down & rebuilds */
   useEffect(() => {
@@ -227,6 +282,7 @@ function DemoChart({ symbol, livePrice, openPositions, interval = "1m", viralOn 
     candlesRef.current = history;
     series.setData(history as Parameters<typeof series.setData>[0]);
     chart.timeScale().fitContent();
+    setChartEpoch(e => e + 1);
 
     /* Resize observer */
     const ro = new ResizeObserver(() => {
@@ -236,7 +292,7 @@ function DemoChart({ symbol, livePrice, openPositions, interval = "1m", viralOn 
 
     return () => {
       ro.disconnect();
-      viralSeriesRef.current = [];
+      indicatorSeriesRef.current = [];
       chart.remove();
       chartRef.current  = null;
       seriesRef.current = null;
@@ -301,36 +357,42 @@ function DemoChart({ symbol, livePrice, openPositions, interval = "1m", viralOn 
     });
   }, [openPositions]);
 
-  /* Viral EMA overlays */
+  /* Indicator overlays — redraws whenever indicators list or chart changes */
+  const indicatorsKey = indicators.join(",");
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    viralSeriesRef.current.forEach(s => { try { chart.removeSeries(s); } catch { /**/ } });
-    viralSeriesRef.current = [];
-    if (!viralOn || !candlesRef.current.length) return;
-    function calcEMA(closes: number[], period: number): number[] {
-      if (closes.length < period) return closes.map(() => NaN);
-      const k = 2 / (period + 1);
-      let ema = closes.slice(0, period).reduce((s, v) => s + v, 0) / period;
-      const out: number[] = new Array(period - 1).fill(NaN);
-      out.push(ema);
-      for (let i = period; i < closes.length; i++) { ema = closes[i] * k + ema * (1 - k); out.push(ema); }
-      return out;
-    }
+    indicatorSeriesRef.current.forEach(s => { try { chart.removeSeries(s); } catch { /**/ } });
+    indicatorSeriesRef.current = [];
     const candles = candlesRef.current;
+    if (!candles.length || !indicators.length) return;
     const closes = candles.map(c => c.close);
-    for (const { values, color } of [
-      { values: calcEMA(closes, 20), color: "hsl(190,90%,55%)" },
-      { values: calcEMA(closes, 50), color: "hsl(150,90%,55%)" },
-    ]) {
-      const s = chart.addSeries(LineSeries, {
-        color, lineWidth: 1 as const,
+
+    function addLine(values: number[], color: string, lineWidth: 1 | 2 = 1) {
+      const s = chart!.addSeries(LineSeries, {
+        color, lineWidth,
         priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
       });
       s.setData(candles.map((c, i) => ({ time: c.time as Time, value: values[i] })).filter(d => !isNaN(d.value)));
-      viralSeriesRef.current.push(s);
+      indicatorSeriesRef.current.push(s);
     }
-  }, [viralOn]);
+
+    for (const id of indicators) {
+      if (id === "sma20") addLine(calcSMALocal(closes, 20), "hsl(190,90%,55%)");
+      if (id === "sma50") addLine(calcSMALocal(closes, 50), "hsl(38,100%,55%)");
+      if (id === "ema9")  addLine(calcEMALocal(closes, 9),  "hsl(260,90%,72%)");
+      if (id === "ema20") addLine(calcEMALocal(closes, 20), "hsl(150,90%,55%)");
+      if (id === "ema50") addLine(calcEMALocal(closes, 50), "hsl(0,85%,62%)");
+      if (id === "vwap")  addLine(calcVWAPLocal(candles),   "hsl(320,80%,65%)");
+      if (id === "bb") {
+        const { upper, mid, lower } = calcBBLocal(closes, 20, 2);
+        addLine(upper, "hsl(200,80%,65%)");
+        addLine(mid,   "hsl(200,60%,55%)");
+        addLine(lower, "hsl(200,80%,65%)");
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indicatorsKey, chartEpoch]);
 
   // ── Drawing tools ──────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<DemoDrawTool>("cursor");
@@ -726,8 +788,9 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
   const [limitPrice, setLimitPrice]       = useState("");
   const [stopPrice, setStopPrice]         = useState("");
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
-  const [chartInterval, setChartInterval] = useState("1m");
-  const [viralOn, setViralOn]             = useState(false);
+  const [chartInterval, setChartInterval]     = useState("1m");
+  const [activeIndicators, setActiveIndicators] = useState<string[]>([]);
+  const [showIndMenu, setShowIndMenu]         = useState(false);
   const livePrice = useSimPrice(selectedSymbol.price);
 
   const openPositions    = trades.filter(t => t.status === "open");
@@ -941,13 +1004,65 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
                     >{iv.label}</button>
                   ))}
                 </div>
-                <button
-                  onClick={() => setViralOn(v => !v)}
-                  className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded-lg border transition-all"
-                  style={viralOn
-                    ? { background: "rgba(251,115,22,0.18)", borderColor: "rgba(251,115,22,0.4)", color: "hsl(28,100%,65%)" }
-                    : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(218,12%,48%)" }}
-                >🔥 Viral</button>
+                {/* Indicators picker */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowIndMenu(v => !v)}
+                    className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded-lg border transition-all"
+                    style={activeIndicators.length > 0
+                      ? { background: "rgba(0,229,255,0.14)", borderColor: "rgba(0,229,255,0.35)", color: "hsl(190,90%,65%)" }
+                      : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(218,12%,48%)" }}
+                  >
+                    <BarChart2 className="h-3 w-3" />
+                    Indicators
+                    {activeIndicators.length > 0 && (
+                      <span className="ml-0.5 h-3.5 min-w-[14px] flex items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                        style={{ background: "rgba(0,229,255,0.25)", color: "hsl(190,90%,70%)" }}>
+                        {activeIndicators.length}
+                      </span>
+                    )}
+                  </button>
+                  {showIndMenu && (
+                    <div
+                      className="absolute left-0 top-full mt-1 rounded-xl p-2 flex flex-col gap-0.5 min-w-[160px]"
+                      style={{ background: "hsl(222,28%,11%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 40px rgba(0,0,0,0.6)", zIndex: 50 }}
+                    >
+                      {DEMO_INDICATOR_DEFS.map(ind => {
+                        const active = activeIndicators.includes(ind.id);
+                        return (
+                          <button
+                            key={ind.id}
+                            onClick={() => setActiveIndicators(prev =>
+                              active ? prev.filter(x => x !== ind.id) : [...prev, ind.id]
+                            )}
+                            className="flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] font-mono transition-all"
+                            style={active
+                              ? { background: "rgba(255,255,255,0.07)", color: "hsl(218,14%,82%)" }
+                              : { color: "hsl(218,12%,48%)" }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-0.5 rounded" style={{ background: ind.color }} />
+                              {ind.label}
+                            </div>
+                            {active && <span style={{ color: ind.color }}>✓</span>}
+                          </button>
+                        );
+                      })}
+                      {activeIndicators.length > 0 && (
+                        <>
+                          <div className="h-px my-0.5" style={{ background: "rgba(255,255,255,0.08)" }} />
+                          <button
+                            onClick={() => setActiveIndicators([])}
+                            className="text-[10px] font-mono px-2 py-1 rounded-lg text-center transition-all"
+                            style={{ color: "hsl(0,78%,65%)", background: "rgba(239,68,68,0.08)" }}
+                          >
+                            Clear all
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-base font-bold font-mono"
@@ -969,7 +1084,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
 
             {/* Chart canvas */}
             <div className="px-1 pb-1 pt-1">
-              <DemoChart symbol={selectedSymbol.value} livePrice={livePrice} openPositions={openPositions} interval={chartInterval} viralOn={viralOn} />
+              <DemoChart symbol={selectedSymbol.value} livePrice={livePrice} openPositions={openPositions} interval={chartInterval} indicators={activeIndicators} />
             </div>
           </Card>
           </div>
