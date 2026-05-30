@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import { SettingsProvider } from "@/lib/settings-context";
+import { AuthProvider } from "@/lib/auth-context";
+import { PolicyPopup } from "@/components/policy-popup";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -21,6 +23,8 @@ import SettingsPage from "@/pages/settings";
 import NewsPage from "@/pages/news";
 import DemoPage from "@/pages/demo";
 import AiAssistant from "@/pages/ai-assistant";
+import AdminLogin from "@/pages/admin/login";
+import AdminPanel from "@/pages/admin/panel";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +56,9 @@ function Router() {
       <Route path="/ai" component={AiAssistant} />
       <Route path="/news" component={NewsPage} />
       <Route path="/settings" component={SettingsPage} />
+
+      <Route path="/admin" component={AdminLogin} />
+      <Route path="/admin/panel" component={AdminPanel} />
       
       <Route component={NotFound} />
     </Switch>
@@ -60,18 +67,21 @@ function Router() {
 
 function App() {
   return (
-    <SettingsProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Layout>
-              <Router />
-            </Layout>
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </SettingsProvider>
+    <AuthProvider>
+      <SettingsProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Layout>
+                <Router />
+              </Layout>
+              <PolicyPopup />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </SettingsProvider>
+    </AuthProvider>
   );
 }
 

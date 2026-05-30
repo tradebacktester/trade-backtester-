@@ -41,3 +41,9 @@ externalPort = 3001
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+ADMIN_ID = "7302782010"
+ADMIN_PASSWORD = "adivasutrade"

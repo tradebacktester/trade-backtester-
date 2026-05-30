@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, CandlestickChart, FlaskConical,
-  BarChart2, Settings, Newspaper, Zap, TrendingUp, Brain,
+  BarChart2, Settings, Zap, TrendingUp, Brain,
   MoreHorizontal, X, ChevronRight, BookOpen,
+  Shield, LogIn, LogOut, User,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { AuthModal } from "@/components/auth-modal";
 
 const DESKTOP_ITEMS = [
   { title: "Charts",  url: "/chart",      icon: CandlestickChart },
@@ -24,18 +27,17 @@ const MOBILE_MAIN = [
 
 const DESKTOP_MORE = [
   { title: "Analytics", url: "/strategies", icon: BarChart2 },
-  { title: "News",      url: "/news",       icon: Newspaper },
   { title: "Settings",  url: "/settings",   icon: Settings },
+  { title: "Admin",     url: "/admin",      icon: Shield },
 ] as const;
 
 const MOBILE_MORE = [
   { title: "Journal",   url: "/backtests",  icon: BookOpen },
   { title: "Analytics", url: "/strategies", icon: BarChart2 },
-  { title: "News",      url: "/news",       icon: Newspaper },
   { title: "Settings",  url: "/settings",   icon: Settings },
+  { title: "Admin",     url: "/admin",      icon: Shield },
 ] as const;
 
-/* ── White / light colour tokens ────────────────────────────────────── */
 const T = {
   navBg:     "rgba(255,255,255,0.96)",
   navBorder: "rgba(0,0,0,0.08)",
@@ -51,7 +53,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const { user, signout } = useAuth();
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -136,8 +140,48 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Right — more dropdown + status */}
+        {/* Right — sign in + more dropdown + status */}
         <div className="flex items-center gap-2 pr-4 flex-shrink-0">
+
+          {/* Sign In / User */}
+          {user ? (
+            <div className="flex items-center gap-1">
+              <span
+                className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1.5 rounded-lg"
+                style={{ color: "#555" }}
+              >
+                <User style={{ height: "12px", width: "12px" }} />
+                {user.name.split(" ")[0]}
+              </span>
+              <button
+                onClick={signout}
+                className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-lg transition-colors"
+                style={{ color: "#888", border: "1px solid rgba(0,0,0,0.08)" }}
+                title="Sign out"
+              >
+                <LogOut style={{ height: "11px", width: "11px" }} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="flex items-center gap-1.5 cursor-pointer select-none transition-colors duration-150"
+              style={{
+                padding: "5px 12px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 500,
+                border: "1px solid rgba(0,0,0,0.12)",
+                background: "#f5f5f5",
+                color: "#444",
+              }}
+            >
+              <LogIn style={{ height: "12px", width: "12px" }} />
+              Sign In
+            </button>
+          )}
+
+          {/* More dropdown */}
           <div className="relative" ref={moreRef}>
             <button
               onClick={() => setMoreOpen(v => !v)}
@@ -317,9 +361,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex items-center justify-between px-5 py-3">
-              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#aaa" }}>
-                More
-              </p>
+              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#aaa" }}>More</p>
               <button
                 onClick={() => setSheetOpen(false)}
                 className="h-7 w-7 flex items-center justify-center rounded-full active:opacity-60"
@@ -327,6 +369,43 @@ export function Layout({ children }: { children: React.ReactNode }) {
               >
                 <X style={{ height: "13px", width: "13px" }} />
               </button>
+            </div>
+
+            {/* Sign in row in sheet */}
+            <div className="px-4 mb-2">
+              {user ? (
+                <div
+                  className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                  style={{ background: "#f7f7f7", border: "1px solid rgba(0,0,0,0.07)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold" style={{ background: "#e0e0e0", color: "#555" }}>
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                    <div>
+                      <p className="text-[13px] font-medium" style={{ color: "#111" }}>{user.name}</p>
+                      <p className="text-[10px]" style={{ color: "#aaa" }}>{user.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { signout(); setSheetOpen(false); }}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl"
+                    style={{ background: "#f0f0f0", color: "#666", border: "1px solid rgba(0,0,0,0.08)" }}
+                  >
+                    <LogOut style={{ height: "11px", width: "11px" }} />
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setShowAuthModal(true); setSheetOpen(false); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl"
+                  style={{ background: "#111", color: "#fff" }}
+                >
+                  <LogIn style={{ height: "14px", width: "14px" }} />
+                  <span className="text-[14px] font-medium">Sign In / Create Account</span>
+                </button>
+              )}
             </div>
 
             <div className="px-4 flex flex-col gap-1.5">
@@ -362,6 +441,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }
