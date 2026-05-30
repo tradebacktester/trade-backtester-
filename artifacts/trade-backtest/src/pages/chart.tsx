@@ -269,7 +269,7 @@ export default function ChartPage() {
   const [equity, setEquity] = useState(STARTING_CAPITAL);
 
   // Order panel
-  const [showOrderPanel, setShowOrderPanel] = useState(false);
+  const [showOrderPanel, setShowOrderPanel] = useState(true);
   const [chartOrderType, setChartOrderType] = useState<"market" | "limit" | "stop">("market");
   const [chartLimitPrice, setChartLimitPrice] = useState("");
   const [chartStopPrice, setChartStopPrice] = useState("");
@@ -920,7 +920,7 @@ export default function ChartPage() {
       }
     }
 
-    replayMode ? chart.timeScale().scrollToPosition(4, false) : chart.timeScale().fitContent();
+    chart.timeScale().fitContent();
 
     // Re-apply trade markers after data change (setData can clear them)
     markersPluginRef.current?.setMarkers([...markersRef.current]);

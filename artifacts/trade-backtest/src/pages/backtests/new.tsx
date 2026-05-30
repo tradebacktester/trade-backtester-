@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { 
   useCreateBacktest, 
+  useCreateStrategy,
   useListStrategies,
-  getListBacktestsQueryKey 
+  getListBacktestsQueryKey,
+  getListStrategiesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Play } from "lucide-react";
+import { ArrowLeft, Play, Plus, TrendingUp, Activity, BarChart3, Zap, Target } from "lucide-react";
 import { format, subYears } from "date-fns";
 
 const formSchema = z.object({
@@ -30,15 +32,70 @@ type FormValues = z.infer<typeof formSchema>;
 
 const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
 
+const STRATEGY_TYPES = [
+  {
+    type: "sma_crossover",
+    name: "SMA Crossover",
+    description: "Buy when fast SMA crosses above slow SMA",
+    icon: TrendingUp,
+    color: "#3b82f6",
+    bg: "rgba(59,130,246,0.08)",
+    border: "rgba(59,130,246,0.2)",
+    params: { shortPeriod: 10, longPeriod: 50 },
+  },
+  {
+    type: "ema_crossover",
+    name: "EMA Crossover",
+    description: "Exponential MA crossover for trend following",
+    icon: Activity,
+    color: "#8b5cf6",
+    bg: "rgba(139,92,246,0.08)",
+    border: "rgba(139,92,246,0.2)",
+    params: { shortPeriod: 9, longPeriod: 21 },
+  },
+  {
+    type: "rsi",
+    name: "RSI Strategy",
+    description: "Mean reversion using RSI overbought/oversold",
+    icon: BarChart3,
+    color: "#f59e0b",
+    bg: "rgba(245,158,11,0.08)",
+    border: "rgba(245,158,11,0.2)",
+    params: { period: 14, overbought: 70, oversold: 30 },
+  },
+  {
+    type: "macd",
+    name: "MACD Strategy",
+    description: "Trend momentum with MACD signal line crossover",
+    icon: Zap,
+    color: "#10b981",
+    bg: "rgba(16,185,129,0.08)",
+    border: "rgba(16,185,129,0.2)",
+    params: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
+  },
+  {
+    type: "bollinger_bands",
+    name: "Bollinger Bands",
+    description: "Buy at lower band, sell at upper band",
+    icon: Target,
+    color: "#ec4899",
+    bg: "rgba(236,72,153,0.08)",
+    border: "rgba(236,72,153,0.2)",
+    params: { period: 20, stdDev: 2 },
+  },
+] as const;
+
 export default function NewBacktest() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const searchParams = new URLSearchParams(window.location.search);
   const initialStrategyId = searchParams.get("strategyId");
+  const [creatingStrategyType, setCreatingStrategyType] = useState<string | null>(null);
 
   const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies();
   const createBacktest = useCreateBacktest();
+  const createStrategy = useCreateStrategy();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -51,7 +108,6 @@ export default function NewBacktest() {
     },
   });
 
-  // When a strategy is selected, update the default symbol
   React.useEffect(() => {
     const sub = form.watch((value, { name }) => {
       if (name === "strategyId" && strategies) {
@@ -63,6 +119,35 @@ export default function NewBacktest() {
     });
     return () => sub.unsubscribe();
   }, [form, strategies]);
+
+  function handleQuickCreate(typeDef: typeof STRATEGY_TYPES[number]) {
+    const symbol = form.getValues("symbol") || "AAPL";
+    setCreatingStrategyType(typeDef.type);
+    createStrategy.mutate(
+      {
+        data: {
+          name: `${typeDef.name} (${symbol})`,
+          description: typeDef.description,
+          type: typeDef.type,
+          symbol,
+          timeframe: "1d",
+          parameters: typeDef.params as Record<string, number>,
+        },
+      },
+      {
+        onSuccess: (strategy) => {
+          queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
+          form.setValue("strategyId", strategy.id);
+          toast({ title: "Strategy created", description: `${typeDef.name} strategy is ready.` });
+          setCreatingStrategyType(null);
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Failed to create strategy", variant: "destructive" });
+          setCreatingStrategyType(null);
+        },
+      }
+    );
+  }
 
   function onSubmit(data: FormValues) {
     createBacktest.mutate(
@@ -87,6 +172,9 @@ export default function NewBacktest() {
     );
   }
 
+  const hasStrategies = !isLoadingStrategies && strategies && strategies.length > 0;
+  const noStrategies = !isLoadingStrategies && (!strategies || strategies.length === 0);
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-4">
@@ -98,6 +186,54 @@ export default function NewBacktest() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Run Backtest</h1>
           <p className="text-muted-foreground">Test a strategy against historical data.</p>
+        </div>
+      </div>
+
+      {/* Strategy quick-create cards */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-foreground">
+            {noStrategies ? "Choose a strategy type to get started:" : "Quick-add a new strategy:"}
+          </p>
+          {hasStrategies && (
+            <span className="text-xs text-muted-foreground">{strategies!.length} existing</span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {STRATEGY_TYPES.map((typeDef) => {
+            const Icon = typeDef.icon;
+            const isCreating = creatingStrategyType === typeDef.type;
+            return (
+              <button
+                key={typeDef.type}
+                type="button"
+                disabled={createStrategy.isPending}
+                onClick={() => handleQuickCreate(typeDef)}
+                className="flex items-start gap-3 p-3 rounded-xl border text-left transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: typeDef.bg,
+                  borderColor: typeDef.border,
+                }}
+              >
+                <span
+                  className="mt-0.5 h-7 w-7 flex items-center justify-center rounded-lg flex-shrink-0"
+                  style={{ background: `${typeDef.color}20`, color: typeDef.color }}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{typeDef.name}</p>
+                  <p className="text-xs text-muted-foreground leading-snug mt-0.5">{typeDef.description}</p>
+                </div>
+                <span
+                  className="mt-1 flex-shrink-0 h-5 w-5 flex items-center justify-center rounded-full text-xs font-bold"
+                  style={{ background: typeDef.color, color: "#fff" }}
+                >
+                  {isCreating ? "…" : "+"}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -122,12 +258,9 @@ export default function NewBacktest() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {!isLoadingStrategies && (!strategies || strategies.length === 0) ? (
+                        {noStrategies ? (
                           <div className="px-3 py-4 text-center space-y-1">
-                            <p className="text-xs text-muted-foreground">No strategies yet.</p>
-                            <Link href="/strategies/new" className="text-xs text-primary underline underline-offset-2">
-                              Create a strategy first →
-                            </Link>
+                            <p className="text-xs text-muted-foreground">No strategies yet — use the cards above to create one.</p>
                           </div>
                         ) : (
                           strategies?.map((s) => (
