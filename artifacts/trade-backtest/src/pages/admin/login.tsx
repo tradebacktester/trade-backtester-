@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Shield, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -7,14 +7,14 @@ export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const { setAdminToken, adminToken } = useAuth();
   const [id, setId] = useState("");
-
-  React.useEffect(() => {
-    if (adminToken) setLocation("/admin/panel");
-  }, [adminToken]);
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (adminToken) setLocation("/admin/panel");
+  }, [adminToken]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

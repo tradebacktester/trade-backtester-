@@ -72,7 +72,7 @@ router.get("/admin/users", requireAdmin, async (_req, res): Promise<void> => {
 });
 
 router.post("/admin/users/:id/ban", requireAdmin, async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.id, 10);
+  const userId = parseInt(req.params["id"] as string, 10);
   const { banned, reason } = req.body;
   const [updated] = await db.update(usersTable)
     .set({ banned: banned ?? true, bannedReason: reason ?? null })
@@ -89,7 +89,7 @@ router.get("/admin/policies", requireAdmin, async (_req, res): Promise<void> => 
 });
 
 router.put("/admin/policies/:slug", requireAdmin, async (req, res): Promise<void> => {
-  const { slug } = req.params;
+  const slug = req.params["slug"] as string;
   const { content, title } = req.body;
   const [updated] = await db.update(policiesTable)
     .set({ content, title, updatedAt: new Date() })

@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Brain, TrendingUp, TrendingDown, Minus,
   Globe, Bitcoin, BarChart2, DollarSign,
   Clock, AlertTriangle, Target, Layers,
   RefreshCw, Newspaper, Shield, Eye, Crosshair,
   Activity, ChevronDown, ChevronUp,
+  MessageCircle, Send, Bot, User,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────── */
 type Sentiment  = "bullish" | "bearish" | "neutral";
-type Tab        = "overview" | "news" | "ict" | "calendar";
+type Tab        = "overview" | "news" | "ict" | "calendar" | "chat";
 type Impact     = "high" | "medium" | "low";
 
 interface MarketCard {
@@ -31,6 +32,10 @@ interface EconEvent {
   time: string; flag: string; country: string;
   event: string; impact: Impact; forecast: string; previous: string;
 }
+interface ChatMsg {
+  role: "user" | "assistant";
+  content: string;
+}
 
 /* ─────────────────────────────────────────────
    COLOUR TOKENS  — blue accent system
@@ -42,8 +47,8 @@ const BLUE_BD = "rgba(37,99,235,0.18)";
 
 const C = {
   bg:       "#ffffff",
-  surface:  "#f4f6fb",       // slightly blue-tinted grey card
-  surfaceB: "#eef1f8",       // deeper tinted surface
+  surface:  "#f4f6fb",
+  surfaceB: "#eef1f8",
   border:   "rgba(0,0,0,0.09)",
   borderB:  BLUE_BD,
   text:     "#0f1117",
@@ -123,6 +128,14 @@ const ECON_EVENTS: EconEvent[] = [
   { time: "23:00", flag: "🇯🇵", country: "JPY", event: "Bank of Japan Minutes",   impact: "medium", forecast: "—",     previous: "—" },
 ];
 
+const SUGGESTED_QUESTIONS = [
+  "What is a moving average crossover strategy?",
+  "Explain risk/reward ratio in trading",
+  "What are Bollinger Bands and how do I use them?",
+  "How does RSI divergence work?",
+  "What is the difference between SMA and EMA?",
+];
+
 /* ─────────────────────────────────────────────
    SENTIMENT CONFIG
 ───────────────────────────────────────────── */
@@ -199,7 +212,6 @@ function MarketCard({ card }: { card: MarketCard }) {
         </div>
       </div>
 
-      {/* score bar */}
       <div className="h-0.5 w-full rounded-full" style={{ background: "rgba(0,0,0,0.07)" }}>
         <div className="h-full rounded-full" style={{ width: `${card.score}%`, background: color, opacity: 0.65 }} />
       </div>
@@ -313,6 +325,204 @@ function EconRow({ ev }: { ev: EconEvent }) {
 }
 
 /* ─────────────────────────────────────────────
+   CHAT PANEL
+───────────────────────────────────────────── */
+function ChatPanel() {
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  async function sendMessage(text?: string) {
+    const content = (text ?? input).trim();
+    if (!content || loading) return;
+    setInput("");
+    setError("");
+    const newMessages: ChatMsg[] = [...messages, { role: "user", content }];
+    setMessages(newMessages);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to get a response.");
+      } else {
+        setMessages(m => [...m, { role: "assistant", content: data.message }]);
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+
+      {/* Intro / empty state */}
+      {messages.length === 0 && (
+        <div
+          className="rounded-2xl p-5 flex flex-col items-center gap-3 text-center"
+          style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}
+        >
+          <div
+            className="h-12 w-12 rounded-2xl flex items-center justify-center"
+            style={{ background: "#fff", border: `1px solid ${BLUE_BD}` }}
+          >
+            <Brain className="h-6 w-6" style={{ color: BLUE }} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: C.text }}>AI Trading Assistant</p>
+            <p className="text-[12px] mt-1 max-w-xs mx-auto leading-relaxed" style={{ color: C.sub }}>
+              Ask anything about trading strategies, technical analysis, risk management, or market concepts.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Suggested questions */}
+      {messages.length === 0 && (
+        <div className="flex flex-col gap-2">
+          <SectionLabel>Suggested Questions</SectionLabel>
+          <div className="flex flex-col gap-1.5">
+            {SUGGESTED_QUESTIONS.map(q => (
+              <button
+                key={q}
+                onClick={() => sendMessage(q)}
+                className="text-left px-4 py-2.5 rounded-xl text-[13px] transition-colors duration-150"
+                style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.sub }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = BLUE_BD; (e.currentTarget as HTMLElement).style.color = BLUE; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = C.sub; }}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
+      {messages.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+              <div
+                className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
+                style={msg.role === "user"
+                  ? { background: "#111" }
+                  : { background: BLUE_BG, border: `1px solid ${BLUE_BD}` }
+                }
+              >
+                {msg.role === "user"
+                  ? <User className="h-3.5 w-3.5" style={{ color: "#fff" }} />
+                  : <Bot className="h-3.5 w-3.5" style={{ color: BLUE }} />
+                }
+              </div>
+              <div
+                className="rounded-2xl px-4 py-3 max-w-[85%] text-[13px] leading-relaxed"
+                style={msg.role === "user"
+                  ? { background: "#111", color: "#fff" }
+                  : { background: C.surface, color: C.text, border: `1px solid ${C.border}` }
+                }
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex gap-3">
+              <div
+                className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
+                style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}
+              >
+                <Bot className="h-3.5 w-3.5" style={{ color: BLUE }} />
+              </div>
+              <div
+                className="rounded-2xl px-4 py-3 flex items-center gap-1.5"
+                style={{ background: C.surface, border: `1px solid ${C.border}` }}
+              >
+                {[0, 1, 2].map(i => (
+                  <span
+                    key={i}
+                    className="h-1.5 w-1.5 rounded-full animate-bounce"
+                    style={{ background: C.muted, animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div
+          className="flex items-start gap-2 rounded-xl px-4 py-3 text-xs"
+          style={{ background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.2)", color: C.neg }}
+        >
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
+      {/* Input box */}
+      <div
+        className="rounded-2xl p-2 flex items-end gap-2"
+        style={{ background: "#fff", border: `1px solid ${C.border}`, boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}
+      >
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask about trading, strategies, or market concepts… (Enter to send)"
+          rows={1}
+          disabled={loading}
+          className="flex-1 resize-none px-3 py-2 text-sm outline-none rounded-xl bg-transparent"
+          style={{ color: C.text, minHeight: "40px", maxHeight: "120px" }}
+          onInput={e => {
+            const el = e.currentTarget;
+            el.style.height = "auto";
+            el.style.height = Math.min(el.scrollHeight, 120) + "px";
+          }}
+        />
+        <button
+          onClick={() => sendMessage()}
+          disabled={loading || !input.trim()}
+          className="h-9 w-9 flex items-center justify-center rounded-xl flex-shrink-0 transition-opacity"
+          style={{
+            background: input.trim() && !loading ? "#111" : "#e5e5e5",
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          <Send className="h-4 w-4" style={{ color: input.trim() && !loading ? "#fff" : "#aaa" }} />
+        </button>
+      </div>
+      <p className="text-[10px] text-center" style={{ color: C.muted }}>
+        AI responses are for educational purposes only. Not financial advice.
+      </p>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    TAB CONFIG
 ───────────────────────────────────────────── */
 const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
@@ -320,6 +530,7 @@ const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
   { id: "news",     label: "News",     Icon: Newspaper },
   { id: "ict",      label: "ICT",      Icon: Target },
   { id: "calendar", label: "Calendar", Icon: Clock },
+  { id: "chat",     label: "Chat AI",  Icon: MessageCircle },
 ];
 
 /* ─────────────────────────────────────────────
@@ -329,12 +540,10 @@ export default function AiAssistant() {
   const [tab, setTab] = useState<Tab>("overview");
   const [refreshing, setRefreshing] = useState(false);
 
-  /* Reset scroll position on tab switch — no DOM remount needed */
   useEffect(() => {
     document.querySelector(".tt-main")?.scrollTo({ top: 0, behavior: "instant" });
   }, [tab]);
 
-  /* show / hide panels purely via CSS — zero mount/unmount = zero glitch */
   const show = (id: Tab): React.CSSProperties =>
     tab === id ? { display: "flex", flexDirection: "column", gap: "12px" } : { display: "none" };
 
@@ -367,7 +576,7 @@ export default function AiAssistant() {
                 AI Market Assistant
               </h1>
               <p className="text-[11px] font-mono mt-0.5" style={{ color: C.muted }}>
-                Real-time market intelligence
+                Market intelligence + AI chat
               </p>
             </div>
           </div>
@@ -400,7 +609,7 @@ export default function AiAssistant() {
 
       {/* ── TAB BAR ─────────────────────────────────────────────── */}
       <div
-        className="flex p-1 rounded-2xl gap-1"
+        className="flex p-1 rounded-2xl gap-1 overflow-x-auto"
         style={{ background: C.surface, border: `1px solid ${C.border}` }}
       >
         {TABS.map(t => {
@@ -409,10 +618,10 @@ export default function AiAssistant() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-medium"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-medium whitespace-nowrap min-w-0 px-2"
               style={active ? {
                 background: "#ffffff",
-                color: BLUE,
+                color: t.id === "chat" ? BLUE : BLUE,
                 border: `1px solid ${BLUE_BD}`,
                 boxShadow: "0 1px 4px rgba(37,99,235,0.10)",
               } : {
@@ -429,11 +638,9 @@ export default function AiAssistant() {
       </div>
 
       {/* ══════════════════════════════════════════════
-          OVERVIEW  — always in DOM, hidden via CSS
+          OVERVIEW
       ══════════════════════════════════════════════ */}
       <div style={show("overview")}>
-
-        {/* Overall sentiment card */}
         <div
           className="rounded-2xl p-4 sm:p-5"
           style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
@@ -468,12 +675,11 @@ export default function AiAssistant() {
         </div>
 
         <SectionLabel>Daily Market Analysis</SectionLabel>
-
         {MARKETS.map(m => <MarketCard key={m.id} card={m} />)}
       </div>
 
       {/* ══════════════════════════════════════════════
-          NEWS — always in DOM
+          NEWS
       ══════════════════════════════════════════════ */}
       <div style={show("news")}>
         <SectionLabel>Latest Market News</SectionLabel>
@@ -481,11 +687,9 @@ export default function AiAssistant() {
       </div>
 
       {/* ══════════════════════════════════════════════
-          ICT — always in DOM
+          ICT
       ══════════════════════════════════════════════ */}
       <div style={show("ict")}>
-
-        {/* Disclaimer */}
         <div
           className="flex items-start gap-2 rounded-xl px-4 py-3"
           style={{ background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.2)" }}
@@ -497,10 +701,8 @@ export default function AiAssistant() {
         </div>
 
         <SectionLabel>ICT Concept Analysis</SectionLabel>
-
         {ICT_ZONES.map((zone, i) => <IctCard key={i} zone={zone} />)}
 
-        {/* Directional bias */}
         <div
           className="rounded-2xl p-4 sm:p-5"
           style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.2)" }}
@@ -518,13 +720,10 @@ export default function AiAssistant() {
       </div>
 
       {/* ══════════════════════════════════════════════
-          CALENDAR — always in DOM
+          CALENDAR
       ══════════════════════════════════════════════ */}
       <div style={show("calendar")}>
-
         <SectionLabel>Today's Economic Events</SectionLabel>
-
-        {/* Impact legend */}
         <div className="flex items-center gap-5 px-1">
           {(["high", "medium", "low"] as Impact[]).map(level => {
             const c = { high: C.neg, medium: C.amb, low: C.pos }[level];
@@ -536,8 +735,14 @@ export default function AiAssistant() {
             );
           })}
         </div>
-
         {ECON_EVENTS.map((ev, i) => <EconRow key={i} ev={ev} />)}
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          CHAT
+      ══════════════════════════════════════════════ */}
+      <div style={show("chat")}>
+        <ChatPanel />
       </div>
 
     </div>
