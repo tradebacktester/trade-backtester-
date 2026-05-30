@@ -218,10 +218,9 @@ function calcHeikinAshi(bars: { time: number; open: number; high: number; low: n
   return ha;
 }
 
-function makeChartOptions(width: number, height: number, hideTimeScale = false) {
+function makeChartOptions(hideTimeScale = false) {
   return {
-    width,
-    height,
+    autoSize: true,
     layout: {
       background: { type: ColorType.Solid, color: CHART_BG },
       textColor: CHART_TEXT,
@@ -753,7 +752,7 @@ export default function ChartPage() {
     if (!chartContainerRef.current) return;
     const container = chartContainerRef.current;
 
-    const chart = createChart(container, makeChartOptions(container.clientWidth, container.clientHeight || 480));
+    const chart = createChart(container, makeChartOptions());
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "hsl(150,90%,52%)",   downColor: "hsl(0,85%,58%)",
@@ -822,19 +821,7 @@ export default function ChartPage() {
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    const observer = new ResizeObserver(() => {
-      if (chartContainerRef.current) {
-        const w = chartContainerRef.current.clientWidth;
-        const h = chartContainerRef.current.clientHeight;
-        if (w > 0 && h > 0) {
-          chart.applyOptions({ width: w, height: h });
-        }
-      }
-    });
-    observer.observe(container);
-
     return () => {
-      observer.disconnect();
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
@@ -1020,7 +1007,7 @@ export default function ChartPage() {
 
     // Create chart if needed
     if (!subChartRef.current) {
-      const sc = createChart(container, makeChartOptions(container.clientWidth, container.clientHeight || 120, true));
+      const sc = createChart(container, makeChartOptions(true));
       sc.priceScale("right").applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
 
       // Sync scroll ↔ main chart
@@ -1030,17 +1017,6 @@ export default function ChartPage() {
         try { chartRef.current?.timeScale().setVisibleLogicalRange(range); } catch { /* ignore */ }
         isSyncingRef.current = false;
       });
-
-      const subObserver = new ResizeObserver(() => {
-        if (subChartContainerRef.current && subChartRef.current) {
-          subChartRef.current.applyOptions({
-            width: subChartContainerRef.current.clientWidth,
-            height: subChartContainerRef.current.clientHeight,
-          });
-        }
-      });
-      subObserver.observe(container);
-      (container as HTMLElement & { _subObs?: ResizeObserver })._subObs = subObserver;
 
       subChartRef.current = sc;
     }
@@ -1147,7 +1123,7 @@ export default function ChartPage() {
     if (!container || !multiTfKlines) return;
 
     if (!multiTfChartRef.current) {
-      const mc = createChart(container, makeChartOptions(container.clientWidth, container.clientHeight || 200));
+      const mc = createChart(container, makeChartOptions());
       const mcCandle = mc.addSeries(CandlestickSeries, {
         upColor: "hsl(150,90%,52%)", downColor: "hsl(0,85%,58%)",
         borderUpColor: "hsl(150,90%,52%)", borderDownColor: "hsl(0,85%,58%)",
@@ -1156,17 +1132,6 @@ export default function ChartPage() {
       });
       const mcVol = mc.addSeries(HistogramSeries, { color: "hsl(190,90%,50%)", priceFormat: { type: "volume" }, priceScaleId: "vol2" });
       mc.priceScale("vol2").applyOptions({ scaleMargins: { top: 0.88, bottom: 0 } });
-
-      const mcObs = new ResizeObserver(() => {
-        if (multiTfContainerRef.current && multiTfChartRef.current) {
-          multiTfChartRef.current.applyOptions({
-            width: multiTfContainerRef.current.clientWidth,
-            height: multiTfContainerRef.current.clientHeight,
-          });
-        }
-      });
-      mcObs.observe(container);
-      (container as HTMLElement & { _mcObs?: ResizeObserver })._mcObs = mcObs;
 
       multiTfChartRef.current = mc;
       multiTfCandleRef.current = mcCandle;
@@ -1700,8 +1665,8 @@ export default function ChartPage() {
             className="relative rounded-xl overflow-hidden"
             style={{
               flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto",
-              minHeight: (hasSubChart || showMultiTf) ? "min(260px, 38svh)" : "min(480px, calc(100svh - 240px))",
-              height: (hasSubChart || showMultiTf) ? "55%" : undefined,
+              height: (hasSubChart || showMultiTf) ? "min(320px, 42vh)" : "clamp(420px, calc(100vh - 260px), 700px)",
+              minHeight: (hasSubChart || showMultiTf) ? "200px" : "380px",
               border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)",
               boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
