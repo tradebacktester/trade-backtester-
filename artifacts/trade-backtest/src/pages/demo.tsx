@@ -58,14 +58,40 @@ const BALANCE_OPTIONS = [
 const LEVERAGE_OPTIONS = [1, 2, 5, 10, 25, 50, 100];
 
 const DEMO_SYMBOLS = [
-  { value: "BTCUSDT",  label: "BTC/USDT",  price: 76_420.50, change: 2.34  },
-  { value: "ETHUSDT",  label: "ETH/USDT",  price: 3_521.80,  change: 1.87  },
-  { value: "SOLUSDT",  label: "SOL/USDT",  price: 182.40,    change: -0.92 },
-  { value: "BNBUSDT",  label: "BNB/USDT",  price: 608.20,    change: 0.45  },
-  { value: "XRPUSDT",  label: "XRP/USDT",  price: 0.6234,    change: -1.23 },
-  { value: "ADAUSDT",  label: "ADA/USDT",  price: 0.4567,    change: 3.12  },
-  { value: "LINKUSDT", label: "LINK/USDT", price: 18.92,     change: -0.67 },
-  { value: "INJUSDT",  label: "INJ/USDT",  price: 28.45,     change: 5.23  },
+  // Crypto
+  { value: "BTCUSDT",  label: "BTC/USDT",   price: 76_420.50, change: 2.34,  category: "Crypto"      },
+  { value: "ETHUSDT",  label: "ETH/USDT",   price: 3_521.80,  change: 1.87,  category: "Crypto"      },
+  { value: "SOLUSDT",  label: "SOL/USDT",   price: 182.40,    change: -0.92, category: "Crypto"      },
+  { value: "BNBUSDT",  label: "BNB/USDT",   price: 608.20,    change: 0.45,  category: "Crypto"      },
+  { value: "XRPUSDT",  label: "XRP/USDT",   price: 0.6234,    change: -1.23, category: "Crypto"      },
+  { value: "ADAUSDT",  label: "ADA/USDT",   price: 0.4567,    change: 3.12,  category: "Crypto"      },
+  { value: "LINKUSDT", label: "LINK/USDT",  price: 18.92,     change: -0.67, category: "Crypto"      },
+  { value: "INJUSDT",  label: "INJ/USDT",   price: 28.45,     change: 5.23,  category: "Crypto"      },
+  // Forex
+  { value: "EURUSD",   label: "EUR/USD",    price: 1.0825,    change: -0.18, category: "Forex"       },
+  { value: "GBPUSD",   label: "GBP/USD",    price: 1.2685,    change: -0.31, category: "Forex"       },
+  { value: "USDJPY",   label: "USD/JPY",    price: 153.45,    change: 0.22,  category: "Forex"       },
+  { value: "AUDUSD",   label: "AUD/USD",    price: 0.6530,    change: 0.15,  category: "Forex"       },
+  // Indices
+  { value: "SPX500",   label: "S&P 500",    price: 5_280,     change: 0.42,  category: "Indices"     },
+  { value: "NAS100",   label: "Nasdaq 100", price: 18_420,    change: 0.68,  category: "Indices"     },
+  { value: "DOW30",    label: "Dow Jones",  price: 39_500,    change: 0.21,  category: "Indices"     },
+  // Commodities
+  { value: "XAUUSD",   label: "Gold",       price: 2_320,     change: 0.74,  category: "Commodities" },
+  { value: "WTIUSD",   label: "WTI Oil",    price: 82.50,     change: -1.12, category: "Commodities" },
+  // Stocks
+  { value: "AAPL",     label: "Apple",      price: 178,       change: 1.23,  category: "Stocks"      },
+  { value: "TSLA",     label: "Tesla",      price: 185,       change: -2.14, category: "Stocks"      },
+  { value: "NVDA",     label: "Nvidia",     price: 880,       change: 3.45,  category: "Stocks"      },
+];
+
+const DEMO_INTERVALS = [
+  { value: "1m",  label: "1m",  sec: 60     },
+  { value: "5m",  label: "5m",  sec: 300    },
+  { value: "15m", label: "15m", sec: 900    },
+  { value: "1h",  label: "1H",  sec: 3600   },
+  { value: "4h",  label: "4H",  sec: 14400  },
+  { value: "1d",  label: "1D",  sec: 86400  },
 ];
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -83,15 +109,14 @@ function fmtPrice(p: number) {
 }
 
 /* ── seeded candle history ───────────────────────────────────────── */
-function seedCandles(basePrice: number, count = 80): OhlcCandle[] {
+function seedCandles(basePrice: number, count = 120, intervalSec = 60): OhlcCandle[] {
   const nowSec = Math.floor(Date.now() / 1000);
-  const minuteStart = nowSec - (nowSec % 60);
+  const slotStart = nowSec - (nowSec % intervalSec);
   const candles: OhlcCandle[] = [];
   let price = basePrice;
-  /* walk backwards from the slot BEFORE current open candle */
+  const vol = intervalSec >= 14400 ? 0.02 : intervalSec >= 3600 ? 0.012 : intervalSec >= 300 ? 0.006 : 0.0025;
   for (let i = count; i >= 1; i--) {
-    const time = minuteStart - i * 60;
-    const vol = 0.0025;
+    const time = slotStart - i * intervalSec;
     const open = price;
     const c1   = price * (1 + (Math.random() - 0.495) * vol * 2.4);
     const c2   = price * (1 + (Math.random() - 0.495) * vol * 2.4);
@@ -125,7 +150,7 @@ const DEMO_DRAW_COLORS = [
   "hsl(0,85%,62%)",   "hsl(260,90%,70%)", "hsl(200,14%,75%)",
 ];
 
-type DemoDrawTool = "cursor" | "hline" | "trendline" | "ray" | "eraser";
+type DemoDrawTool = "cursor" | "hline" | "trendline" | "ray" | "eraser" | "doodle";
 type DemoDrawnLine =
   | { kind: "hline"; priceLine: IPriceLine; color: string }
   | { kind: "trendline"; series: ISeriesApi<"Line">; color: string };
@@ -133,20 +158,29 @@ type DemoDrawnLine =
 /* ══════════════════════════════════════════════════════════════════
    LIVE CANDLESTICK CHART
 ══════════════════════════════════════════════════════════════════ */
-function DemoChart({ symbol, livePrice, openPositions }: {
+function DemoChart({ symbol, livePrice, openPositions, interval = "1m", viralOn = false }: {
   symbol: string;
   livePrice: number;
   openPositions: DemoTrade[];
+  interval?: string;
+  viralOn?: boolean;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef     = useRef<IChartApi | null>(null);
-  const seriesRef    = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
-  const candlesRef   = useRef<OhlcCandle[]>([]);
+  const containerRef    = useRef<HTMLDivElement>(null);
+  const chartRef        = useRef<IChartApi | null>(null);
+  const seriesRef       = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+  const candlesRef      = useRef<OhlcCandle[]>([]);
+  const viralSeriesRef  = useRef<ISeriesApi<"Line">[]>([]);
+  const doodleCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [doodlePaths, setDoodlePaths] = useState<{ points: {x: number; y: number}[]; color: string }[]>([]);
+  const isDoodlingRef   = useRef(false);
+  const currentDoodleRef = useRef<{x: number; y: number}[]>([]);
 
-  /* Build chart once per symbol — tears down & rebuilds on symbol change */
+  /* Build chart once per symbol or interval — tears down & rebuilds */
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    const intervalDef = DEMO_INTERVALS.find(iv => iv.value === interval) ?? DEMO_INTERVALS[0];
+    const intervalSec = intervalDef.sec;
 
     const chart = createChart(el, {
       width:  el.clientWidth,
@@ -168,11 +202,11 @@ function DemoChart({ symbol, livePrice, openPositions }: {
       timeScale: {
         borderColor:    "rgba(255,255,255,0.06)",
         timeVisible:    true,
-        secondsVisible: false,
+        secondsVisible: intervalSec < 300,
         fixLeftEdge:    true,
       },
-      handleScroll: false,
-      handleScale:  false,
+      handleScroll: true,
+      handleScale:  true,
     });
 
     chartRef.current = chart;
@@ -189,7 +223,7 @@ function DemoChart({ symbol, livePrice, openPositions }: {
     seriesRef.current = series;
 
     /* Seed history */
-    const history = seedCandles(livePrice);
+    const history = seedCandles(livePrice, 120, intervalSec);
     candlesRef.current = history;
     series.setData(history as Parameters<typeof series.setData>[0]);
     chart.timeScale().fitContent();
@@ -202,31 +236,31 @@ function DemoChart({ symbol, livePrice, openPositions }: {
 
     return () => {
       ro.disconnect();
+      viralSeriesRef.current = [];
       chart.remove();
       chartRef.current  = null;
       seriesRef.current = null;
       candlesRef.current = [];
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol]);
+  }, [symbol, interval]);
 
   /* Update current candle on every price tick */
   useEffect(() => {
     const series = seriesRef.current;
     if (!series || !candlesRef.current.length) return;
 
-    const nowSec     = Math.floor(Date.now() / 1000);
-    const minuteStart = nowSec - (nowSec % 60);
-    const last       = candlesRef.current[candlesRef.current.length - 1];
+    const nowSec = Math.floor(Date.now() / 1000);
+    const intervalSec = DEMO_INTERVALS.find(iv => iv.value === interval)?.sec ?? 60;
+    const slotStart = nowSec - (nowSec % intervalSec);
+    const last = candlesRef.current[candlesRef.current.length - 1];
 
     let updated: OhlcCandle;
 
-    if (minuteStart > last.time) {
-      /* Open a brand-new candle */
-      updated = { time: minuteStart, open: livePrice, high: livePrice, low: livePrice, close: livePrice };
+    if (slotStart > last.time) {
+      updated = { time: slotStart, open: livePrice, high: livePrice, low: livePrice, close: livePrice };
       candlesRef.current = [...candlesRef.current, updated];
     } else {
-      /* Extend the current candle */
       updated = {
         ...last,
         high:  Math.max(last.high,  livePrice),
@@ -237,7 +271,8 @@ function DemoChart({ symbol, livePrice, openPositions }: {
     }
 
     series.update(updated as Parameters<typeof series.update>[0]);
-  }, [livePrice]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePrice, interval]);
 
   /* Position entry price lines */
   const posLinesRef = useRef<Map<number, IPriceLine>>(new Map());
@@ -265,6 +300,37 @@ function DemoChart({ symbol, livePrice, openPositions }: {
       }
     });
   }, [openPositions]);
+
+  /* Viral EMA overlays */
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    viralSeriesRef.current.forEach(s => { try { chart.removeSeries(s); } catch { /**/ } });
+    viralSeriesRef.current = [];
+    if (!viralOn || !candlesRef.current.length) return;
+    function calcEMA(closes: number[], period: number): number[] {
+      if (closes.length < period) return closes.map(() => NaN);
+      const k = 2 / (period + 1);
+      let ema = closes.slice(0, period).reduce((s, v) => s + v, 0) / period;
+      const out: number[] = new Array(period - 1).fill(NaN);
+      out.push(ema);
+      for (let i = period; i < closes.length; i++) { ema = closes[i] * k + ema * (1 - k); out.push(ema); }
+      return out;
+    }
+    const candles = candlesRef.current;
+    const closes = candles.map(c => c.close);
+    for (const { values, color } of [
+      { values: calcEMA(closes, 20), color: "hsl(190,90%,55%)" },
+      { values: calcEMA(closes, 50), color: "hsl(150,90%,55%)" },
+    ]) {
+      const s = chart.addSeries(LineSeries, {
+        color, lineWidth: 1 as const,
+        priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      });
+      s.setData(candles.map((c, i) => ({ time: c.time as Time, value: values[i] })).filter(d => !isNaN(d.value)));
+      viralSeriesRef.current.push(s);
+    }
+  }, [viralOn]);
 
   // ── Drawing tools ──────────────────────────────────────────────────
   const [activeTool, setActiveTool] = useState<DemoDrawTool>("cursor");
@@ -340,11 +406,31 @@ function DemoChart({ symbol, livePrice, openPositions }: {
     }
   }
 
+  useEffect(() => {
+    const canvas = doodleCanvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    doodlePaths.forEach(({ points, color }) => {
+      if (points.length < 2) return;
+      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+      ctx.stroke();
+    });
+  }, [doodlePaths]);
+
   const DRAW_TOOL_DEFS: { id: DemoDrawTool; icon: string; title: string }[] = [
     { id: "cursor",    icon: "↖", title: "Select (no draw)" },
     { id: "hline",     icon: "—", title: "Horizontal Line" },
     { id: "trendline", icon: "╱", title: "Trendline" },
     { id: "ray",       icon: "↗", title: "Ray" },
+    { id: "doodle",    icon: "✏", title: "Freehand Doodle" },
     { id: "eraser",    icon: "✕", title: "Erase Last" },
   ];
 
@@ -354,6 +440,11 @@ function DemoChart({ symbol, livePrice, openPositions }: {
         ref={containerRef}
         style={{ width: "100%", height: 268, minHeight: 268 }}
       />
+      <canvas
+        ref={doodleCanvasRef}
+        className="absolute inset-0 pointer-events-none"
+        style={{ zIndex: 15, width: "100%", height: "100%" }}
+      />
 
       {/* Drawing overlay */}
       <div
@@ -362,7 +453,41 @@ function DemoChart({ symbol, livePrice, openPositions }: {
           cursor: activeTool === "cursor" ? "default" : activeTool === "eraser" ? "cell" : "crosshair",
           pointerEvents: activeTool === "cursor" ? "none" : "auto",
         }}
-        onMouseDown={handleDrawMouseDown}
+        onMouseDown={e => {
+          if (activeTool === "doodle") {
+            e.preventDefault();
+            const rect = containerRef.current!.getBoundingClientRect();
+            const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+            isDoodlingRef.current = true; currentDoodleRef.current = [{ x, y }];
+            const ctx = doodleCanvasRef.current?.getContext("2d");
+            if (ctx) { ctx.beginPath(); ctx.moveTo(x, y); }
+            return;
+          }
+          handleDrawMouseDown(e);
+        }}
+        onMouseMove={e => {
+          if (activeTool === "doodle" && isDoodlingRef.current) {
+            const rect = containerRef.current!.getBoundingClientRect();
+            const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+            currentDoodleRef.current.push({ x, y });
+            const ctx = doodleCanvasRef.current?.getContext("2d");
+            if (ctx) {
+              ctx.strokeStyle = drawColor; ctx.lineWidth = 2.5;
+              ctx.lineCap = "round"; ctx.lineJoin = "round";
+              ctx.lineTo(x, y); ctx.stroke();
+            }
+          }
+        }}
+        onMouseUp={() => {
+          if (activeTool === "doodle" && isDoodlingRef.current) {
+            isDoodlingRef.current = false;
+            if (currentDoodleRef.current.length > 1) {
+              setDoodlePaths(prev => [...prev, { points: [...currentDoodleRef.current], color: drawColor }]);
+            }
+            currentDoodleRef.current = [];
+          }
+        }}
+        onMouseLeave={() => { isDoodlingRef.current = false; }}
       />
 
       {/* Start-point dot */}
@@ -434,11 +559,23 @@ function DemoChart({ symbol, livePrice, openPositions }: {
             </button>
           </>
         )}
+        {doodlePaths.length > 0 && (
+          <>
+            <div className="w-px h-4 flex-shrink-0 mx-0.5" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <button
+              onClick={() => setDoodlePaths([])}
+              className="h-6 px-2 rounded-lg text-[10px] font-mono flex-shrink-0 transition-all"
+              style={{ color: "hsl(38,100%,60%)", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}
+              title="Clear doodles"
+            >✏✕</button>
+          </>
+        )}
         {activeTool !== "cursor" && (
           <span className="ml-auto text-[10px] font-mono flex-shrink-0" style={{ color: "hsl(190,90%,55%)" }}>
             {activeTool === "hline" && "click to place"}
             {(activeTool === "trendline" || activeTool === "ray") && (drawStart ? "click 2nd point" : "click start")}
             {activeTool === "eraser" && "click to erase"}
+            {activeTool === "doodle" && "draw freehand"}
           </span>
         )}
       </div>
@@ -589,6 +726,8 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
   const [limitPrice, setLimitPrice]       = useState("");
   const [stopPrice, setStopPrice]         = useState("");
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [chartInterval, setChartInterval] = useState("1m");
+  const [viralOn, setViralOn]             = useState(false);
   const livePrice = useSimPrice(selectedSymbol.price);
 
   const openPositions    = trades.filter(t => t.status === "open");
@@ -732,12 +871,23 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
       {showMarkets && (
         <Card className="p-3">
           <p className="text-[9px] font-mono uppercase tracking-widest px-1 mb-2" style={{ color: "hsl(218,12%,36%)" }}>Select Market</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            {DEMO_SYMBOLS.map(sym => (
-              <MarketRow key={sym.value} sym={sym}
-                isSelected={sym.value === selectedSymbol.value}
-                onClick={() => { setSelectedSymbol(sym); setShowMarkets(false); }} />
-            ))}
+          <div className="flex flex-col gap-2 max-h-80 overflow-y-auto">
+            {(["Crypto", "Forex", "Indices", "Commodities", "Stocks"] as const).map(cat => {
+              const items = DEMO_SYMBOLS.filter(s => s.category === cat);
+              if (!items.length) return null;
+              return (
+                <div key={cat}>
+                  <p className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1" style={{ color: "hsl(218,12%,34%)" }}>{cat}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                    {items.map(sym => (
+                      <MarketRow key={sym.value} sym={sym}
+                        isSelected={sym.value === selectedSymbol.value}
+                        onClick={() => { setSelectedSymbol(sym); setShowMarkets(false); }} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}
@@ -772,16 +922,32 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
           <div className="flex-1 min-w-0">
           <Card className="overflow-hidden">
             {/* Chart header */}
-            <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b"
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b flex-wrap gap-2"
               style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-mono font-semibold" style={{ color: ACCENT }}>
                   {selectedSymbol.label}
                 </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                  style={{ background: "rgba(255,255,255,0.05)", color: "hsl(218,12%,44%)" }}>
-                  1m
-                </span>
+                <div className="flex items-center gap-0.5 rounded-lg p-0.5 border"
+                  style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
+                  {DEMO_INTERVALS.map(iv => (
+                    <button
+                      key={iv.value}
+                      onClick={() => setChartInterval(iv.value)}
+                      className="px-1.5 py-0.5 text-[10px] font-mono rounded transition-all"
+                      style={chartInterval === iv.value
+                        ? { background: "rgba(59,130,246,0.18)", color: "hsl(210,90%,65%)" }
+                        : { color: "hsl(218,12%,44%)" }}
+                    >{iv.label}</button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setViralOn(v => !v)}
+                  className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded-lg border transition-all"
+                  style={viralOn
+                    ? { background: "rgba(251,115,22,0.18)", borderColor: "rgba(251,115,22,0.4)", color: "hsl(28,100%,65%)" }
+                    : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(218,12%,48%)" }}
+                >🔥 Viral</button>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-base font-bold font-mono"
@@ -803,7 +969,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
 
             {/* Chart canvas */}
             <div className="px-1 pb-1 pt-1">
-              <DemoChart symbol={selectedSymbol.value} livePrice={livePrice} openPositions={openPositions} />
+              <DemoChart symbol={selectedSymbol.value} livePrice={livePrice} openPositions={openPositions} interval={chartInterval} viralOn={viralOn} />
             </div>
           </Card>
           </div>

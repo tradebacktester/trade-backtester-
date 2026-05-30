@@ -1,10 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useRef, useCallback } from "react";
 import { useGetBacktestSummary, useListBacktests } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import {
   TrendingUp, TrendingDown, DollarSign, Percent, Target, Shield,
   Clock, BarChart2, Zap, Activity, ArrowUpRight, Play,
   Globe, Bitcoin, Brain, CandlestickChart,
+  MessageCircle, Send, X, Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -284,6 +285,35 @@ export default function Dashboard() {
   const { data: backtests, isLoading: loadingBacktests } = useListBacktests();
   const isLoading = loadingSummary || loadingBacktests;
 
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const sendMessage = useCallback(async () => {
+    const text = chatInput.trim();
+    if (!text || isChatLoading) return;
+    setChatInput("");
+    const newMessages = [...messages, { role: "user" as const, content: text }];
+    setMessages(newMessages);
+    setIsChatLoading(true);
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+      const data = await res.json() as { message?: string; error?: string };
+      setMessages(prev => [...prev, { role: "assistant" as const, content: data.message ?? data.error ?? "Error." }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant" as const, content: "Network error. Please try again." }]);
+    } finally {
+      setIsChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  }, [chatInput, messages, isChatLoading]);
+
   const analytics = useMemo(() => {
     if (!backtests?.length) return null;
     const completed = backtests.filter((b: any) => b.status === "complete");
@@ -438,6 +468,81 @@ export default function Dashboard() {
           </div>
         )}
       </Panel>
+
+      {/* AI Chat Button */}
+      <button
+        onClick={() => setChatOpen(v => !v)}
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full flex items-center justify-center z-50 transition-all hover:scale-105 active:scale-95"
+        style={{ background: "linear-gradient(135deg,#111,#222)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.3)", color: "#fff" }}
+        title="Ask AI about trading"
+      >
+        {chatOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
+      </button>
+
+      {chatOpen && (
+        <div className="fixed bottom-24 right-6 z-50 rounded-2xl flex flex-col overflow-hidden"
+          style={{ width: 340, maxHeight: "70vh", background: "#ffffff", border: "1px solid rgba(0,0,0,0.1)", boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+          <div className="flex items-center gap-2.5 px-4 py-3 border-b" style={{ borderColor: "rgba(0,0,0,0.08)" }}>
+            <span className="h-7 w-7 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#111" }}>
+              <Bot className="h-3.5 w-3.5 text-white" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: C.text }}>Trading AI</p>
+              <p className="text-[10px] font-mono" style={{ color: C.muted }}>Powered by GPT-4o</p>
+            </div>
+            <button onClick={() => setChatOpen(false)} className="ml-auto hover:opacity-60 transition-opacity" style={{ color: C.muted }}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3" style={{ minHeight: 0 }}>
+            {messages.length === 0 && (
+              <div className="text-center py-4">
+                <Bot className="h-8 w-8 mx-auto mb-2" style={{ color: C.muted }} />
+                <p className="text-xs font-mono mb-3" style={{ color: C.muted }}>Ask me about trading strategies, indicators, or risk management.</p>
+                <div className="flex flex-col gap-1.5">
+                  {["What is RSI?", "Explain Bollinger Bands", "How to use stop loss?"].map(q => (
+                    <button key={q} onClick={() => setChatInput(q)}
+                      className="text-[11px] font-mono px-3 py-1.5 rounded-xl text-left transition-all hover:opacity-80"
+                      style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.sub }}
+                    >{q}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className="max-w-[85%] px-3 py-2 rounded-2xl text-xs font-mono leading-relaxed whitespace-pre-wrap"
+                  style={m.role === "user"
+                    ? { background: "#111", color: "#fff", borderBottomRightRadius: 4 }
+                    : { background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderBottomLeftRadius: 4 }}
+                >{m.content}</div>
+              </div>
+            ))}
+            {isChatLoading && (
+              <div className="flex justify-start">
+                <div className="px-3 py-2 rounded-2xl text-xs font-mono" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}>Thinking…</div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border" style={{ background: C.surface, borderColor: C.border }}>
+              <input
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
+                placeholder="Ask about trading…"
+                className="flex-1 text-xs font-mono bg-transparent outline-none"
+                style={{ color: C.text }}
+              />
+              <button onClick={() => void sendMessage()} disabled={!chatInput.trim() || isChatLoading}
+                className="h-6 w-6 rounded-lg flex items-center justify-center transition-all disabled:opacity-30"
+                style={{ background: "#111", color: "#fff" }}
+              ><Send className="h-3 w-3" /></button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

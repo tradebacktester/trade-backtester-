@@ -2,7 +2,7 @@ import type { IPriceLine, ISeriesApi, Time } from "lightweight-charts";
 
 // ── Draw types ────────────────────────────────────────────────────
 
-export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser";
+export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser" | "doodle";
 
 export type DrawnObject =
   | { kind: "hline";     priceLine: IPriceLine; id: number; price: number; color: string }

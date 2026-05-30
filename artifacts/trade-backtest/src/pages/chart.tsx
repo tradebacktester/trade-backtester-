@@ -62,6 +62,7 @@ import {
   Trash2,
   Check,
   Layers,
+  Flame,
 } from "lucide-react";
 import {
   calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic, generateSimData,
@@ -151,6 +152,8 @@ const DRAW_COLORS = [
   { value: "hsl(260,90%,70%)", label: "Purple" },
   { value: "hsl(200,14%,75%)", label: "White" },
 ];
+
+const VIRAL_INDICATOR_IDS = ["ema9", "ema20", "ema50", "bb", "vwap", "rsi"] as const;
 
 const CHART_TYPES = [
   { id: "candlestick" as const, label: "C",  title: "Candlestick" },
@@ -280,6 +283,13 @@ export default function ChartPage() {
   const [drawColor, setDrawColor] = useState(DRAW_COLORS[0].value);
   const [drawings, setDrawings] = useState<DrawnObject[]>([]);
   const [drawStart, setDrawStart] = useState<DrawStart | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+
+  // Doodle canvas
+  const doodleCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [doodlePaths, setDoodlePaths] = useState<{ points: { x: number; y: number }[]; color: string }[]>([]);
+  const isDoodlingRef = useRef(false);
+  const currentDoodleRef = useRef<{ x: number; y: number }[]>([]);
 
   // Chart type
   const [chartType, setChartType] = useState<ChartType>("candlestick");
@@ -333,6 +343,29 @@ export default function ChartPage() {
   useEffect(() => { replayIndexRef.current = replayIndex; }, [replayIndex]);
   useEffect(() => { positionRef.current = position; }, [position]);
   useEffect(() => { drawingsRef.current = drawings; }, [drawings]);
+
+  // Redraw doodle canvas when paths change
+  useEffect(() => {
+    const canvas = doodleCanvasRef.current;
+    const container = chartContainerRef.current;
+    if (!canvas || !container) return;
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    doodlePaths.forEach(({ points, color }) => {
+      if (points.length < 2) return;
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+      ctx.stroke();
+    });
+  }, [doodlePaths]);
 
   const queryClient = useQueryClient();
 
@@ -433,6 +466,7 @@ export default function ChartPage() {
     { id: "ray",       icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="2" y1="12" x2="12" y2="2"/><circle cx="12" cy="2" r="1.5" fill="currentColor"/></svg>, label: "Ray", key: "R" },
     { id: "fibonacci", icon: <Hash className="h-3.5 w-3.5" />,                   label: "Fib",       key: "F" },
     { id: "rectangle", icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="4" width="10" height="6" rx="1"/></svg>, label: "Zone", key: "Z" },
+    { id: "doodle",    icon: <Pencil className="h-3.5 w-3.5" />,                 label: "Doodle",    key: "D" },
     { id: "eraser",    icon: <Eraser className="h-3.5 w-3.5" />,                 label: "Erase",     key: "E" },
   ];
 
@@ -469,6 +503,18 @@ export default function ChartPage() {
   const handleChartMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (activeTool === "cursor") return;
     e.preventDefault();
+
+    if (activeTool === "doodle") {
+      const rect = chartContainerRef.current!.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      isDoodlingRef.current = true;
+      currentDoodleRef.current = [{ x, y }];
+      const ctx = doodleCanvasRef.current?.getContext("2d");
+      if (ctx) { ctx.beginPath(); ctx.moveTo(x, y); }
+      return;
+    }
+
     const { x, y, price, time } = getChartCoords(e);
     if (price === null || time === null) return;
 
@@ -1257,7 +1303,7 @@ export default function ChartPage() {
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
-    <div className="tt-chart-page flex flex-col gap-2" style={{ maxWidth: "100%", overflow: "hidden" }}>
+    <div className="tt-chart-page flex flex-col gap-2" style={{ maxWidth: "100%", overflowX: "hidden" }}>
 
       {/* ── Header ───────────────────────────────────────────────── */}
       <div
@@ -1378,6 +1424,22 @@ export default function ChartPage() {
               </div>
             )}
           </div>
+
+          {/* Viral indicators quick preset */}
+          <button
+            onClick={() => {
+              const allOn = VIRAL_INDICATOR_IDS.every(id => indicators.find(i => i.id === id)?.enabled);
+              setIndicators(prev => prev.map(i =>
+                (VIRAL_INDICATOR_IDS as readonly string[]).includes(i.id) ? { ...i, enabled: !allOn } : i
+              ));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+            style={VIRAL_INDICATOR_IDS.every(id => indicators.find(i => i.id === id)?.enabled)
+              ? { background: "rgba(251,115,22,0.18)", borderColor: "rgba(251,115,22,0.4)", color: "hsl(28,100%,65%)", boxShadow: "0 0 16px rgba(251,115,22,0.2)" }
+              : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
+          >
+            <Flame className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Viral</span>
+          </button>
 
           {/* Multi-TF toggle */}
           <div className="flex items-center gap-1">
@@ -1651,13 +1713,74 @@ export default function ChartPage() {
             {/* Chart canvas */}
             <div ref={chartContainerRef} className="w-full h-full" />
 
+            {/* Doodle canvas */}
+            <canvas
+              ref={doodleCanvasRef}
+              className="absolute inset-0 pointer-events-none"
+              style={{ zIndex: 15, width: "100%", height: "100%" }}
+            />
+
             {/* Drawing overlay */}
             <div
               className="absolute inset-0 z-20"
               style={{ cursor: activeTool === "cursor" ? "default" : activeTool === "eraser" ? "cell" : "crosshair", pointerEvents: activeTool === "cursor" ? "none" : "auto" }}
               onMouseDown={handleChartMouseDown}
+              onMouseMove={e => {
+                const rect = chartContainerRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setMousePos({ x, y });
+                if (activeTool === "doodle" && isDoodlingRef.current) {
+                  currentDoodleRef.current.push({ x, y });
+                  const ctx = doodleCanvasRef.current?.getContext("2d");
+                  if (ctx) {
+                    ctx.strokeStyle = drawColor;
+                    ctx.lineWidth = 2.5;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                  }
+                }
+              }}
+              onMouseUp={() => {
+                if (activeTool === "doodle" && isDoodlingRef.current) {
+                  isDoodlingRef.current = false;
+                  if (currentDoodleRef.current.length > 1) {
+                    setDoodlePaths(prev => [...prev, { points: [...currentDoodleRef.current], color: drawColor }]);
+                  }
+                  currentDoodleRef.current = [];
+                }
+                setMousePos(null);
+              }}
+              onMouseLeave={() => { setMousePos(null); isDoodlingRef.current = false; }}
             />
 
+
+            {/* Ghost preview while drawing */}
+            {drawStart && mousePos && (activeTool === "trendline" || activeTool === "ray" || activeTool === "rectangle" || activeTool === "fibonacci") && (
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                style={{ zIndex: 22, width: "100%", height: "100%", overflow: "visible" }}
+              >
+                <defs>
+                  <filter id="glow-filter-lw">
+                    <feGaussianBlur stdDeviation="2" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                  </filter>
+                </defs>
+                <line
+                  x1={drawStart.x} y1={drawStart.y}
+                  x2={mousePos.x}  y2={mousePos.y}
+                  stroke={drawColor} strokeWidth="1.5"
+                  strokeDasharray="6 3" opacity="0.8"
+                  filter="url(#glow-filter-lw)"
+                />
+                <circle cx={mousePos.x} cy={mousePos.y} r="3.5"
+                  fill={drawColor} opacity="0.7" filter="url(#glow-filter-lw)" />
+              </svg>
+            )}
 
             {/* Drawing start-point indicator */}
             {drawStart && (
@@ -1687,6 +1810,7 @@ export default function ChartPage() {
                   {activeTool === "rectangle" && (drawStart ? "Click opposite corner to finish zone" : "Click first corner")}
                   {activeTool === "fibonacci" && (drawStart ? "Click second point for Fib levels" : "Click high or low to start")}
                   {activeTool === "eraser" && "Click to erase last drawing · Esc to cancel"}
+                  {activeTool === "doodle" && "Draw freehand on the chart · release to finish"}
                 </span>
               </div>
             )}
@@ -1720,6 +1844,17 @@ export default function ChartPage() {
                 style={{ background: c.value, transform: drawColor === c.value ? "scale(1.4)" : "scale(1)", boxShadow: drawColor === c.value ? `0 0 8px ${c.value}` : "none", outline: drawColor === c.value ? `2px solid ${c.value}` : "none", outlineOffset: "2px" }}
               />
             ))}
+            {doodlePaths.length > 0 && (
+              <>
+                <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
+                <button
+                  onClick={() => setDoodlePaths([])}
+                  className="h-6 px-2 flex items-center justify-center gap-1 rounded-lg text-[9px] font-mono transition-all flex-shrink-0"
+                  style={{ color: "hsl(38,100%,60%)", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}
+                  title="Clear doodles"
+                ><Pencil className="h-3 w-3" /></button>
+              </>
+            )}
             {drawings.length > 0 && (
               <>
                 <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
