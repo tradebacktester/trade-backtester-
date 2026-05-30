@@ -122,11 +122,20 @@ export default function NewBacktest() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {strategies?.map((s) => (
-                          <SelectItem key={s.id} value={s.id.toString()}>
-                            {s.name} ({s.timeframe})
-                          </SelectItem>
-                        ))}
+                        {!isLoadingStrategies && (!strategies || strategies.length === 0) ? (
+                          <div className="px-3 py-4 text-center space-y-1">
+                            <p className="text-xs text-muted-foreground">No strategies yet.</p>
+                            <Link href="/strategies/new" className="text-xs text-primary underline underline-offset-2">
+                              Create a strategy first →
+                            </Link>
+                          </div>
+                        ) : (
+                          strategies?.map((s) => (
+                            <SelectItem key={s.id} value={s.id.toString()}>
+                              {s.name} ({s.timeframe})
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />

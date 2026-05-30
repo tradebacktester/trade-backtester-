@@ -684,6 +684,7 @@ export default function ChartPage() {
     setIsPlaying(false); setReplayIndex(MIN_CANDLES); setReplayMode(true);
     setPosition(null); setTrades([]); setEquity(STARTING_CAPITAL);
     markersRef.current = [];
+    markersPluginRef.current?.setMarkers([]);
   }, []);
 
   const exitReplay = useCallback(() => {
@@ -823,10 +824,11 @@ export default function ChartPage() {
 
     const observer = new ResizeObserver(() => {
       if (chartContainerRef.current) {
-        chart.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        });
+        const w = chartContainerRef.current.clientWidth;
+        const h = chartContainerRef.current.clientHeight;
+        if (w > 0 && h > 0) {
+          chart.applyOptions({ width: w, height: h });
+        }
       }
     });
     observer.observe(container);
@@ -919,6 +921,9 @@ export default function ChartPage() {
     }
 
     replayMode ? chart.timeScale().scrollToPosition(4, false) : chart.timeScale().fitContent();
+
+    // Re-apply trade markers after data change (setData can clear them)
+    markersPluginRef.current?.setMarkers([...markersRef.current]);
 
     // Restore pending layout drawings
     if (pendingRestoreRef.current) {
@@ -1713,7 +1718,7 @@ export default function ChartPage() {
             )}
 
             {/* Chart canvas */}
-            <div ref={chartContainerRef} className="w-full h-full" />
+            <div ref={chartContainerRef} className="absolute inset-0" />
 
             {/* Doodle canvas */}
             <canvas
