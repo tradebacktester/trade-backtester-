@@ -290,7 +290,6 @@ body {
   box-shadow: var(--shadow-card);
   border-radius: 1rem;
   transition: box-shadow 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
-  will-change: box-shadow;
 }
 .premium-card:hover {
   border-color: rgba(0,0,0,0.13);
@@ -318,7 +317,6 @@ body {
 .depth-card {
   box-shadow: var(--shadow-card);
   transition: box-shadow 0.22s ease, border-color 0.22s ease;
-  will-change: box-shadow;
 }
 .depth-card:hover {
   box-shadow: var(--shadow-card-hover);
