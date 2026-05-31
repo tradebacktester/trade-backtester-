@@ -13,9 +13,9 @@ const SYSTEM_PROMPT = `You are an expert trading and financial markets educator.
 Keep responses concise but informative (2–4 paragraphs max). Use clear examples where helpful. Do not give specific investment advice or price predictions.`;
 
 router.post("/ai/chat", async (req, res) => {
-  const apiKey = process.env["GEMINI_API_KEY"];
+  const apiKey = process.env["GROQ_API_KEY"];
   if (!apiKey) {
-    res.status(503).json({ error: "Gemini API key is not configured." });
+    res.status(503).json({ error: "Groq API key is not configured." });
     return;
   }
 
@@ -31,11 +31,11 @@ router.post("/ai/chat", async (req, res) => {
   try {
     const client = new OpenAI({
       apiKey,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      baseURL: "https://api.groq.com/openai/v1",
     });
 
     const completion = await client.chat.completions.create({
-      model: "gemini-2.0-flash",
+      model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         ...messages,
