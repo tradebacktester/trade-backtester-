@@ -54,10 +54,8 @@ import {
   GitCommit,
   Hash,
   Eraser,
-  Pencil,
   BarChart2,
   Save,
-  FolderOpen,
   SplitSquareVertical,
   Trash2,
   Check,
@@ -66,10 +64,10 @@ import {
 } from "lucide-react";
 import {
   calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic, generateSimData,
-  loadLayouts, saveLayouts, loadIndicators, persistIndicators,
+  loadIndicators, persistIndicators,
   type DrawnObject, type DrawTool, type DrawStart, type OhlcState,
   type KlineBar, type Position, type SimTrade,
-  type IndicatorConfig, type ChartLayout, type SerializableDrawing, type IndicatorId,
+  type IndicatorConfig, type SerializableDrawing, type IndicatorId,
 } from "@/lib/chart-utils";
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -310,12 +308,6 @@ export default function ChartPage() {
   const [drawStart, setDrawStart] = useState<DrawStart | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-  // Doodle canvas
-  const doodleCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [doodlePaths, setDoodlePaths] = useState<{ points: { x: number; y: number }[]; color: string }[]>([]);
-  const isDoodlingRef = useRef(false);
-  const currentDoodleRef = useRef<{ x: number; y: number }[]>([]);
-
   // Chart type
   const [chartType, setChartType] = useState<ChartType>("candlestick");
 
@@ -326,11 +318,6 @@ export default function ChartPage() {
   // ── Multi-TF state ─────────────────────────────────────────────────
   const [showMultiTf, setShowMultiTf] = useState(false);
   const [multiTfInterval, setMultiTfInterval] = useState<GetKlinesInterval>(GetKlinesInterval["1w"]);
-
-  // ── Layouts state ──────────────────────────────────────────────────
-  const [savedLayouts, setSavedLayouts] = useState<ChartLayout[]>(loadLayouts);
-  const [showLayoutPanel, setShowLayoutPanel] = useState(false);
-  const [layoutNameInput, setLayoutNameInput] = useState("");
 
   // ── Refs ───────────────────────────────────────────────────────────
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -368,29 +355,6 @@ export default function ChartPage() {
   useEffect(() => { replayIndexRef.current = replayIndex; }, [replayIndex]);
   useEffect(() => { positionRef.current = position; }, [position]);
   useEffect(() => { drawingsRef.current = drawings; }, [drawings]);
-
-  // Redraw doodle canvas when paths change
-  useEffect(() => {
-    const canvas = doodleCanvasRef.current;
-    const container = chartContainerRef.current;
-    if (!canvas || !container) return;
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    doodlePaths.forEach(({ points, color }) => {
-      if (points.length < 2) return;
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-      ctx.stroke();
-    });
-  }, [doodlePaths]);
 
   const queryClient = useQueryClient();
 
@@ -496,10 +460,8 @@ export default function ChartPage() {
     { id: "cursor",    icon: <MousePointer2 className="h-3.5 w-3.5" />,          label: "Select",    key: "Esc" },
     { id: "hline",     icon: <Minus className="h-3.5 w-3.5" />,                  label: "H-Line",    key: "H" },
     { id: "trendline", icon: <GitCommit className="h-3.5 w-3.5 rotate-45" />,    label: "Trend",     key: "T" },
-    { id: "ray",       icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="2" y1="12" x2="12" y2="2"/><circle cx="12" cy="2" r="1.5" fill="currentColor"/></svg>, label: "Ray", key: "R" },
+    { id: "ray",       icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="2" y1="12" x2="12" y2="2"/><polyline points="8,2 12,2 12,6" fill="none"/></svg>, label: "Arrow", key: "R" },
     { id: "fibonacci", icon: <Hash className="h-3.5 w-3.5" />,                   label: "Fib",       key: "F" },
-    { id: "rectangle", icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="4" width="10" height="6" rx="1"/></svg>, label: "Zone", key: "Z" },
-    { id: "doodle",    icon: <Pencil className="h-3.5 w-3.5" />,                 label: "Doodle",    key: "D" },
     { id: "eraser",    icon: <Eraser className="h-3.5 w-3.5" />,                 label: "Erase",     key: "E" },
   ];
 
@@ -536,17 +498,6 @@ export default function ChartPage() {
   const handleChartMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (activeTool === "cursor") return;
     e.preventDefault();
-
-    if (activeTool === "doodle") {
-      const rect = chartContainerRef.current!.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      isDoodlingRef.current = true;
-      currentDoodleRef.current = [{ x, y }];
-      const ctx = doodleCanvasRef.current?.getContext("2d");
-      if (ctx) { ctx.beginPath(); ctx.moveTo(x, y); }
-      return;
-    }
 
     const { x, y, price, time } = getChartCoords(e);
     if (price === null || time === null) return;
@@ -653,41 +604,6 @@ export default function ChartPage() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [drawStart]);
-
-  // Sync doodle canvas pixel size to container and redraw stored paths
-  // (runs on every doodlePaths change so clearing state also clears the canvas)
-  useEffect(() => {
-    const canvas = doodleCanvasRef.current;
-    const container = chartContainerRef.current;
-    if (!canvas || !container) return;
-
-    const redraw = () => {
-      const { width, height } = container.getBoundingClientRect();
-      canvas.width = Math.round(width);
-      canvas.height = Math.round(height);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const path of doodlePaths) {
-        if (path.points.length < 2) continue;
-        ctx.beginPath();
-        ctx.strokeStyle = path.color;
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.moveTo(path.points[0]!.x, path.points[0]!.y);
-        for (let i = 1; i < path.points.length; i++) {
-          ctx.lineTo(path.points[i]!.x, path.points[i]!.y);
-        }
-        ctx.stroke();
-      }
-    };
-
-    redraw();
-    const ro = new ResizeObserver(redraw);
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [doodlePaths]);
 
   // ── Trading helpers ────────────────────────────────────────────────
 
@@ -1366,53 +1282,6 @@ export default function ChartPage() {
     });
   }, []);
 
-  const handleSaveLayout = useCallback(() => {
-    const name = layoutNameInput.trim() || `Layout ${savedLayouts.length + 1}`;
-    const layout: ChartLayout = {
-      id: Date.now().toString(),
-      name,
-      symbol,
-      interval,
-      drawings: serializeDrawings(),
-      indicators: indicators.filter(i => i.enabled).map(i => i.id),
-      createdAt: Date.now(),
-    };
-    const next = [layout, ...savedLayouts].slice(0, 20);
-    setSavedLayouts(next);
-    saveLayouts(next);
-    setLayoutNameInput("");
-    setShowLayoutPanel(false);
-  }, [layoutNameInput, savedLayouts, symbol, interval, serializeDrawings, indicators]);
-
-  const handleLoadLayout = useCallback((layout: ChartLayout) => {
-    // Clear current drawings
-    drawingsRef.current.forEach(d => {
-      try {
-        if (d.kind === "hline") candleSeriesRef.current?.removePriceLine(d.priceLine);
-        if (d.kind === "trendline") chartRef.current?.removeSeries(d.series);
-        if (d.kind === "fibonacci") d.priceLines.forEach(pl => candleSeriesRef.current?.removePriceLine(pl));
-      } catch { /* ignore */ }
-    });
-    setDrawings([]);
-
-    // Restore indicators
-    setIndicators(prev => prev.map(i => ({ ...i, enabled: layout.indicators.includes(i.id) })));
-
-    // Set symbol/interval
-    setSymbol(layout.symbol);
-    setInterval(layout.interval as GetKlinesInterval);
-
-    // Queue drawing restore (runs after klines reload)
-    pendingRestoreRef.current = layout.drawings;
-    setShowLayoutPanel(false);
-  }, []);
-
-  const handleDeleteLayout = useCallback((id: string) => {
-    const next = savedLayouts.filter(l => l.id !== id);
-    setSavedLayouts(next);
-    saveLayouts(next);
-  }, [savedLayouts]);
-
   function handleRefresh() {
     queryClient.invalidateQueries({ queryKey: getGetKlinesQueryKey(params) });
   }
@@ -1551,7 +1420,7 @@ export default function ChartPage() {
           {/* Indicators button */}
           <div className="relative" ref={indicatorPanelRef}>
             <button
-              onClick={() => { setShowIndicators(v => !v); setShowLayoutPanel(false); }}
+              onClick={() => { setShowIndicators(v => !v); }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
               style={showIndicators
                 ? { background: "rgba(0,229,255,0.12)", borderColor: "rgba(0,229,255,0.3)", color: "hsl(190,90%,65%)" }
@@ -1674,68 +1543,6 @@ export default function ChartPage() {
             )}
           </div>
 
-          {/* Layout save/load */}
-          <div className="relative">
-            <button
-              onClick={() => { setShowLayoutPanel(v => !v); setShowIndicators(false); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={showLayoutPanel
-                ? { background: "rgba(38,100%,55%,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }
-                : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}
-            >
-              <FolderOpen className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Layouts</span>
-            </button>
-
-            {showLayoutPanel && (
-              <div
-                className="absolute right-0 top-full mt-1 z-50 rounded-xl p-3 w-64 flex flex-col gap-2"
-                style={{ background: "hsl(222,28%,11%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)" }}
-              >
-                <p className="text-[9px] font-mono uppercase tracking-widest px-1" style={{ color: "hsl(220,14%,40%)" }}>Save Current Layout</p>
-                <div className="flex gap-2">
-                  <input
-                    value={layoutNameInput}
-                    onChange={e => setLayoutNameInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") handleSaveLayout(); }}
-                    placeholder="Layout name…"
-                    className="flex-1 text-xs font-mono px-2 py-1.5 rounded-lg outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }}
-                  />
-                  <button onClick={handleSaveLayout} className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg transition-all" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }}>
-                    <Save className="h-3 w-3" />
-                  </button>
-                </div>
-
-                {savedLayouts.length > 0 && (
-                  <>
-                    <div className="h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
-                    <p className="text-[9px] font-mono uppercase tracking-widest px-1" style={{ color: "hsl(220,14%,40%)" }}>Saved Layouts</p>
-                    <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
-                      {savedLayouts.map(layout => (
-                        <div key={layout.id} className="flex items-center justify-between px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono truncate" style={{ color: "hsl(220,14%,80%)" }}>{layout.name}</p>
-                            <p className="text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>
-                              {layout.symbol} · {layout.interval} · {layout.drawings.length}d
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1 ml-2 shrink-0">
-                            <button onClick={() => handleLoadLayout(layout)} className="h-6 w-6 flex items-center justify-center rounded text-xs transition-all hover:bg-cyan-500/10" style={{ color: "hsl(190,90%,60%)" }}>
-                              <FolderOpen className="h-3 w-3" />
-                            </button>
-                            <button onClick={() => handleDeleteLayout(layout.id)} className="h-6 w-6 flex items-center justify-center rounded text-xs transition-all hover:bg-red-500/10" style={{ color: "hsl(0,85%,60%)" }}>
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
           <button
             onClick={() => setShowOrderPanel(v => !v)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
@@ -1778,8 +1585,8 @@ export default function ChartPage() {
       </div>
 
       {/* Click-away to close panels */}
-      {(showIndicators || showLayoutPanel) && (
-        <div className="fixed inset-0 z-40" onClick={() => { setShowIndicators(false); setShowLayoutPanel(false); }} />
+      {showIndicators && (
+        <div className="fixed inset-0 z-40" onClick={() => { setShowIndicators(false); }} />
       )}
 
       {/* ── Controls row ─────────────────────────────────────────── */}
@@ -1956,13 +1763,6 @@ export default function ChartPage() {
             {/* Chart canvas */}
             <div ref={chartContainerRef} className="absolute inset-0" />
 
-            {/* Doodle canvas */}
-            <canvas
-              ref={doodleCanvasRef}
-              className="absolute inset-0 pointer-events-none"
-              style={{ zIndex: 15, width: "100%", height: "100%" }}
-            />
-
             {/* Drawing overlay */}
             <div
               className="absolute inset-0 z-20"
@@ -1974,35 +1774,14 @@ export default function ChartPage() {
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
                 setMousePos({ x, y });
-                if (activeTool === "doodle" && isDoodlingRef.current) {
-                  currentDoodleRef.current.push({ x, y });
-                  const ctx = doodleCanvasRef.current?.getContext("2d");
-                  if (ctx) {
-                    ctx.strokeStyle = drawColor;
-                    ctx.lineWidth = 2.5;
-                    ctx.lineCap = "round";
-                    ctx.lineJoin = "round";
-                    ctx.lineTo(x, y);
-                    ctx.stroke();
-                  }
-                }
               }}
-              onMouseUp={() => {
-                if (activeTool === "doodle" && isDoodlingRef.current) {
-                  isDoodlingRef.current = false;
-                  if (currentDoodleRef.current.length > 1) {
-                    setDoodlePaths(prev => [...prev, { points: [...currentDoodleRef.current], color: drawColor }]);
-                  }
-                  currentDoodleRef.current = [];
-                }
-                setMousePos(null);
-              }}
-              onMouseLeave={() => { setMousePos(null); isDoodlingRef.current = false; }}
+              onMouseUp={() => { setMousePos(null); }}
+              onMouseLeave={() => { setMousePos(null); }}
             />
 
 
             {/* Ghost preview while drawing */}
-            {drawStart && mousePos && (activeTool === "trendline" || activeTool === "ray" || activeTool === "rectangle" || activeTool === "fibonacci") && (
+            {drawStart && mousePos && (activeTool === "trendline" || activeTool === "ray" || activeTool === "fibonacci") && (
               <svg
                 className="absolute inset-0 pointer-events-none"
                 style={{ zIndex: 22, width: "100%", height: "100%", overflow: "visible" }}
@@ -2053,10 +1832,8 @@ export default function ChartPage() {
                   {activeTool === "hline" && "Click to place horizontal line"}
                   {activeTool === "trendline" && (drawStart ? "Click 2nd point to finish" : "Click to set start point")}
                   {activeTool === "ray" && (drawStart ? "Click 2nd point — ray extends infinitely" : "Click start point")}
-                  {activeTool === "rectangle" && (drawStart ? "Click opposite corner to finish zone" : "Click first corner")}
                   {activeTool === "fibonacci" && (drawStart ? "Click second point for Fib levels" : "Click high or low to start")}
                   {activeTool === "eraser" && "Click to erase last drawing · Esc to cancel"}
-                  {activeTool === "doodle" && "Draw freehand on the chart · release to finish"}
                 </span>
               </div>
             )}
@@ -2090,17 +1867,6 @@ export default function ChartPage() {
                 style={{ background: c.value, transform: drawColor === c.value ? "scale(1.4)" : "scale(1)", boxShadow: drawColor === c.value ? `0 0 8px ${c.value}` : "none", outline: drawColor === c.value ? `2px solid ${c.value}` : "none", outlineOffset: "2px" }}
               />
             ))}
-            {doodlePaths.length > 0 && (
-              <>
-                <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
-                <button
-                  onClick={() => setDoodlePaths([])}
-                  className="h-6 px-2 flex items-center justify-center gap-1 rounded-lg text-[9px] font-mono transition-all flex-shrink-0"
-                  style={{ color: "hsl(38,100%,60%)", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}
-                  title="Clear doodles"
-                ><Pencil className="h-3 w-3" /></button>
-              </>
-            )}
             {drawings.length > 0 && (
               <>
                 <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />

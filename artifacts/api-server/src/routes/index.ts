@@ -8,6 +8,7 @@ import aiRouter from "./ai";
 import authRouter from "./auth";
 import adminRouter from "./admin";
 import communityRouter from "./community";
+import subscriptionRouter from "./subscription";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(aiRouter);
 router.use(authRouter);
 router.use(adminRouter);
 router.use(communityRouter);
+router.use(subscriptionRouter);
 
 export default router;

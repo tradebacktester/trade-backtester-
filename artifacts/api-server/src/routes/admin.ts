@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { createHmac } from "crypto";
-import { db, usersTable, policiesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
+import { ensurePlans } from "./subscription";
 
 const ADMIN_ID = process.env.ADMIN_ID ?? "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
@@ -103,6 +104,133 @@ router.get("/policies", async (_req, res): Promise<void> => {
   await ensurePolicies();
   const policies = await db.select().from(policiesTable).orderBy(policiesTable.id);
   res.json(policies.map(p => ({ ...p, updatedAt: p.updatedAt.toISOString() })));
+});
+
+// ── Subscription plan management ─────────────────────────────────────
+
+router.get("/admin/plans", requireAdmin, async (_req, res): Promise<void> => {
+  await ensurePlans();
+  const plans = await db.select().from(subscriptionPlansTable).orderBy(subscriptionPlansTable.sortOrder);
+  res.json(plans.map(p => ({ ...p, createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString() })));
+});
+
+router.post("/admin/plans", requireAdmin, async (req, res): Promise<void> => {
+  const { name, slug, description, priceMonthly, currency, features, sortOrder } = req.body;
+  if (!name || !slug) { res.status(400).json({ error: "name and slug are required" }); return; }
+  const [plan] = await db.insert(subscriptionPlansTable).values({
+    name, slug, description: description ?? "", priceMonthly: priceMonthly ?? 0,
+    currency: currency ?? "INR", features: features ?? {}, sortOrder: sortOrder ?? 0,
+    isActive: true, isDefault: false,
+  }).returning();
+  res.status(201).json({ ...plan, createdAt: plan!.createdAt.toISOString(), updatedAt: plan!.updatedAt.toISOString() });
+});
+
+router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  const { name, description, priceMonthly, features, isActive, sortOrder } = req.body;
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (name !== undefined) updates.name = name;
+  if (description !== undefined) updates.description = description;
+  if (priceMonthly !== undefined) updates.priceMonthly = priceMonthly;
+  if (features !== undefined) updates.features = features;
+  if (isActive !== undefined) updates.isActive = isActive;
+  if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+  const [updated] = await db.update(subscriptionPlansTable)
+    .set(updates as Parameters<typeof db.update>[0])
+    .where(eq(subscriptionPlansTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Plan not found" }); return; }
+  res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
+});
+
+// ── Subscriber management ────────────────────────────────────────────
+
+router.get("/admin/subscriptions", requireAdmin, async (_req, res): Promise<void> => {
+  const subs = await db
+    .select({
+      id: subscriptionsTable.id,
+      userId: subscriptionsTable.userId,
+      planId: subscriptionsTable.planId,
+      status: subscriptionsTable.status,
+      grantedByAdmin: subscriptionsTable.grantedByAdmin,
+      currentPeriodEnd: subscriptionsTable.currentPeriodEnd,
+      createdAt: subscriptionsTable.createdAt,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      planName: subscriptionPlansTable.name,
+      planSlug: subscriptionPlansTable.slug,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(usersTable, eq(subscriptionsTable.userId, usersTable.id))
+    .leftJoin(subscriptionPlansTable, eq(subscriptionsTable.planId, subscriptionPlansTable.id))
+    .orderBy(desc(subscriptionsTable.createdAt));
+
+  res.json(subs.map(s => ({
+    ...s,
+    currentPeriodEnd: s.currentPeriodEnd?.toISOString() ?? null,
+    createdAt: s.createdAt.toISOString(),
+  })));
+});
+
+router.post("/admin/grant-premium", requireAdmin, async (req, res): Promise<void> => {
+  const { userId, planId, months } = req.body as { userId: number; planId: number; months?: number };
+  if (!userId || !planId) { res.status(400).json({ error: "userId and planId required" }); return; }
+
+  await db.update(subscriptionsTable)
+    .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")));
+
+  const periodStart = new Date();
+  const periodEnd = new Date();
+  periodEnd.setMonth(periodEnd.getMonth() + (months ?? 1));
+
+  const [sub] = await db.insert(subscriptionsTable).values({
+    userId,
+    planId,
+    status: "active",
+    grantedByAdmin: true,
+    currentPeriodStart: periodStart,
+    currentPeriodEnd: periodEnd,
+  }).returning();
+
+  res.status(201).json({ ...sub, currentPeriodStart: sub!.currentPeriodStart?.toISOString(), currentPeriodEnd: sub!.currentPeriodEnd?.toISOString(), createdAt: sub!.createdAt.toISOString() });
+});
+
+router.patch("/admin/subscriptions/:id/revoke", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  const [updated] = await db.update(subscriptionsTable)
+    .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+    .where(eq(subscriptionsTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Subscription not found" }); return; }
+  res.json({ success: true });
+});
+
+// ── Payment records ───────────────────────────────────────────────────
+
+router.get("/admin/payments", requireAdmin, async (_req, res): Promise<void> => {
+  const pmts = await db
+    .select({
+      id: paymentsTable.id,
+      userId: paymentsTable.userId,
+      planId: paymentsTable.planId,
+      razorpayOrderId: paymentsTable.razorpayOrderId,
+      razorpayPaymentId: paymentsTable.razorpayPaymentId,
+      amount: paymentsTable.amount,
+      currency: paymentsTable.currency,
+      status: paymentsTable.status,
+      createdAt: paymentsTable.createdAt,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      planName: subscriptionPlansTable.name,
+    })
+    .from(paymentsTable)
+    .leftJoin(usersTable, eq(paymentsTable.userId, usersTable.id))
+    .leftJoin(subscriptionPlansTable, eq(paymentsTable.planId, subscriptionPlansTable.id))
+    .orderBy(desc(paymentsTable.createdAt))
+    .limit(200);
+
+  res.json(pmts.map(p => ({ ...p, createdAt: p.createdAt.toISOString() })));
 });
 
 export default router;

@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import { SettingsProvider } from "@/lib/settings-context";
 import { AuthProvider } from "@/lib/auth-context";
+import { SubscriptionProvider } from "@/lib/subscription-context";
 import { PolicyPopup } from "@/components/policy-popup";
 
 // Pages
@@ -26,6 +27,8 @@ import AiAssistant from "@/pages/ai-assistant";
 import AdminLogin from "@/pages/admin/login";
 import AdminPanel from "@/pages/admin/panel";
 import CommunityPage from "@/pages/community";
+import PricingPage from "@/pages/pricing";
+import BillingPage from "@/pages/billing";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +63,9 @@ function Router() {
 
       <Route path="/community" component={CommunityPage} />
 
+      <Route path="/pricing" component={PricingPage} />
+      <Route path="/billing" component={BillingPage} />
+
       <Route path="/admin" component={AdminLogin} />
       <Route path="/admin/panel" component={AdminPanel} />
       
@@ -71,19 +77,21 @@ function Router() {
 function App() {
   return (
     <AuthProvider>
-      <SettingsProvider>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Layout>
-                <Router />
-              </Layout>
-              <PolicyPopup />
-            </WouterRouter>
-            <Toaster />
-          </TooltipProvider>
-        </QueryClientProvider>
-      </SettingsProvider>
+      <SubscriptionProvider>
+        <SettingsProvider>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Layout>
+                  <Router />
+                </Layout>
+                <PolicyPopup />
+              </WouterRouter>
+              <Toaster />
+            </TooltipProvider>
+          </QueryClientProvider>
+        </SettingsProvider>
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }
