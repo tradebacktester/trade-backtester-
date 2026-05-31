@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { verifyJwt } from "../lib/jwt";
 import { createHmac } from "crypto";
 import { db, subscriptionPlansTable, subscriptionsTable, paymentsTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
@@ -93,19 +94,16 @@ async function ensurePlans() {
   }
 }
 
-function requireAuth(req: Request, res: Response, next: () => void): void {
-  const userId = (req as any).userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  next();
-}
+const JWT_SECRET = process.env.JWT_SECRET ?? "";
 
 function extractUserId(req: Request): number | null {
   try {
     const auth = req.headers["authorization"];
     if (!auth) return null;
-    const token = auth.replace("Bearer ", "");
-    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64").toString());
-    return payload?.id ?? null;
+    const token = auth.replace("Bearer ", "").trim();
+    if (!JWT_SECRET) return null;
+    const payload = verifyJwt(token, JWT_SECRET);
+    return typeof payload?.id === "number" ? payload.id : null;
   } catch { return null; }
 }
 

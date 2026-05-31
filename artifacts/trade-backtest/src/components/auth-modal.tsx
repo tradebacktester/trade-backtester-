@@ -34,7 +34,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Something went wrong"); return; }
-      setUser(data.user);
+      setUser(data.user, data.token ?? null);
       onClose();
       setEmail(""); setName(""); setPassword(""); setError("");
     } catch {

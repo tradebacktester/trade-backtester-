@@ -1,14 +1,17 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import OpenAI from "openai";
+import { verifyJwt } from "../lib/jwt";
+
+const JWT_SECRET_AI = process.env.JWT_SECRET ?? "";
 
 const router: IRouter = Router();
 
 function extractUserId(req: Request): number | null {
   try {
     const auth = req.headers["authorization"];
-    if (!auth) return null;
-    const token = auth.replace("Bearer ", "");
-    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64").toString());
+    if (!auth || !JWT_SECRET_AI) return null;
+    const token = auth.replace("Bearer ", "").trim();
+    const payload = verifyJwt(token, JWT_SECRET_AI);
     return typeof payload?.id === "number" ? payload.id : null;
   } catch {
     return null;
