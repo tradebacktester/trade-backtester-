@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import {
   Shield, Users, FileText, LogOut, Ban, CheckCircle, RefreshCw, Save,
@@ -63,7 +63,14 @@ export default function AdminPanel() {
   const [, setLocation] = useLocation();
   const { adminToken, setAdminToken } = useAuth();
   const [tab, setTab] = useState<Tab>("users");
-  const headers = { "Content-Type": "application/json", "x-admin-token": adminToken ?? "" };
+
+  // Stable headers — recomputed only when adminToken changes, not on every render.
+  // Computing inline in component body created a new object every render, causing
+  // stale closures in all useCallback functions.
+  const headers = useMemo(
+    () => ({ "Content-Type": "application/json", "x-admin-token": adminToken ?? "" }),
+    [adminToken]
+  );
 
   // ── Users ──
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -104,6 +111,8 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!adminToken) { setLocation("/admin"); return; } }, [adminToken]);
 
+  // useCallback deps now include `headers` (stable useMemo reference) so closures
+  // always have the current token without triggering unnecessary recreations.
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true); setUsersError("");
     try {
@@ -112,7 +121,7 @@ export default function AdminPanel() {
       setUsers(await res.json());
     } catch { setUsersError("Failed to load users"); }
     finally { setUsersLoading(false); }
-  }, [adminToken]);
+  }, [headers, setAdminToken, setLocation]);
 
   const fetchPolicies = useCallback(async () => {
     setPoliciesLoading(true);
@@ -125,7 +134,7 @@ export default function AdminPanel() {
       setEditingContent(init);
     } catch { }
     finally { setPoliciesLoading(false); }
-  }, [adminToken]);
+  }, [headers]);
 
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -134,7 +143,7 @@ export default function AdminPanel() {
       if (res.ok) setPlans(await res.json());
     } catch { }
     finally { setPlansLoading(false); }
-  }, [adminToken]);
+  }, [headers]);
 
   const fetchSubs = useCallback(async () => {
     setSubsLoading(true);
@@ -143,7 +152,7 @@ export default function AdminPanel() {
       if (res.ok) setSubs(await res.json());
     } catch { }
     finally { setSubsLoading(false); }
-  }, [adminToken]);
+  }, [headers]);
 
   const fetchPayments = useCallback(async () => {
     setPaymentsLoading(true);
@@ -152,12 +161,14 @@ export default function AdminPanel() {
       if (res.ok) setPayments(await res.json());
     } catch { }
     finally { setPaymentsLoading(false); }
-  }, [adminToken]);
+  }, [headers]);
 
+  // All 5 fetch callbacks are stable (only change when `headers` changes = when
+  // adminToken changes), so including them in the effect deps is safe and correct.
   useEffect(() => {
     if (!adminToken) return;
     fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments();
-  }, [adminToken]);
+  }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments]);
 
   async function toggleBan(user: AdminUser) {
     const reason = !user.banned ? (banReason[user.id] || null) : null;
@@ -270,9 +281,17 @@ export default function AdminPanel() {
     ["payments", CreditCard, "Payments"],
   ];
 
-  const filteredSubs = subsFilter === "all" ? subs : subs.filter(s => s.status === subsFilter);
-  const activeSubs = subs.filter(s => s.status === "active").length;
-  const adminGrantedSubs = subs.filter(s => s.grantedByAdmin && s.status === "active").length;
+  // Memoized so these three array passes only re-run when subs or the filter changes,
+  // not on every keystroke in the grant form or any other unrelated state update.
+  const filteredSubs = useMemo(
+    () => subsFilter === "all" ? subs : subs.filter(s => s.status === subsFilter),
+    [subs, subsFilter]
+  );
+  const activeSubs = useMemo(() => subs.filter(s => s.status === "active").length, [subs]);
+  const adminGrantedSubs = useMemo(
+    () => subs.filter(s => s.grantedByAdmin && s.status === "active").length,
+    [subs]
+  );
 
   return (
     <div>
@@ -502,9 +521,8 @@ export default function AdminPanel() {
 
           {/* ── Plan cards ── */}
           {plansLoading ? (
-            <div className="flex items-center justify-center py-16" style={{ color: "#aaa" }}>
-              <RefreshCw style={{ height: "16px", width: "16px" }} className="animate-spin mr-2" />
-              <span className="text-sm">Loading plans…</span>
+            <div className="flex items-center justify-center py-16 text-sm" style={{ color: "#aaa" }}>
+              Loading plans…
             </div>
           ) : plans.map(plan => {
             const accent = planAccent(plan.slug);
@@ -512,7 +530,7 @@ export default function AdminPanel() {
 
             return (
               <div key={plan.id} className="rounded-2xl overflow-hidden"
-                style={{ border: `1px solid ${isEditing ? accent.border : "rgba(0,0,0,0.09)"}`, background: "#fff", transition: "border-color 0.2s" }}>
+                style={{ border: `1px solid ${isEditing ? accent.border : "rgba(0,0,0,0.09)"}`, background: "#fff" }}>
 
                 {/* Card header */}
                 <div className="flex items-center justify-between px-5 py-4"
@@ -812,9 +830,8 @@ export default function AdminPanel() {
             </div>
 
             {subsLoading ? (
-              <div className="flex items-center justify-center py-12 gap-2" style={{ color: "#aaa" }}>
-                <RefreshCw style={{ height: "14px", width: "14px" }} className="animate-spin" />
-                <span className="text-sm">Loading…</span>
+              <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>
+                Loading…
               </div>
             ) : filteredSubs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2">
