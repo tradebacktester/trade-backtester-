@@ -25,6 +25,7 @@ import DemoPage from "@/pages/demo";
 import AiAssistant from "@/pages/ai-assistant";
 import AdminLogin from "@/pages/admin/login";
 import AdminPanel from "@/pages/admin/panel";
+import CommunityPage from "@/pages/community";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +57,8 @@ function Router() {
       <Route path="/ai" component={AiAssistant} />
       <Route path="/news" component={NewsPage} />
       <Route path="/settings" component={SettingsPage} />
+
+      <Route path="/community" component={CommunityPage} />
 
       <Route path="/admin" component={AdminLogin} />
       <Route path="/admin/panel" component={AdminPanel} />

@@ -2,27 +2,27 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, CandlestickChart, FlaskConical,
-  BarChart2, Settings, Zap, TrendingUp, Brain,
+  BarChart2, Settings, Zap, Brain,
   MoreHorizontal, X, ChevronRight, BookOpen,
-  Shield, LogIn, LogOut, User,
+  Shield, LogIn, LogOut, User, Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AuthModal } from "@/components/auth-modal";
 
 const DESKTOP_ITEMS = [
-  { title: "Charts",  url: "/chart",      icon: CandlestickChart },
-  { title: "Demo",    url: "/demo",       icon: Zap },
-  { title: "Home",    url: "/dashboard",  icon: LayoutDashboard, home: true },
-  { title: "AI",      url: "/ai",         icon: Brain },
-  { title: "Journal", url: "/backtests",  icon: FlaskConical },
+  { title: "Charts",    url: "/chart",      icon: CandlestickChart },
+  { title: "Demo",      url: "/demo",       icon: Zap },
+  { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
+  { title: "Community", url: "/community",  icon: Users },
+  { title: "AI",        url: "/ai",         icon: Brain },
 ] as const;
 
 const MOBILE_MAIN = [
-  { title: "Charts", url: "/chart",     icon: CandlestickChart },
-  { title: "Demo",   url: "/demo",      icon: Zap },
-  { title: "Home",   url: "/dashboard", icon: LayoutDashboard, home: true },
-  { title: "AI",     url: "/ai",        icon: Brain },
-  { title: "More",   url: null,         icon: MoreHorizontal },
+  { title: "Charts",    url: "/chart",      icon: CandlestickChart },
+  { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
+  { title: "Community", url: "/community",  icon: Users },
+  { title: "AI",        url: "/ai",         icon: Brain },
+  { title: "More",      url: null,          icon: MoreHorizontal },
 ] as const;
 
 const DESKTOP_MORE = [
