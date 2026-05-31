@@ -1,19 +1,39 @@
 import { Router, type IRouter } from "express";
 import { db, communityPostsTable, communityReportsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const router: IRouter = Router();
 
 const ADMIN_ID = process.env.ADMIN_ID ?? "";
-const HMAC_SECRET = `${ADMIN_ID}:adivasu:admin`;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
+const HMAC_SECRET = `${ADMIN_ID}:${ADMIN_PASSWORD}`;
 
 function makeAdminToken(): string {
   return createHmac("sha256", HMAC_SECRET).update("admin-session-v1").digest("hex");
 }
 function verifyAdminToken(token: string): boolean {
-  if (!ADMIN_ID) return false;
-  return token === makeAdminToken();
+  if (!ADMIN_ID || !ADMIN_PASSWORD) return false;
+  const expected = makeAdminToken();
+  try {
+    return token.length === expected.length && timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
+
+const postRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function checkPostRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const rec = postRateLimit.get(ip);
+  if (!rec || now >= rec.resetAt) {
+    postRateLimit.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (rec.count >= 5) return false;
+  rec.count++;
+  return true;
 }
 
 // ── Profanity filter ────────────────────────────────────────────────────────
@@ -59,6 +79,11 @@ router.get("/community", async (_req, res): Promise<void> => {
 
 // POST /community — create a post
 router.post("/community", async (req, res): Promise<void> => {
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  if (!checkPostRateLimit(ip)) {
+    res.status(429).json({ error: "Too many posts. Please wait before posting again." });
+    return;
+  }
   const { authorName, content, imageUrl, userId } = req.body as {
     authorName?: string;
     content?: string;

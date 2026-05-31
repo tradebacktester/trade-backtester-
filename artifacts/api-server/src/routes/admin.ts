@@ -1,12 +1,12 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
 
 const ADMIN_ID = process.env.ADMIN_ID ?? "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
-const HMAC_SECRET = `${ADMIN_ID}:adivasu:admin`;
+const HMAC_SECRET = `${ADMIN_ID}:${ADMIN_PASSWORD}`;
 
 const DEFAULT_POLICIES = [
   { slug: "privacy_policy", title: "Privacy Policy", content: "We collect information you provide when signing up, including name and email. This data is used solely to manage your account and is never sold to third parties. You may request deletion of your data at any time." },
@@ -26,7 +26,15 @@ function makeAdminToken(): string {
 
 function verifyAdminToken(token: string): boolean {
   if (!ADMIN_ID || !ADMIN_PASSWORD) return false;
-  return token === makeAdminToken();
+  const expected = makeAdminToken();
+  try {
+    return (
+      token.length === expected.length &&
+      timingSafeEqual(Buffer.from(token), Buffer.from(expected))
+    );
+  } catch {
+    return false;
+  }
 }
 
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
@@ -47,16 +55,38 @@ async function ensurePolicies() {
 
 const router: IRouter = Router();
 
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
 router.post("/admin/login", async (req, res): Promise<void> => {
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  const now = Date.now();
+  const attempt = loginAttempts.get(ip);
+  if (attempt && now < attempt.resetAt && attempt.count >= 10) {
+    res.status(429).json({ error: "Too many login attempts. Try again later." });
+    return;
+  }
+
   const { id, password } = req.body;
   if (!id || !password) {
     res.status(400).json({ error: "ID and password are required" });
     return;
   }
-  if (String(id) !== ADMIN_ID || password !== ADMIN_PASSWORD) {
+
+  const idMatch = ADMIN_ID.length > 0 && timingSafeEqual(Buffer.from(String(id).padEnd(ADMIN_ID.length)), Buffer.from(ADMIN_ID.padEnd(String(id).length).slice(0, String(id).padEnd(ADMIN_ID.length).length)));
+  const pwMatch = ADMIN_PASSWORD.length > 0 && timingSafeEqual(Buffer.from(String(password).padEnd(ADMIN_PASSWORD.length)), Buffer.from(ADMIN_PASSWORD.padEnd(String(password).length).slice(0, String(password).padEnd(ADMIN_PASSWORD.length).length)));
+
+  if (!idMatch || !pwMatch || String(id) !== ADMIN_ID || String(password) !== ADMIN_PASSWORD) {
+    const rec = loginAttempts.get(ip);
+    if (!rec || now >= rec.resetAt) {
+      loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    } else {
+      rec.count++;
+    }
     res.status(401).json({ error: "Invalid admin credentials" });
     return;
   }
+
+  loginAttempts.delete(ip);
   res.json({ token: makeAdminToken() });
 });
 
