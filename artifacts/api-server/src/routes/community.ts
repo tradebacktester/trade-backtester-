@@ -86,15 +86,23 @@ router.post("/community", async (req, res): Promise<void> => {
   }
 
   if (imageUrl && typeof imageUrl === "string") {
-    try {
-      const u = new URL(imageUrl);
-      if (!["http:", "https:"].includes(u.protocol)) {
-        res.status(400).json({ error: "Image URL must start with http or https." });
+    if (imageUrl.startsWith("data:image/")) {
+      // base64 image — enforce a ~4 MB size limit
+      if (imageUrl.length > 5_500_000) {
+        res.status(400).json({ error: "Image must be under 4 MB." });
         return;
       }
-    } catch {
-      res.status(400).json({ error: "Invalid image URL." });
-      return;
+    } else {
+      try {
+        const u = new URL(imageUrl);
+        if (!["http:", "https:"].includes(u.protocol)) {
+          res.status(400).json({ error: "Image URL must start with http or https." });
+          return;
+        }
+      } catch {
+        res.status(400).json({ error: "Invalid image." });
+        return;
+      }
     }
   }
 

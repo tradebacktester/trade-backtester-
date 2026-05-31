@@ -261,6 +261,7 @@ export default function ChartPage() {
   const [replayIndex, setReplayIndex] = useState(MIN_CANDLES);
   const [isPlaying, setIsPlaying] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState(500);
+  const [replaySidebarOpen, setReplaySidebarOpen] = useState(false);
 
   // Trading sim
   const [position, setPosition] = useState<Position | null>(null);
@@ -681,6 +682,7 @@ export default function ChartPage() {
 
   const enterReplay = useCallback(() => {
     setIsPlaying(false); setReplayIndex(MIN_CANDLES); setReplayMode(true);
+    setReplaySidebarOpen(false);
     setPosition(null); setTrades([]); setEquity(STARTING_CAPITAL);
     markersRef.current = [];
     markersPluginRef.current?.setMarkers([]);
@@ -1676,17 +1678,19 @@ export default function ChartPage() {
                 {replayIndex}<span style={{ color: "hsl(220,14%,35%)" }}>/{total}</span>
               </span>
             </div>
-          </div>
 
-          {/* Keyboard hints */}
-          <div className="flex items-center gap-3 px-3 py-1.5">
-            {[["← →","step"],["Space","play"],["B","buy"],["S","sell"],["Esc","exit"]].map(([k,d]) => (
-              <span key={k} className="flex items-center gap-1 text-[9px] font-mono" style={{ color: "hsl(220,14%,28%)" }}>
-                <kbd className="px-1 rounded" style={{ background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,40%)", border: "1px solid rgba(255,255,255,0.06)" }}>{k}</kbd>
-                {d}
-              </span>
-            ))}
-            <span className="ml-auto text-[9px] font-mono" style={{ color: "hsl(220,14%,28%)" }}>{replayProgress.toFixed(0)}% complete</span>
+            <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
+
+            {/* Sidebar toggle */}
+            <button
+              onClick={() => setReplaySidebarOpen(v => !v)}
+              title={replaySidebarOpen ? "Hide trade panel" : "Show trade panel (B/S)"}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono transition-all flex-shrink-0"
+              style={replaySidebarOpen
+                ? { background: "rgba(52,211,153,0.15)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.28)" }
+                : { background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              B/S
+            </button>
           </div>
         </div>
       )}
@@ -1829,7 +1833,7 @@ export default function ChartPage() {
           </div>
 
           {/* ── Drawing toolbar — BELOW chart ────────────────────── */}
-          <div
+          {!replayMode && <div
             className="flex items-center gap-1 px-2 py-1.5 rounded-2xl overflow-x-auto"
             style={{ background: "rgba(10,12,18,0.88)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.09)", boxShadow: "0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)", flexShrink: 0 }}
           >
@@ -1885,7 +1889,7 @@ export default function ChartPage() {
                 ><Trash2 className="h-3 w-3" /></button>
               </>
             )}
-          </div>
+          </div>}
 
           {/* ── Sub-chart: RSI / MACD / ATR / Stoch ─────────────── */}
           {hasSubChart && (
@@ -1920,7 +1924,7 @@ export default function ChartPage() {
         </div>
 
         {/* ── Trading sidebar ────────────────── */}
-        {(replayMode || showOrderPanel) && (
+        {((replayMode && replaySidebarOpen) || (showOrderPanel && !replayMode)) && (
           <div className="w-full lg:w-[264px] flex flex-col gap-3 overflow-y-auto shrink-0">
 
             {/* Paper Trade panel — always-on, non-replay */}

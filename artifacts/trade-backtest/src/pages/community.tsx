@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Heart, Flag, Trash2, Send, ImageIcon, X, ChevronDown,
-  AlertTriangle, CheckCircle, Clock, Users, TrendingUp,
-  MessageSquare, RefreshCw, Shield,
+  Heart, Flag, Trash2, Send, ImageIcon, X,
+  AlertTriangle, CheckCircle, Users,
+  MessageSquare, RefreshCw, Shield, Upload,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -267,12 +267,12 @@ function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
 function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const { user } = useAuth();
   const [content, setContent] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [showImage, setShowImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(user?.name ?? "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user?.name) setDisplayName(user.name);
@@ -285,6 +285,26 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
     el.style.height = `${el.scrollHeight}px`;
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Image must be under 4 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      setImagePreview(ev.target?.result as string);
+      setError("");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearImage() {
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function submit() {
     if (!displayName.trim()) { setError("Please enter your display name."); return; }
     if (!content.trim()) { setError("Please write something."); return; }
@@ -295,12 +315,12 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
         body: JSON.stringify({
           authorName: displayName.trim(),
           content: content.trim(),
-          imageUrl: imageUrl.trim() || undefined,
+          imageUrl: imagePreview ?? undefined,
           userId: user?.id ?? undefined,
         }),
       }) as Post;
       onCreated(post);
-      setContent(""); setImageUrl(""); setShowImage(false);
+      setContent(""); clearImage();
       if (textareaRef.current) textareaRef.current.style.height = "auto";
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to post.");
@@ -350,28 +370,15 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
         />
       </div>
 
-      {showImage && (
-        <div className="px-4 pb-2">
-          <div className="flex items-center gap-2 rounded-xl px-3 py-2 border" style={{ background: "#f9fafb", border: "1px solid rgba(0,0,0,0.08)" }}>
-            <ImageIcon style={{ height: 13, width: 13, color: "#888", flexShrink: 0 }} />
-            <input
-              value={imageUrl}
-              onChange={e => setImageUrl(e.target.value)}
-              placeholder="Paste image URL (https://…)"
-              className="flex-1 text-[12px] outline-none bg-transparent"
-              style={{ color: "#333" }}
-            />
-            {imageUrl && (
-              <button onClick={() => setImageUrl("")} className="flex-shrink-0">
-                <X style={{ height: 12, width: 12, color: "#bbb" }} />
-              </button>
-            )}
-          </div>
-          {imageUrl && (
-            <img src={imageUrl} alt="preview" className="mt-2 rounded-xl w-full object-cover"
-              style={{ maxHeight: 160, border: "1px solid rgba(0,0,0,0.06)" }}
-              onError={e => { (e.target as HTMLImageElement).style.opacity = "0.3"; }} />
-          )}
+      {imagePreview && (
+        <div className="px-4 pb-3 relative">
+          <img src={imagePreview} alt="preview" className="rounded-xl w-full object-cover"
+            style={{ maxHeight: 200, border: "1px solid rgba(0,0,0,0.06)" }} />
+          <button onClick={clearImage}
+            className="absolute top-2 right-6 h-6 w-6 flex items-center justify-center rounded-full"
+            style={{ background: "rgba(0,0,0,0.55)" }}>
+            <X style={{ height: 11, width: 11, color: "#fff" }} />
+          </button>
         </div>
       )}
 
@@ -383,14 +390,17 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
         </div>
       )}
 
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
       <div className="flex items-center gap-2 px-4 py-3 border-t border-black/5">
-        <button onClick={() => setShowImage(v => !v)}
+        <button onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
-          style={showImage
+          style={imagePreview
             ? { background: "#eff6ff", color: "#3b82f6" }
             : { background: "#f5f5f5", color: "#666" }}>
-          <ImageIcon style={{ height: 12, width: 12 }} />
-          Image
+          <Upload style={{ height: 12, width: 12 }} />
+          {imagePreview ? "Change" : "Photo"}
         </button>
 
         <span className="text-[11px] ml-auto" style={{ color: overLimit ? "#ef4444" : "#ccc" }}>
