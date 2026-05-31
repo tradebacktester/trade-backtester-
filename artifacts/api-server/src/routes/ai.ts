@@ -13,9 +13,9 @@ const SYSTEM_PROMPT = `You are an expert trading and financial markets educator.
 Keep responses concise but informative (2–4 paragraphs max). Use clear examples where helpful. Do not give specific investment advice or price predictions.`;
 
 router.post("/ai/chat", async (req, res) => {
-  const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"] ?? process.env["OPENAI_API_KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
-    res.status(503).json({ error: "OpenAI API key is not configured." });
+    res.status(503).json({ error: "Gemini API key is not configured." });
     return;
   }
 
@@ -31,11 +31,11 @@ router.post("/ai/chat", async (req, res) => {
   try {
     const client = new OpenAI({
       apiKey,
-      ...(process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] ? { baseURL: process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] } : {}),
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
     });
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gemini-2.0-flash",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         ...messages,
