@@ -303,7 +303,7 @@ export default function AdminPanel() {
   );
 
   return (
-    <div>
+    <div style={{ background: "#fff", borderRadius: "16px", padding: "4px 0 8px" }}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <span className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "#f0f0f0" }}>
