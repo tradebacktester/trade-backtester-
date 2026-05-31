@@ -69,6 +69,9 @@ export default function AdminPanel() {
   const [, setLocation] = useLocation();
   const { adminToken, setAdminToken } = useAuth();
   const [tab, setTab] = useState<Tab>("users");
+  // Once a tab has been visited its panel stays mounted (just hidden via CSS).
+  // This prevents Chrome from needing to rasterize from scratch on every revisit.
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(new Set<Tab>(["users"]));
 
   // Stable headers — recomputed only when adminToken changes, not on every render.
   // Computing inline in component body created a new object every render, causing
@@ -321,7 +324,7 @@ export default function AdminPanel() {
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-5">
         {TABS.map(([key, Icon, label]) => (
-          <button key={key} onClick={() => setTab(key)}
+          <button key={key} onClick={() => { setVisitedTabs(prev => new Set([...prev, key])); setTab(key); }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
             style={tab === key
               ? { background: "#111", color: "#fff" }
@@ -339,8 +342,8 @@ export default function AdminPanel() {
       </div>
 
       {/* ── Users ── */}
-      {tab === "users" && (
-        <div className="page-enter bg-background rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
+      {visitedTabs.has("users") && (
+        <div className={tab !== "users" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
             <div className="flex items-center gap-2">
               <Users style={{ height: "14px", width: "14px", color: "#666" }} />
@@ -411,8 +414,8 @@ export default function AdminPanel() {
       )}
 
       {/* ── Policies ── */}
-      {tab === "policies" && (
-        <div className="page-enter bg-background flex flex-col gap-3">
+      {visitedTabs.has("policies") && (
+        <div className={tab !== "policies" ? "hidden" : "flex flex-col gap-3"}>
           {policiesLoading ? (
             <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>Loading policies…</div>
           ) : policies.map(policy => (
@@ -464,8 +467,8 @@ export default function AdminPanel() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* ── PLANS (rebuilt) ─────────────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      {tab === "plans" && (
-        <div className="page-enter bg-background flex flex-col gap-5">
+      {visitedTabs.has("plans") && (
+        <div className={tab !== "plans" ? "hidden" : "flex flex-col gap-5"}>
 
           {/* Header row */}
           <div className="flex items-center justify-between">
@@ -716,8 +719,8 @@ export default function AdminPanel() {
       {/* ══════════════════════════════════════════════════════════════ */}
       {/* ── SUBSCRIBERS (rebuilt) ───────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
-      {tab === "subscribers" && (
-        <div className="page-enter bg-background flex flex-col gap-4">
+      {visitedTabs.has("subscribers") && (
+        <div className={tab !== "subscribers" ? "hidden" : "flex flex-col gap-4"}>
 
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-3">
@@ -916,8 +919,8 @@ export default function AdminPanel() {
       )}
 
       {/* ── Payments ── */}
-      {tab === "payments" && (
-        <div className="page-enter bg-background rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
+      {visitedTabs.has("payments") && (
+        <div className={tab !== "payments" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
             <div className="flex items-center gap-2">
               <CreditCard style={{ height: "14px", width: "14px", color: "#666" }} />
