@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback } from "react";
+import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useGetBacktestSummary, useListBacktests } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import {
@@ -279,6 +279,155 @@ function RecentRow({ bt }: { bt: any }) {
   );
 }
 
+/* ── Paper Trading Section ────────────────────────────────────────── */
+type PtTrade = {
+  id: number; entryPrice: number; exitPrice: number;
+  pnl: number; pnlPct: number;
+  side?: "long" | "short"; symbol?: string;
+};
+type PtAccount = { initialCapital: number; balance: number; createdAt: string };
+
+function PaperTradingSection() {
+  const [ptAccount, setPtAccount] = useState<PtAccount | null>(null);
+  const [ptTrades, setPtTrades] = useState<PtTrade[]>([]);
+
+  const load = () => {
+    try {
+      const acc = JSON.parse(localStorage.getItem("pt_account") || "null") as PtAccount | null;
+      const trades = JSON.parse(localStorage.getItem("pt_trades") || "[]") as PtTrade[];
+      setPtAccount(acc);
+      setPtTrades(trades);
+    } catch {}
+  };
+
+  useEffect(() => {
+    load();
+    window.addEventListener("focus", load);
+    return () => window.removeEventListener("focus", load);
+  }, []);
+
+  if (!ptAccount) return null;
+
+  const totalPnl = ptTrades.reduce((s, t) => s + t.pnl, 0);
+  const wins = ptTrades.filter(t => t.pnl > 0).length;
+  const losses = ptTrades.length - wins;
+  const winRate = ptTrades.length > 0 ? (wins / ptTrades.length) * 100 : 0;
+  const balance = ptAccount.initialCapital + totalPnl;
+  const pnlPct = (totalPnl / ptAccount.initialCapital) * 100;
+  const avgWin = wins > 0
+    ? ptTrades.filter(t => t.pnl > 0).reduce((s, t) => s + t.pnl, 0) / wins
+    : 0;
+
+  return (
+    <Panel>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <SectionLabel>Paper Trading Account</SectionLabel>
+          <p className="text-xs font-mono -mt-2" style={{ color: C.muted }}>
+            Started {new Date(ptAccount.createdAt).toLocaleDateString()} · ${ptAccount.initialCapital.toLocaleString()} initial capital
+          </p>
+        </div>
+        <Link href="/chart">
+          <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70"
+            style={{ color: C.sub }}>
+            <CandlestickChart className="h-3 w-3" /> Open Charts →
+          </span>
+        </Link>
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
+          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Balance</p>
+          <p className="text-sm font-mono font-bold" style={{ color: C.text }}>
+            ${balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </p>
+        </div>
+        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
+          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Total P&amp;L</p>
+          <p className="text-sm font-mono font-bold" style={{ color: totalPnl >= 0 ? C.positive : C.negative }}>
+            {totalPnl >= 0 ? "+" : ""}${Math.abs(totalPnl).toFixed(2)}
+          </p>
+          <p className="text-[10px] font-mono" style={{ color: pnlPct >= 0 ? C.positive : C.negative }}>
+            {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+          </p>
+        </div>
+        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
+          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Trades</p>
+          <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{ptTrades.length}</p>
+          <p className="text-[10px] font-mono" style={{ color: C.muted }}>{wins}W · {losses}L</p>
+        </div>
+        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
+          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Win Rate</p>
+          <p className="text-sm font-mono font-bold"
+            style={{ color: ptTrades.length > 0 ? (winRate >= 50 ? C.positive : C.negative) : C.text }}>
+            {ptTrades.length > 0 ? `${winRate.toFixed(0)}%` : "—"}
+          </p>
+          {avgWin > 0 && <p className="text-[10px] font-mono" style={{ color: C.muted }}>avg win ${avgWin.toFixed(0)}</p>}
+        </div>
+      </div>
+
+      {/* Trade history */}
+      {ptTrades.length === 0 ? (
+        <div className="text-center py-5">
+          <CandlestickChart className="h-7 w-7 mx-auto mb-2 opacity-15" style={{ color: C.sub }} />
+          <p className="text-xs font-mono" style={{ color: C.muted }}>No trades yet — head to Charts to start trading</p>
+          <Link href="/chart">
+            <Button variant="outline" size="sm" className="mt-3">Open Charts</Button>
+          </Link>
+        </div>
+      ) : (
+        <div>
+          <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: C.muted }}>Recent Trades</p>
+          <div className="flex flex-col gap-1.5 max-h-[240px] overflow-y-auto">
+            {[...ptTrades].reverse().slice(0, 15).map((t, i) => (
+              <div key={t.id} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                style={{
+                  background: t.pnl >= 0 ? "rgba(22,163,74,0.05)" : "rgba(220,38,38,0.05)",
+                  border: `1px solid ${t.pnl >= 0 ? "rgba(22,163,74,0.12)" : "rgba(220,38,38,0.1)"}`,
+                }}>
+                <div className="h-6 w-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: t.pnl >= 0 ? "rgba(22,163,74,0.1)" : "rgba(220,38,38,0.1)" }}>
+                  {t.pnl >= 0
+                    ? <TrendingUp className="h-3 w-3" style={{ color: C.positive }} />
+                    : <TrendingDown className="h-3 w-3" style={{ color: C.negative }} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-mono" style={{ color: C.muted }}>#{ptTrades.length - i}</span>
+                    {t.symbol && (
+                      <span className="text-[10px] font-mono font-semibold" style={{ color: C.sub }}>
+                        {t.symbol.replace("USDT", "/USDT").replace("PERP", " Perp")}
+                      </span>
+                    )}
+                    {t.side && (
+                      <span className="text-[9px] font-mono px-1 rounded"
+                        style={{ color: t.side === "short" ? C.negative : C.positive, background: t.side === "short" ? "rgba(220,38,38,0.1)" : "rgba(22,163,74,0.1)" }}>
+                        {t.side.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] font-mono" style={{ color: C.muted }}>
+                    ${t.entryPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })} → ${t.exitPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs font-mono font-bold" style={{ color: t.pnl >= 0 ? C.positive : C.negative }}>
+                    {t.pnl >= 0 ? "+" : ""}${Math.abs(t.pnl).toFixed(2)}
+                  </p>
+                  <p className="text-[10px] font-mono" style={{ color: C.muted }}>
+                    {t.pnlPct >= 0 ? "+" : ""}{t.pnlPct.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 /* ── Main page ────────────────────────────────────────────────────── */
 export default function Dashboard() {
   const { data: summary, isLoading: loadingSummary } = useGetBacktestSummary();
@@ -458,6 +607,9 @@ export default function Dashboard() {
           ))}
         </div>
       </Panel>
+
+      {/* Paper Trading Section */}
+      <PaperTradingSection />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">

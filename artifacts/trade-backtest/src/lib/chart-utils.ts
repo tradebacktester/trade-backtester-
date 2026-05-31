@@ -34,12 +34,15 @@ export type KlineBar = {
 
 export type Position = {
   price: number; time: number; units: number; capitalAtEntry: number;
+  side: "long" | "short";
 };
 
 export type SimTrade = {
   id: number; entryPrice: number; entryTime: number;
   exitPrice: number; exitTime: number; units: number;
   pnl: number; pnlPct: number;
+  side?: "long" | "short";
+  symbol?: string;
 };
 
 // ── Indicators ────────────────────────────────────────────────────

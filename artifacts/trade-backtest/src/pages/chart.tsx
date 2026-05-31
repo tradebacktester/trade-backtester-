@@ -176,7 +176,27 @@ const FIB_LEVELS = [
 ];
 
 const MIN_CANDLES = 30;
-const STARTING_CAPITAL = 10_000;
+
+function readPtCapital(): number {
+  try {
+    const v = (JSON.parse(localStorage.getItem("pt_account") || "null") as { initialCapital?: number } | null);
+    return v?.initialCapital ?? 10_000;
+  } catch { return 10_000; }
+}
+
+function savePtTrade(trade: { id: number; entryPrice: number; entryTime: number; exitPrice: number; exitTime: number; units: number; pnl: number; pnlPct: number; side?: string; symbol?: string }) {
+  try {
+    const prev = JSON.parse(localStorage.getItem("pt_trades") || "[]") as typeof trade[];
+    localStorage.setItem("pt_trades", JSON.stringify([...prev, trade]));
+  } catch {}
+}
+
+function updatePtBalance(balance: number) {
+  try {
+    const acc = JSON.parse(localStorage.getItem("pt_account") || "null") as Record<string, unknown> | null;
+    if (acc) localStorage.setItem("pt_account", JSON.stringify({ ...acc, balance }));
+  } catch {}
+}
 
 // Shared chart visual config used for main + sub + multitf charts
 const CHART_BG = "hsl(222,22%,8%)";
@@ -263,10 +283,15 @@ export default function ChartPage() {
   const [replaySpeed, setReplaySpeed] = useState(500);
   const [replaySidebarOpen, setReplaySidebarOpen] = useState(false);
 
+  // Paper trading account
+  const [ptCapital, setPtCapital] = useState<number>(readPtCapital);
+  const [accountModalOpen, setAccountModalOpen] = useState<boolean>(() => !localStorage.getItem("pt_account"));
+  const [customCapitalInput, setCustomCapitalInput] = useState("");
+
   // Trading sim
   const [position, setPosition] = useState<Position | null>(null);
   const [trades, setTrades] = useState<SimTrade[]>([]);
-  const [equity, setEquity] = useState(STARTING_CAPITAL);
+  const [equity, setEquity] = useState<number>(readPtCapital);
 
   // Order panel
   const [showOrderPanel, setShowOrderPanel] = useState(true);
@@ -431,8 +456,16 @@ export default function ChartPage() {
 
   // In replay mode use the bar close; in live paper-trade mode use the ticking sim price
   const livePrice = replayMode ? (currentBar?.close ?? 0) : liveChartPrice;
-  const unrealizedPnl = position ? (livePrice - position.price) * position.units : null;
-  const unrealizedPct = position ? ((livePrice - position.price) / position.price) * 100 : null;
+  const unrealizedPnl = position
+    ? position.side === "short"
+      ? (position.price - livePrice) * position.units
+      : (livePrice - position.price) * position.units
+    : null;
+  const unrealizedPct = position
+    ? position.side === "short"
+      ? ((position.price - livePrice) / position.price) * 100
+      : ((livePrice - position.price) / position.price) * 100
+    : null;
 
   // Monitor pending chart orders — trigger when bar price crosses the trigger level
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -456,8 +489,8 @@ export default function ChartPage() {
   const wins = trades.filter(t => t.pnl > 0).length;
   const winRate = trades.length > 0 ? (wins / trades.length) * 100 : 0;
   const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
-  const equityGain = equity - STARTING_CAPITAL;
-  const equityGainPct = (equityGain / STARTING_CAPITAL) * 100;
+  const equityGain = equity - ptCapital;
+  const equityGainPct = (equityGain / ptCapital) * 100;
 
   const DRAW_TOOLS: { id: DrawTool; icon: React.ReactNode; label: string; key: string }[] = [
     { id: "cursor",    icon: <MousePointer2 className="h-3.5 w-3.5" />,          label: "Select",    key: "Esc" },
@@ -630,16 +663,43 @@ export default function ChartPage() {
   }, []);
 
   const resetTrading = useCallback(() => {
-    setPosition(null); setTrades([]); setEquity(STARTING_CAPITAL);
+    setPosition(null); setTrades([]); setEquity(ptCapital);
+    localStorage.removeItem("pt_trades");
+    updatePtBalance(ptCapital);
     markersRef.current = []; applyMarkers();
-  }, [applyMarkers]);
+  }, [applyMarkers, ptCapital]);
 
+  // BUY = open long (if no position) OR close short (if short position open)
   const handleBuy = useCallback((bar: KlineBar, priceOverride?: number) => {
-    if (position) return;
-    const entryPrice = priceOverride ?? bar.close;
+    const exitPrice = priceOverride ?? bar.close;
+
+    if (position?.side === "short") {
+      // Close the short position
+      const pnl = position.units * (position.price - exitPrice);
+      const pnlPct = (pnl / position.capitalAtEntry) * 100;
+      const newEquity = position.capitalAtEntry + pnl;
+      const trade = { id: Date.now(), entryPrice: position.price, entryTime: position.time, exitPrice, exitTime: bar.time, units: position.units, pnl, pnlPct, side: "short" as const, symbol };
+      setTrades(prev => [...prev, trade]);
+      setPosition(null);
+      setEquity(newEquity);
+      savePtTrade(trade);
+      updatePtBalance(newEquity);
+      if (candleSeriesRef.current && entryPriceLineRef.current) {
+        try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ }
+        entryPriceLineRef.current = null;
+      }
+      const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "belowBar", color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)", shape: "arrowUp", text: `SC ${fmtPct(pnlPct)}`, size: 1 };
+      markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
+      applyMarkers();
+      return;
+    }
+
+    if (position?.side === "long") return; // Already long
+
+    // Open long
+    const entryPrice = exitPrice;
     const units = (equity * chartLeverage) / entryPrice;
-    setPosition({ price: entryPrice, time: bar.time, units, capitalAtEntry: equity });
-    // Add entry price line
+    setPosition({ price: entryPrice, time: bar.time, units, capitalAtEntry: equity, side: "long" });
     if (candleSeriesRef.current) {
       if (entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } }
       entryPriceLineRef.current = candleSeriesRef.current.createPriceLine({
@@ -648,45 +708,64 @@ export default function ChartPage() {
         title: `▲ Long ${chartLeverage}x`,
       });
     }
-    const marker: SeriesMarker<Time> = {
-      time: bar.time as Time, position: "belowBar",
-      color: "hsl(150,90%,55%)", shape: "arrowUp",
-      text: `B $${fmt(entryPrice)}`, size: 1,
-    };
+    const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "belowBar", color: "hsl(150,90%,55%)", shape: "arrowUp", text: `B $${fmt(entryPrice)}`, size: 1 };
     markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
     applyMarkers();
-  }, [position, equity, chartLeverage, applyMarkers]);
+  }, [position, equity, chartLeverage, applyMarkers, symbol]);
 
-  const handleSell = useCallback((bar: KlineBar, pos: Position) => {
-    // Correct leveraged P&L: units * price change (collateral is pos.capitalAtEntry)
-    const pnl = pos.units * (bar.close - pos.price);
-    const pnlPct = (pnl / pos.capitalAtEntry) * 100;
-    setTrades(prev => [...prev, { id: Date.now(), entryPrice: pos.price, entryTime: pos.time, exitPrice: bar.close, exitTime: bar.time, units: pos.units, pnl, pnlPct }]);
-    setPosition(null);
-    setEquity(pos.capitalAtEntry + pnl);
-    // Remove entry price line
-    if (candleSeriesRef.current && entryPriceLineRef.current) {
-      try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ }
-      entryPriceLineRef.current = null;
+  // SELL = close long (if long position open) OR open short (if no position)
+  const handleSell = useCallback((bar: KlineBar, pos?: Position) => {
+    const currentPos = pos ?? position;
+    const exitPrice = bar.close;
+
+    if (currentPos?.side === "long") {
+      // Close the long position
+      const pnl = currentPos.units * (exitPrice - currentPos.price);
+      const pnlPct = (pnl / currentPos.capitalAtEntry) * 100;
+      const newEquity = currentPos.capitalAtEntry + pnl;
+      const trade = { id: Date.now(), entryPrice: currentPos.price, entryTime: currentPos.time, exitPrice, exitTime: bar.time, units: currentPos.units, pnl, pnlPct, side: "long" as const, symbol };
+      setTrades(prev => [...prev, trade]);
+      setPosition(null);
+      setEquity(newEquity);
+      savePtTrade(trade);
+      updatePtBalance(newEquity);
+      if (candleSeriesRef.current && entryPriceLineRef.current) {
+        try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ }
+        entryPriceLineRef.current = null;
+      }
+      const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "aboveBar", color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)", shape: "arrowDown", text: `S ${fmtPct(pnlPct)}`, size: 1 };
+      markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
+      applyMarkers();
+      return;
     }
-    const marker: SeriesMarker<Time> = {
-      time: bar.time as Time, position: "aboveBar",
-      color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)",
-      shape: "arrowDown", text: `S ${fmtPct(pnlPct)}`, size: 1,
-    };
+
+    if (currentPos?.side === "short") return; // Already short
+
+    // Open short
+    const units = (equity * chartLeverage) / exitPrice;
+    setPosition({ price: exitPrice, time: bar.time, units, capitalAtEntry: equity, side: "short" });
+    if (candleSeriesRef.current) {
+      if (entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } }
+      entryPriceLineRef.current = candleSeriesRef.current.createPriceLine({
+        price: exitPrice, color: "hsl(0,85%,62%)", lineWidth: 1,
+        lineStyle: 2, axisLabelVisible: true,
+        title: `▼ Short ${chartLeverage}x`,
+      });
+    }
+    const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "aboveBar", color: "hsl(0,85%,62%)", shape: "arrowDown", text: `SS $${fmt(exitPrice)}`, size: 1 };
     markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
     applyMarkers();
-  }, [applyMarkers]);
+  }, [position, equity, chartLeverage, applyMarkers, symbol]);
 
   // ── Replay helpers ─────────────────────────────────────────────────
 
   const enterReplay = useCallback(() => {
     setIsPlaying(false); setReplayIndex(MIN_CANDLES); setReplayMode(true);
     setReplaySidebarOpen(false);
-    setPosition(null); setTrades([]); setEquity(STARTING_CAPITAL);
+    setPosition(null); setTrades([]); setEquity(ptCapital);
     markersRef.current = [];
     markersPluginRef.current?.setMarkers([]);
-  }, []);
+  }, [ptCapital]);
 
   const exitReplay = useCallback(() => {
     setIsPlaying(false); setReplayMode(false); setOhlcDisplay(null); resetTrading();
@@ -706,7 +785,7 @@ export default function ChartPage() {
     if (replayMode) {
       setIsPlaying(false);
       setReplayIndex(MIN_CANDLES);
-      setPosition(null); setTrades([]); setEquity(STARTING_CAPITAL);
+      setPosition(null); setTrades([]); setEquity(ptCapital);
       markersRef.current = [];
     }
     setInterval(val as GetKlinesInterval);
@@ -736,7 +815,7 @@ export default function ChartPage() {
         if (e.key === "ArrowLeft")  { e.preventDefault(); stepBack(); }
         if (e.key === " ")          { e.preventDefault(); setIsPlaying(p => !p); }
         if (e.key === "b" || e.key === "B") { const bar = sortedKlinesRef.current[replayIndexRef.current - 1]; if (bar) handleBuy(bar); }
-        if (e.key === "s" || e.key === "S") { if (positionRef.current) { const bar = sortedKlinesRef.current[replayIndexRef.current - 1]; if (bar) handleSell(bar, positionRef.current); } }
+        if (e.key === "s" || e.key === "S") { const bar = sortedKlinesRef.current[replayIndexRef.current - 1]; if (bar) handleSell(bar, positionRef.current ?? undefined); }
       }
       if (e.key === "h") setActiveTool("hline");
       if (e.key === "t") setActiveTool("trendline");
@@ -1274,8 +1353,93 @@ export default function ChartPage() {
 
   // ── Render ─────────────────────────────────────────────────────────
 
+  // ── Account setup helper ───────────────────────────────────────────
+  const CAPITAL_OPTIONS = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000];
+
+  const openAccountWithCapital = (cap: number) => {
+    const acc = { initialCapital: cap, balance: cap, createdAt: new Date().toISOString() };
+    localStorage.setItem("pt_account", JSON.stringify(acc));
+    setPtCapital(cap);
+    setEquity(cap);
+    setAccountModalOpen(false);
+  };
+
   return (
     <div className="tt-chart-page flex flex-col gap-2" style={{ maxWidth: "100%", overflowX: "hidden" }}>
+
+      {/* ── Paper Trading Account Setup Modal ─────────────────────────── */}
+      {accountModalOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(8px)" }}
+        >
+          <div className="w-full max-w-md rounded-2xl border overflow-hidden"
+            style={{ background: "hsl(222,22%,10%)", borderColor: "rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
+
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center"
+                style={{ background: "linear-gradient(135deg, hsl(150,75%,22%), hsl(150,75%,15%))", border: "1px solid rgba(52,211,153,0.3)" }}>
+                <TrendingUp className="h-5 w-5" style={{ color: "hsl(150,90%,65%)" }} />
+              </div>
+              <h2 className="text-lg font-bold font-mono" style={{ color: "hsl(220,14%,90%)" }}>Open Paper Trading Account</h2>
+              <p className="text-xs font-mono mt-1.5" style={{ color: "hsl(220,14%,45%)" }}>
+                Choose your virtual starting balance. You can reset and restart anytime.
+              </p>
+            </div>
+
+            {/* Capital options */}
+            <div className="px-6 py-4">
+              <p className="text-[10px] font-mono uppercase tracking-widest mb-3" style={{ color: "hsl(220,14%,40%)" }}>Select Starting Balance</p>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {CAPITAL_OPTIONS.map(cap => (
+                  <button
+                    key={cap}
+                    onClick={() => openAccountWithCapital(cap)}
+                    className="py-3 rounded-xl border font-mono font-bold text-sm transition-all hover:scale-[1.02]"
+                    style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(220,14%,75%)" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(52,211,153,0.4)"; (e.currentTarget as HTMLElement).style.color = "hsl(150,90%,65%)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "hsl(220,14%,75%)"; }}
+                  >
+                    ${cap >= 1000 ? `${(cap / 1000).toFixed(0)}K` : cap}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom amount */}
+              <div className="flex gap-2">
+                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}>
+                  <span className="text-xs font-mono" style={{ color: "hsl(220,14%,45%)" }}>$</span>
+                  <input
+                    type="number"
+                    placeholder="Custom amount"
+                    value={customCapitalInput}
+                    onChange={e => setCustomCapitalInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { const n = Number(customCapitalInput); if (n >= 100) openAccountWithCapital(n); } }}
+                    className="flex-1 bg-transparent text-xs font-mono outline-none"
+                    style={{ color: "hsl(220,14%,80%)" }}
+                    min={100}
+                  />
+                </div>
+                <button
+                  onClick={() => { const n = Number(customCapitalInput); if (n >= 100) openAccountWithCapital(n); }}
+                  disabled={!customCapitalInput || Number(customCapitalInput) < 100}
+                  className="px-4 py-2 rounded-xl font-mono font-bold text-xs transition-all disabled:opacity-30"
+                  style={{ background: "linear-gradient(135deg, hsl(150,75%,22%), hsl(150,75%,15%))", border: "1px solid rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" }}
+                >
+                  Start
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 pb-5">
+              <p className="text-[10px] font-mono text-center" style={{ color: "hsl(220,14%,30%)" }}>
+                Paper trading uses virtual money — no real funds are at risk.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ───────────────────────────────────────────────── */}
       <div
@@ -2032,15 +2196,17 @@ export default function ChartPage() {
                 {/* Buy / Sell / Close */}
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: "BUY", disabled: !currentBar || !!position,
+                    { label: position?.side === "short" ? "CLOSE SHORT" : "BUY LONG",
+                      disabled: !currentBar || position?.side === "long",
                       onClick: () => {
                         if (!currentBar) return;
                         if (chartOrderType === "market") { handleBuy(currentBar); }
                         else { const price = Number(chartOrderType === "limit" ? chartLimitPrice : chartStopPrice); if (price) setPendingChartOrders(prev => [...prev, { id: Date.now(), side: "buy" as const, orderType: chartOrderType as "limit" | "stop", price }]); }
                       },
                       style: { background: "linear-gradient(135deg, hsl(150,80%,28%), hsl(150,80%,22%))", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } },
-                    { label: position ? "CLOSE" : "SELL", disabled: !currentBar || !position,
-                      onClick: () => { if (currentBar && position) handleSell(currentBar, position); },
+                    { label: position?.side === "long" ? "CLOSE LONG" : "SELL SHORT",
+                      disabled: !currentBar || position?.side === "short",
+                      onClick: () => { if (currentBar) handleSell(currentBar, position ?? undefined); },
                       style: { background: "linear-gradient(135deg, hsl(0,70%,28%), hsl(0,70%,22%))", borderColor: "rgba(239,68,68,0.3)", color: "hsl(0,85%,70%)" } },
                   ].map(btn => (
                     <button key={btn.label} disabled={btn.disabled} onClick={btn.onClick}
@@ -2122,11 +2288,15 @@ export default function ChartPage() {
 
                   <div className="px-3 py-2.5">
                     {position ? (
-                      <div className="rounded-lg px-3 py-2.5 mb-3 border" style={{ background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.18)" }}>
+                      <div className="rounded-lg px-3 py-2.5 mb-3 border" style={position.side === "short"
+                        ? { background: "rgba(239,68,68,0.05)", borderColor: "rgba(239,68,68,0.18)" }
+                        : { background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.18)" }}>
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-1.5">
-                            <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)" }} />
-                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider" style={{ color: "hsl(150,90%,60%)" }}>Long</span>
+                            <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: position.side === "short" ? "hsl(0,85%,62%)" : "hsl(150,90%,55%)" }} />
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider" style={{ color: position.side === "short" ? "hsl(0,85%,65%)" : "hsl(150,90%,60%)" }}>
+                              {position.side === "short" ? "Short" : "Long"}
+                            </span>
                           </div>
                           <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>{fmtDate(position.time)}</span>
                         </div>
@@ -2150,25 +2320,27 @@ export default function ChartPage() {
 
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        disabled={!currentBar || !!position}
+                        disabled={!currentBar || position?.side === "long"}
                         onClick={() => currentBar && handleBuy(currentBar)}
                         className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border font-mono font-bold text-sm transition-all disabled:opacity-20"
-                        style={(!currentBar || !!position)
+                        style={(!currentBar || position?.side === "long")
                           ? { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }
                           : { background: "linear-gradient(160deg, hsl(150,75%,22%), hsl(150,75%,17%))", borderColor: "rgba(52,211,153,0.28)", color: "hsl(150,90%,65%)", boxShadow: "0 4px 18px rgba(52,211,153,0.12), inset 0 1px 0 rgba(52,211,153,0.12)" }}
                       >
-                        <TrendingUp className="h-3.5 w-3.5" /> BUY
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        {position?.side === "short" ? "CLOSE" : "BUY"}
                         <span className="text-[9px] opacity-50">[B]</span>
                       </button>
                       <button
-                        disabled={!currentBar || !position}
-                        onClick={() => currentBar && position && handleSell(currentBar, position)}
+                        disabled={!currentBar || position?.side === "short"}
+                        onClick={() => currentBar && handleSell(currentBar, position ?? undefined)}
                         className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border font-mono font-bold text-sm transition-all disabled:opacity-20"
-                        style={(!currentBar || !position)
+                        style={(!currentBar || position?.side === "short")
                           ? { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }
                           : { background: "linear-gradient(160deg, hsl(0,65%,24%), hsl(0,65%,18%))", borderColor: "rgba(239,68,68,0.28)", color: "hsl(0,85%,68%)", boxShadow: "0 4px 18px rgba(239,68,68,0.12), inset 0 1px 0 rgba(239,68,68,0.1)" }}
                       >
-                        <TrendingDown className="h-3.5 w-3.5" /> SELL
+                        <TrendingDown className="h-3.5 w-3.5" />
+                        {position?.side === "long" ? "CLOSE" : "SELL"}
                         <span className="text-[9px] opacity-50">[S]</span>
                       </button>
                     </div>
@@ -2204,7 +2376,7 @@ export default function ChartPage() {
                     </div>
                     <div>
                       <p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Capital</p>
-                      <p className="text-sm font-mono font-bold leading-none" style={{ color: "hsl(220,14%,58%)" }}>${STARTING_CAPITAL.toLocaleString()}</p>
+                      <p className="text-sm font-mono font-bold leading-none" style={{ color: "hsl(220,14%,58%)" }}>${ptCapital.toLocaleString()}</p>
                       <p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,35%)" }}>starting</p>
                     </div>
                   </div>
