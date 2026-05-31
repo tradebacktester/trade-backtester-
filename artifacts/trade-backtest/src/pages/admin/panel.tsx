@@ -340,7 +340,7 @@ export default function AdminPanel() {
 
       {/* ── Users ── */}
       {tab === "users" && (
-        <div className="page-enter rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
+        <div className="page-enter bg-background rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
             <div className="flex items-center gap-2">
               <Users style={{ height: "14px", width: "14px", color: "#666" }} />
@@ -412,7 +412,7 @@ export default function AdminPanel() {
 
       {/* ── Policies ── */}
       {tab === "policies" && (
-        <div className="page-enter flex flex-col gap-3">
+        <div className="page-enter bg-background flex flex-col gap-3">
           {policiesLoading ? (
             <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>Loading policies…</div>
           ) : policies.map(policy => (
@@ -465,7 +465,7 @@ export default function AdminPanel() {
       {/* ── PLANS (rebuilt) ─────────────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
       {tab === "plans" && (
-        <div className="page-enter flex flex-col gap-5">
+        <div className="page-enter bg-background flex flex-col gap-5">
 
           {/* Header row */}
           <div className="flex items-center justify-between">
@@ -717,7 +717,7 @@ export default function AdminPanel() {
       {/* ── SUBSCRIBERS (rebuilt) ───────────────────────────────────── */}
       {/* ══════════════════════════════════════════════════════════════ */}
       {tab === "subscribers" && (
-        <div className="page-enter flex flex-col gap-4">
+        <div className="page-enter bg-background flex flex-col gap-4">
 
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-3">
@@ -917,7 +917,7 @@ export default function AdminPanel() {
 
       {/* ── Payments ── */}
       {tab === "payments" && (
-        <div className="page-enter rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
+        <div className="page-enter bg-background rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
             <div className="flex items-center gap-2">
               <CreditCard style={{ height: "14px", width: "14px", color: "#666" }} />

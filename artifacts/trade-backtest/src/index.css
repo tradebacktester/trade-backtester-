@@ -431,7 +431,7 @@ select:focus,
   to   { opacity: 1; }
 }
 .page-enter {
-  animation: page-enter 0.18s ease both;
+  animation: page-enter 0.18s ease 0.06s both;
 }
 
 /* ── Overflow prevention ────────────────────────────────────────────── */
