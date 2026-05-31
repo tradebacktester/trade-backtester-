@@ -47,6 +47,12 @@ const FEATURE_TYPES: Record<string, "number" | "boolean"> = {
   dataExport: "boolean", priorityBadge: "boolean", allIndicators: "boolean",
 };
 
+const SUBS_STAT_ICONS = {
+  Total:          <Star style={{ height: "13px", width: "13px" }} />,
+  Active:         <CheckCircle style={{ height: "13px", width: "13px" }} />,
+  "Admin Grants": <Gift style={{ height: "13px", width: "13px" }} />,
+};
+
 const PLAN_ACCENT: Record<string, { color: string; bg: string; border: string }> = {
   free:  { color: "#666",               bg: "rgba(0,0,0,0.05)",          border: "rgba(0,0,0,0.12)" },
   pro:   { color: "hsl(265,89%,60%)",   bg: "rgba(139,92,246,0.08)",     border: "rgba(139,92,246,0.25)" },
@@ -145,13 +151,13 @@ export default function AdminPanel() {
     finally { setPlansLoading(false); }
   }, [headers]);
 
-  const fetchSubs = useCallback(async () => {
-    setSubsLoading(true);
+  const fetchSubs = useCallback(async (silent = false) => {
+    if (!silent) setSubsLoading(true);
     try {
       const res = await fetch("/api/admin/subscriptions", { headers });
       if (res.ok) setSubs(await res.json());
     } catch { }
-    finally { setSubsLoading(false); }
+    finally { if (!silent) setSubsLoading(false); }
   }, [headers]);
 
   const fetchPayments = useCallback(async () => {
@@ -257,7 +263,7 @@ export default function AdminPanel() {
         body: JSON.stringify({ userId: parseInt(grantUserId), planId: parseInt(grantPlanId), months: parseInt(grantMonths) }),
       });
       if (res.ok) {
-        fetchSubs();
+        fetchSubs(true);
         setGrantUserId(""); setGrantPlanId(""); setGrantMonths("1");
         setGrantSuccess(true);
         setTimeout(() => setGrantSuccess(false), 3000);
@@ -534,7 +540,7 @@ export default function AdminPanel() {
 
                 {/* Card header */}
                 <div className="flex items-center justify-between px-5 py-4"
-                  style={{ borderBottom: isEditing ? `1px solid ${accent.border}` : "none", background: isEditing ? accent.bg : "transparent" }}>
+                  style={{ borderBottom: isEditing ? `1px solid ${accent.border}` : "1px solid transparent", background: isEditing ? accent.bg : "transparent" }}>
                   <div className="flex items-center gap-3">
                     <span className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: accent.bg, border: `1px solid ${accent.border}` }}>

@@ -251,6 +251,7 @@ body {
   padding-top: var(--desktop-nav-height);
   max-width: 100vw;
   width: 100%;
+  scrollbar-gutter: stable;
 }
 
 @media (max-width: 767px) {
