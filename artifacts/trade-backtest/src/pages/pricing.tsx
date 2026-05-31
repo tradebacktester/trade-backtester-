@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Crown, Check, Zap, Star, Shield, ArrowRight, Loader2 } from "lucide-react";
+import {
+  Crown, Check, X, Zap, Shield, ArrowRight, Loader2,
+  TrendingUp, Brain, BarChart2, RefreshCw, Download, Star,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSubscription, type SubscriptionPlan } from "@/lib/subscription-context";
 import { AuthModal } from "@/components/auth-modal";
 
 declare global {
-  interface Window { Razorpay: new (opts: Record<string, unknown>) => { open(): void }; }
+  interface Window {
+    Razorpay: new (opts: Record<string, unknown>) => { open(): void };
+  }
 }
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -21,24 +26,164 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-const FEATURE_LABELS: Record<string, string> = {
-  maxBacktestsPerMonth: "Backtests / month",
-  aiQueriesPerDay: "AI queries / day",
-  maxLeverage: "Max leverage",
-  communityPost: "Community posting",
-  replayMode: "Chart replay mode",
-  multiTfView: "Multi-timeframe view",
-  dataExport: "Data export",
-  priorityBadge: "Priority member badge",
-  allIndicators: "All 11 indicators",
+const PLANS_META: Record<string, {
+  icon: React.ReactNode;
+  accent: string;
+  accentBg: string;
+  accentBorder: string;
+  gradient: string;
+  cardBg: string;
+  cardBorder: string;
+  shadow: string;
+  badge?: string;
+}> = {
+  free: {
+    icon: <Shield className="h-5 w-5" style={{ color: "#777" }} />,
+    accent: "#555",
+    accentBg: "rgba(0,0,0,0.06)",
+    accentBorder: "rgba(0,0,0,0.12)",
+    gradient: "linear-gradient(135deg, #555 0%, #333 100%)",
+    cardBg: "#fff",
+    cardBorder: "rgba(0,0,0,0.09)",
+    shadow: "none",
+  },
+  pro: {
+    icon: <Zap className="h-5 w-5" style={{ color: "hsl(265,89%,62%)" }} />,
+    accent: "hsl(265,89%,60%)",
+    accentBg: "rgba(139,92,246,0.1)",
+    accentBorder: "rgba(139,92,246,0.28)",
+    gradient: "linear-gradient(135deg, hsl(265,89%,60%) 0%, hsl(285,89%,58%) 100%)",
+    cardBg: "#fff",
+    cardBorder: "rgba(139,92,246,0.22)",
+    shadow: "0 0 0 1px rgba(139,92,246,0.22), 0 12px 40px rgba(139,92,246,0.14)",
+    badge: "Most Popular",
+  },
+  elite: {
+    icon: <Crown className="h-5 w-5" style={{ color: "hsl(38,100%,52%)" }} />,
+    accent: "hsl(38,100%,50%)",
+    accentBg: "rgba(245,158,11,0.1)",
+    accentBorder: "rgba(245,158,11,0.3)",
+    gradient: "linear-gradient(135deg, hsl(38,100%,50%) 0%, hsl(20,100%,52%) 100%)",
+    cardBg: "#fff",
+    cardBorder: "rgba(245,158,11,0.25)",
+    shadow: "0 0 0 1px rgba(245,158,11,0.22), 0 12px 40px rgba(245,158,11,0.12)",
+  },
 };
 
-function featureValue(key: string, val: unknown): string {
-  if (key === "maxBacktestsPerMonth") return val === -1 ? "Unlimited" : String(val);
-  if (key === "aiQueriesPerDay") return val === -1 ? "Unlimited" : val === 0 ? "None" : `${val}/day`;
-  if (key === "maxLeverage") return `${val}x`;
-  if (typeof val === "boolean") return val ? "✓" : "—";
-  return String(val);
+const FEATURES: Array<{
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  format: (val: unknown) => string | null;
+}> = [
+  {
+    key: "maxBacktestsPerMonth",
+    label: "Backtests / month",
+    icon: <BarChart2 className="h-3.5 w-3.5" />,
+    format: val => val === -1 ? "Unlimited" : String(val),
+  },
+  {
+    key: "aiQueriesPerDay",
+    label: "AI queries / day",
+    icon: <Brain className="h-3.5 w-3.5" />,
+    format: val => val === -1 ? "Unlimited" : val === 0 ? null : `${val}/day`,
+  },
+  {
+    key: "maxLeverage",
+    label: "Max leverage",
+    icon: <TrendingUp className="h-3.5 w-3.5" />,
+    format: val => `${val}×`,
+  },
+  {
+    key: "allIndicators",
+    label: "All 11 indicators",
+    icon: <BarChart2 className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
+  {
+    key: "replayMode",
+    label: "Chart replay mode",
+    icon: <RefreshCw className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
+  {
+    key: "multiTfView",
+    label: "Multi-timeframe view",
+    icon: <BarChart2 className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
+  {
+    key: "communityPost",
+    label: "Community posting",
+    icon: <Star className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
+  {
+    key: "dataExport",
+    label: "Data export",
+    icon: <Download className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
+  {
+    key: "priorityBadge",
+    label: "Priority member badge",
+    icon: <Crown className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
+];
+
+function FeatureRow({
+  label,
+  icon,
+  values,
+  slugs,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  values: Array<string | null>;
+  slugs: string[];
+}) {
+  return (
+    <div
+      className="grid items-center py-3"
+      style={{
+        gridTemplateColumns: "1fr repeat(3, minmax(80px,100px))",
+        borderBottom: "1px solid rgba(0,0,0,0.05)",
+      }}
+    >
+      <div className="flex items-center gap-2 pr-4">
+        <span style={{ color: "#aaa" }}>{icon}</span>
+        <span className="text-[12px]" style={{ color: "#555" }}>{label}</span>
+      </div>
+      {values.map((val, i) => {
+        const meta = PLANS_META[slugs[i]];
+        if (val === null) {
+          return (
+            <div key={i} className="flex justify-center">
+              <X className="h-3.5 w-3.5" style={{ color: "#ddd" }} />
+            </div>
+          );
+        }
+        if (val === "yes") {
+          return (
+            <div key={i} className="flex justify-center">
+              <span
+                className="h-5 w-5 rounded-full flex items-center justify-center"
+                style={{ background: meta?.accentBg }}
+              >
+                <Check className="h-3 w-3" style={{ color: meta?.accent }} />
+              </span>
+            </div>
+          );
+        }
+        return (
+          <div key={i} className="flex justify-center">
+            <span className="text-[12px] font-semibold" style={{ color: "#222" }}>{val}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function PricingPage() {
@@ -103,198 +248,228 @@ export default function PricingPage() {
               planId: plan.id,
             }),
           });
-          if (verifyRes.ok) {
-            refresh();
-            navigate("/billing");
-          } else {
-            alert("Payment verification failed. Contact support.");
-          }
+          if (verifyRes.ok) { refresh(); navigate("/billing"); }
+          else { alert("Payment verification failed. Contact support."); }
         },
       });
       rzp.open();
-    } catch (err) {
+    } catch {
       alert("Something went wrong. Please try again.");
     } finally {
       setSubscribing(null);
     }
   }
 
-  const PLAN_ICONS: Record<string, React.ReactNode> = {
-    free: <Shield className="h-5 w-5" style={{ color: "#888" }} />,
-    pro: <Zap className="h-5 w-5" style={{ color: "hsl(265,89%,65%)" }} />,
-    elite: <Crown className="h-5 w-5" style={{ color: "hsl(38,100%,60%)" }} />,
-  };
-
-  const PLAN_GRADIENTS: Record<string, string> = {
-    free: "rgba(0,0,0,0.02)",
-    pro: "rgba(139,92,246,0.06)",
-    elite: "rgba(245,158,11,0.06)",
-  };
-
-  const PLAN_BORDER: Record<string, string> = {
-    free: "rgba(0,0,0,0.08)",
-    pro: "rgba(139,92,246,0.25)",
-    elite: "rgba(245,158,11,0.3)",
-  };
-
-  const FEATURE_ORDER = [
-    "maxBacktestsPerMonth", "aiQueriesPerDay", "maxLeverage",
-    "allIndicators", "communityPost", "replayMode",
-    "multiTfView", "dataExport", "priorityBadge",
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#ccc" }} />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
+    <div className="max-w-4xl mx-auto px-4 py-10">
       <AuthModal open={showAuth} onClose={() => setShowAuth(false)} />
 
-      {/* Header */}
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-4"
-          style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.2)", color: "hsl(265,89%,65%)" }}>
-          <Crown className="h-3 w-3" /> Premium Plans
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
+      <div className="text-center mb-12">
+        <div
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium mb-5"
+          style={{
+            background: "rgba(139,92,246,0.08)",
+            border: "1px solid rgba(139,92,246,0.18)",
+            color: "hsl(265,89%,60%)",
+          }}
+        >
+          <Crown className="h-3 w-3" />
+          Simple, transparent pricing
         </div>
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#111" }}>Choose your plan</h1>
-        <p className="text-sm" style={{ color: "#888" }}>
-          Unlock advanced backtesting, AI analysis, and real-time tools to trade smarter.
+        <h1 className="text-[28px] font-bold tracking-tight mb-3" style={{ color: "#111" }}>
+          Upgrade your trading edge
+        </h1>
+        <p className="text-[14px] max-w-md mx-auto" style={{ color: "#888", lineHeight: 1.6 }}>
+          Pick the plan that fits your workflow. All plans include access to the backtesting engine and live charts.
         </p>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: "#aaa" }} /></div>
-      ) : (
-        <>
-          {/* Plan cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-12">
-            {plans.map(plan => {
-              const isCurrentPlan = currentPlan?.slug === plan.slug;
-              const isFree = plan.priceMonthly === 0;
-              const isPopular = plan.slug === "pro";
+      {/* ── Plan cards ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        {plans.map(plan => {
+          const meta = PLANS_META[plan.slug];
+          const isFree = plan.priceMonthly === 0;
+          const isCurrentPlan = currentPlan?.slug === plan.slug;
+          const isActive = isCurrentPlan && subscription?.status === "active";
+          const isBusy = subscribing === plan.id;
 
-              return (
-                <div key={plan.id} className="relative rounded-2xl p-6 flex flex-col gap-5"
-                  style={{ background: PLAN_GRADIENTS[plan.slug] ?? "#fff", border: `1px solid ${PLAN_BORDER[plan.slug] ?? "rgba(0,0,0,0.08)"}`, boxShadow: isPopular ? "0 8px 32px rgba(139,92,246,0.15)" : "none" }}>
-                  {isPopular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="px-3 py-1 rounded-full text-[10px] font-semibold"
-                        style={{ background: "linear-gradient(135deg, hsl(265,89%,60%), hsl(285,89%,60%))", color: "#fff" }}>
-                        Most Popular
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-9 w-9 rounded-xl flex items-center justify-center"
-                        style={{ background: plan.slug === "elite" ? "rgba(245,158,11,0.1)" : plan.slug === "pro" ? "rgba(139,92,246,0.1)" : "#f5f5f5" }}>
-                        {PLAN_ICONS[plan.slug]}
-                      </span>
-                      <div>
-                        <p className="text-base font-bold" style={{ color: "#111" }}>{plan.name}</p>
-                        <p className="text-[11px]" style={{ color: "#888" }}>{plan.description.slice(0, 40)}…</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    {isFree ? (
-                      <p className="text-3xl font-bold" style={{ color: "#111" }}>₹0<span className="text-sm font-normal text-gray-400">/mo</span></p>
-                    ) : (
-                      <p className="text-3xl font-bold" style={{ color: "#111" }}>
-                        ₹{(plan.priceMonthly / 100).toLocaleString("en-IN")}
-                        <span className="text-sm font-normal" style={{ color: "#888" }}>/mo</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-2 flex-1">
-                    {FEATURE_ORDER.map(key => {
-                      const val = (plan.features as unknown as Record<string, unknown>)[key];
-                      const isEnabled = typeof val === "boolean" ? val : typeof val === "number" ? val !== 0 : false;
-                      return (
-                        <div key={key} className="flex items-center gap-2">
-                          <span className="h-4 w-4 flex-shrink-0 flex items-center justify-center rounded-full text-[9px] font-bold"
-                            style={isEnabled
-                              ? { background: plan.slug === "elite" ? "rgba(245,158,11,0.15)" : "rgba(139,92,246,0.12)", color: plan.slug === "elite" ? "hsl(38,100%,55%)" : "hsl(265,89%,60%)" }
-                              : { background: "#f0f0f0", color: "#ccc" }}>
-                            <Check className="h-2.5 w-2.5" />
-                          </span>
-                          <span className="text-[11px]" style={{ color: isEnabled ? "#444" : "#bbb" }}>
-                            {FEATURE_LABELS[key] ?? key} — <span className="font-medium">{featureValue(key, val)}</span>
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <button
-                    onClick={() => !isFree && handleSubscribe(plan)}
-                    disabled={isCurrentPlan || isFree || subscribing === plan.id}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
-                    style={isCurrentPlan
-                      ? { background: "#f0f0f0", color: "#888", cursor: "default" }
-                      : isFree
-                        ? { background: "#f5f5f5", color: "#aaa", cursor: "default" }
-                        : plan.slug === "elite"
-                          ? { background: "linear-gradient(135deg, hsl(38,100%,50%), hsl(20,100%,55%))", color: "#fff", boxShadow: "0 4px 16px rgba(245,158,11,0.35)" }
-                          : { background: "linear-gradient(135deg, hsl(265,89%,60%), hsl(285,89%,60%))", color: "#fff", boxShadow: "0 4px 16px rgba(139,92,246,0.35)" }
-                    }
+          return (
+            <div
+              key={plan.id}
+              className="relative flex flex-col rounded-2xl p-6"
+              style={{
+                background: meta?.cardBg ?? "#fff",
+                border: `1px solid ${meta?.cardBorder ?? "rgba(0,0,0,0.09)"}`,
+                boxShadow: meta?.shadow ?? "none",
+              }}
+            >
+              {/* Popular badge */}
+              {meta?.badge && (
+                <div className="absolute -top-3 left-0 right-0 flex justify-center">
+                  <span
+                    className="px-3 py-0.5 rounded-full text-[10px] font-bold tracking-wide text-white"
+                    style={{ background: meta.gradient }}
                   >
-                    {subscribing === plan.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : isCurrentPlan ? (
-                      <><Check className="h-4 w-4" /> Current Plan</>
-                    ) : isFree ? (
-                      "Your Default Plan"
-                    ) : (
-                      <><ArrowRight className="h-4 w-4" /> Subscribe</>
-                    )}
-                  </button>
+                    {meta.badge}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+              )}
 
-          {/* Feature comparison table */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.08)" }}>
-            <div className="px-5 py-4" style={{ background: "#f9f9f9", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-              <p className="text-sm font-semibold" style={{ color: "#111" }}>Full Feature Comparison</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                    <th className="text-left px-5 py-3 text-xs font-medium" style={{ color: "#888", width: "40%" }}>Feature</th>
-                    {plans.map(p => (
-                      <th key={p.id} className="text-center px-3 py-3 text-xs font-semibold" style={{ color: "#111" }}>{p.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {FEATURE_ORDER.map((key, i) => (
-                    <tr key={key} style={{ borderBottom: i < FEATURE_ORDER.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", background: i % 2 === 0 ? "transparent" : "#fafafa" }}>
-                      <td className="px-5 py-3 text-xs" style={{ color: "#555" }}>{FEATURE_LABELS[key] ?? key}</td>
-                      {plans.map(p => {
-                        const val = (p.features as unknown as Record<string, unknown>)[key];
-                        const isEnabled = typeof val === "boolean" ? val : typeof val === "number" ? val !== 0 : false;
-                        return (
-                          <td key={p.id} className="text-center px-3 py-3 text-xs font-medium" style={{ color: isEnabled ? "#111" : "#ccc" }}>
-                            {featureValue(key, val)}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+              {/* Plan header */}
+              <div className="flex items-center gap-3 mb-5">
+                <span
+                  className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: meta?.accentBg }}
+                >
+                  {meta?.icon}
+                </span>
+                <div>
+                  <p className="text-[15px] font-bold" style={{ color: "#111" }}>{plan.name}</p>
+                  <p className="text-[11px]" style={{ color: "#999" }}>{plan.description.split(",")[0]}</p>
+                </div>
+              </div>
 
-          {/* Note about Razorpay */}
-          <p className="text-center text-xs mt-6" style={{ color: "#bbb" }}>
-            Secure payments powered by Razorpay. All prices in INR. Cancel anytime.
+              {/* Price */}
+              <div className="mb-6">
+                {isFree ? (
+                  <p className="text-[32px] font-bold" style={{ color: "#111" }}>
+                    ₹0
+                    <span className="text-[13px] font-normal" style={{ color: "#aaa" }}>/mo</span>
+                  </p>
+                ) : (
+                  <p className="text-[32px] font-bold" style={{ color: "#111" }}>
+                    ₹{(plan.priceMonthly / 100).toLocaleString("en-IN")}
+                    <span className="text-[13px] font-normal" style={{ color: "#aaa" }}>/mo</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Feature list */}
+              <div className="flex flex-col gap-2.5 flex-1 mb-6">
+                {FEATURES.map(({ key, label, format }) => {
+                  const raw = (plan.features as unknown as Record<string, unknown>)[key];
+                  const val = format(raw);
+                  const enabled = val !== null;
+
+                  return (
+                    <div key={key} className="flex items-center gap-2.5">
+                      <span
+                        className="h-4 w-4 flex-shrink-0 rounded-full flex items-center justify-center"
+                        style={
+                          enabled
+                            ? { background: meta?.accentBg }
+                            : { background: "#f0f0f0" }
+                        }
+                      >
+                        {enabled
+                          ? <Check className="h-2.5 w-2.5" style={{ color: meta?.accent }} />
+                          : <X className="h-2.5 w-2.5" style={{ color: "#ccc" }} />
+                        }
+                      </span>
+                      <span
+                        className="text-[12px]"
+                        style={{ color: enabled ? "#444" : "#ccc" }}
+                      >
+                        {val === "yes" || val === null
+                          ? label
+                          : <><span style={{ color: enabled ? "#111" : "#ccc", fontWeight: 600 }}>{val}</span> {label}</>
+                        }
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* CTA */}
+              <button
+                onClick={() => !isFree && !isActive && handleSubscribe(plan)}
+                disabled={isFree || isActive || isBusy}
+                className="w-full py-2.5 rounded-xl text-[13px] font-semibold flex items-center justify-center gap-2 transition-opacity"
+                style={
+                  isActive
+                    ? { background: "#f0f0f0", color: "#888", cursor: "default" }
+                    : isFree
+                      ? { background: "#f5f5f5", color: "#bbb", cursor: "default" }
+                      : { background: meta?.gradient, color: "#fff", boxShadow: `0 4px 16px ${meta?.accentBorder}` }
+                }
+              >
+                {isBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isActive ? (
+                  <><Check className="h-4 w-4" /> Current plan</>
+                ) : isCurrentPlan ? (
+                  <><ArrowRight className="h-4 w-4" /> Switch back</>
+                ) : isFree ? (
+                  "Free forever"
+                ) : (
+                  <><ArrowRight className="h-4 w-4" /> Get {plan.name}</>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Feature comparison table ──────────────────────────────────── */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+      >
+        {/* Table header */}
+        <div
+          className="grid px-5 py-4"
+          style={{
+            gridTemplateColumns: "1fr repeat(3, minmax(80px,100px))",
+            background: "#fafafa",
+            borderBottom: "1px solid rgba(0,0,0,0.07)",
+          }}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#aaa" }}>
+            Feature
           </p>
-        </>
-      )}
+          {plans.map(p => {
+            const meta = PLANS_META[p.slug];
+            return (
+              <div key={p.id} className="flex flex-col items-center gap-0.5">
+                <span
+                  className="h-6 w-6 rounded-lg flex items-center justify-center"
+                  style={{ background: meta?.accentBg }}
+                >
+                  {meta?.icon && React.cloneElement(meta.icon as React.ReactElement, {
+                    className: "h-3.5 w-3.5",
+                  })}
+                </span>
+                <span className="text-[11px] font-semibold" style={{ color: "#333" }}>{p.name}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Table rows */}
+        <div className="px-5">
+          {FEATURES.map(({ key, label, icon, format }) => {
+            const values = plans.map(p => format((p.features as unknown as Record<string, unknown>)[key]));
+            const slugs = plans.map(p => p.slug);
+            return (
+              <FeatureRow key={key} label={label} icon={icon} values={values} slugs={slugs} />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Footer note ───────────────────────────────────────────────── */}
+      <p className="text-center text-[11px] mt-6" style={{ color: "#ccc" }}>
+        Secure payments via Razorpay · All prices in INR · Cancel anytime
+      </p>
     </div>
   );
 }
