@@ -4,6 +4,7 @@ import {
   Shield, Users, FileText, LogOut, Ban, CheckCircle, RefreshCw, Save,
   ChevronDown, ChevronUp, UserCheck, UserX, Crown, CreditCard, Zap,
   Plus, Edit2, ToggleLeft, ToggleRight, Gift, Trash2, Star,
+  X, Check, Package, AlertCircle, Calendar, Hash,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -30,16 +31,31 @@ interface AdminPayment {
 }
 
 const FEATURE_LABELS: Record<string, string> = {
-  maxBacktestsPerMonth: "Backtests/month (-1=∞)", aiQueriesPerDay: "AI queries/day (-1=∞)",
-  maxLeverage: "Max leverage", communityPost: "Community posting",
-  replayMode: "Replay mode", multiTfView: "Multi-TF view",
-  dataExport: "Data export", priorityBadge: "Priority badge", allIndicators: "All indicators",
+  maxBacktestsPerMonth: "Backtests/month",
+  aiQueriesPerDay: "AI queries/day",
+  maxLeverage: "Max leverage",
+  communityPost: "Community posting",
+  replayMode: "Replay mode",
+  multiTfView: "Multi-TF view",
+  dataExport: "Data export",
+  priorityBadge: "Priority badge",
+  allIndicators: "All indicators",
 };
 const FEATURE_TYPES: Record<string, "number" | "boolean"> = {
   maxBacktestsPerMonth: "number", aiQueriesPerDay: "number", maxLeverage: "number",
   communityPost: "boolean", replayMode: "boolean", multiTfView: "boolean",
   dataExport: "boolean", priorityBadge: "boolean", allIndicators: "boolean",
 };
+
+const PLAN_ACCENT: Record<string, { color: string; bg: string; border: string }> = {
+  free:  { color: "#666",               bg: "rgba(0,0,0,0.05)",          border: "rgba(0,0,0,0.12)" },
+  pro:   { color: "hsl(265,89%,60%)",   bg: "rgba(139,92,246,0.08)",     border: "rgba(139,92,246,0.25)" },
+  elite: { color: "hsl(38,100%,50%)",   bg: "rgba(245,158,11,0.08)",     border: "rgba(245,158,11,0.28)" },
+};
+
+function planAccent(slug: string) {
+  return PLAN_ACCENT[slug] ?? PLAN_ACCENT.free;
+}
 
 type Tab = "users" | "policies" | "plans" | "subscribers" | "payments";
 
@@ -66,7 +82,8 @@ export default function AdminPanel() {
   // ── Plans ──
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
-  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<SubscriptionPlan | null>(null);
   const [showNewPlan, setShowNewPlan] = useState(false);
   const [newPlan, setNewPlan] = useState({ name: "", slug: "", description: "", priceMonthly: 0 });
   const [savingPlan, setSavingPlan] = useState<number | null>(null);
@@ -74,8 +91,12 @@ export default function AdminPanel() {
   // ── Subscribers ──
   const [subs, setSubs] = useState<AdminSubscription[]>([]);
   const [subsLoading, setSubsLoading] = useState(true);
-  const [grantForm, setGrantForm] = useState({ userId: "", planId: "", months: "1" });
+  const [grantUserId, setGrantUserId] = useState("");
+  const [grantPlanId, setGrantPlanId] = useState("");
+  const [grantMonths, setGrantMonths] = useState("1");
   const [granting, setGranting] = useState(false);
+  const [grantSuccess, setGrantSuccess] = useState(false);
+  const [subsFilter, setSubsFilter] = useState<"all" | "active" | "cancelled">("all");
 
   // ── Payments ──
   const [payments, setPayments] = useState<AdminPayment[]>([]);
@@ -177,20 +198,24 @@ export default function AdminPanel() {
     } finally { setSavingPlan(null); }
   }
 
-  async function savePlanEdit(plan: SubscriptionPlan) {
-    setSavingPlan(plan.id);
+  async function savePlanEdit() {
+    if (!editDraft) return;
+    setSavingPlan(editDraft.id);
     try {
-      const res = await fetch(`/api/admin/plans/${plan.id}`, {
+      const res = await fetch(`/api/admin/plans/${editDraft.id}`, {
         method: "PATCH", headers,
         body: JSON.stringify({
-          name: plan.name, description: plan.description,
-          priceMonthly: plan.priceMonthly, features: plan.features,
+          name: editDraft.name,
+          description: editDraft.description,
+          priceMonthly: editDraft.priceMonthly,
+          features: editDraft.features,
         }),
       });
       if (res.ok) {
         const updated = await res.json();
-        setPlans(ps => ps.map(p => p.id === plan.id ? updated : p));
-        setEditingPlan(null);
+        setPlans(ps => ps.map(p => p.id === editDraft.id ? updated : p));
+        setEditingPlanId(null);
+        setEditDraft(null);
       }
     } finally { setSavingPlan(null); }
   }
@@ -213,14 +238,19 @@ export default function AdminPanel() {
   }
 
   async function grantPremium() {
-    if (!grantForm.userId || !grantForm.planId) return;
+    if (!grantUserId || !grantPlanId) return;
     setGranting(true);
     try {
       const res = await fetch("/api/admin/grant-premium", {
         method: "POST", headers,
-        body: JSON.stringify({ userId: parseInt(grantForm.userId), planId: parseInt(grantForm.planId), months: parseInt(grantForm.months) }),
+        body: JSON.stringify({ userId: parseInt(grantUserId), planId: parseInt(grantPlanId), months: parseInt(grantMonths) }),
       });
-      if (res.ok) { fetchSubs(); setGrantForm({ userId: "", planId: "", months: "1" }); }
+      if (res.ok) {
+        fetchSubs();
+        setGrantUserId(""); setGrantPlanId(""); setGrantMonths("1");
+        setGrantSuccess(true);
+        setTimeout(() => setGrantSuccess(false), 3000);
+      }
     } finally { setGranting(false); }
   }
 
@@ -235,10 +265,14 @@ export default function AdminPanel() {
   const TABS: [Tab, React.ElementType, string][] = [
     ["users", Users, "Users"],
     ["policies", FileText, "Policies"],
-    ["plans", Crown, "Plans"],
+    ["plans", Package, "Plans"],
     ["subscribers", Star, "Subscribers"],
     ["payments", CreditCard, "Payments"],
   ];
+
+  const filteredSubs = subsFilter === "all" ? subs : subs.filter(s => s.status === subsFilter);
+  const activeSubs = subs.filter(s => s.status === "active").length;
+  const adminGrantedSubs = subs.filter(s => s.grantedByAdmin && s.status === "active").length;
 
   return (
     <div>
@@ -252,7 +286,8 @@ export default function AdminPanel() {
             <p className="text-xs" style={{ color: "#888" }}>Manage users, policies, plans, and subscriptions</p>
           </div>
         </div>
-        <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+        <button onClick={handleLogout}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors"
           style={{ border: "1px solid rgba(0,0,0,0.1)", color: "#666", background: "#f5f5f5" }}>
           <LogOut style={{ height: "12px", width: "12px" }} /> Logout
         </button>
@@ -263,9 +298,17 @@ export default function AdminPanel() {
         {TABS.map(([key, Icon, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-            style={tab === key ? { background: "#111", color: "#fff" } : { background: "#f5f5f5", color: "#666", border: "1px solid rgba(0,0,0,0.08)" }}>
+            style={tab === key
+              ? { background: "#111", color: "#fff" }
+              : { background: "#f5f5f5", color: "#666", border: "1px solid rgba(0,0,0,0.08)" }}>
             <Icon style={{ height: "13px", width: "13px" }} />
             {label}
+            {key === "subscribers" && activeSubs > 0 && (
+              <span className="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                style={tab === key ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: "rgba(139,92,246,0.1)", color: "hsl(265,89%,60%)" }}>
+                {activeSubs}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -279,7 +322,7 @@ export default function AdminPanel() {
               <span className="text-sm font-semibold" style={{ color: "#111" }}>Registered Users</span>
               <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#f0f0f0", color: "#666" }}>{users.length}</span>
             </div>
-            <button onClick={fetchUsers} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: "#888" }}>
+            <button onClick={fetchUsers} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
               <RefreshCw style={{ height: "13px", width: "13px" }} />
             </button>
           </div>
@@ -329,7 +372,9 @@ export default function AdminPanel() {
                         style={user.banned
                           ? { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0" }
                           : { background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }}>
-                        {user.banned ? <><UserCheck style={{ height: "11px", width: "11px" }} />Unban</> : <><UserX style={{ height: "11px", width: "11px" }} />Ban</>}
+                        {user.banned
+                          ? <><UserCheck style={{ height: "11px", width: "11px" }} />Unban</>
+                          : <><UserX style={{ height: "11px", width: "11px" }} />Ban</>}
                       </button>
                     </div>
                   </div>
@@ -358,7 +403,9 @@ export default function AdminPanel() {
                     </p>
                   </div>
                 </div>
-                {expandedPolicy === policy.slug ? <ChevronUp style={{ height: "14px", width: "14px", color: "#aaa" }} /> : <ChevronDown style={{ height: "14px", width: "14px", color: "#aaa" }} />}
+                {expandedPolicy === policy.slug
+                  ? <ChevronUp style={{ height: "14px", width: "14px", color: "#aaa" }} />
+                  : <ChevronDown style={{ height: "14px", width: "14px", color: "#aaa" }} />}
               </button>
               {expandedPolicy === policy.slug && (
                 <div className="px-5 pb-5" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
@@ -370,7 +417,11 @@ export default function AdminPanel() {
                     onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
                   />
                   <div className="flex items-center justify-end gap-2 mt-2">
-                    {savedSlug === policy.slug && <span className="flex items-center gap-1 text-xs" style={{ color: "#16a34a" }}><CheckCircle style={{ height: "11px", width: "11px" }} />Saved</span>}
+                    {savedSlug === policy.slug && (
+                      <span className="flex items-center gap-1 text-xs" style={{ color: "#16a34a" }}>
+                        <CheckCircle style={{ height: "11px", width: "11px" }} />Saved
+                      </span>
+                    )}
                     <button onClick={() => savePolicy(policy.slug, policy.title)} disabled={savingSlug === policy.slug}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
                       style={{ background: "#111", color: "#fff", opacity: savingSlug === policy.slug ? 0.6 : 1 }}>
@@ -385,240 +436,456 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* ── Plans ── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── PLANS (rebuilt) ─────────────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
       {tab === "plans" && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
+
+          {/* Header row */}
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold" style={{ color: "#111" }}>Subscription Plans</p>
-            <button onClick={() => setShowNewPlan(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium"
-              style={{ background: "#111", color: "#fff" }}>
-              <Plus style={{ height: "12px", width: "12px" }} /> New Plan
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#111" }}>Subscription Plans</p>
+              <p className="text-xs mt-0.5" style={{ color: "#aaa" }}>{plans.length} plan{plans.length !== 1 ? "s" : ""} configured</p>
+            </div>
+            <button onClick={() => { setShowNewPlan(v => !v); setEditingPlanId(null); setEditDraft(null); }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all"
+              style={showNewPlan ? { background: "#f0f0f0", color: "#666" } : { background: "#111", color: "#fff" }}>
+              {showNewPlan ? <><X style={{ height: "12px", width: "12px" }} />Cancel</> : <><Plus style={{ height: "12px", width: "12px" }} />New Plan</>}
             </button>
           </div>
 
+          {/* ── New plan form ── */}
           {showNewPlan && (
-            <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
-              <p className="text-xs font-semibold" style={{ color: "#111" }}>Create New Plan</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[["Name", "name", "text", newPlan.name], ["Slug (unique ID)", "slug", "text", newPlan.slug], ["Description", "description", "text", newPlan.description], ["Price (paise, e.g. 49900 = ₹499)", "priceMonthly", "number", newPlan.priceMonthly]].map(([label, field, type, val]) => (
-                  <div key={field as string} className="flex flex-col gap-1">
-                    <label className="text-[11px]" style={{ color: "#666" }}>{label as string}</label>
-                    <input type={type as string} value={val as string | number}
-                      onChange={e => setNewPlan(p => ({ ...p, [field as string]: type === "number" ? parseInt(e.target.value) || 0 : e.target.value }))}
-                      className="text-xs px-3 py-2 rounded-lg outline-none"
-                      style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
+            <div className="rounded-2xl p-5" style={{ border: "1px solid rgba(139,92,246,0.2)", background: "rgba(139,92,246,0.02)" }}>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(139,92,246,0.1)" }}>
+                  <Package style={{ height: "13px", width: "13px", color: "hsl(265,89%,60%)" }} />
+                </span>
+                <p className="text-sm font-semibold" style={{ color: "#111" }}>Create New Plan</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {([
+                  ["Plan Name", "name", "text", newPlan.name],
+                  ["Slug (unique ID)", "slug", "text", newPlan.slug],
+                  ["Description", "description", "text", newPlan.description],
+                  ["Monthly Price (paise)", "priceMonthly", "number", newPlan.priceMonthly],
+                ] as [string, string, string, string | number][]).map(([label, field, type, val]) => (
+                  <div key={field} className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-medium" style={{ color: "#666" }}>{label}</label>
+                    <input type={type} value={val}
+                      onChange={e => setNewPlan(p => ({ ...p, [field]: type === "number" ? parseInt(e.target.value) || 0 : e.target.value }))}
+                      className="text-xs px-3 py-2 rounded-xl outline-none transition-colors"
+                      style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff", color: "#111" }}
                     />
                   </div>
                 ))}
               </div>
+              {newPlan.priceMonthly > 0 && (
+                <p className="text-[11px] mb-4" style={{ color: "#888" }}>
+                  = ₹{(newPlan.priceMonthly / 100).toLocaleString("en-IN")}/month
+                </p>
+              )}
               <div className="flex justify-end gap-2">
-                <button onClick={() => setShowNewPlan(false)} className="px-3 py-1.5 rounded-xl text-xs" style={{ background: "#f5f5f5", color: "#666" }}>Cancel</button>
-                <button onClick={createPlan} disabled={savingPlan === -1} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium" style={{ background: "#111", color: "#fff" }}>
-                  <Plus style={{ height: "12px", width: "12px" }} /> Create
+                <button onClick={() => setShowNewPlan(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium"
+                  style={{ background: "#f5f5f5", color: "#666" }}>Cancel</button>
+                <button onClick={createPlan} disabled={!newPlan.name || !newPlan.slug || savingPlan === -1}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
+                  style={{ background: "linear-gradient(135deg, hsl(265,89%,60%), hsl(285,89%,58%))", color: "#fff", opacity: !newPlan.name || !newPlan.slug ? 0.5 : 1 }}>
+                  <Plus style={{ height: "12px", width: "12px" }} />
+                  {savingPlan === -1 ? "Creating…" : "Create Plan"}
                 </button>
               </div>
             </div>
           )}
 
+          {/* ── Plan cards ── */}
           {plansLoading ? (
-            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>Loading plans…</div>
-          ) : plans.map(plan => (
-            <div key={plan.id} className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
-              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: editingPlan?.id === plan.id ? "1px solid rgba(0,0,0,0.06)" : "none" }}>
-                <div className="flex items-center gap-3">
-                  <span className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: plan.slug === "elite" ? "rgba(245,158,11,0.1)" : plan.slug === "pro" ? "rgba(139,92,246,0.1)" : "#f5f5f5" }}>
-                    {plan.slug === "elite" ? <Crown style={{ height: "14px", width: "14px", color: "hsl(38,100%,60%)" }} /> : plan.slug === "pro" ? <Zap style={{ height: "14px", width: "14px", color: "hsl(265,89%,65%)" }} /> : <Shield style={{ height: "14px", width: "14px", color: "#888" }} />}
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold" style={{ color: "#111" }}>{plan.name}</p>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "#f0f0f0", color: "#888" }}>{plan.slug}</span>
-                      {!plan.isActive && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#fee2e2", color: "#dc2626" }}>Disabled</span>}
-                      {plan.isDefault && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#dcfce7", color: "#16a34a" }}>Default</span>}
-                    </div>
-                    <p className="text-[11px]" style={{ color: "#888" }}>
-                      {plan.priceMonthly === 0 ? "Free" : `₹${(plan.priceMonthly / 100).toLocaleString("en-IN")}/mo`}
-                      {" · "}{plan.description.slice(0, 45)}{plan.description.length > 45 ? "…" : ""}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => togglePlanActive(plan)} disabled={savingPlan === plan.id || plan.isDefault}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors"
-                    style={plan.isActive ? { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0" } : { background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }}>
-                    {plan.isActive ? <ToggleRight style={{ height: "12px", width: "12px" }} /> : <ToggleLeft style={{ height: "12px", width: "12px" }} />}
-                    {plan.isActive ? "Active" : "Disabled"}
-                  </button>
-                  <button onClick={() => setEditingPlan(editingPlan?.id === plan.id ? null : { ...plan })}
-                    className="p-1.5 rounded-lg transition-colors hover:bg-gray-100"
-                    style={{ color: "#888" }}>
-                    <Edit2 style={{ height: "13px", width: "13px" }} />
-                  </button>
-                </div>
-              </div>
+            <div className="flex items-center justify-center py-16" style={{ color: "#aaa" }}>
+              <RefreshCw style={{ height: "16px", width: "16px" }} className="animate-spin mr-2" />
+              <span className="text-sm">Loading plans…</span>
+            </div>
+          ) : plans.map(plan => {
+            const accent = planAccent(plan.slug);
+            const isEditing = editingPlanId === plan.id;
 
-              {editingPlan?.id === plan.id && (
-                <div className="px-5 pb-5 pt-4 flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[11px]" style={{ color: "#666" }}>Plan Name</label>
-                      <input value={editingPlan.name} onChange={e => setEditingPlan(p => p ? { ...p, name: e.target.value } : p)}
-                        className="text-xs px-3 py-2 rounded-lg outline-none" style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[11px]" style={{ color: "#666" }}>Price (paise)</label>
-                      <input type="number" value={editingPlan.priceMonthly} onChange={e => setEditingPlan(p => p ? { ...p, priceMonthly: parseInt(e.target.value) || 0 } : p)}
-                        className="text-xs px-3 py-2 rounded-lg outline-none" style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
-                      />
-                    </div>
-                    <div className="col-span-2 flex flex-col gap-1">
-                      <label className="text-[11px]" style={{ color: "#666" }}>Description</label>
-                      <input value={editingPlan.description} onChange={e => setEditingPlan(p => p ? { ...p, description: e.target.value } : p)}
-                        className="text-xs px-3 py-2 rounded-lg outline-none" style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
-                      />
+            return (
+              <div key={plan.id} className="rounded-2xl overflow-hidden"
+                style={{ border: `1px solid ${isEditing ? accent.border : "rgba(0,0,0,0.09)"}`, background: "#fff", transition: "border-color 0.2s" }}>
+
+                {/* Card header */}
+                <div className="flex items-center justify-between px-5 py-4"
+                  style={{ borderBottom: isEditing ? `1px solid ${accent.border}` : "none", background: isEditing ? accent.bg : "transparent" }}>
+                  <div className="flex items-center gap-3">
+                    <span className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: accent.bg, border: `1px solid ${accent.border}` }}>
+                      {plan.slug === "elite"
+                        ? <Crown style={{ height: "15px", width: "15px", color: accent.color }} />
+                        : plan.slug === "pro"
+                          ? <Zap style={{ height: "15px", width: "15px", color: accent.color }} />
+                          : <Shield style={{ height: "15px", width: "15px", color: accent.color }} />}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold" style={{ color: "#111" }}>{plan.name}</p>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+                          style={{ background: "#f0f0f0", color: "#888" }}>{plan.slug}</span>
+                        {plan.isDefault && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full font-medium"
+                            style={{ background: "#dcfce7", color: "#16a34a" }}>Default</span>
+                        )}
+                        {!plan.isActive && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full font-medium"
+                            style={{ background: "#fee2e2", color: "#dc2626" }}>Disabled</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] mt-0.5" style={{ color: "#999" }}>
+                        {plan.priceMonthly === 0 ? "Free" : `₹${(plan.priceMonthly / 100).toLocaleString("en-IN")}/mo`}
+                        {" · "}{plan.description.slice(0, 50)}{plan.description.length > 50 ? "…" : ""}
+                      </p>
                     </div>
                   </div>
 
-                  <div>
-                    <p className="text-[11px] font-semibold mb-2" style={{ color: "#666" }}>Feature Flags</p>
-                    <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Active/Inactive toggle */}
+                    {!plan.isDefault && (
+                      <button
+                        onClick={() => togglePlanActive(plan)}
+                        disabled={savingPlan === plan.id}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium transition-all"
+                        style={plan.isActive
+                          ? { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0" }
+                          : { background: "#f0f0f0", color: "#999", border: "1px solid rgba(0,0,0,0.08)" }}>
+                        {plan.isActive
+                          ? <ToggleRight style={{ height: "12px", width: "12px" }} />
+                          : <ToggleLeft style={{ height: "12px", width: "12px" }} />}
+                        {plan.isActive ? "Active" : "Inactive"}
+                      </button>
+                    )}
+                    {/* Edit toggle */}
+                    <button
+                      onClick={() => {
+                        if (isEditing) { setEditingPlanId(null); setEditDraft(null); }
+                        else { setEditingPlanId(plan.id); setEditDraft({ ...plan }); setShowNewPlan(false); }
+                      }}
+                      className="h-8 w-8 flex items-center justify-center rounded-xl transition-colors"
+                      style={isEditing
+                        ? { background: accent.bg, color: accent.color }
+                        : { background: "#f5f5f5", color: "#666" }}>
+                      <Edit2 style={{ height: "13px", width: "13px" }} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Feature pills (collapsed view) */}
+                {!isEditing && (
+                  <div className="px-5 py-3 flex flex-wrap gap-1.5">
+                    {Object.entries(FEATURE_LABELS).map(([key, label]) => {
+                      const val = plan.features[key];
+                      const enabled = typeof val === "boolean" ? val : typeof val === "number" ? val !== 0 : false;
+                      return (
+                        <span key={key}
+                          className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                          style={enabled
+                            ? { background: accent.bg, color: accent.color, border: `1px solid ${accent.border}` }
+                            : { background: "#f5f5f5", color: "#ccc", border: "1px solid transparent" }}>
+                          {typeof val === "number" && val !== 0
+                            ? `${val === -1 ? "∞" : val} ${label}`
+                            : label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ── Edit form ── */}
+                {isEditing && editDraft && (
+                  <div className="px-5 pb-5 pt-4">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-medium" style={{ color: "#666" }}>Plan Name</label>
+                        <input value={editDraft.name}
+                          onChange={e => setEditDraft(d => d ? { ...d, name: e.target.value } : d)}
+                          className="text-xs px-3 py-2 rounded-xl outline-none"
+                          style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-medium" style={{ color: "#666" }}>
+                          Monthly Price (paise)
+                          {editDraft.priceMonthly > 0 && (
+                            <span className="ml-1.5 font-normal" style={{ color: "#aaa" }}>
+                              = ₹{(editDraft.priceMonthly / 100).toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </label>
+                        <input type="number" value={editDraft.priceMonthly}
+                          onChange={e => setEditDraft(d => d ? { ...d, priceMonthly: parseInt(e.target.value) || 0 } : d)}
+                          className="text-xs px-3 py-2 rounded-xl outline-none"
+                          style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
+                        />
+                      </div>
+                      <div className="col-span-2 flex flex-col gap-1.5">
+                        <label className="text-[11px] font-medium" style={{ color: "#666" }}>Description</label>
+                        <input value={editDraft.description}
+                          onChange={e => setEditDraft(d => d ? { ...d, description: e.target.value } : d)}
+                          className="text-xs px-3 py-2 rounded-xl outline-none"
+                          style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] font-semibold mb-2.5" style={{ color: "#555" }}>Feature Flags</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                       {Object.entries(FEATURE_LABELS).map(([key, label]) => {
-                        const featureType = FEATURE_TYPES[key];
-                        const val = editingPlan.features[key];
+                        const ftype = FEATURE_TYPES[key];
+                        const val = editDraft.features[key];
                         return (
-                          <div key={key} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: "#fafafa", border: "1px solid rgba(0,0,0,0.06)" }}>
-                            <label className="text-[10px]" style={{ color: "#666" }}>{label}</label>
-                            {featureType === "boolean" ? (
-                              <button onClick={() => setEditingPlan(p => p ? { ...p, features: { ...p.features, [key]: !val } } : p)}
-                                className="text-[10px] px-2 py-0.5 rounded font-medium"
-                                style={val ? { background: "#dcfce7", color: "#16a34a" } : { background: "#f0f0f0", color: "#888" }}>
-                                {val ? "Yes" : "No"}
+                          <div key={key}
+                            className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                            style={{ background: "#fafafa", border: "1px solid rgba(0,0,0,0.07)" }}>
+                            <span className="text-[11px]" style={{ color: "#555" }}>{label}</span>
+                            {ftype === "boolean" ? (
+                              <button
+                                onClick={() => setEditDraft(d => d ? { ...d, features: { ...d.features, [key]: !val } } : d)}
+                                className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all"
+                                style={val
+                                  ? { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0" }
+                                  : { background: "#f0f0f0", color: "#999", border: "1px solid rgba(0,0,0,0.08)" }}>
+                                {val ? <><Check style={{ height: "9px", width: "9px" }} />Yes</> : <><X style={{ height: "9px", width: "9px" }} />No</>}
                               </button>
                             ) : (
-                              <input type="number" value={val as number ?? 0}
-                                onChange={e => setEditingPlan(p => p ? { ...p, features: { ...p.features, [key]: parseInt(e.target.value) || 0 } } : p)}
-                                className="text-[10px] px-2 py-1 rounded w-16 text-right outline-none"
-                                style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
+                              <input type="number" value={(val as number) ?? 0}
+                                onChange={e => setEditDraft(d => d ? { ...d, features: { ...d.features, [key]: parseInt(e.target.value) || 0 } } : d)}
+                                className="text-[11px] px-2 py-1 rounded-lg w-16 text-right outline-none font-semibold"
+                                style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff", color: "#111" }}
                               />
                             )}
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                    <p className="text-[10px] mb-4" style={{ color: "#bbb" }}>
+                      For number fields: <span className="font-medium">-1</span> = Unlimited · <span className="font-medium">0</span> = Disabled
+                    </p>
 
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => setEditingPlan(null)} className="px-3 py-1.5 rounded-xl text-xs" style={{ background: "#f5f5f5", color: "#666" }}>Cancel</button>
-                    <button onClick={() => savePlanEdit(editingPlan)} disabled={savingPlan === plan.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
-                      style={{ background: "#111", color: "#fff" }}>
-                      <Save style={{ height: "11px", width: "11px" }} /> Save Changes
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => { setEditingPlanId(null); setEditDraft(null); }}
+                        className="px-4 py-2 rounded-xl text-xs font-medium"
+                        style={{ background: "#f5f5f5", color: "#666" }}>Cancel</button>
+                      <button onClick={savePlanEdit} disabled={savingPlan === editDraft.id}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
+                        style={{ background: "#111", color: "#fff", opacity: savingPlan === editDraft.id ? 0.6 : 1 }}>
+                        <Save style={{ height: "11px", width: "11px" }} />
+                        {savingPlan === editDraft.id ? "Saving…" : "Save Changes"}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ── Subscribers ── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
+      {/* ── SUBSCRIBERS (rebuilt) ───────────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════ */}
       {tab === "subscribers" && (
         <div className="flex flex-col gap-4">
-          {/* Grant premium panel */}
-          <div className="rounded-2xl p-4" style={{ border: "1px solid rgba(139,92,246,0.2)", background: "rgba(139,92,246,0.03)" }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Gift style={{ height: "14px", width: "14px", color: "hsl(265,89%,65%)" }} />
-              <p className="text-sm font-semibold" style={{ color: "#111" }}>Grant Premium Access</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px]" style={{ color: "#666" }}>User ID</label>
-                <input type="number" placeholder="e.g. 1" value={grantForm.userId}
-                  onChange={e => setGrantForm(f => ({ ...f, userId: e.target.value }))}
-                  className="text-xs px-3 py-2 rounded-lg outline-none" style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
-                />
+
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Total", value: subs.length, icon: <Star style={{ height: "13px", width: "13px" }} />, color: "#666", bg: "#f5f5f5" },
+              { label: "Active", value: activeSubs, icon: <CheckCircle style={{ height: "13px", width: "13px" }} />, color: "#16a34a", bg: "#dcfce7" },
+              { label: "Admin Grants", value: adminGrantedSubs, icon: <Gift style={{ height: "13px", width: "13px" }} />, color: "hsl(265,89%,60%)", bg: "rgba(139,92,246,0.08)" },
+            ].map(s => (
+              <div key={s.label} className="rounded-2xl px-4 py-3 flex items-center gap-3"
+                style={{ border: "1px solid rgba(0,0,0,0.08)", background: "#fff" }}>
+                <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: s.bg, color: s.color }}>{s.icon}</span>
+                <div>
+                  <p className="text-lg font-bold leading-none" style={{ color: "#111" }}>{s.value}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: "#aaa" }}>{s.label}</p>
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px]" style={{ color: "#666" }}>Plan</label>
-                <select value={grantForm.planId} onChange={e => setGrantForm(f => ({ ...f, planId: e.target.value }))}
-                  className="text-xs px-3 py-2 rounded-lg outline-none" style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}>
-                  <option value="">Select plan</option>
-                  {plans.filter(p => !p.isDefault).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px]" style={{ color: "#666" }}>Duration (months)</label>
-                <input type="number" min="1" max="24" value={grantForm.months}
-                  onChange={e => setGrantForm(f => ({ ...f, months: e.target.value }))}
-                  className="text-xs px-3 py-2 rounded-lg outline-none" style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
-                />
-              </div>
-            </div>
-            <button onClick={grantPremium} disabled={granting || !grantForm.userId || !grantForm.planId}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
-              style={{ background: "linear-gradient(135deg, hsl(265,89%,60%), hsl(285,89%,60%))", color: "#fff", opacity: granting || !grantForm.userId || !grantForm.planId ? 0.6 : 1 }}>
-              <Gift style={{ height: "12px", width: "12px" }} />
-              {granting ? "Granting…" : "Grant Access"}
-            </button>
+            ))}
           </div>
 
+          {/* ── Grant premium card ── */}
+          <div className="rounded-2xl p-5"
+            style={{ border: "1px solid rgba(139,92,246,0.22)", background: "rgba(139,92,246,0.02)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="h-7 w-7 rounded-lg flex items-center justify-center"
+                style={{ background: "rgba(139,92,246,0.1)" }}>
+                <Gift style={{ height: "13px", width: "13px", color: "hsl(265,89%,60%)" }} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "#111" }}>Grant Premium Access</p>
+                <p className="text-[11px]" style={{ color: "#aaa" }}>Assign a paid plan to any user without payment</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "#666" }}>
+                  <Hash style={{ height: "10px", width: "10px" }} /> User ID
+                </label>
+                <input type="number" placeholder="e.g. 4" value={grantUserId}
+                  onChange={e => setGrantUserId(e.target.value)}
+                  className="text-xs px-3 py-2 rounded-xl outline-none"
+                  style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "#666" }}>
+                  <Package style={{ height: "10px", width: "10px" }} /> Plan
+                </label>
+                <select value={grantPlanId} onChange={e => setGrantPlanId(e.target.value)}
+                  className="text-xs px-3 py-2 rounded-xl outline-none"
+                  style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}>
+                  <option value="">Select plan</option>
+                  {plans.filter(p => !p.isDefault).map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "#666" }}>
+                  <Calendar style={{ height: "10px", width: "10px" }} /> Months
+                </label>
+                <input type="number" min="1" max="24" value={grantMonths}
+                  onChange={e => setGrantMonths(e.target.value)}
+                  className="text-xs px-3 py-2 rounded-xl outline-none"
+                  style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button onClick={grantPremium}
+                disabled={granting || !grantUserId || !grantPlanId}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
+                style={{
+                  background: "linear-gradient(135deg, hsl(265,89%,60%), hsl(285,89%,58%))",
+                  color: "#fff",
+                  opacity: granting || !grantUserId || !grantPlanId ? 0.5 : 1,
+                }}>
+                <Gift style={{ height: "12px", width: "12px" }} />
+                {granting ? "Granting…" : "Grant Access"}
+              </button>
+              {grantSuccess && (
+                <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "#16a34a" }}>
+                  <CheckCircle style={{ height: "12px", width: "12px" }} /> Granted successfully
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ── Subscriptions list ── */}
           <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
-            <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+            <div className="flex items-center justify-between px-5 py-3.5"
+              style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
               <div className="flex items-center gap-2">
                 <Star style={{ height: "14px", width: "14px", color: "#888" }} />
-                <span className="text-sm font-semibold" style={{ color: "#111" }}>All Subscriptions</span>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#f0f0f0", color: "#666" }}>{subs.length}</span>
+                <span className="text-sm font-semibold" style={{ color: "#111" }}>Subscriptions</span>
               </div>
-              <button onClick={fetchSubs} className="p-1.5 rounded-lg hover:bg-gray-100" style={{ color: "#888" }}>
-                <RefreshCw style={{ height: "13px", width: "13px" }} />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Filter pills */}
+                <div className="flex gap-1">
+                  {(["all", "active", "cancelled"] as const).map(f => (
+                    <button key={f} onClick={() => setSubsFilter(f)}
+                      className="text-[10px] px-2.5 py-1 rounded-lg font-medium capitalize transition-all"
+                      style={subsFilter === f
+                        ? { background: "#111", color: "#fff" }
+                        : { background: "#f5f5f5", color: "#888" }}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={fetchSubs} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
+                  <RefreshCw style={{ height: "13px", width: "13px" }} />
+                </button>
+              </div>
             </div>
+
             {subsLoading ? (
-              <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>Loading…</div>
-            ) : subs.length === 0 ? (
+              <div className="flex items-center justify-center py-12 gap-2" style={{ color: "#aaa" }}>
+                <RefreshCw style={{ height: "14px", width: "14px" }} className="animate-spin" />
+                <span className="text-sm">Loading…</span>
+              </div>
+            ) : filteredSubs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2">
-                <Star style={{ height: "28px", width: "28px", color: "#ddd" }} />
-                <p className="text-sm" style={{ color: "#aaa" }}>No subscriptions yet</p>
+                <AlertCircle style={{ height: "26px", width: "26px", color: "#e5e7eb" }} />
+                <p className="text-sm" style={{ color: "#bbb" }}>
+                  {subsFilter === "all" ? "No subscriptions yet" : `No ${subsFilter} subscriptions`}
+                </p>
               </div>
             ) : (
               <div>
-                {subs.map((sub, i) => (
-                  <div key={sub.id} className="flex items-center justify-between px-5 py-3.5"
-                    style={{ borderBottom: i < subs.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
-                    <div className="flex items-center gap-3">
-                      <span className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
-                        style={{ background: "#f0f0f0", color: "#555" }}>
-                        {(sub.userName ?? "?").charAt(0).toUpperCase()}
-                      </span>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium" style={{ color: "#111" }}>{sub.userName ?? "Unknown"}</p>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
-                            style={sub.status === "active" ? { background: "#dcfce7", color: "#16a34a" } : { background: "#fee2e2", color: "#dc2626" }}>
-                            {sub.status}
-                          </span>
-                          {sub.grantedByAdmin && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.1)", color: "hsl(265,89%,60%)" }}>Admin Grant</span>}
-                        </div>
-                        <p className="text-[10px]" style={{ color: "#888" }}>{sub.userEmail} · Plan: {sub.planName}</p>
-                        {sub.currentPeriodEnd && (
-                          <p className="text-[10px]" style={{ color: "#bbb" }}>
-                            Expires {new Date(sub.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                {filteredSubs.map((sub, i) => {
+                  const accent = planAccent(sub.planSlug ?? "free");
+                  return (
+                    <div key={sub.id}
+                      className="flex items-center justify-between px-5 py-4"
+                      style={{ borderBottom: i < filteredSubs.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Avatar */}
+                        <span className="h-9 w-9 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
+                          style={{ background: accent.bg, color: accent.color }}>
+                          {(sub.userName ?? "?").charAt(0).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold" style={{ color: "#111" }}>
+                              {sub.userName ?? "Unknown"}
+                            </p>
+                            {/* Status pill */}
+                            <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold"
+                              style={sub.status === "active"
+                                ? { background: "#dcfce7", color: "#16a34a" }
+                                : { background: "#f0f0f0", color: "#999" }}>
+                              {sub.status}
+                            </span>
+                            {/* Plan pill */}
+                            <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold"
+                              style={{ background: accent.bg, color: accent.color, border: `1px solid ${accent.border}` }}>
+                              {sub.planName ?? "—"}
+                            </span>
+                            {sub.grantedByAdmin && (
+                              <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-0.5"
+                                style={{ background: "rgba(139,92,246,0.08)", color: "hsl(265,89%,60%)" }}>
+                                <Gift style={{ height: "8px", width: "8px" }} /> Admin
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] mt-0.5 truncate" style={{ color: "#999" }}>
+                            {sub.userEmail}
                           </p>
-                        )}
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-[10px]" style={{ color: "#bbb" }}>ID: {sub.id}</span>
+                            {sub.currentPeriodEnd && (
+                              <span className="text-[10px] flex items-center gap-1" style={{ color: "#bbb" }}>
+                                <Calendar style={{ height: "9px", width: "9px" }} />
+                                Expires {new Date(sub.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
+
+                      {sub.status === "active" && (
+                        <button onClick={() => revokeSubscription(sub.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium flex-shrink-0 ml-3 transition-colors"
+                          style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }}>
+                          <Trash2 style={{ height: "10px", width: "10px" }} /> Revoke
+                        </button>
+                      )}
                     </div>
-                    {sub.status === "active" && (
-                      <button onClick={() => revokeSubscription(sub.id)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium"
-                        style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }}>
-                        <Trash2 style={{ height: "10px", width: "10px" }} /> Revoke
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -634,7 +901,7 @@ export default function AdminPanel() {
               <span className="text-sm font-semibold" style={{ color: "#111" }}>All Payments</span>
               <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#f0f0f0", color: "#666" }}>{payments.length}</span>
             </div>
-            <button onClick={fetchPayments} className="p-1.5 rounded-lg hover:bg-gray-100" style={{ color: "#888" }}>
+            <button onClick={fetchPayments} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
               <RefreshCw style={{ height: "13px", width: "13px" }} />
             </button>
           </div>
@@ -667,7 +934,11 @@ export default function AdminPanel() {
                       <td className="px-4 py-3 font-mono text-[10px]" style={{ color: "#888" }}>{p.razorpayOrderId.slice(0, 20)}…</td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-medium"
-                          style={p.status === "captured" ? { background: "#dcfce7", color: "#16a34a" } : p.status === "pending" ? { background: "#fef9c3", color: "#ca8a04" } : { background: "#fee2e2", color: "#dc2626" }}>
+                          style={p.status === "captured"
+                            ? { background: "#dcfce7", color: "#16a34a" }
+                            : p.status === "pending"
+                              ? { background: "#fef9c3", color: "#ca8a04" }
+                              : { background: "#fee2e2", color: "#dc2626" }}>
                           {p.status}
                         </span>
                       </td>
