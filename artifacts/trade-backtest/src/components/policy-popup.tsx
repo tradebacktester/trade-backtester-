@@ -90,7 +90,7 @@ export function PolicyPopup() {
             </span>
             <div>
               <h2 className="text-base font-semibold" style={{ color: "#111" }}>Before You Continue</h2>
-              <p className="text-xs mt-0.5" style={{ color: "#888" }}>Please read and acknowledge our policies to use TradeTest</p>
+              <p className="text-xs mt-0.5" style={{ color: "#888" }}>Please read and acknowledge our policies to use Trade Lab</p>
             </div>
           </div>
         </div>
@@ -179,7 +179,7 @@ export function PolicyPopup() {
               : { background: "#e5e5e5", color: "#aaa", cursor: "not-allowed" }
             }
           >
-            {allChecked ? "I Acknowledge All Policies — Enter TradeTest" : `Acknowledge all ${policies.length} policies to continue`}
+            {allChecked ? "I Acknowledge All Policies — Enter Trade Lab" : `Acknowledge all ${policies.length} policies to continue`}
           </button>
           <p className="text-[10px] text-center mt-2" style={{ color: "#bbb" }}>
             By continuing, you confirm you have read and understood all the above policies.

@@ -189,7 +189,7 @@ export default function SettingsPage() {
         show("Notification permission denied", "error");
         return;
       }
-      new Notification("TradeTest Alerts", { body: "Price alerts are now active ✓" });
+      new Notification("Trade Lab Alerts", { body: "Price alerts are now active ✓" });
     }
     save("priceAlerts", on, on ? "Price alerts enabled" : "Price alerts disabled");
   }

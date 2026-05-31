@@ -528,7 +528,7 @@ export default function ChartPage() {
     if (last.kind === "hline") candleSeriesRef.current.removePriceLine(last.priceLine);
     if (last.kind === "trendline") chartRef.current.removeSeries(last.series);
     if (last.kind === "fibonacci") last.priceLines.forEach(pl => candleSeriesRef.current!.removePriceLine(pl));
-    if (last.kind === "rectangle") chartRef.current.removeSeries(last.series);
+    if (last.kind === "rectangle") { chartRef.current.removeSeries(last.series); chartRef.current.removeSeries(last.series2); }
     if (last.kind === "ray") chartRef.current.removeSeries(last.series);
     setDrawings(prev => prev.slice(0, -1));
   }, []);
@@ -608,25 +608,23 @@ export default function ChartPage() {
             p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 },
           }]);
         } else if (activeTool === "rectangle") {
-          // Rectangle: draw 4 corners + close as a box
+          // Rectangle zone: two horizontal LineSeries (top and bottom edges).
+          // We cannot use duplicate timestamps in a single series (LW requires unique ascending times),
+          // so we draw the top edge and bottom edge as separate series.
           const tMin = Math.min(t1, t2) as Time;
           const tMax = Math.max(t1, t2) as Time;
           const pMin = Math.min(p1, p2);
           const pMax = Math.max(p1, p2);
-          const pts = [
-            { time: tMin, value: pMax },
-            { time: tMax, value: pMax },
-            { time: tMax, value: pMin },
-            { time: tMin, value: pMin },
-            { time: tMin, value: pMax },
-          ];
-          const series = chartRef.current!.addSeries(LineSeries, {
-            color: drawColor, lineWidth: 1,
+          const seriesOpts = {
+            color: drawColor, lineWidth: 1 as const,
             priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-          });
-          series.setData(pts);
+          };
+          const series = chartRef.current!.addSeries(LineSeries, seriesOpts);
+          series.setData([{ time: tMin, value: pMax }, { time: tMax, value: pMax }]);
+          const series2 = chartRef.current!.addSeries(LineSeries, seriesOpts);
+          series2.setData([{ time: tMin, value: pMin }, { time: tMax, value: pMin }]);
           setDrawings(prev => [...prev, {
-            kind: "rectangle", series, id, color: drawColor,
+            kind: "rectangle", series, series2, id, color: drawColor,
             p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 },
           }]);
         } else {
@@ -655,6 +653,41 @@ export default function ChartPage() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [drawStart]);
+
+  // Sync doodle canvas pixel size to container and redraw stored paths
+  // (runs on every doodlePaths change so clearing state also clears the canvas)
+  useEffect(() => {
+    const canvas = doodleCanvasRef.current;
+    const container = chartContainerRef.current;
+    if (!canvas || !container) return;
+
+    const redraw = () => {
+      const { width, height } = container.getBoundingClientRect();
+      canvas.width = Math.round(width);
+      canvas.height = Math.round(height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const path of doodlePaths) {
+        if (path.points.length < 2) continue;
+        ctx.beginPath();
+        ctx.strokeStyle = path.color;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.moveTo(path.points[0]!.x, path.points[0]!.y);
+        for (let i = 1; i < path.points.length; i++) {
+          ctx.lineTo(path.points[i]!.x, path.points[i]!.y);
+        }
+        ctx.stroke();
+      }
+    };
+
+    redraw();
+    const ro = new ResizeObserver(redraw);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [doodlePaths]);
 
   // ── Trading helpers ────────────────────────────────────────────────
 
@@ -1283,6 +1316,39 @@ export default function ChartPage() {
             })
           );
           newDrawings.push({ kind: "fibonacci", priceLines: pls, id: d.id, high: d.high, low: d.low, color: d.color });
+        } else if (d.kind === "rectangle") {
+          const tMin = Math.min(d.p1.time, d.p2.time) as Time;
+          const tMax = Math.max(d.p1.time, d.p2.time) as Time;
+          const pMin = Math.min(d.p1.price, d.p2.price);
+          const pMax = Math.max(d.p1.price, d.p2.price);
+          const seriesOpts = {
+            color: d.color, lineWidth: 1 as const,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          };
+          const series = chartRef.current.addSeries(LineSeries, seriesOpts);
+          series.setData([{ time: tMin, value: pMax }, { time: tMax, value: pMax }]);
+          const series2 = chartRef.current.addSeries(LineSeries, seriesOpts);
+          series2.setData([{ time: tMin, value: pMin }, { time: tMax, value: pMin }]);
+          newDrawings.push({ kind: "rectangle", series, series2, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
+        } else if (d.kind === "ray") {
+          const bars = sortedKlinesRef.current;
+          const t1 = d.p1.time; const p1 = d.p1.price;
+          const t2 = d.p2.time; const p2 = d.p2.price;
+          const slope = t2 !== t1 ? (p2 - p1) / (t2 - t1) : 0;
+          const tStart = Math.min(t1, t2);
+          const tEnd = bars.length > 0 ? bars[bars.length - 1]!.time + 100 * 86400 : t2 + 100 * 86400;
+          const pts = [
+            { time: tStart as Time, value: p1 },
+            { time: (tStart + (tEnd - tStart) / 2) as Time, value: p1 + slope * (tStart + (tEnd - tStart) / 2 - t1) },
+            { time: tEnd as Time, value: p1 + slope * (tEnd - t1) },
+          ];
+          const series = chartRef.current.addSeries(LineSeries, {
+            color: d.color, lineWidth: 1,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+            lineStyle: LineStyle.SparseDotted,
+          });
+          series.setData(pts);
+          newDrawings.push({ kind: "ray", series, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
         }
       } catch { /* ignore individual drawing errors */ }
     }
@@ -2042,7 +2108,8 @@ export default function ChartPage() {
                   onClick={() => {
                     drawings.forEach(d => {
                       if (d.kind === "hline") candleSeriesRef.current?.removePriceLine(d.priceLine);
-                      if (d.kind === "trendline" || d.kind === "rectangle" || d.kind === "ray") chartRef.current?.removeSeries(d.series);
+                      if (d.kind === "trendline" || d.kind === "ray") chartRef.current?.removeSeries(d.series);
+                      if (d.kind === "rectangle") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); }
                       if (d.kind === "fibonacci") d.priceLines.forEach(pl => candleSeriesRef.current?.removePriceLine(pl));
                     });
                     setDrawings([]);

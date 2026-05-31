@@ -57,7 +57,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
               {tab === "signin" ? "Sign In" : "Create Account"}
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "#888" }}>
-              {tab === "signin" ? "Welcome back to TradeTest" : "Join TradeTest today"}
+              {tab === "signin" ? "Welcome back to Trade Lab" : "Join Trade Lab today"}
             </p>
           </div>
           <button

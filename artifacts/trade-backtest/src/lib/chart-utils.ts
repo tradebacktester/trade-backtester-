@@ -8,7 +8,7 @@ export type DrawnObject =
   | { kind: "hline";     priceLine: IPriceLine; id: number; price: number; color: string }
   | { kind: "trendline"; series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
   | { kind: "fibonacci"; priceLines: IPriceLine[]; id: number; high: number; low: number; color: string }
-  | { kind: "rectangle"; series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "rectangle"; series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
   | { kind: "ray";       series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string };
 
 export type SerializableDrawing =
