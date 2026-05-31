@@ -47,3 +47,4 @@ channel = "stable-25_05"
 [userenv.shared]
 ADMIN_ID = "7302782010"
 ADMIN_PASSWORD = "adivasutrade"
+GEMINI_API_KEY = "AQ.Ab8RN6IwjHI6T7LDd2vHP5h8GXAbW8a4WFf5DIFFd0U6ol7Jjg"
