@@ -31,7 +31,7 @@ router.post("/ai/chat", async (req, res) => {
   try {
     const client = new OpenAI({
       apiKey,
-      baseURL: process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"],
+      ...(process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] ? { baseURL: process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] } : {}),
     });
 
     const completion = await client.chat.completions.create({
