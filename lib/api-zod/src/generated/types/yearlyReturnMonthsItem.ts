@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface EquityPoint {
-  date: string;
-  value: number;
-  drawdown: number;
-  benchmark?: number;
-}
+export type YearlyReturnMonthsItem = {
+  month: string;
+  pct: number;
+  label: string;
+};

@@ -8,6 +8,7 @@
 import type { BacktestDetailStatus } from './backtestDetailStatus';
 import type { EquityPoint } from './equityPoint';
 import type { Trade } from './trade';
+import type { YearlyReturn } from './yearlyReturn';
 
 export interface BacktestDetail {
   id: number;
@@ -19,6 +20,10 @@ export interface BacktestDetail {
   endDate: string;
   initialCapital: number;
   /** @nullable */
+  commission?: number | null;
+  /** @nullable */
+  slippage?: number | null;
+  /** @nullable */
   finalCapital?: number | null;
   /** @nullable */
   totalReturn?: number | null;
@@ -29,11 +34,22 @@ export interface BacktestDetail {
   /** @nullable */
   sharpeRatio?: number | null;
   /** @nullable */
+  sortinoRatio?: number | null;
+  /** @nullable */
+  calmarRatio?: number | null;
+  /** @nullable */
+  benchmarkReturn?: number | null;
+  /** @nullable */
   winRate?: number | null;
   /** @nullable */
   totalTrades?: number | null;
   /** @nullable */
   profitFactor?: number | null;
+  /** @nullable */
+  consecutiveWins?: number | null;
+  /** @nullable */
+  consecutiveLosses?: number | null;
+  yearlyReturns?: YearlyReturn[];
   status: BacktestDetailStatus;
   createdAt: string;
   trades?: Trade[];

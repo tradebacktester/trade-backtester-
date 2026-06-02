@@ -507,6 +507,16 @@ components:
         initialCapital:
           type: number
           minimum: 1
+        commission:
+          type: number
+          minimum: 0
+          maximum: 10
+          description: Commission per trade as percentage (e.g. 0.1 for 0.1%)
+        slippage:
+          type: number
+          minimum: 0
+          maximum: 5
+          description: Slippage per trade as percentage (e.g. 0.05 for 0.05%)
 
     Backtest:
       type: object
@@ -526,6 +536,10 @@ components:
           type: string
         initialCapital:
           type: number
+        commission:
+          type: ["number", "null"]
+        slippage:
+          type: ["number", "null"]
         finalCapital:
           type: ["number", "null"]
         totalReturn:
@@ -536,12 +550,22 @@ components:
           type: ["number", "null"]
         sharpeRatio:
           type: ["number", "null"]
+        sortinoRatio:
+          type: ["number", "null"]
+        calmarRatio:
+          type: ["number", "null"]
+        benchmarkReturn:
+          type: ["number", "null"]
         winRate:
           type: ["number", "null"]
         totalTrades:
           type: ["integer", "null"]
         profitFactor:
           type: ["number", "null"]
+        consecutiveWins:
+          type: ["integer", "null"]
+        consecutiveLosses:
+          type: ["integer", "null"]
         status:
           type: string
           enum: [pending, running, complete, failed]
@@ -566,6 +590,10 @@ components:
           type: string
         initialCapital:
           type: number
+        commission:
+          type: ["number", "null"]
+        slippage:
+          type: ["number", "null"]
         finalCapital:
           type: ["number", "null"]
         totalReturn:
@@ -576,12 +604,26 @@ components:
           type: ["number", "null"]
         sharpeRatio:
           type: ["number", "null"]
+        sortinoRatio:
+          type: ["number", "null"]
+        calmarRatio:
+          type: ["number", "null"]
+        benchmarkReturn:
+          type: ["number", "null"]
         winRate:
           type: ["number", "null"]
         totalTrades:
           type: ["integer", "null"]
         profitFactor:
           type: ["number", "null"]
+        consecutiveWins:
+          type: ["integer", "null"]
+        consecutiveLosses:
+          type: ["integer", "null"]
+        yearlyReturns:
+          type: array
+          items:
+            $ref: "#/components/schemas/YearlyReturn"
         status:
           type: string
           enum: [pending, running, complete, failed]
@@ -653,3 +695,26 @@ components:
           type: number
         drawdown:
           type: number
+        benchmark:
+          type: number
+
+    YearlyReturn:
+      type: object
+      required: [year, pct, months]
+      properties:
+        year:
+          type: string
+        pct:
+          type: number
+        months:
+          type: array
+          items:
+            type: object
+            required: [month, pct, label]
+            properties:
+              month:
+                type: string
+              pct:
+                type: number
+              label:
+                type: string

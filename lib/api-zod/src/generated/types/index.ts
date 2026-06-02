@@ -34,3 +34,5 @@ export * from './strategyUpdateTimeframe';
 export * from './strategyUpdateType';
 export * from './trade';
 export * from './tradeSide';
+export * from './yearlyReturn';
+export * from './yearlyReturnMonthsItem';

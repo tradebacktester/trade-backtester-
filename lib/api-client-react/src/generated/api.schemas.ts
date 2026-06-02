@@ -144,6 +144,18 @@ export interface BacktestInput {
   endDate: string;
   /** @minimum 1 */
   initialCapital: number;
+  /**
+     * Commission per trade as percentage (e.g. 0.1 for 0.1%)
+     * @minimum 0
+     * @maximum 10
+     */
+  commission?: number;
+  /**
+     * Slippage per trade as percentage (e.g. 0.05 for 0.05%)
+     * @minimum 0
+     * @maximum 5
+     */
+  slippage?: number;
 }
 
 export type BacktestStatus = typeof BacktestStatus[keyof typeof BacktestStatus];
@@ -166,6 +178,10 @@ export interface Backtest {
   endDate: string;
   initialCapital: number;
   /** @nullable */
+  commission?: number | null;
+  /** @nullable */
+  slippage?: number | null;
+  /** @nullable */
   finalCapital?: number | null;
   /** @nullable */
   totalReturn?: number | null;
@@ -176,11 +192,21 @@ export interface Backtest {
   /** @nullable */
   sharpeRatio?: number | null;
   /** @nullable */
+  sortinoRatio?: number | null;
+  /** @nullable */
+  calmarRatio?: number | null;
+  /** @nullable */
+  benchmarkReturn?: number | null;
+  /** @nullable */
   winRate?: number | null;
   /** @nullable */
   totalTrades?: number | null;
   /** @nullable */
   profitFactor?: number | null;
+  /** @nullable */
+  consecutiveWins?: number | null;
+  /** @nullable */
+  consecutiveLosses?: number | null;
   status: BacktestStatus;
   createdAt: string;
 }
@@ -194,6 +220,18 @@ export const BacktestDetailStatus = {
   complete: 'complete',
   failed: 'failed',
 } as const;
+
+export type YearlyReturnMonthsItem = {
+  month: string;
+  pct: number;
+  label: string;
+};
+
+export interface YearlyReturn {
+  year: string;
+  pct: number;
+  months: YearlyReturnMonthsItem[];
+}
 
 export type TradeSide = typeof TradeSide[keyof typeof TradeSide];
 
@@ -221,6 +259,7 @@ export interface EquityPoint {
   date: string;
   value: number;
   drawdown: number;
+  benchmark?: number;
 }
 
 export interface BacktestDetail {
@@ -233,6 +272,10 @@ export interface BacktestDetail {
   endDate: string;
   initialCapital: number;
   /** @nullable */
+  commission?: number | null;
+  /** @nullable */
+  slippage?: number | null;
+  /** @nullable */
   finalCapital?: number | null;
   /** @nullable */
   totalReturn?: number | null;
@@ -243,11 +286,22 @@ export interface BacktestDetail {
   /** @nullable */
   sharpeRatio?: number | null;
   /** @nullable */
+  sortinoRatio?: number | null;
+  /** @nullable */
+  calmarRatio?: number | null;
+  /** @nullable */
+  benchmarkReturn?: number | null;
+  /** @nullable */
   winRate?: number | null;
   /** @nullable */
   totalTrades?: number | null;
   /** @nullable */
   profitFactor?: number | null;
+  /** @nullable */
+  consecutiveWins?: number | null;
+  /** @nullable */
+  consecutiveLosses?: number | null;
+  yearlyReturns?: YearlyReturn[];
   status: BacktestDetailStatus;
   createdAt: string;
   trades?: Trade[];

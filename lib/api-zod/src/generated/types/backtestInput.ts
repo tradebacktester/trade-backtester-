@@ -14,4 +14,16 @@ export interface BacktestInput {
   endDate: string;
   /** @minimum 1 */
   initialCapital: number;
+  /**
+     * Commission per trade as percentage (e.g. 0.1 for 0.1%)
+     * @minimum 0
+     * @maximum 10
+     */
+  commission?: number;
+  /**
+     * Slippage per trade as percentage (e.g. 0.05 for 0.05%)
+     * @minimum 0
+     * @maximum 5
+     */
+  slippage?: number;
 }

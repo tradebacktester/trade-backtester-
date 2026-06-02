@@ -9,7 +9,7 @@ import {
   GetBacktestTradesParams,
   GetEquityCurveParams,
 } from "@workspace/api-zod";
-import { runBacktest } from "../lib/backtest-engine";
+import { runBacktest, generatePriceData } from "../lib/backtest-engine";
 
 const router: IRouter = Router();
 
@@ -22,14 +22,21 @@ function formatBacktest(row: typeof backtestsTable.$inferSelect, strategyName?: 
     startDate: row.startDate,
     endDate: row.endDate,
     initialCapital: Number(row.initialCapital),
+    commission: row.commission != null ? Number(row.commission) : null,
+    slippage: row.slippage != null ? Number(row.slippage) : null,
     finalCapital: row.finalCapital != null ? Number(row.finalCapital) : null,
     totalReturn: row.totalReturn != null ? Number(row.totalReturn) : null,
     annualizedReturn: row.annualizedReturn != null ? Number(row.annualizedReturn) : null,
     maxDrawdown: row.maxDrawdown != null ? Number(row.maxDrawdown) : null,
     sharpeRatio: row.sharpeRatio != null ? Number(row.sharpeRatio) : null,
+    sortinoRatio: row.sortinoRatio != null ? Number(row.sortinoRatio) : null,
+    calmarRatio: row.calmarRatio != null ? Number(row.calmarRatio) : null,
+    benchmarkReturn: row.benchmarkReturn != null ? Number(row.benchmarkReturn) : null,
     winRate: row.winRate != null ? Number(row.winRate) : null,
     totalTrades: row.totalTrades,
     profitFactor: row.profitFactor != null ? Number(row.profitFactor) : null,
+    consecutiveWins: row.consecutiveWins,
+    consecutiveLosses: row.consecutiveLosses,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
   };
@@ -51,7 +58,6 @@ router.get("/backtests/summary", async (_req, res): Promise<void> => {
     .select({ totalStrategies: count(strategiesTable.id) })
     .from(strategiesTable);
 
-  // Find top strategy by avg return
   const stratPerf = await db
     .select({
       strategyId: backtestsTable.strategyId,
@@ -97,7 +103,6 @@ router.get("/backtests", async (req, res): Promise<void> => {
       .orderBy(sql`${backtestsTable.createdAt} DESC`);
   }
 
-  // Fetch strategy names
   const strategyIds = [...new Set(rows.map((r) => r.strategyId))];
   const strategies = strategyIds.length > 0
     ? await db.select().from(strategiesTable).where(inArray(strategiesTable.id, strategyIds))
@@ -120,13 +125,17 @@ router.post("/backtests", async (req, res): Promise<void> => {
     return;
   }
 
-  // Insert as running
+  const commissionPct = parsed.data.commission ?? 0;
+  const slippagePct = parsed.data.slippage ?? 0;
+
   const [backtest] = await db.insert(backtestsTable).values({
     strategyId: parsed.data.strategyId,
     symbol: parsed.data.symbol,
     startDate: parsed.data.startDate,
     endDate: parsed.data.endDate,
     initialCapital: String(parsed.data.initialCapital),
+    commission: String(commissionPct),
+    slippage: String(slippagePct),
     status: "running",
   }).returning();
 
@@ -138,9 +147,10 @@ router.post("/backtests", async (req, res): Promise<void> => {
       parsed.data.startDate,
       parsed.data.endDate,
       parsed.data.initialCapital,
+      commissionPct,
+      slippagePct,
     );
 
-    // Insert trades
     if (result.trades.length > 0) {
       await db.insert(tradesTable).values(
         result.trades.map((t) => ({
@@ -158,7 +168,7 @@ router.post("/backtests", async (req, res): Promise<void> => {
       );
     }
 
-    // Insert equity curve (sample to keep it manageable)
+    // Sample equity curve to ≤500 points, store benchmark value
     const equitySample = result.equityCurve.length > 500
       ? result.equityCurve.filter((_, i) => i % Math.ceil(result.equityCurve.length / 500) === 0)
       : result.equityCurve;
@@ -173,7 +183,6 @@ router.post("/backtests", async (req, res): Promise<void> => {
       );
     }
 
-    // Update backtest with results
     const [updated] = await db.update(backtestsTable).set({
       status: "complete",
       finalCapital: String(result.finalCapital),
@@ -181,12 +190,21 @@ router.post("/backtests", async (req, res): Promise<void> => {
       annualizedReturn: String(result.annualizedReturn),
       maxDrawdown: String(result.maxDrawdown),
       sharpeRatio: String(result.sharpeRatio),
+      sortinoRatio: String(result.sortinoRatio),
+      calmarRatio: String(result.calmarRatio),
+      benchmarkReturn: String(result.benchmarkReturn),
       winRate: String(result.winRate),
       totalTrades: result.totalTrades,
       profitFactor: String(result.profitFactor),
+      consecutiveWins: result.consecutiveWins,
+      consecutiveLosses: result.consecutiveLosses,
     }).where(eq(backtestsTable.id, backtest.id)).returning();
 
-    res.status(201).json(formatBacktest(updated, strategy.name));
+    // Return full detail including yearlyReturns (computed, not stored in DB)
+    res.status(201).json({
+      ...formatBacktest(updated, strategy.name),
+      yearlyReturns: result.yearlyReturns,
+    });
   } catch (err) {
     await db.update(backtestsTable).set({ status: "failed" }).where(eq(backtestsTable.id, backtest.id));
     res.status(500).json({ error: "Backtest execution failed" });
@@ -205,8 +223,16 @@ router.get("/backtests/:id", async (req, res): Promise<void> => {
   const trades = await db.select().from(tradesTable).where(eq(tradesTable.backtestId, id)).orderBy(tradesTable.entryDate);
   const equity = await db.select().from(equityCurveTable).where(eq(equityCurveTable.backtestId, id)).orderBy(equityCurveTable.date);
 
+  // Recompute yearlyReturns from stored trades
+  const initialCapital = Number(row.initialCapital);
+  const yearlyReturns = computeYearlyReturnsFromTrades(
+    trades.map((t) => ({ exitDate: t.exitDate, pnl: Number(t.pnl) })),
+    initialCapital
+  );
+
   res.json({
     ...formatBacktest(row, strategy?.name),
+    yearlyReturns,
     trades: trades.map((t) => ({
       id: t.id,
       backtestId: t.backtestId,
@@ -263,11 +289,92 @@ router.get("/backtests/:id/equity", async (req, res): Promise<void> => {
   const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, params.data.id));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   const equity = await db.select().from(equityCurveTable).where(eq(equityCurveTable.backtestId, params.data.id)).orderBy(equityCurveTable.date);
+
+  // Compute benchmark (buy & hold) values for each equity curve date
+  let benchmarkMap = new Map<string, number>();
+  try {
+    const bars = generatePriceData(bt.symbol, bt.startDate, bt.endDate);
+    if (bars.length > 0) {
+      const initialCapital = Number(bt.initialCapital);
+      const firstPrice = bars[0].open;
+      const benchmarkQty = (initialCapital * 0.95) / firstPrice;
+      for (const bar of bars) {
+        benchmarkMap.set(bar.date, initialCapital * 0.05 + benchmarkQty * bar.close);
+      }
+    }
+  } catch { /* benchmark unavailable */ }
+
   res.json(equity.map((e) => ({
     date: e.date,
     value: Number(e.value),
     drawdown: Number(e.drawdown),
+    benchmark: benchmarkMap.get(e.date) ?? null,
   })));
 });
+
+// Parameter optimization: grid search over two parameters (no DB writes)
+router.post("/backtests/optimize", async (req, res): Promise<void> => {
+  const { strategyId, symbol, startDate, endDate, initialCapital, param1Name, param1Values, param2Name, param2Values } = req.body;
+  if (!strategyId || !symbol || !startDate || !endDate || !initialCapital || !param1Name || !param1Values?.length || !param2Name || !param2Values?.length) {
+    res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+  const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, strategyId));
+  if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
+
+  const baseParams = strategy.parameters as Record<string, unknown>;
+  const results: Array<{ p1: number; p2: number; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number }> = [];
+
+  const p1Vals: number[] = param1Values.slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
+  const p2Vals: number[] = param2Values.slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
+
+  for (const p1 of p1Vals) {
+    for (const p2 of p2Vals) {
+      try {
+        const params = { ...baseParams, [param1Name]: p1, [param2Name]: p2 };
+        const result = runBacktest(symbol, strategy.type, params, startDate, endDate, Number(initialCapital), 0, 0);
+        results.push({
+          p1, p2,
+          totalReturn: result.totalReturn,
+          sharpeRatio: result.sharpeRatio,
+          maxDrawdown: result.maxDrawdown,
+          winRate: result.winRate,
+        });
+      } catch { /* skip invalid combinations */ }
+    }
+  }
+
+  res.json({ param1Name, param1Values: p1Vals, param2Name, param2Values: p2Vals, results });
+});
+
+function computeYearlyReturnsFromTrades(
+  trades: { exitDate: string; pnl: number }[],
+  initialCapital: number
+) {
+  const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthlyMap = new Map<string, number>();
+  for (const t of trades) {
+    const m = t.exitDate.slice(0, 7);
+    monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
+  }
+
+  const yearlyMap = new Map<string, Map<string, number>>();
+  for (const [month, pnl] of monthlyMap.entries()) {
+    const yr = month.slice(0, 4);
+    if (!yearlyMap.has(yr)) yearlyMap.set(yr, new Map());
+    yearlyMap.get(yr)!.set(month, (pnl / initialCapital) * 100);
+  }
+
+  return Array.from(yearlyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([yr, mMap]) => {
+      const months = Array.from({ length: 12 }, (_, i) => {
+        const m = String(i + 1).padStart(2, "0");
+        const key = `${yr}-${m}`;
+        return { month: key, pct: mMap.get(key) ?? 0, label: MONTH_LABELS[i] };
+      });
+      return { year: yr, pct: months.reduce((s, m) => s + m.pct, 0), months };
+    });
+}
 
 export default router;

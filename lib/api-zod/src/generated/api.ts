@@ -47,9 +47,9 @@ export const ListStrategiesResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.string(),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
   "symbol": zod.string(),
-  "timeframe": zod.string(),
+  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -84,9 +84,9 @@ export const GetStrategyResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.string(),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
   "symbol": zod.string(),
-  "timeframe": zod.string(),
+  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -105,9 +105,9 @@ export const UpdateStrategyParams = zod.object({
 export const UpdateStrategyBody = zod.object({
   "name": zod.string().min(1).optional(),
   "description": zod.string().optional(),
-  "type": zod.string().optional(),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']).optional(),
   "symbol": zod.string().optional(),
-  "timeframe": zod.string().optional(),
+  "timeframe": zod.enum(['1d', '1h', '4h', '1w']).optional(),
   "parameters": zod.record(zod.string(), zod.unknown()).optional()
 })
 
@@ -115,9 +115,9 @@ export const UpdateStrategyResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.string(),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
   "symbol": zod.string(),
-  "timeframe": zod.string(),
+  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -165,14 +165,21 @@ export const ListBacktestsResponseItem = zod.object({
   "startDate": zod.string(),
   "endDate": zod.string(),
   "initialCapital": zod.number(),
+  "commission": zod.number().nullish(),
+  "slippage": zod.number().nullish(),
   "finalCapital": zod.number().nullish(),
   "totalReturn": zod.number().nullish(),
   "annualizedReturn": zod.number().nullish(),
   "maxDrawdown": zod.number().nullish(),
   "sharpeRatio": zod.number().nullish(),
+  "sortinoRatio": zod.number().nullish(),
+  "calmarRatio": zod.number().nullish(),
+  "benchmarkReturn": zod.number().nullish(),
   "winRate": zod.number().nullish(),
   "totalTrades": zod.number().nullish(),
   "profitFactor": zod.number().nullish(),
+  "consecutiveWins": zod.number().nullish(),
+  "consecutiveLosses": zod.number().nullish(),
   "status": zod.enum(['pending', 'running', 'complete', 'failed']),
   "createdAt": zod.string()
 })
@@ -184,6 +191,12 @@ export const ListBacktestsResponse = zod.array(ListBacktestsResponseItem)
  */
 
 
+export const createBacktestBodyCommissionMin = 0;
+export const createBacktestBodyCommissionMax = 10;
+
+export const createBacktestBodySlippageMin = 0;
+export const createBacktestBodySlippageMax = 5;
+
 
 
 export const CreateBacktestBody = zod.object({
@@ -191,7 +204,9 @@ export const CreateBacktestBody = zod.object({
   "symbol": zod.string().min(1),
   "startDate": zod.string(),
   "endDate": zod.string(),
-  "initialCapital": zod.number().min(1)
+  "initialCapital": zod.number().min(1),
+  "commission": zod.number().min(createBacktestBodyCommissionMin).max(createBacktestBodyCommissionMax).optional().describe('Commission per trade as percentage (e.g. 0.1 for 0.1%)'),
+  "slippage": zod.number().min(createBacktestBodySlippageMin).max(createBacktestBodySlippageMax).optional().describe('Slippage per trade as percentage (e.g. 0.05 for 0.05%)')
 })
 
 
@@ -224,14 +239,30 @@ export const GetBacktestResponse = zod.object({
   "startDate": zod.string(),
   "endDate": zod.string(),
   "initialCapital": zod.number(),
+  "commission": zod.number().nullish(),
+  "slippage": zod.number().nullish(),
   "finalCapital": zod.number().nullish(),
   "totalReturn": zod.number().nullish(),
   "annualizedReturn": zod.number().nullish(),
   "maxDrawdown": zod.number().nullish(),
   "sharpeRatio": zod.number().nullish(),
+  "sortinoRatio": zod.number().nullish(),
+  "calmarRatio": zod.number().nullish(),
+  "benchmarkReturn": zod.number().nullish(),
   "winRate": zod.number().nullish(),
   "totalTrades": zod.number().nullish(),
   "profitFactor": zod.number().nullish(),
+  "consecutiveWins": zod.number().nullish(),
+  "consecutiveLosses": zod.number().nullish(),
+  "yearlyReturns": zod.array(zod.object({
+  "year": zod.string(),
+  "pct": zod.number(),
+  "months": zod.array(zod.object({
+  "month": zod.string(),
+  "pct": zod.number(),
+  "label": zod.string()
+}))
+})).optional(),
   "status": zod.enum(['pending', 'running', 'complete', 'failed']),
   "createdAt": zod.string(),
   "trades": zod.array(zod.object({
@@ -250,7 +281,8 @@ export const GetBacktestResponse = zod.object({
   "equityCurve": zod.array(zod.object({
   "date": zod.string(),
   "value": zod.number(),
-  "drawdown": zod.number()
+  "drawdown": zod.number(),
+  "benchmark": zod.number().optional()
 })).optional()
 })
 
@@ -296,7 +328,8 @@ export const GetEquityCurveParams = zod.object({
 export const GetEquityCurveResponseItem = zod.object({
   "date": zod.string(),
   "value": zod.number(),
-  "drawdown": zod.number()
+  "drawdown": zod.number(),
+  "benchmark": zod.number().optional()
 })
 export const GetEquityCurveResponse = zod.array(GetEquityCurveResponseItem)
 

@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
   ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
-  Share2, Globe, Check
+  Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2,
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -357,6 +357,184 @@ function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: numbe
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Parameter Optimization Heatmap ─────────────────────────────────────────
+
+const PARAM_RANGE_PRESETS: Record<string, number[]> = {
+  fastPeriod: [5, 8, 10, 12, 15, 20],
+  slowPeriod: [20, 25, 30, 40, 50, 60],
+  period: [10, 14, 20, 25, 30],
+  overbought: [65, 70, 75, 80],
+  oversold: [20, 25, 30, 35],
+  signalPeriod: [7, 9, 11, 14],
+  stdDev: [1.5, 2, 2.5, 3],
+};
+
+type OptResult = {
+  param1Name: string; param2Name: string;
+  param1Values: number[]; param2Values: number[];
+  results: Array<{ p1: number; p2: number; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number }>;
+};
+
+function ParameterOptHeatmap({
+  strategyId, symbol, startDate, endDate, initialCapital,
+}: {
+  strategyId: number; symbol: string; startDate: string; endDate: string; initialCapital: number;
+}) {
+  const [param1, setParam1] = useState("fastPeriod");
+  const [param2, setParam2] = useState("slowPeriod");
+  const [metric, setMetric] = useState<"totalReturn" | "sharpeRatio" | "winRate">("totalReturn");
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<OptResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const runOptimize = useCallback(async () => {
+    if (param1 === param2) {
+      toast({ title: "Select different parameters", variant: "destructive" });
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const resp = await fetch("/api/backtests/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strategyId, symbol, startDate, endDate, initialCapital,
+          param1Name: param1,
+          param1Values: PARAM_RANGE_PRESETS[param1] ?? [5, 10, 15, 20, 25, 30],
+          param2Name: param2,
+          param2Values: PARAM_RANGE_PRESETS[param2] ?? [20, 30, 40, 50, 60, 70],
+        }),
+      });
+      if (!resp.ok) throw new Error("Optimization failed");
+      const data = await resp.json();
+      setResult(data);
+    } catch (e: any) {
+      setError(e.message || "Failed to run optimization");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [param1, param2, strategyId, symbol, startDate, endDate, initialCapital, toast]);
+
+  const paramNames = Object.keys(PARAM_RANGE_PRESETS);
+  const p1Vals = result?.param1Values ?? [];
+  const p2Vals = result?.param2Values ?? [];
+
+  let minVal = Infinity, maxVal = -Infinity;
+  if (result) {
+    for (const r of result.results) {
+      const v = r[metric];
+      if (v < minVal) minVal = v;
+      if (v > maxVal) maxVal = v;
+    }
+  }
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <CardTitle className="text-base">Parameter Optimization</CardTitle>
+            <CardDescription>Grid search return over two parameters</CardDescription>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={param1}
+              onChange={(e) => setParam1(e.target.value)}
+              className="text-xs bg-muted border border-border rounded-md px-2 py-1.5 text-foreground"
+            >
+              {paramNames.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <span className="text-xs text-muted-foreground">vs</span>
+            <select
+              value={param2}
+              onChange={(e) => setParam2(e.target.value)}
+              className="text-xs bg-muted border border-border rounded-md px-2 py-1.5 text-foreground"
+            >
+              {paramNames.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select
+              value={metric}
+              onChange={(e) => setMetric(e.target.value as any)}
+              className="text-xs bg-muted border border-border rounded-md px-2 py-1.5 text-foreground"
+            >
+              <option value="totalReturn">Return %</option>
+              <option value="sharpeRatio">Sharpe</option>
+              <option value="winRate">Win Rate</option>
+            </select>
+            <Button size="sm" onClick={runOptimize} disabled={isLoading} className="text-xs">
+              {isLoading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Running…</> : "Run Grid"}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+        {!result && !isLoading && (
+          <div className="h-20 flex items-center justify-center text-sm text-muted-foreground border border-dashed rounded-md">
+            Select two parameters and click "Run Grid" to see the optimization heatmap.
+          </div>
+        )}
+        {isLoading && (
+          <div className="h-20 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />Running {PARAM_RANGE_PRESETS[param1]?.length ?? 6} × {PARAM_RANGE_PRESETS[param2]?.length ?? 6} combinations…
+          </div>
+        )}
+        {result && !isLoading && (
+          <div className="overflow-x-auto">
+            <div className="space-y-1 min-w-[400px]">
+              {/* Header row */}
+              <div className="flex gap-1 items-center">
+                <div className="w-16 text-[10px] text-muted-foreground text-right pr-2 font-mono shrink-0">
+                  {result.param1Name}↓ / {result.param2Name}→
+                </div>
+                {p2Vals.map((v) => (
+                  <div key={v} className="flex-1 text-center text-[10px] font-mono text-muted-foreground">{v}</div>
+                ))}
+              </div>
+              {p1Vals.map((p1v) => (
+                <div key={p1v} className="flex gap-1 items-center">
+                  <div className="w-16 text-right pr-2 text-[10px] font-mono text-muted-foreground shrink-0">{p1v}</div>
+                  {p2Vals.map((p2v) => {
+                    const cell = result.results.find((r) => r.p1 === p1v && r.p2 === p2v);
+                    const val = cell?.[metric];
+                    const norm = val != null && maxVal !== minVal ? (val - minVal) / (maxVal - minVal) : null;
+                    const bg = norm == null
+                      ? "rgba(255,255,255,0.04)"
+                      : val! >= 0
+                      ? `rgba(34,197,94,${0.1 + norm * 0.75})`
+                      : `rgba(239,68,68,${0.1 + (1 - norm) * 0.75})`;
+                    const color = val == null ? "rgba(255,255,255,0.2)" : val >= 0 ? "#86efac" : "#fca5a5";
+                    return (
+                      <div
+                        key={p2v}
+                        className="flex-1 h-10 rounded flex items-center justify-center"
+                        style={{ background: bg }}
+                        title={`${result.param1Name}=${p1v}, ${result.param2Name}=${p2v}: ${val != null ? (metric === "totalReturn" ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : val.toFixed(2)) : "N/A"}`}
+                      >
+                        <span className="text-[9px] font-mono font-medium" style={{ color }}>
+                          {val != null
+                            ? (metric === "totalReturn" ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : val.toFixed(1))
+                            : "—"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+              <div className="flex items-center justify-end gap-4 pt-2 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: "rgba(34,197,94,0.7)" }} /> high</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: "rgba(239,68,68,0.7)" }} /> low</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -709,6 +887,28 @@ export default function BacktestDetail() {
                 accent={backtest.sharpeRatio != null && backtest.sharpeRatio > 1 ? "#22c55e" : backtest.sharpeRatio != null && backtest.sharpeRatio > 0 ? "#f59e0b" : "#ef4444"}
               />
               <StatBox
+                label="Sortino Ratio"
+                value={(backtest as any).sortinoRatio != null ? fmtNum((backtest as any).sortinoRatio) : "—"}
+                accent={(backtest as any).sortinoRatio != null && (backtest as any).sortinoRatio > 1 ? "#22c55e" : (backtest as any).sortinoRatio != null && (backtest as any).sortinoRatio > 0 ? "#f59e0b" : "#ef4444"}
+              />
+              <StatBox
+                label="Calmar Ratio"
+                value={(backtest as any).calmarRatio != null ? fmtNum((backtest as any).calmarRatio) : "—"}
+                accent={(backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 1 ? "#22c55e" : (backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 0 ? "#f59e0b" : "#ef4444"}
+              />
+              <StatBox
+                label="Benchmark (B&H)"
+                value={(backtest as any).benchmarkReturn != null ? fmtPct((backtest as any).benchmarkReturn) : "—"}
+                accent={(backtest as any).benchmarkReturn != null && (backtest as any).benchmarkReturn >= 0 ? "#6366f1" : "#ef4444"}
+              />
+              {(backtest as any).benchmarkReturn != null && backtest.totalReturn != null && (
+                <StatBox
+                  label="Alpha vs B&H"
+                  value={fmtPct(backtest.totalReturn - (backtest as any).benchmarkReturn)}
+                  accent={backtest.totalReturn - (backtest as any).benchmarkReturn >= 0 ? "#22c55e" : "#ef4444"}
+                />
+              )}
+              <StatBox
                 label="Win Rate"
                 value={backtest.winRate != null ? `${backtest.winRate.toFixed(1)}%` : "—"}
                 accent={backtest.winRate != null && backtest.winRate >= 50 ? "#22c55e" : "#f59e0b"}
@@ -719,6 +919,26 @@ export default function BacktestDetail() {
                 value={backtest.profitFactor != null ? fmtNum(backtest.profitFactor) : "—"}
                 accent={backtest.profitFactor != null && backtest.profitFactor > 1 ? "#22c55e" : "#ef4444"}
               />
+              {((backtest as any).consecutiveWins ?? 0) > 0 && (
+                <StatBox label="Max Consec. Wins" value={(backtest as any).consecutiveWins} sub="in a row" accent="#22c55e" />
+              )}
+              {((backtest as any).consecutiveLosses ?? 0) > 0 && (
+                <StatBox label="Max Consec. Losses" value={(backtest as any).consecutiveLosses} sub="in a row" accent="#ef4444" />
+              )}
+              {((backtest as any).commission ?? 0) > 0 && (
+                <StatBox
+                  label="Commission"
+                  value={`${(backtest as any).commission}%`}
+                  sub="per side"
+                />
+              )}
+              {((backtest as any).slippage ?? 0) > 0 && (
+                <StatBox
+                  label="Slippage"
+                  value={`${(backtest as any).slippage}%`}
+                  sub="per side"
+                />
+              )}
             </div>
 
             {/* Equity curve */}
@@ -769,12 +989,14 @@ export default function BacktestDetail() {
                         <RechartsTooltip
                           contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                           labelFormatter={(v) => format(new Date(v), "MMM d, yyyy")}
-                          formatter={(value: number, name: string) => [
-                            name === "value" ? fmtUSD(value) : `${value.toFixed(2)}%`,
-                            name === "value" ? "Equity" : "Drawdown",
-                          ]}
+                          formatter={(value: number, name: string) => {
+                            if (name === "Strategy" || name === "value") return [fmtUSD(value), "Equity"];
+                            if (name === "Buy & Hold" || name === "benchmark") return [fmtUSD(value), "Buy & Hold"];
+                            return [`${value.toFixed(2)}%`, "Drawdown"];
+                          }}
                         />
-                        <Area yAxisId="left" type="monotone" dataKey="value" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorValue)" strokeWidth={1.5} />
+                        <Area yAxisId="left" type="monotone" dataKey="value" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorValue)" strokeWidth={1.5} name="Strategy" />
+                        <Line yAxisId="left" type="monotone" dataKey="benchmark" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="5 3" dot={false} name="Buy & Hold" />
                         <Area yAxisId="right" type="monotone" dataKey="drawdown" stroke="#ef4444" fill="url(#colorDD)" fillOpacity={0.5} strokeWidth={1} dot={false} />
                       </ComposedChart>
                     </ResponsiveContainer>
@@ -919,6 +1141,62 @@ export default function BacktestDetail() {
                   />
                 </div>
 
+                {/* ── Yearly Calendar Heatmap ─────────────────────────── */}
+                {(backtest as any).yearlyReturns && (backtest as any).yearlyReturns.length > 0 && (
+                  <Card className="border-border">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Return Calendar</CardTitle>
+                      <CardDescription>Monthly PnL as % of initial capital, grouped by year</CardDescription>
+                    </CardHeader>
+                    <CardContent className="overflow-x-auto">
+                      <div className="space-y-3 min-w-[560px]">
+                        {/* Month header */}
+                        <div className="flex gap-1 items-center">
+                          <div className="w-12 flex-shrink-0" />
+                          {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m) => (
+                            <div key={m} className="flex-1 text-center text-[10px] text-muted-foreground font-medium">{m}</div>
+                          ))}
+                          <div className="w-16 flex-shrink-0 text-right text-[10px] text-muted-foreground font-medium">Total</div>
+                        </div>
+                        {((backtest as any).yearlyReturns as Array<{ year: string; pct: number; months: Array<{ month: string; pct: number; label: string }> }>).map((yr) => {
+                          const maxAbs = Math.max(...yr.months.map((m) => Math.abs(m.pct)), 0.1);
+                          return (
+                            <div key={yr.year} className="flex gap-1 items-center">
+                              <div className="w-12 flex-shrink-0 text-xs font-mono text-muted-foreground">{yr.year}</div>
+                              {yr.months.map((m) => {
+                                const intensity = Math.min(Math.abs(m.pct) / maxAbs, 1);
+                                const bg = m.pct === 0
+                                  ? "rgba(255,255,255,0.04)"
+                                  : m.pct > 0
+                                  ? `rgba(34,197,94,${0.1 + intensity * 0.7})`
+                                  : `rgba(239,68,68,${0.1 + intensity * 0.7})`;
+                                const color = m.pct === 0 ? "rgba(255,255,255,0.25)" : m.pct > 0 ? "#86efac" : "#fca5a5";
+                                return (
+                                  <div
+                                    key={m.month}
+                                    className="flex-1 h-8 rounded flex items-center justify-center cursor-default transition-transform hover:scale-110 hover:z-10 relative"
+                                    style={{ background: bg }}
+                                    title={`${m.label} ${yr.year}: ${m.pct >= 0 ? "+" : ""}${m.pct.toFixed(2)}%`}
+                                  >
+                                    <span className="text-[9px] font-mono font-medium" style={{ color }}>
+                                      {m.pct === 0 ? "—" : `${m.pct >= 0 ? "+" : ""}${m.pct.toFixed(1)}%`}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              <div
+                                className={`w-16 flex-shrink-0 text-right text-xs font-mono font-bold ${yr.pct >= 0 ? "text-green-400" : "text-red-400"}`}
+                              >
+                                {yr.pct >= 0 ? "+" : ""}{yr.pct.toFixed(1)}%
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Monthly returns bar chart */}
                 {analytics.monthlyReturns.length > 0 && (
                   <Card className="border-border">
@@ -949,6 +1227,15 @@ export default function BacktestDetail() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* ── Parameter Optimization Heatmap ────────────────── */}
+                <ParameterOptHeatmap
+                  strategyId={backtest.strategyId}
+                  symbol={backtest.symbol}
+                  startDate={backtest.startDate}
+                  endDate={backtest.endDate}
+                  initialCapital={backtest.initialCapital}
+                />
 
                 {/* Trade distribution histogram */}
                 {analytics.distribution.length > 0 && (

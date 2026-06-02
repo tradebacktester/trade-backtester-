@@ -19,6 +19,7 @@ import Backtests from "@/pages/backtests/index";
 import NewBacktest from "@/pages/backtests/new";
 import BacktestDetail from "@/pages/backtests/detail";
 import BacktestBuilder from "@/pages/backtests/builder";
+import BatchBacktest from "@/pages/backtests/batch";
 import ChartPage from "@/pages/chart";
 import SettingsPage from "@/pages/settings";
 import NewsPage from "@/pages/news";
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/backtests" component={Backtests} />
       <Route path="/backtests/builder" component={BacktestBuilder} />
       <Route path="/backtests/new" component={NewBacktest} />
+      <Route path="/backtests/batch" component={BatchBacktest} />
       <Route path="/backtests/:id" component={BacktestDetail} />
 
       <Route path="/chart" component={ChartPage} />

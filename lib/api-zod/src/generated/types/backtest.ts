@@ -17,6 +17,10 @@ export interface Backtest {
   endDate: string;
   initialCapital: number;
   /** @nullable */
+  commission?: number | null;
+  /** @nullable */
+  slippage?: number | null;
+  /** @nullable */
   finalCapital?: number | null;
   /** @nullable */
   totalReturn?: number | null;
@@ -27,11 +31,21 @@ export interface Backtest {
   /** @nullable */
   sharpeRatio?: number | null;
   /** @nullable */
+  sortinoRatio?: number | null;
+  /** @nullable */
+  calmarRatio?: number | null;
+  /** @nullable */
+  benchmarkReturn?: number | null;
+  /** @nullable */
   winRate?: number | null;
   /** @nullable */
   totalTrades?: number | null;
   /** @nullable */
   profitFactor?: number | null;
+  /** @nullable */
+  consecutiveWins?: number | null;
+  /** @nullable */
+  consecutiveLosses?: number | null;
   status: BacktestStatus;
   createdAt: string;
 }

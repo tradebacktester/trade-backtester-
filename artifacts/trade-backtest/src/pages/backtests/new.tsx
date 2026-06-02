@@ -11,13 +11,13 @@ import {
   getListStrategiesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Play, Plus, TrendingUp, Activity, BarChart3, Zap, Target } from "lucide-react";
+import { ArrowLeft, Play, TrendingUp, Activity, BarChart3, Zap, Target, Layers, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { format, subYears } from "date-fns";
 
 const formSchema = z.object({
@@ -26,13 +26,15 @@ const formSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   initialCapital: z.coerce.number().min(100, "Minimum capital is 100"),
+  commission: z.coerce.number().min(0).max(10).optional(),
+  slippage: z.coerce.number().min(0).max(5).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
+export const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
 
-const STRATEGY_TYPES = [
+export const STRATEGY_TYPES = [
   {
     type: "sma_crossover",
     name: "SMA Crossover",
@@ -92,6 +94,7 @@ export default function NewBacktest() {
   const searchParams = new URLSearchParams(window.location.search);
   const initialStrategyId = searchParams.get("strategyId");
   const [creatingStrategyType, setCreatingStrategyType] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies();
   const createBacktest = useCreateBacktest();
@@ -102,9 +105,11 @@ export default function NewBacktest() {
     defaultValues: {
       strategyId: initialStrategyId ? parseInt(initialStrategyId, 10) : 0,
       symbol: "AAPL",
-      startDate: format(subYears(new Date(), 1), "yyyy-MM-dd"),
+      startDate: format(subYears(new Date(), 2), "yyyy-MM-dd"),
       endDate: format(new Date(), "yyyy-MM-dd"),
       initialCapital: 100000,
+      commission: 0.1,
+      slippage: 0.05,
     },
   });
 
@@ -112,9 +117,7 @@ export default function NewBacktest() {
     const sub = form.watch((value, { name }) => {
       if (name === "strategyId" && strategies) {
         const strategy = strategies.find(s => s.id === value.strategyId);
-        if (strategy) {
-          form.setValue("symbol", strategy.symbol);
-        }
+        if (strategy) form.setValue("symbol", strategy.symbol);
       }
     });
     return () => sub.unsubscribe();
@@ -151,14 +154,19 @@ export default function NewBacktest() {
 
   function onSubmit(data: FormValues) {
     createBacktest.mutate(
-      { data },
+      { data: {
+        strategyId: data.strategyId,
+        symbol: data.symbol,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        initialCapital: data.initialCapital,
+        commission: data.commission ?? 0,
+        slippage: data.slippage ?? 0,
+      }},
       {
         onSuccess: (backtest) => {
           queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
-          toast({
-            title: "Backtest Started",
-            description: "Your backtest is now running.",
-          });
+          toast({ title: "Backtest Started", description: "Your backtest is now running." });
           setLocation(`/backtests/${backtest.id}`);
         },
         onError: (error: { data?: { error?: string } | null }) => {
@@ -174,6 +182,9 @@ export default function NewBacktest() {
 
   const hasStrategies = !isLoadingStrategies && strategies && strategies.length > 0;
   const noStrategies = !isLoadingStrategies && (!strategies || strategies.length === 0);
+  const commissionVal = form.watch("commission") ?? 0;
+  const slippageVal = form.watch("slippage") ?? 0;
+  const totalCostEstimate = (commissionVal * 2 + slippageVal * 2).toFixed(3);
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -187,6 +198,12 @@ export default function NewBacktest() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Run Backtest</h1>
           <p className="text-muted-foreground">Test a strategy against historical data.</p>
         </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/backtests/batch">
+            <Layers className="mr-2 h-4 w-4" />
+            Batch Test
+          </Link>
+        </Button>
       </div>
 
       {/* Strategy quick-create cards */}
@@ -210,10 +227,7 @@ export default function NewBacktest() {
                 disabled={createStrategy.isPending}
                 onClick={() => handleQuickCreate(typeDef)}
                 className="flex items-start gap-3 p-3 rounded-xl border text-left transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  background: typeDef.bg,
-                  borderColor: typeDef.border,
-                }}
+                style={{ background: typeDef.bg, borderColor: typeDef.border }}
               >
                 <span
                   className="mt-0.5 h-7 w-7 flex items-center justify-center rounded-lg flex-shrink-0"
@@ -342,6 +356,75 @@ export default function NewBacktest() {
                   </FormItem>
                 )}
               />
+
+              {/* Advanced settings toggle */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((v) => !v)}
+                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  Advanced Settings (Commission & Slippage)
+                </button>
+
+                {showAdvanced && (
+                  <div className="mt-4 p-4 rounded-xl border border-border bg-muted/20 space-y-4">
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 rounded-lg bg-muted/30">
+                      <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                      <span>
+                        Commission and slippage are applied on every trade entry and exit.
+                        Estimated round-trip cost per trade: <span className="font-mono text-foreground">~{totalCostEstimate}%</span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="commission"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Commission (%)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="10"
+                                {...field}
+                                className="font-mono"
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">Per-side fee (e.g. 0.1 = 0.1%)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="slippage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Slippage (%)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="5"
+                                {...field}
+                                className="font-mono"
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">Price impact per side (e.g. 0.05 = 0.05%)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex justify-end pt-4">
                 <Button type="submit" disabled={createBacktest.isPending || !form.watch("strategyId")}>
