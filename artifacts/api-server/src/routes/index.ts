@@ -9,6 +9,7 @@ import authRouter from "./auth";
 import adminRouter from "./admin";
 import communityRouter from "./community";
 import subscriptionRouter from "./subscription";
+import toolsRouter from "./tools";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(authRouter);
 router.use(adminRouter);
 router.use(communityRouter);
 router.use(subscriptionRouter);
+router.use(toolsRouter);
 
 export default router;

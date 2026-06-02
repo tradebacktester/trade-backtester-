@@ -30,6 +30,7 @@ import AdminPanel from "@/pages/admin/panel";
 import CommunityPage from "@/pages/community";
 import PricingPage from "@/pages/pricing";
 import BillingPage from "@/pages/billing";
+import ToolsPage from "@/pages/tools";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/news" component={NewsPage} />
       <Route path="/settings" component={SettingsPage} />
 
+      <Route path="/tools" component={ToolsPage} />
       <Route path="/community" component={CommunityPage} />
 
       <Route path="/pricing" component={PricingPage} />

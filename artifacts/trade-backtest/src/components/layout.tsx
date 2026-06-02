@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CandlestickChart, FlaskConical,
   BarChart2, Settings, Zap, Brain,
   MoreHorizontal, X, ChevronRight, BookOpen,
-  Shield, LogIn, LogOut, User, Users, Crown, CreditCard,
+  Shield, LogIn, LogOut, User, Users, Crown, CreditCard, Wrench,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AuthModal } from "@/components/auth-modal";
@@ -26,6 +26,7 @@ const MOBILE_MAIN = [
 ] as const;
 
 const DESKTOP_MORE = [
+  { title: "Tools",     url: "/tools",      icon: Wrench },
   { title: "Analytics", url: "/strategies", icon: BarChart2 },
   { title: "Pricing",   url: "/pricing",    icon: Crown },
   { title: "Billing",   url: "/billing",    icon: CreditCard },
@@ -34,6 +35,7 @@ const DESKTOP_MORE = [
 ] as const;
 
 const MOBILE_MORE = [
+  { title: "Tools",     url: "/tools",      icon: Wrench },
   { title: "Journal",   url: "/backtests",  icon: BookOpen },
   { title: "Analytics", url: "/strategies", icon: BarChart2 },
   { title: "Pricing",   url: "/pricing",    icon: Crown },
