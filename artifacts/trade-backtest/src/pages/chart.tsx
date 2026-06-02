@@ -43,11 +43,13 @@ import {
   BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
   Flame, Bell, BellOff, ArrowLeftRight, BookOpen, List,
   CalendarClock, GitBranch, Type, Triangle,
+  Sun, Moon, Keyboard, Crosshair,
 } from "lucide-react";
 import {
   calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic,
   calcIchimoku, calcSupertrend, calcParabolicSAR,
   calcOBV, calcWilliamsR, calcCCI, calcADX, calcVolumeProfile,
+  calcHMA, calcDEMA, calcTEMA, calcKeltner, calcDonchian,
   generateSimData,
   loadIndicators, persistIndicators,
   loadLayouts, saveLayouts,
@@ -160,6 +162,9 @@ const CHART_BG   = "hsl(222,22%,8%)";
 const CHART_TEXT  = "hsl(218,12%,52%)";
 const CHART_FONT  = "'JetBrains Mono', Menlo, monospace";
 
+const DARK_THEME  = { bg: CHART_BG, text: CHART_TEXT, grid: "hsla(220,20%,30%,0.15)", xhair: "hsla(190,90%,60%,0.6)", xhairLbl: "hsl(222,28%,12%)", border: "hsla(220,20%,30%,0.3)" };
+const LIGHT_THEME = { bg: "#f0f2f5", text: "#374151",  grid: "rgba(0,0,0,0.08)",       xhair: "rgba(10,80,180,0.65)",     xhairLbl: "#dde5ee",           border: "rgba(0,0,0,0.13)"  };
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 function fmt(n: number) {
@@ -204,30 +209,31 @@ function calcHeikinAshi(bars: { time: number; open: number; high: number; low: n
   return ha;
 }
 
-function makeChartOptions(hideTimeScale = false, logScale = false) {
+function makeChartOptions(hideTimeScale = false, logScale = false, theme: "dark" | "light" = "dark") {
+  const t = theme === "light" ? LIGHT_THEME : DARK_THEME;
   return {
     autoSize: true,
     layout: {
-      background: { type: ColorType.Solid, color: CHART_BG },
-      textColor: CHART_TEXT,
+      background: { type: ColorType.Solid, color: t.bg },
+      textColor: t.text,
       fontFamily: CHART_FONT,
       fontSize: 11,
     },
     grid: {
-      vertLines: { color: "hsla(220,20%,30%,0.15)" },
-      horzLines: { color: "hsla(220,20%,30%,0.15)" },
+      vertLines: { color: t.grid },
+      horzLines: { color: t.grid },
     },
     crosshair: {
       mode: CrosshairMode.Normal,
-      vertLine: { color: "hsla(190,90%,60%,0.6)", width: 1 as const, style: 2, labelBackgroundColor: "hsl(222,28%,12%)" },
-      horzLine: { color: "hsla(190,90%,60%,0.6)", width: 1 as const, style: 2, labelBackgroundColor: "hsl(222,28%,12%)" },
+      vertLine: { color: t.xhair, width: 1 as const, style: 2, labelBackgroundColor: t.xhairLbl },
+      horzLine: { color: t.xhair, width: 1 as const, style: 2, labelBackgroundColor: t.xhairLbl },
     },
     rightPriceScale: {
-      borderColor: "hsla(220,20%,30%,0.3)",
+      borderColor: t.border,
       mode: logScale ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
     },
     timeScale: {
-      borderColor: "hsla(220,20%,30%,0.3)",
+      borderColor: t.border,
       timeVisible: true,
       secondsVisible: false,
       visible: !hideTimeScale,
@@ -318,6 +324,11 @@ export default function ChartPage() {
   const [layoutName, setLayoutName] = useState("");
   const [savedLayouts, setSavedLayouts] = useState<ChartLayout[]>(loadLayouts);
   const [showLoadLayout, setShowLoadLayout] = useState(false);
+
+  // Chart theme, magnet mode, shortcuts panel
+  const [chartTheme, setChartTheme] = useState<"dark" | "light">("dark");
+  const [magnetMode, setMagnetMode] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -422,6 +433,11 @@ export default function ChartPage() {
   const hasWilliamsR  = !!indicators.find(i => i.id === "williams_r")?.enabled;
   const hasCCI        = !!indicators.find(i => i.id === "cci")?.enabled;
   const hasADX        = !!indicators.find(i => i.id === "adx")?.enabled;
+  const hasHMA        = !!indicators.find(i => i.id === "hma")?.enabled;
+  const hasDEMA       = !!indicators.find(i => i.id === "dema")?.enabled;
+  const hasTEMA       = !!indicators.find(i => i.id === "tema")?.enabled;
+  const hasKeltner    = !!indicators.find(i => i.id === "keltner")?.enabled;
+  const hasDonchian   = !!indicators.find(i => i.id === "donchian")?.enabled;
   const hasSubChart   = indicators.some(i => !i.isOverlay && i.enabled);
 
   const sorted       = sortedKlinesRef.current;
@@ -482,15 +498,22 @@ export default function ChartPage() {
     const rect    = chartContainerRef.current!.getBoundingClientRect();
     const x       = e.clientX - rect.left;
     const y       = e.clientY - rect.top;
-    const price   = candleSeriesRef.current?.coordinateToPrice(y) ?? null;
+    let   price   = candleSeriesRef.current?.coordinateToPrice(y) ?? null;
     const logical = chartRef.current?.timeScale().coordinateToLogical(x) ?? null;
     let time: Time | null = null;
     if (logical !== null) {
       const idx = Math.max(0, Math.min(Math.round(Number(logical)), sortedKlinesRef.current.length - 1));
-      time = (sortedKlinesRef.current[idx]?.time ?? null) as Time | null;
+      const bar = sortedKlinesRef.current[idx];
+      time = (bar?.time ?? null) as Time | null;
+      if (magnetMode && bar && price !== null) {
+        const candidates = [bar.open, bar.high, bar.low, bar.close];
+        const raw = Number(price);
+        const snapped = candidates.reduce((best, v) => Math.abs(v - raw) < Math.abs(best - raw) ? v : best);
+        return { x, y, price: snapped, time };
+      }
     }
     return { x, y, price: price !== null ? Number(price) : null, time };
-  }, []);
+  }, [magnetMode]);
 
   // ── Drawing helpers ────────────────────────────────────────────────
   const eraseLastDrawing = useCallback(() => {
@@ -782,7 +805,9 @@ export default function ChartPage() {
       if (e.key === "c") setActiveTool("parallel_channel");
       if (e.key === "p") setActiveTool("pitchfork");
       if (e.key === "x") setActiveTool("text");
-      if (e.key === "Escape" && !drawStart && !drawStart2 && !textInput) { setActiveTool("cursor"); if (replayMode) exitReplay(); }
+      if (e.key === "m" || e.key === "M") setMagnetMode(v => !v);
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) setShowShortcuts(v => !v);
+      if (e.key === "Escape" && !drawStart && !drawStart2 && !textInput) { setActiveTool("cursor"); setShowShortcuts(false); if (replayMode) exitReplay(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -989,7 +1014,7 @@ export default function ChartPage() {
     const bars     = sortedKlinesRef.current;
     const seriesMap = indicatorSeriesRef.current;
 
-    const overlayIds: IndicatorId[] = ["sma20","sma50","ema9","ema20","ema50","bb","vwap","ichimoku","supertrend","psar"];
+    const overlayIds: IndicatorId[] = ["sma20","sma50","ema9","ema20","ema50","bb","vwap","ichimoku","supertrend","psar","hma","dema","tema","keltner","donchian"];
 
     for (const ind of indicators.filter(i => overlayIds.includes(i.id as IndicatorId))) {
       if (ind.enabled) {
@@ -1072,14 +1097,73 @@ export default function ChartPage() {
           if (!arr) {
             const base = { lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, lineStyle: LineStyle.SparseDotted };
             arr = [
-              chart.addSeries(LineSeries, { ...base, color: "hsl(150,90%,55%)" }),  // up (below price)
-              chart.addSeries(LineSeries, { ...base, color: "hsl(0,85%,60%)" }),    // down (above price)
+              chart.addSeries(LineSeries, { ...base, color: "hsl(150,90%,55%)" }),
+              chart.addSeries(LineSeries, { ...base, color: "hsl(0,85%,60%)" }),
             ];
             seriesMap.set("psar", arr);
           }
           const psar = calcParabolicSAR(bars);
           arr[0].setData(psar.up.map(d   => ({ time: d.time as Time, value: d.value })));
           arr[1].setData(psar.down.map(d => ({ time: d.time as Time, value: d.value })));
+        }
+        // ── HMA ──────────────────────────────────────────────────────
+        if (ind.id === "hma") {
+          let s = seriesMap.get("hma") as ISeriesApi<"Line"> | undefined;
+          if (!s) { s = chart.addSeries(LineSeries, { color: ind.color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); seriesMap.set("hma", s); }
+          const data = calcHMA(bars, ind.period);
+          if (data.length) s.setData(data.map(d => ({ time: d.time as Time, value: d.value })));
+        }
+        // ── DEMA ─────────────────────────────────────────────────────
+        if (ind.id === "dema") {
+          let s = seriesMap.get("dema") as ISeriesApi<"Line"> | undefined;
+          if (!s) { s = chart.addSeries(LineSeries, { color: ind.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); seriesMap.set("dema", s); }
+          const data = calcDEMA(bars, ind.period);
+          if (data.length) s.setData(data.map(d => ({ time: d.time as Time, value: d.value })));
+        }
+        // ── TEMA ─────────────────────────────────────────────────────
+        if (ind.id === "tema") {
+          let s = seriesMap.get("tema") as ISeriesApi<"Line"> | undefined;
+          if (!s) { s = chart.addSeries(LineSeries, { color: ind.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); seriesMap.set("tema", s); }
+          const data = calcTEMA(bars, ind.period);
+          if (data.length) s.setData(data.map(d => ({ time: d.time as Time, value: d.value })));
+        }
+        // ── Keltner Channels ─────────────────────────────────────────
+        if (ind.id === "keltner") {
+          let arr = seriesMap.get("keltner") as ISeriesApi<"Line">[] | undefined;
+          if (!arr) {
+            const opts = { lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+            arr = [
+              chart.addSeries(LineSeries, { ...opts, color: `${ind.color}` }),
+              chart.addSeries(LineSeries, { ...opts, color: `${ind.color}88`, lineStyle: LineStyle.Dashed }),
+              chart.addSeries(LineSeries, { ...opts, color: `${ind.color}` }),
+            ];
+            seriesMap.set("keltner", arr);
+          }
+          const kc = calcKeltner(bars, ind.period);
+          if (kc.upper.length) {
+            arr[0].setData(kc.upper.map(d  => ({ time: d.time as Time, value: d.value })));
+            arr[1].setData(kc.middle.map(d => ({ time: d.time as Time, value: d.value })));
+            arr[2].setData(kc.lower.map(d  => ({ time: d.time as Time, value: d.value })));
+          }
+        }
+        // ── Donchian Channels ─────────────────────────────────────────
+        if (ind.id === "donchian") {
+          let arr = seriesMap.get("donchian") as ISeriesApi<"Line">[] | undefined;
+          if (!arr) {
+            const opts = { lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+            arr = [
+              chart.addSeries(LineSeries, { ...opts, color: `${ind.color}` }),
+              chart.addSeries(LineSeries, { ...opts, color: `${ind.color}66`, lineStyle: LineStyle.Dashed }),
+              chart.addSeries(LineSeries, { ...opts, color: `${ind.color}` }),
+            ];
+            seriesMap.set("donchian", arr);
+          }
+          const dc = calcDonchian(bars, ind.period);
+          if (dc.upper.length) {
+            arr[0].setData(dc.upper.map(d  => ({ time: d.time as Time, value: d.value })));
+            arr[1].setData(dc.middle.map(d => ({ time: d.time as Time, value: d.value })));
+            arr[2].setData(dc.lower.map(d  => ({ time: d.time as Time, value: d.value })));
+          }
         }
       } else {
         const existing = seriesMap.get(ind.id);
@@ -1104,7 +1188,7 @@ export default function ChartPage() {
     if (bars.length === 0) return;
 
     if (!subChartRef.current) {
-      const sc = createChart(container, makeChartOptions(true));
+      const sc = createChart(container, makeChartOptions(true, false, chartTheme));
       sc.priceScale("right").applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
       sc.timeScale().subscribeVisibleLogicalRangeChange(range => {
         if (isSyncingRef.current || !range) return;
@@ -1250,6 +1334,13 @@ export default function ChartPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showIndicators]);
+
+  // ── Chart theme ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (chartRef.current) chartRef.current.applyOptions(makeChartOptions(false, logScale, chartTheme));
+    if (subChartRef.current) subChartRef.current.applyOptions(makeChartOptions(true, false, chartTheme));
+    if (multiTfChartRef.current) multiTfChartRef.current.applyOptions(makeChartOptions(false, false, chartTheme));
+  }, [chartTheme, logScale]);
 
   // ── Go to date ─────────────────────────────────────────────────────
   const handleGoToDate = useCallback(() => {
@@ -1609,6 +1700,28 @@ export default function ChartPage() {
             <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Trade</span>
           </button>
 
+          {/* Magnet mode */}
+          <button onClick={() => setMagnetMode(v => !v)} title="Magnet mode — snap to OHLC (M)"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+            style={magnetMode ? { background: "rgba(0,229,255,0.15)", borderColor: "rgba(0,229,255,0.35)", color: "hsl(190,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+            <Crosshair className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Magnet</span>
+          </button>
+
+          {/* Theme toggle */}
+          <button onClick={() => setChartTheme(t => t === "dark" ? "light" : "dark")} title="Toggle chart theme"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+            style={chartTheme === "light" ? { background: "rgba(250,204,21,0.15)", borderColor: "rgba(250,204,21,0.35)", color: "hsl(48,95%,60%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+            {chartTheme === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">{chartTheme === "dark" ? "Dark" : "Light"}</span>
+          </button>
+
+          {/* Keyboard shortcuts */}
+          <button onClick={() => setShowShortcuts(v => !v)} title="Keyboard shortcuts (?)"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+            style={showShortcuts ? { background: "rgba(139,92,246,0.15)", borderColor: "rgba(139,92,246,0.35)", color: "hsl(260,80%,72%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+            <Keyboard className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Shortcuts</span>
+          </button>
+
           {!replayMode && (
             <button onClick={handleRefresh} disabled={isFetching}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
@@ -1634,6 +1747,56 @@ export default function ChartPage() {
 
       {/* Click-away to close panels */}
       {showIndicators && <div className="fixed inset-0 z-40" onClick={() => setShowIndicators(false)} />}
+
+      {/* ── Keyboard Shortcuts Panel ────────────────────────────────── */}
+      {showShortcuts && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }} onClick={() => setShowShortcuts(false)}>
+          <div className="rounded-2xl border overflow-hidden w-full max-w-lg" style={{ background: "hsl(222,22%,10%)", borderColor: "rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }} onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="flex items-center gap-2">
+                <Keyboard className="h-4 w-4" style={{ color: "hsl(260,80%,72%)" }} />
+                <span className="font-mono font-bold text-sm" style={{ color: "hsl(220,14%,88%)" }}>Keyboard Shortcuts</span>
+              </div>
+              <button onClick={() => setShowShortcuts(false)} className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-white/10" style={{ color: "hsl(220,14%,50%)" }}><X className="h-3.5 w-3.5" /></button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-1.5 max-h-[70vh] overflow-y-auto">
+              {[
+                { section: "Drawing Tools" },
+                { key: "H", label: "Horizontal line" },
+                { key: "T", label: "Trend line" },
+                { key: "F", label: "Fibonacci retracement" },
+                { key: "R", label: "Ray" },
+                { key: "Q", label: "Rectangle" },
+                { key: "C", label: "Parallel channel" },
+                { key: "P", label: "Pitchfork" },
+                { key: "X", label: "Text annotation" },
+                { key: "E", label: "Eraser" },
+                { key: "Esc", label: "Select / deselect tool" },
+                { section: "Chart Controls" },
+                { key: "M", label: "Toggle magnet mode" },
+                { key: "?", label: "Toggle shortcuts panel" },
+                { section: "Replay Mode" },
+                { key: "→", label: "Step forward" },
+                { key: "←", label: "Step back" },
+                { key: "Space", label: "Play / pause" },
+                { key: "B", label: "Buy at current bar" },
+                { key: "S", label: "Sell at current bar" },
+              ].map((item, idx) =>
+                "section" in item ? (
+                  <div key={idx} className="col-span-2 pt-3 first:pt-0">
+                    <p className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "hsl(220,14%,38%)" }}>{item.section}</p>
+                  </div>
+                ) : (
+                  <div key={idx} className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono" style={{ color: "hsl(220,14%,60%)" }}>{item.label}</span>
+                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(220,14%,80%)" }}>{item.key}</kbd>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Alert panel ────────────────────────────────────────────── */}
       {showAlertPanel && (

@@ -58,7 +58,8 @@ export type IndicatorId =
   | "ema20" | "ema50" | "ema9"
   | "bb" | "rsi" | "macd" | "vwap" | "atr" | "stoch"
   | "ichimoku" | "supertrend" | "psar"
-  | "obv" | "williams_r" | "cci" | "adx";
+  | "obv" | "williams_r" | "cci" | "adx"
+  | "hma" | "dema" | "tema" | "keltner" | "donchian";
 
 export interface IndicatorConfig {
   id: IndicatorId;
@@ -88,6 +89,11 @@ export const DEFAULT_INDICATORS: IndicatorConfig[] = [
   { id: "williams_r", label: "Williams %R 14",  enabled: false, color: "hsl(38,100%,62%)",  period: 14, isOverlay: false },
   { id: "cci",        label: "CCI 20",          enabled: false, color: "hsl(260,80%,68%)", period: 20, isOverlay: false },
   { id: "adx",        label: "ADX 14",          enabled: false, color: "hsl(150,90%,55%)", period: 14, isOverlay: false },
+  { id: "hma",        label: "HMA 20",          enabled: false, color: "hsl(310,80%,65%)", period: 20, isOverlay: true  },
+  { id: "dema",       label: "DEMA 20",         enabled: false, color: "hsl(16,90%,62%)",  period: 20, isOverlay: true  },
+  { id: "tema",       label: "TEMA 20",         enabled: false, color: "hsl(48,95%,60%)",  period: 20, isOverlay: true  },
+  { id: "keltner",    label: "Keltner 20",      enabled: false, color: "hsl(170,80%,55%)", period: 20, isOverlay: true  },
+  { id: "donchian",   label: "Donchian 20",     enabled: false, color: "hsl(230,80%,68%)", period: 20, isOverlay: true  },
 ];
 
 // ── Layouts ───────────────────────────────────────────────────────
@@ -544,6 +550,120 @@ export function calcADX(bars: KlineBar[], period = 14): {
     }
   }
   return { adx: adxArr, diPlus: diPlusArr, diMinus: diMinusArr };
+}
+
+// ── Internal helpers ──────────────────────────────────────────────
+
+function calcWMAValues(values: number[], period: number): number[] {
+  const result: number[] = [];
+  const denom = (period * (period + 1)) / 2;
+  for (let i = period - 1; i < values.length; i++) {
+    let wsum = 0;
+    for (let j = 0; j < period; j++) wsum += (period - j) * values[i - j];
+    result.push(wsum / denom);
+  }
+  return result;
+}
+
+function calcEMAValues(values: number[], period: number): number[] {
+  if (values.length < period) return [];
+  const k = 2 / (period + 1);
+  let ema = values.slice(0, period).reduce((s, v) => s + v, 0) / period;
+  const result: number[] = [ema];
+  for (let i = period; i < values.length; i++) {
+    ema = values[i] * k + ema * (1 - k);
+    result.push(ema);
+  }
+  return result;
+}
+
+// ── HMA (Hull Moving Average) ─────────────────────────────────────
+
+export function calcHMA(bars: KlineBar[], period: number): { time: number; value: number }[] {
+  if (bars.length < period) return [];
+  const closes = bars.map(b => b.close);
+  const half  = Math.max(2, Math.floor(period / 2));
+  const sqrtP = Math.max(2, Math.round(Math.sqrt(period)));
+  const wmaHalf = calcWMAValues(closes, half);
+  const wmaFull = calcWMAValues(closes, period);
+  const offset  = period - half;
+  const raw: number[] = [];
+  for (let i = 0; i < wmaFull.length; i++) raw.push(2 * wmaHalf[i + offset] - wmaFull[i]);
+  const hma = calcWMAValues(raw, sqrtP);
+  const startIdx = period - 1 + sqrtP - 1;
+  return hma.map((v, i) => ({ time: bars[startIdx + i].time, value: v }));
+}
+
+// ── DEMA (Double EMA) ─────────────────────────────────────────────
+
+export function calcDEMA(bars: KlineBar[], period: number): { time: number; value: number }[] {
+  if (bars.length < period * 2) return [];
+  const ema1  = calcEMA(bars, period);
+  const ema2v = calcEMAValues(ema1.map(d => d.value), period);
+  const startIdx = 2 * period - 2;
+  return ema2v.map((e2, i) => ({
+    time: bars[startIdx + i].time,
+    value: 2 * ema1[period - 1 + i].value - e2,
+  }));
+}
+
+// ── TEMA (Triple EMA) ─────────────────────────────────────────────
+
+export function calcTEMA(bars: KlineBar[], period: number): { time: number; value: number }[] {
+  if (bars.length < period * 3) return [];
+  const ema1  = calcEMA(bars, period);
+  const ema2v = calcEMAValues(ema1.map(d => d.value), period);
+  const ema3v = calcEMAValues(ema2v, period);
+  const startIdx = 3 * period - 3;
+  return ema3v.map((e3, i) => ({
+    time: bars[startIdx + i].time,
+    value: 3 * ema1[2 * period - 2 + i].value - 3 * ema2v[period - 1 + i] + e3,
+  }));
+}
+
+// ── Keltner Channels ─────────────────────────────────────────────
+
+export function calcKeltner(bars: KlineBar[], period = 20, atrPeriod = 10, multiplier = 2): {
+  upper: { time: number; value: number }[];
+  middle: { time: number; value: number }[];
+  lower: { time: number; value: number }[];
+} {
+  const ema    = calcEMA(bars, period);
+  const atr    = calcATR(bars, atrPeriod);
+  const atrMap = new Map(atr.map(d => [d.time, d.value]));
+  const upper: { time: number; value: number }[] = [];
+  const middle: { time: number; value: number }[] = [];
+  const lower:  { time: number; value: number }[] = [];
+  for (const e of ema) {
+    const a = atrMap.get(e.time);
+    if (a !== undefined) {
+      middle.push({ time: e.time, value: e.value });
+      upper.push({ time: e.time, value: e.value + multiplier * a });
+      lower.push({ time: e.time, value: e.value - multiplier * a });
+    }
+  }
+  return { upper, middle, lower };
+}
+
+// ── Donchian Channels ─────────────────────────────────────────────
+
+export function calcDonchian(bars: KlineBar[], period = 20): {
+  upper: { time: number; value: number }[];
+  middle: { time: number; value: number }[];
+  lower: { time: number; value: number }[];
+} {
+  const upper: { time: number; value: number }[] = [];
+  const middle: { time: number; value: number }[] = [];
+  const lower:  { time: number; value: number }[] = [];
+  for (let i = period - 1; i < bars.length; i++) {
+    const slice = bars.slice(i - period + 1, i + 1);
+    const hi = Math.max(...slice.map(b => b.high));
+    const lo = Math.min(...slice.map(b => b.low));
+    upper.push({ time: bars[i].time, value: hi });
+    lower.push({ time: bars[i].time, value: lo });
+    middle.push({ time: bars[i].time, value: (hi + lo) / 2 });
+  }
+  return { upper, middle, lower };
 }
 
 export function calcVolumeProfile(bars: KlineBar[], buckets = 24): { price: number; volume: number; pct: number }[] {

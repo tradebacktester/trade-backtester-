@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
   ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
-  Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2,
+  Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -840,7 +840,8 @@ export default function BacktestDetail() {
             {[
               { value: "overview", label: "Overview", Icon: LayoutDashboard },
               { value: "analytics", label: "Analytics", Icon: BarChart3 },
-              { value: "journal", label: "Trade Journal", Icon: BookOpen },
+              { value: "journal",  label: "Trade Journal", Icon: BookOpen },
+              { value: "calendar", label: "P&L Calendar", Icon: CalendarDays },
             ].map(({ value, label, Icon }) => (
               <Tabs.Trigger
                 key={value}
@@ -1418,8 +1419,135 @@ export default function BacktestDetail() {
               </div>
             )}
           </Tabs.Content>
+
+          {/* ── TAB 4: P&L Calendar ──────────────────────────────────── */}
+          <Tabs.Content value="calendar" className="space-y-6 tab-transition">
+            <PnLCalendar trades={trades ?? []} />
+          </Tabs.Content>
         </Tabs.Root>
       )}
     </motion.div>
+  );
+}
+
+// ─── P&L Calendar component ─────────────────────────────────────────────────
+
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAY_LABELS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+interface TradeRow { exitDate?: string | null; pnl?: number | string | null }
+
+function PnLCalendar({ trades }: { trades: TradeRow[] }) {
+  const [viewYear, setViewYear] = useState<number>(() => new Date().getFullYear());
+
+  const dailyPnl = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of trades) {
+      if (!t.exitDate) continue;
+      const day = t.exitDate.slice(0, 10);
+      map.set(day, (map.get(day) ?? 0) + Number(t.pnl ?? 0));
+    }
+    return map;
+  }, [trades]);
+
+  const years = useMemo(() => {
+    const ys = new Set<number>();
+    for (const k of dailyPnl.keys()) ys.add(Number(k.slice(0, 4)));
+    if (!ys.size) ys.add(new Date().getFullYear());
+    return Array.from(ys).sort((a, b) => b - a);
+  }, [dailyPnl]);
+
+  const annualPnl = useMemo(() => {
+    let total = 0;
+    for (const [k, v] of dailyPnl) if (Number(k.slice(0, 4)) === viewYear) total += v;
+    return total;
+  }, [dailyPnl, viewYear]);
+
+  const tradingDays  = useMemo(() => [...dailyPnl.keys()].filter(k => k.startsWith(String(viewYear))).length, [dailyPnl, viewYear]);
+  const winDays      = useMemo(() => [...dailyPnl.entries()].filter(([k, v]) => k.startsWith(String(viewYear)) && v > 0).length, [dailyPnl, viewYear]);
+
+  return (
+    <div className="space-y-4">
+      {/* Year selector + annual summary */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          {years.map(y => (
+            <button key={y} onClick={() => setViewYear(y)}
+              className="px-3 py-1 rounded-lg text-xs font-mono font-medium border transition-all"
+              style={y === viewYear ? { background: "rgba(0,229,255,0.12)", borderColor: "rgba(0,229,255,0.3)", color: "hsl(190,90%,65%)" } : { background: "transparent", borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+              {y}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-4 text-xs font-mono">
+          <span className="text-muted-foreground">{tradingDays} trading days</span>
+          <span className="text-muted-foreground">{tradingDays > 0 ? Math.round((winDays / tradingDays) * 100) : 0}% win days</span>
+          <span className={`font-semibold ${annualPnl >= 0 ? "text-green-500" : "text-red-500"}`}>{annualPnl >= 0 ? "+" : ""}${annualPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {viewYear}</span>
+        </div>
+      </div>
+
+      {/* Month grids */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {MONTH_NAMES.map((month, mi) => {
+          const firstDay = new Date(viewYear, mi, 1).getDay();
+          const daysInMonth = new Date(viewYear, mi + 1, 0).getDate();
+          const cells: (null | { day: number; pnl: number | null })[] = [
+            ...Array(firstDay).fill(null),
+            ...Array.from({ length: daysInMonth }, (_, d) => {
+              const key = `${viewYear}-${String(mi + 1).padStart(2, "0")}-${String(d + 1).padStart(2, "0")}`;
+              return { day: d + 1, pnl: dailyPnl.has(key) ? dailyPnl.get(key)! : null };
+            }),
+          ];
+          const monthTotal = cells.filter(Boolean).reduce((s, c) => s + (c?.pnl ?? 0), 0);
+          const hasTrades  = cells.some(c => c?.pnl !== null);
+
+          return (
+            <div key={mi} className="rounded-xl border border-border p-3" style={{ background: "rgba(255,255,255,0.015)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-semibold" style={{ color: "hsl(220,14%,70%)" }}>{month}</span>
+                {hasTrades && (
+                  <span className={`text-[10px] font-mono font-bold ${monthTotal >= 0 ? "text-green-500" : "text-red-500"}`}>
+                    {monthTotal >= 0 ? "+" : ""}${Math.abs(monthTotal).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-7 gap-0.5 mb-0.5">
+                {DAY_LABELS.map(d => <div key={d} className="text-center text-[8px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>{d}</div>)}
+              </div>
+              <div className="grid grid-cols-7 gap-0.5">
+                {cells.map((cell, ci) => {
+                  if (!cell) return <div key={ci} />;
+                  const { day, pnl } = cell;
+                  const hasData = pnl !== null;
+                  const isWin   = hasData && pnl > 0;
+                  const isLoss  = hasData && pnl < 0;
+                  return (
+                    <div key={ci}
+                      title={hasData ? `${month} ${day}: ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}` : `${month} ${day}`}
+                      className="aspect-square rounded-sm flex items-center justify-center text-[9px] font-mono cursor-default transition-transform hover:scale-110"
+                      style={{
+                        background: isWin  ? `rgba(52,211,153,${Math.min(0.85, 0.18 + Math.abs(pnl!) / 500)})` :
+                                    isLoss ? `rgba(239,68,68,${Math.min(0.85, 0.18 + Math.abs(pnl!) / 500)})` :
+                                             "rgba(255,255,255,0.03)",
+                        color: hasData ? "rgba(255,255,255,0.85)" : "hsl(220,14%,35%)",
+                        border: hasData ? "none" : "1px solid rgba(255,255,255,0.04)",
+                      }}>
+                      {day}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 text-[10px] font-mono" style={{ color: "hsl(220,14%,42%)" }}>
+        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-sm" style={{ background: "rgba(52,211,153,0.5)" }} /> Profitable day</div>
+        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-sm" style={{ background: "rgba(239,68,68,0.5)" }} /> Loss day</div>
+        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded-sm" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }} /> No trades</div>
+      </div>
+    </div>
   );
 }
