@@ -80,3 +80,5 @@ channel = "stable-25_05"
 
 [userenv.shared]
 ADMIN_ID = "7302782010"
+PORT = "8080"
+NODE_ENV = "development"
