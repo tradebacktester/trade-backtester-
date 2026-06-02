@@ -2,21 +2,27 @@ import type { IPriceLine, ISeriesApi, Time } from "lightweight-charts";
 
 // ── Draw types ────────────────────────────────────────────────────
 
-export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser" | "doodle";
+export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser" | "doodle" | "parallel_channel" | "text" | "pitchfork";
 
 export type DrawnObject =
-  | { kind: "hline";     priceLine: IPriceLine; id: number; price: number; color: string }
-  | { kind: "trendline"; series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
-  | { kind: "fibonacci"; priceLines: IPriceLine[]; id: number; high: number; low: number; color: string }
-  | { kind: "rectangle"; series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
-  | { kind: "ray";       series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string };
+  | { kind: "hline";            priceLine: IPriceLine; id: number; price: number; color: string }
+  | { kind: "trendline";        series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "fibonacci";        priceLines: IPriceLine[]; id: number; high: number; low: number; color: string }
+  | { kind: "rectangle";        series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "ray";              series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "parallel_channel"; series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string }
+  | { kind: "text";             priceLine: IPriceLine; id: number; price: number; time: number; text: string; color: string }
+  | { kind: "pitchfork";        series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; series3: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string };
 
 export type SerializableDrawing =
-  | { kind: "hline";     id: number; price: number; color: string }
-  | { kind: "trendline"; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
-  | { kind: "fibonacci"; id: number; high: number; low: number; color: string }
-  | { kind: "rectangle"; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
-  | { kind: "ray";       id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string };
+  | { kind: "hline";            id: number; price: number; color: string }
+  | { kind: "trendline";        id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "fibonacci";        id: number; high: number; low: number; color: string }
+  | { kind: "rectangle";        id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "ray";              id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "parallel_channel"; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string }
+  | { kind: "text";             id: number; price: number; time: number; text: string; color: string }
+  | { kind: "pitchfork";        id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string };
 
 export type DrawStart = { x: number; y: number; price: number; time: Time };
 
@@ -47,7 +53,12 @@ export type SimTrade = {
 
 // ── Indicators ────────────────────────────────────────────────────
 
-export type IndicatorId = "sma20" | "sma50" | "ema20" | "ema50" | "ema9" | "bb" | "rsi" | "macd" | "vwap" | "atr" | "stoch";
+export type IndicatorId =
+  | "sma20" | "sma50"
+  | "ema20" | "ema50" | "ema9"
+  | "bb" | "rsi" | "macd" | "vwap" | "atr" | "stoch"
+  | "ichimoku" | "supertrend" | "psar"
+  | "obv" | "williams_r" | "cci" | "adx";
 
 export interface IndicatorConfig {
   id: IndicatorId;
@@ -59,17 +70,24 @@ export interface IndicatorConfig {
 }
 
 export const DEFAULT_INDICATORS: IndicatorConfig[] = [
-  { id: "ema9",  label: "EMA 9",          enabled: false, color: "hsl(38,100%,65%)",  period: 9,  isOverlay: true  },
-  { id: "ema20", label: "EMA 20",          enabled: false, color: "hsl(190,90%,55%)", period: 20, isOverlay: true  },
-  { id: "ema50", label: "EMA 50",          enabled: false, color: "hsl(150,90%,55%)", period: 50, isOverlay: true  },
-  { id: "sma20", label: "SMA 20",          enabled: false, color: "hsl(38,100%,60%)",  period: 20, isOverlay: true  },
-  { id: "sma50", label: "SMA 50",          enabled: false, color: "hsl(260,80%,68%)", period: 50, isOverlay: true  },
-  { id: "bb",    label: "Bollinger 20",    enabled: false, color: "hsl(200,80%,65%)", period: 20, isOverlay: true  },
-  { id: "vwap",  label: "VWAP",            enabled: false, color: "hsl(38,100%,55%)", period: 1,  isOverlay: true  },
-  { id: "rsi",   label: "RSI 14",          enabled: false, color: "hsl(38,100%,60%)",  period: 14, isOverlay: false },
-  { id: "macd",  label: "MACD 12/26/9",    enabled: false, color: "hsl(190,90%,55%)", period: 12, isOverlay: false },
-  { id: "atr",   label: "ATR 14",          enabled: false, color: "hsl(260,80%,68%)", period: 14, isOverlay: false },
-  { id: "stoch", label: "Stochastic 14",   enabled: false, color: "hsl(150,90%,55%)", period: 14, isOverlay: false },
+  { id: "ema9",       label: "EMA 9",          enabled: false, color: "hsl(38,100%,65%)",  period: 9,  isOverlay: true  },
+  { id: "ema20",      label: "EMA 20",          enabled: false, color: "hsl(190,90%,55%)", period: 20, isOverlay: true  },
+  { id: "ema50",      label: "EMA 50",          enabled: false, color: "hsl(150,90%,55%)", period: 50, isOverlay: true  },
+  { id: "sma20",      label: "SMA 20",          enabled: false, color: "hsl(38,100%,60%)",  period: 20, isOverlay: true  },
+  { id: "sma50",      label: "SMA 50",          enabled: false, color: "hsl(260,80%,68%)", period: 50, isOverlay: true  },
+  { id: "bb",         label: "Bollinger 20",    enabled: false, color: "hsl(200,80%,65%)", period: 20, isOverlay: true  },
+  { id: "vwap",       label: "VWAP",            enabled: false, color: "hsl(38,100%,55%)", period: 1,  isOverlay: true  },
+  { id: "ichimoku",   label: "Ichimoku Cloud",  enabled: false, color: "hsl(190,80%,60%)", period: 9,  isOverlay: true  },
+  { id: "supertrend", label: "Supertrend 10/3", enabled: false, color: "hsl(150,90%,55%)", period: 10, isOverlay: true  },
+  { id: "psar",       label: "Parabolic SAR",   enabled: false, color: "hsl(38,100%,60%)",  period: 14, isOverlay: true  },
+  { id: "rsi",        label: "RSI 14",          enabled: false, color: "hsl(38,100%,60%)",  period: 14, isOverlay: false },
+  { id: "macd",       label: "MACD 12/26/9",    enabled: false, color: "hsl(190,90%,55%)", period: 12, isOverlay: false },
+  { id: "atr",        label: "ATR 14",          enabled: false, color: "hsl(260,80%,68%)", period: 14, isOverlay: false },
+  { id: "stoch",      label: "Stochastic 14",   enabled: false, color: "hsl(150,90%,55%)", period: 14, isOverlay: false },
+  { id: "obv",        label: "OBV",             enabled: false, color: "hsl(190,90%,60%)", period: 1,  isOverlay: false },
+  { id: "williams_r", label: "Williams %R 14",  enabled: false, color: "hsl(38,100%,62%)",  period: 14, isOverlay: false },
+  { id: "cci",        label: "CCI 20",          enabled: false, color: "hsl(260,80%,68%)", period: 20, isOverlay: false },
+  { id: "adx",        label: "ADX 14",          enabled: false, color: "hsl(150,90%,55%)", period: 14, isOverlay: false },
 ];
 
 // ── Layouts ───────────────────────────────────────────────────────
@@ -117,9 +135,30 @@ export function persistIndicators(indicators: IndicatorConfig[]) {
   } catch { /* ignore */ }
 }
 
+// ── Price alerts ──────────────────────────────────────────────────
+
+export interface PriceAlert {
+  id: number;
+  price: number;
+  triggered: boolean;
+  label: string;
+}
+
+const ALERTS_KEY = "chart_price_alerts_v1";
+
+export function loadAlerts(): PriceAlert[] {
+  try {
+    const raw = localStorage.getItem(ALERTS_KEY);
+    return raw ? JSON.parse(raw) as PriceAlert[] : [];
+  } catch { return []; }
+}
+
+export function saveAlerts(alerts: PriceAlert[]) {
+  try { localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts)); } catch { /* ignore */ }
+}
+
 // ── Simulated data for non-crypto symbols ─────────────────────────
 
-// Seeded PRNG for deterministic data per symbol
 function mulberry32(seed: number) {
   return function () {
     seed |= 0; seed = seed + 0x6D2B79F5 | 0;
@@ -143,6 +182,7 @@ export function generateSimData(symbol: string, basePrice: number, count = 500, 
   for (let i = count - 1; i >= 0; i--) {
     const t = now - i * intervalSec;
     const vol = (rng() - 0.5) * 0.025;
+    void vol;
     const open = price;
     const move = (rng() - 0.48) * 0.02 * price;
     const high = open + Math.abs(rng() * 0.012 * price);
@@ -253,7 +293,6 @@ export function calcMACD(bars: KlineBar[], fast = 12, slow = 26, signal = 9): {
 }
 
 export function calcVWAP(bars: KlineBar[]): { time: number; value: number }[] {
-  // Session-based VWAP reset at each day
   const result: { time: number; value: number }[] = [];
   let cumTV = 0, cumVol = 0;
   let lastDay = -1;
@@ -299,11 +338,230 @@ export function calcStochastic(bars: KlineBar[], period = 14, smooth = 3): {
     const k = high === low ? 50 : ((bars[i].close - low) / (high - low)) * 100;
     kRaw.push({ time: bars[i].time, value: k });
   }
-  // Smooth %K into %D
   const dLine: { time: number; value: number }[] = [];
   for (let i = smooth - 1; i < kRaw.length; i++) {
     const avg = kRaw.slice(i - smooth + 1, i + 1).reduce((s, v) => s + v.value, 0) / smooth;
     dLine.push({ time: kRaw[i].time, value: avg });
   }
   return { k: kRaw, d: dLine };
+}
+
+export function calcIchimoku(bars: KlineBar[], tenkanP = 9, kijunP = 26, senkouBP = 52): {
+  tenkan:  { time: number; value: number }[];
+  kijun:   { time: number; value: number }[];
+  spanA:   { time: number; value: number }[];
+  spanB:   { time: number; value: number }[];
+  chikou:  { time: number; value: number }[];
+} {
+  const hl2 = (period: number, i: number) => {
+    const sl = bars.slice(Math.max(0, i - period + 1), i + 1);
+    return (Math.max(...sl.map(b => b.high)) + Math.min(...sl.map(b => b.low))) / 2;
+  };
+
+  const tenkan: { time: number; value: number }[] = [];
+  const kijun:  { time: number; value: number }[] = [];
+  const spanA:  { time: number; value: number }[] = [];
+  const spanB:  { time: number; value: number }[] = [];
+  const chikou: { time: number; value: number }[] = [];
+
+  for (let i = 0; i < bars.length; i++) {
+    if (i >= tenkanP - 1) tenkan.push({ time: bars[i].time, value: hl2(tenkanP, i) });
+    if (i >= kijunP  - 1) {
+      const k = hl2(kijunP, i);
+      kijun.push({ time: bars[i].time, value: k });
+      const t = i >= tenkanP - 1 ? hl2(tenkanP, i) : k;
+      spanA.push({ time: bars[i].time, value: (t + k) / 2 });
+    }
+    if (i >= senkouBP - 1) spanB.push({ time: bars[i].time, value: hl2(senkouBP, i) });
+    if (i + kijunP < bars.length) chikou.push({ time: bars[i + kijunP].time, value: bars[i].close });
+  }
+  return { tenkan, kijun, spanA, spanB, chikou };
+}
+
+export function calcSupertrend(bars: KlineBar[], period = 10, multiplier = 3): {
+  up:   { time: number; value: number }[];
+  down: { time: number; value: number }[];
+} {
+  if (bars.length < period + 1) return { up: [], down: [] };
+
+  const trs: number[] = [0];
+  for (let i = 1; i < bars.length; i++) {
+    trs.push(Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - bars[i - 1].close),
+      Math.abs(bars[i].low  - bars[i - 1].close)
+    ));
+  }
+  const atr: number[] = Array(bars.length).fill(0);
+  atr[period] = trs.slice(1, period + 1).reduce((s, v) => s + v, 0) / period;
+  for (let i = period + 1; i < bars.length; i++) atr[i] = (atr[i - 1] * (period - 1) + trs[i]) / period;
+
+  const hl2 = bars.map(b => (b.high + b.low) / 2);
+  const rawUp  = hl2.map((v, i) => v + multiplier * atr[i]);
+  const rawDn  = hl2.map((v, i) => v - multiplier * atr[i]);
+
+  const finalUp  = [...rawUp];
+  const finalDn  = [...rawDn];
+  for (let i = 1; i < bars.length; i++) {
+    finalUp[i]  = rawUp[i]  < finalUp[i - 1]  || bars[i - 1].close > finalUp[i - 1]  ? rawUp[i]  : finalUp[i - 1];
+    finalDn[i]  = rawDn[i]  > finalDn[i - 1]  || bars[i - 1].close < finalDn[i - 1]  ? rawDn[i]  : finalDn[i - 1];
+  }
+
+  const up:   { time: number; value: number }[] = [];
+  const down: { time: number; value: number }[] = [];
+  let bull = true;
+
+  for (let i = period; i < bars.length; i++) {
+    if (bull) {
+      if (bars[i].close < finalDn[i]) bull = false;
+      else up.push({ time: bars[i].time, value: finalDn[i] });
+    } else {
+      if (bars[i].close > finalUp[i]) bull = true;
+      else down.push({ time: bars[i].time, value: finalUp[i] });
+    }
+  }
+  return { up, down };
+}
+
+export function calcParabolicSAR(bars: KlineBar[], step = 0.02, maxAF = 0.2): {
+  up:   { time: number; value: number }[];
+  down: { time: number; value: number }[];
+} {
+  if (bars.length < 3) return { up: [], down: [] };
+  const up:   { time: number; value: number }[] = [];
+  const down: { time: number; value: number }[] = [];
+
+  let bull = true;
+  let sar  = bars[0].low;
+  let ep   = bars[0].high;
+  let af   = step;
+
+  for (let i = 1; i < bars.length; i++) {
+    sar = sar + af * (ep - sar);
+    if (bull) {
+      sar = Math.min(sar, bars[Math.max(0, i - 1)].low, bars[Math.max(0, i - 2)].low);
+      if (bars[i].low < sar) {
+        bull = false; sar = ep; ep = bars[i].low; af = step;
+      } else {
+        if (bars[i].high > ep) { ep = bars[i].high; af = Math.min(af + step, maxAF); }
+        up.push({ time: bars[i].time, value: sar });
+      }
+    } else {
+      sar = Math.max(sar, bars[Math.max(0, i - 1)].high, bars[Math.max(0, i - 2)].high);
+      if (bars[i].high > sar) {
+        bull = true; sar = ep; ep = bars[i].high; af = step;
+      } else {
+        if (bars[i].low < ep) { ep = bars[i].low; af = Math.min(af + step, maxAF); }
+        down.push({ time: bars[i].time, value: sar });
+      }
+    }
+  }
+  return { up, down };
+}
+
+export function calcOBV(bars: KlineBar[]): { time: number; value: number }[] {
+  const result: { time: number; value: number }[] = [];
+  let obv = 0;
+  for (let i = 0; i < bars.length; i++) {
+    if (i === 0) obv = bars[0].volume;
+    else if (bars[i].close > bars[i - 1].close) obv += bars[i].volume;
+    else if (bars[i].close < bars[i - 1].close) obv -= bars[i].volume;
+    result.push({ time: bars[i].time, value: obv });
+  }
+  return result;
+}
+
+export function calcWilliamsR(bars: KlineBar[], period = 14): { time: number; value: number }[] {
+  const result: { time: number; value: number }[] = [];
+  for (let i = period - 1; i < bars.length; i++) {
+    const sl = bars.slice(i - period + 1, i + 1);
+    const high = Math.max(...sl.map(b => b.high));
+    const low  = Math.min(...sl.map(b => b.low));
+    result.push({ time: bars[i].time, value: high === low ? -50 : ((high - bars[i].close) / (high - low)) * -100 });
+  }
+  return result;
+}
+
+export function calcCCI(bars: KlineBar[], period = 20): { time: number; value: number }[] {
+  const result: { time: number; value: number }[] = [];
+  for (let i = period - 1; i < bars.length; i++) {
+    const sl = bars.slice(i - period + 1, i + 1);
+    const tps = sl.map(b => (b.high + b.low + b.close) / 3);
+    const mean = tps.reduce((s, v) => s + v, 0) / period;
+    const mad  = tps.reduce((s, v) => s + Math.abs(v - mean), 0) / period;
+    result.push({ time: bars[i].time, value: mad === 0 ? 0 : (tps[period - 1] - mean) / (0.015 * mad) });
+  }
+  return result;
+}
+
+export function calcADX(bars: KlineBar[], period = 14): {
+  adx:     { time: number; value: number }[];
+  diPlus:  { time: number; value: number }[];
+  diMinus: { time: number; value: number }[];
+} {
+  if (bars.length < period * 2 + 1) return { adx: [], diPlus: [], diMinus: [] };
+
+  const dmP: number[] = [0];
+  const dmM: number[] = [0];
+  const trs: number[] = [0];
+  for (let i = 1; i < bars.length; i++) {
+    const up   = bars[i].high - bars[i - 1].high;
+    const down = bars[i - 1].low - bars[i].low;
+    dmP.push(up > down && up > 0 ? up : 0);
+    dmM.push(down > up && down > 0 ? down : 0);
+    trs.push(Math.max(bars[i].high - bars[i].low, Math.abs(bars[i].high - bars[i-1].close), Math.abs(bars[i].low - bars[i-1].close)));
+  }
+
+  let smTR = trs.slice(1, period + 1).reduce((s, v) => s + v, 0);
+  let smP  = dmP.slice(1, period + 1).reduce((s, v) => s + v, 0);
+  let smM  = dmM.slice(1, period + 1).reduce((s, v) => s + v, 0);
+
+  const dxArr: number[] = [];
+  const diPlusArr:  { time: number; value: number }[] = [];
+  const diMinusArr: { time: number; value: number }[] = [];
+
+  for (let i = period; i < bars.length; i++) {
+    if (i > period) {
+      smTR = smTR - smTR / period + trs[i];
+      smP  = smP  - smP  / period + dmP[i];
+      smM  = smM  - smM  / period + dmM[i];
+    }
+    const diP = smTR === 0 ? 0 : (smP / smTR) * 100;
+    const diM = smTR === 0 ? 0 : (smM / smTR) * 100;
+    const sum = diP + diM;
+    dxArr.push(sum === 0 ? 0 : (Math.abs(diP - diM) / sum) * 100);
+    diPlusArr.push({ time: bars[i].time, value: diP });
+    diMinusArr.push({ time: bars[i].time, value: diM });
+  }
+
+  const adxArr: { time: number; value: number }[] = [];
+  if (dxArr.length >= period) {
+    let adx = dxArr.slice(0, period).reduce((s, v) => s + v, 0) / period;
+    adxArr.push({ time: bars[period * 2 - 1].time, value: adx });
+    for (let i = period; i < dxArr.length; i++) {
+      adx = (adx * (period - 1) + dxArr[i]) / period;
+      if (period + i < bars.length) adxArr.push({ time: bars[period + i].time, value: adx });
+    }
+  }
+  return { adx: adxArr, diPlus: diPlusArr, diMinus: diMinusArr };
+}
+
+export function calcVolumeProfile(bars: KlineBar[], buckets = 24): { price: number; volume: number; pct: number }[] {
+  if (!bars.length) return [];
+  const high = Math.max(...bars.map(b => b.high));
+  const low  = Math.min(...bars.map(b => b.low));
+  const range = high - low;
+  if (range === 0) return [];
+  const size = range / buckets;
+  const vols = Array(buckets).fill(0);
+  for (const b of bars) {
+    const idx = Math.min(Math.floor((b.close - low) / size), buckets - 1);
+    vols[idx] += b.volume;
+  }
+  const maxVol = Math.max(...vols);
+  return vols.map((vol, i) => ({
+    price: low + (i + 0.5) * size,
+    volume: vol,
+    pct: maxVol > 0 ? (vol / maxVol) * 100 : 0,
+  }));
 }
