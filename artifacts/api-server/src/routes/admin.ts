@@ -166,7 +166,7 @@ router.patch("/admin/plans/:id", requireAdmin, async (req, res): Promise<void> =
   if (isActive !== undefined) updates.isActive = isActive;
   if (sortOrder !== undefined) updates.sortOrder = sortOrder;
   const [updated] = await db.update(subscriptionPlansTable)
-    .set(updates as Parameters<typeof db.update>[0])
+    .set(updates as Partial<typeof subscriptionPlansTable.$inferInsert>)
     .where(eq(subscriptionPlansTable.id, id))
     .returning();
   if (!updated) { res.status(404).json({ error: "Plan not found" }); return; }

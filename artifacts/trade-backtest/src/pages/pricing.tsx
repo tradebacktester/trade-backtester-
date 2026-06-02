@@ -444,7 +444,7 @@ export default function PricingPage() {
                   className="h-6 w-6 rounded-lg flex items-center justify-center"
                   style={{ background: meta?.accentBg }}
                 >
-                  {meta?.icon && React.cloneElement(meta.icon as React.ReactElement, {
+                  {meta?.icon && React.cloneElement(meta.icon as React.ReactElement<{ className?: string }>, {
                     className: "h-3.5 w-3.5",
                   })}
                 </span>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { useSimPrice } from "@/lib/use-sim-price";
+import { useBinanceLivePrice, useBinancePrices } from "@/lib/use-binance-ws";
 import {
   createChart,
   createSeriesMarkers,
@@ -393,7 +393,7 @@ export default function ChartPage() {
   const error     = isSim ? null : apiError;
 
   const lastKlineClose  = klines && klines.length > 0 ? klines[klines.length - 1].close : 100;
-  const liveChartPrice  = useSimPrice(lastKlineClose);
+  const liveChartPrice  = useBinanceLivePrice(symbol, isSim, lastKlineClose);
 
   // ── Multi-TF ───────────────────────────────────────────────────────
   const multiTfParams = { symbol, interval: multiTfInterval, limit: 300 };
@@ -1473,12 +1473,24 @@ export default function ChartPage() {
     setPtCapital(cap); setEquity(cap); setAccountModalOpen(false);
   };
 
-  // ── Watchlist sparkline data (mini 20-bar sim sparklines) ──────────
+  // ── Watchlist live prices via Binance WebSocket ─────────────────────
+  const watchlistSymbols = useMemo(
+    () => SYMBOLS.filter(s => !s.sim).map(s => s.value),
+    []
+  );
+  const wsBinancePrices = useBinancePrices(watchlistSymbols);
+
+  // ── Watchlist sparkline data (sim sparklines for shape; live price overlay) ──
   const watchlistData = useMemo(() => {
     return SYMBOLS.slice(0, 20).map(sym => {
       const bars = generateSimData(sym.value, sym.basePrice, 20, 86400);
-      const first = bars[0].close; const last = bars[bars.length - 1].close;
-      const change = ((last - first) / first) * 100;
+      const simLast = bars[bars.length - 1].close;
+      const liveP = !sym.sim && wsBinancePrices[sym.value]?.price;
+      const last = liveP || simLast;
+      const first = liveP
+        ? last / (1 + (wsBinancePrices[sym.value]?.changePct24h ?? 0) / 100)
+        : bars[0].close;
+      const change = first > 0 ? ((last - first) / first) * 100 : 0;
       const minP = Math.min(...bars.map(b => b.close));
       const maxP = Math.max(...bars.map(b => b.close));
       const sparkPoints = bars.map((b, i) => {
@@ -1486,9 +1498,10 @@ export default function ChartPage() {
         const y = maxP === minP ? 10 : 20 - ((b.close - minP) / (maxP - minP)) * 20;
         return `${x},${y}`;
       }).join(" ");
-      return { ...sym, lastPrice: last, change, sparkPoints };
+      return { ...sym, lastPrice: last, change, sparkPoints, isLive: !!liveP };
     });
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsBinancePrices]);
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -2202,7 +2215,10 @@ export default function ChartPage() {
                     className="w-full flex items-center gap-2 px-3 py-2 transition-all text-left"
                     style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: sym.value === symbol ? "rgba(100,180,255,0.08)" : "transparent" }}>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono font-semibold" style={{ color: "hsl(220,14%,75%)" }}>{sym.label}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs font-mono font-semibold" style={{ color: "hsl(220,14%,75%)" }}>{sym.label}</p>
+                        {sym.isLive && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0 animate-pulse" style={{ background: "hsl(150,90%,55%)" }} title="Live price" />}
+                      </div>
                       <p className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>${fmt(sym.lastPrice)}</p>
                     </div>
                     <svg width="60" height="20" viewBox="0 0 60 20" className="flex-shrink-0">

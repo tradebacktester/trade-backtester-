@@ -9,7 +9,60 @@ import {
   GetBacktestTradesParams,
   GetEquityCurveParams,
 } from "@workspace/api-zod";
-import { runBacktest, generatePriceData } from "../lib/backtest-engine";
+import { runBacktest, generatePriceData, type OHLCVBar } from "../lib/backtest-engine";
+
+// ── Real Binance historical data ─────────────────────────────────────────────
+
+const CRYPTO_SYMBOL_MAP: Record<string, string> = {
+  "BTC/USD": "BTCUSDT", "ETH/USD": "ETHUSDT", "BNB/USD": "BNBUSDT",
+  "SOL/USD": "SOLUSDT", "XRP/USD": "XRPUSDT", "ADA/USD": "ADAUSDT",
+  "DOGE/USD": "DOGEUSDT", "AVAX/USD": "AVAXUSDT", "LINK/USD": "LINKUSDT",
+  "LTC/USD": "LTCUSDT", "DOT/USD": "DOTUSDT", "NEAR/USD": "NEARUSDT",
+  "OP/USD": "OPUSDT", "ARB/USD": "ARBUSDT", "INJ/USD": "INJUSDT",
+  "AAVE/USD": "AAVEUSDT", "UNI/USD": "UNIUSDT", "ATOM/USD": "ATOMUSDT",
+};
+
+function toBinanceSymbol(symbol: string): string | null {
+  const upper = symbol.toUpperCase();
+  if (CRYPTO_SYMBOL_MAP[upper]) return CRYPTO_SYMBOL_MAP[upper];
+  if (/^[A-Z0-9]+USDT$/.test(upper)) return upper;
+  return null;
+}
+
+async function fetchBinanceHistorical(symbol: string, startDate: string, endDate: string): Promise<OHLCVBar[] | null> {
+  const binanceSymbol = toBinanceSymbol(symbol);
+  if (!binanceSymbol) return null;
+
+  const startMs = new Date(startDate).getTime();
+  const endMs = new Date(endDate).getTime();
+  const allBars: OHLCVBar[] = [];
+  let from = startMs;
+
+  try {
+    while (from < endMs && allBars.length < 5000) {
+      const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=1d&startTime=${from}&endTime=${endMs}&limit=1000`;
+      const resp = await fetch(url);
+      if (!resp.ok) break;
+      const raw = await resp.json() as unknown[][];
+      if (!raw.length) break;
+      for (const k of raw) {
+        allBars.push({
+          date: new Date(k[0] as number).toISOString().split("T")[0],
+          open: parseFloat(k[1] as string),
+          high: parseFloat(k[2] as string),
+          low: parseFloat(k[3] as string),
+          close: parseFloat(k[4] as string),
+          volume: parseFloat(k[5] as string),
+        });
+      }
+      if (raw.length < 1000) break;
+      from = (raw[raw.length - 1][0] as number) + 86_400_000;
+    }
+    return allBars.length >= 50 ? allBars : null;
+  } catch {
+    return null;
+  }
+}
 
 const router: IRouter = Router();
 
@@ -140,6 +193,11 @@ router.post("/backtests", async (req, res): Promise<void> => {
   }).returning();
 
   try {
+    // Try to fetch real Binance historical data for crypto symbols
+    const realBars = await fetchBinanceHistorical(
+      parsed.data.symbol, parsed.data.startDate, parsed.data.endDate
+    );
+
     const result = runBacktest(
       parsed.data.symbol,
       strategy.type,
@@ -149,6 +207,7 @@ router.post("/backtests", async (req, res): Promise<void> => {
       parsed.data.initialCapital,
       commissionPct,
       slippagePct,
+      realBars ?? undefined,
     );
 
     if (result.trades.length > 0) {

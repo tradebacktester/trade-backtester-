@@ -832,7 +832,7 @@ export default function AdminPanel() {
                     </button>
                   ))}
                 </div>
-                <button onClick={fetchSubs} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
+                <button onClick={() => fetchSubs()} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
                   <RefreshCw style={{ height: "13px", width: "13px" }} />
                 </button>
               </div>

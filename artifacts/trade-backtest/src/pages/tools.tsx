@@ -82,6 +82,7 @@ type ScreenerRow = {
   symbol: string; name: string; ticker: string; sector: string; mcapRank: number;
   price: number; change24h: number; change7d: number; volume24h: number;
   rsi: number; rsiSignal: string; macd: string; trend: string; bbPosition: number; vwap: number;
+  assetType?: string; dataSource?: "live" | "simulated";
 };
 type SortKey = keyof ScreenerRow;
 
@@ -108,6 +109,7 @@ function ScreenerTab() {
   const [filterRsi, setFilterRsi] = useState("all");
   const [filterMacd, setFilterMacd] = useState("all");
   const [filterTrend, setFilterTrend] = useState("all");
+  const [filterAssetType, setFilterAssetType] = useState("all");
 
   const { data, isLoading, refetch, isFetching } = useQuery<ScreenerRow[]>({
     queryKey: ["tools-screener"],
@@ -130,6 +132,7 @@ function ScreenerTab() {
         if (filterRsi === "oversold"   && r.rsiSignal !== "oversold")   return false;
         if (filterMacd !== "all"       && r.macd !== filterMacd)        return false;
         if (filterTrend !== "all"      && r.trend !== filterTrend)      return false;
+        if (filterAssetType !== "all"  && r.assetType !== filterAssetType) return false;
         return true;
       })
       .sort((a, b) => {
@@ -187,6 +190,15 @@ function ScreenerTab() {
           <option value="bullish">Bullish</option>
           <option value="bearish">Bearish</option>
         </select>
+        <select value={filterAssetType} onChange={e => setFilterAssetType(e.target.value)}
+          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "#fff", color: C.sub }}>
+          <option value="all">Type: All</option>
+          <option value="crypto">Crypto</option>
+          <option value="forex">Forex</option>
+          <option value="stock">Stocks</option>
+          <option value="index">Indices</option>
+          <option value="commodity">Commodity</option>
+        </select>
         <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}
           className="h-8 px-3 text-xs gap-1.5" style={{ border: `1px solid ${C.border}` }}>
           <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} /> Refresh
@@ -225,8 +237,15 @@ function ScreenerTab() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <div>
-                      <span className="text-[13px] font-semibold" style={{ color: C.text }}>{r.ticker}</span>
-                      <span className="text-[10px] ml-1.5" style={{ color: C.muted }}>{r.sector}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[13px] font-semibold" style={{ color: C.text }}>{r.ticker}</span>
+                        {r.dataSource === "live" && (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded" style={{ background: "rgba(22,163,74,0.1)", color: "#16a34a" }}>
+                            <span className="h-1 w-1 rounded-full bg-green-500 animate-pulse inline-block" />LIVE
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px]" style={{ color: C.muted }}>{r.sector}</span>
                     </div>
                   </div>
                 </td>

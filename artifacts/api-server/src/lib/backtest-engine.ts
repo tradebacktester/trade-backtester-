@@ -268,9 +268,10 @@ export function runBacktest(
   endDate: string,
   initialCapital: number,
   commissionPct = 0,
-  slippagePct = 0
+  slippagePct = 0,
+  priceData?: OHLCVBar[]
 ): BacktestResult {
-  const bars = generatePriceData(symbol, startDate, endDate);
+  const bars = (priceData && priceData.length >= 50) ? priceData : generatePriceData(symbol, startDate, endDate);
   const empty: BacktestResult = {
     trades: [], equityCurve: [{ date: startDate, value: initialCapital, drawdown: 0, benchmark: initialCapital }],
     finalCapital: initialCapital, totalReturn: 0, annualizedReturn: 0, maxDrawdown: 0,

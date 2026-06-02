@@ -28,31 +28,50 @@ function timeSeed(symbol: string, windowMs: number): number {
 // ── Asset universe ───────────────────────────────────────────────────
 
 const ASSETS = [
-  { symbol: "BTCUSDT",  name: "Bitcoin",   ticker: "BTC",  sector: "Layer 1",  mcap: 1,  base: 67420 },
-  { symbol: "ETHUSDT",  name: "Ethereum",  ticker: "ETH",  sector: "Layer 1",  mcap: 2,  base: 3521 },
-  { symbol: "SOLUSDT",  name: "Solana",    ticker: "SOL",  sector: "Layer 1",  mcap: 5,  base: 182 },
-  { symbol: "BNBUSDT",  name: "BNB",       ticker: "BNB",  sector: "Exchange", mcap: 4,  base: 608 },
-  { symbol: "XRPUSDT",  name: "XRP",       ticker: "XRP",  sector: "Payments", mcap: 3,  base: 0.623 },
-  { symbol: "ADAUSDT",  name: "Cardano",   ticker: "ADA",  sector: "Layer 1",  mcap: 9,  base: 0.457 },
-  { symbol: "DOGEUSDT", name: "Dogecoin",  ticker: "DOGE", sector: "Meme",     mcap: 8,  base: 0.152 },
-  { symbol: "AVAXUSDT", name: "Avalanche", ticker: "AVAX", sector: "Layer 1",  mcap: 10, base: 36 },
-  { symbol: "LINKUSDT", name: "Chainlink", ticker: "LINK", sector: "Oracle",   mcap: 12, base: 18.9 },
-  { symbol: "LTCUSDT",  name: "Litecoin",  ticker: "LTC",  sector: "Payments", mcap: 15, base: 84 },
-  { symbol: "DOTUSDT",  name: "Polkadot",  ticker: "DOT",  sector: "Layer 0",  mcap: 16, base: 7.4 },
-  { symbol: "NEARUSDT", name: "NEAR",      ticker: "NEAR", sector: "Layer 1",  mcap: 18, base: 5.8 },
-  { symbol: "OPUSDT",   name: "Optimism",  ticker: "OP",   sector: "Layer 2",  mcap: 22, base: 2.4 },
-  { symbol: "ARBUSDT",  name: "Arbitrum",  ticker: "ARB",  sector: "Layer 2",  mcap: 20, base: 1.1 },
-  { symbol: "INJUSDT",  name: "Injective", ticker: "INJ",  sector: "DeFi",     mcap: 25, base: 28.4 },
-  { symbol: "AAVEUSDT", name: "Aave",      ticker: "AAVE", sector: "DeFi",     mcap: 30, base: 110 },
-  { symbol: "UNIUSDT",  name: "Uniswap",   ticker: "UNI",  sector: "DeFi",     mcap: 28, base: 8.5 },
-  { symbol: "SHIBUSDT", name: "Shiba Inu", ticker: "SHIB", sector: "Meme",     mcap: 13, base: 0.0000245 },
-  { symbol: "MATICUSDT",name: "Polygon",   ticker: "MATIC",sector: "Layer 2",  mcap: 24, base: 0.85 },
-  { symbol: "FTMUSDT",  name: "Fantom",    ticker: "FTM",  sector: "Layer 1",  mcap: 35, base: 0.52 },
-  { symbol: "ATOMUSDT", name: "Cosmos",    ticker: "ATOM", sector: "Layer 0",  mcap: 27, base: 9.8 },
-  { symbol: "APTUSDT",  name: "Aptos",     ticker: "APT",  sector: "Layer 1",  mcap: 32, base: 9.1 },
-  { symbol: "SUIUSDT",  name: "Sui",       ticker: "SUI",  sector: "Layer 1",  mcap: 33, base: 1.9 },
-  { symbol: "PEPEUSDT", name: "Pepe",      ticker: "PEPE", sector: "Meme",     mcap: 19, base: 0.0000126 },
-];
+  // ── Crypto (Binance live prices)
+  { symbol: "BTCUSDT",  name: "Bitcoin",    ticker: "BTC",   sector: "Layer 1",    mcap: 1,  base: 67420,      assetType: "crypto" },
+  { symbol: "ETHUSDT",  name: "Ethereum",   ticker: "ETH",   sector: "Layer 1",    mcap: 2,  base: 3521,       assetType: "crypto" },
+  { symbol: "SOLUSDT",  name: "Solana",     ticker: "SOL",   sector: "Layer 1",    mcap: 5,  base: 182,        assetType: "crypto" },
+  { symbol: "BNBUSDT",  name: "BNB",        ticker: "BNB",   sector: "Exchange",   mcap: 4,  base: 608,        assetType: "crypto" },
+  { symbol: "XRPUSDT",  name: "XRP",        ticker: "XRP",   sector: "Payments",   mcap: 3,  base: 0.623,      assetType: "crypto" },
+  { symbol: "ADAUSDT",  name: "Cardano",    ticker: "ADA",   sector: "Layer 1",    mcap: 9,  base: 0.457,      assetType: "crypto" },
+  { symbol: "DOGEUSDT", name: "Dogecoin",   ticker: "DOGE",  sector: "Meme",       mcap: 8,  base: 0.152,      assetType: "crypto" },
+  { symbol: "AVAXUSDT", name: "Avalanche",  ticker: "AVAX",  sector: "Layer 1",    mcap: 10, base: 36,         assetType: "crypto" },
+  { symbol: "LINKUSDT", name: "Chainlink",  ticker: "LINK",  sector: "Oracle",     mcap: 12, base: 18.9,       assetType: "crypto" },
+  { symbol: "LTCUSDT",  name: "Litecoin",   ticker: "LTC",   sector: "Payments",   mcap: 15, base: 84,         assetType: "crypto" },
+  { symbol: "DOTUSDT",  name: "Polkadot",   ticker: "DOT",   sector: "Layer 0",    mcap: 16, base: 7.4,        assetType: "crypto" },
+  { symbol: "NEARUSDT", name: "NEAR",       ticker: "NEAR",  sector: "Layer 1",    mcap: 18, base: 5.8,        assetType: "crypto" },
+  { symbol: "OPUSDT",   name: "Optimism",   ticker: "OP",    sector: "Layer 2",    mcap: 22, base: 2.4,        assetType: "crypto" },
+  { symbol: "ARBUSDT",  name: "Arbitrum",   ticker: "ARB",   sector: "Layer 2",    mcap: 20, base: 1.1,        assetType: "crypto" },
+  { symbol: "INJUSDT",  name: "Injective",  ticker: "INJ",   sector: "DeFi",       mcap: 25, base: 28.4,       assetType: "crypto" },
+  { symbol: "AAVEUSDT", name: "Aave",       ticker: "AAVE",  sector: "DeFi",       mcap: 30, base: 110,        assetType: "crypto" },
+  { symbol: "UNIUSDT",  name: "Uniswap",    ticker: "UNI",   sector: "DeFi",       mcap: 28, base: 8.5,        assetType: "crypto" },
+  { symbol: "SHIBUSDT", name: "Shiba Inu",  ticker: "SHIB",  sector: "Meme",       mcap: 13, base: 0.0000245,  assetType: "crypto" },
+  { symbol: "MATICUSDT",name: "Polygon",    ticker: "MATIC", sector: "Layer 2",    mcap: 24, base: 0.85,       assetType: "crypto" },
+  { symbol: "FTMUSDT",  name: "Fantom",     ticker: "FTM",   sector: "Layer 1",    mcap: 35, base: 0.52,       assetType: "crypto" },
+  { symbol: "ATOMUSDT", name: "Cosmos",     ticker: "ATOM",  sector: "Layer 0",    mcap: 27, base: 9.8,        assetType: "crypto" },
+  { symbol: "APTUSDT",  name: "Aptos",      ticker: "APT",   sector: "Layer 1",    mcap: 32, base: 9.1,        assetType: "crypto" },
+  { symbol: "SUIUSDT",  name: "Sui",        ticker: "SUI",   sector: "Layer 1",    mcap: 33, base: 1.9,        assetType: "crypto" },
+  { symbol: "PEPEUSDT", name: "Pepe",       ticker: "PEPE",  sector: "Meme",       mcap: 19, base: 0.0000126,  assetType: "crypto" },
+  // ── Forex (simulated)
+  { symbol: "EURUSD",   name: "Euro / USD",      ticker: "EUR/USD", sector: "Forex",     mcap: 40, base: 1.0825, assetType: "forex" },
+  { symbol: "GBPUSD",   name: "GBP / USD",       ticker: "GBP/USD", sector: "Forex",     mcap: 41, base: 1.2685, assetType: "forex" },
+  { symbol: "USDJPY",   name: "USD / JPY",       ticker: "USD/JPY", sector: "Forex",     mcap: 42, base: 153.45, assetType: "forex" },
+  { symbol: "AUDUSD",   name: "AUD / USD",       ticker: "AUD/USD", sector: "Forex",     mcap: 43, base: 0.6530, assetType: "forex" },
+  { symbol: "USDCHF",   name: "USD / CHF",       ticker: "USD/CHF", sector: "Forex",     mcap: 44, base: 0.9020, assetType: "forex" },
+  { symbol: "USDCAD",   name: "USD / CAD",       ticker: "USD/CAD", sector: "Forex",     mcap: 45, base: 1.3680, assetType: "forex" },
+  // ── Stocks (simulated)
+  { symbol: "AAPL",     name: "Apple",           ticker: "AAPL",    sector: "Tech",      mcap: 50, base: 178,    assetType: "stock" },
+  { symbol: "MSFT",     name: "Microsoft",       ticker: "MSFT",    sector: "Tech",      mcap: 51, base: 420,    assetType: "stock" },
+  { symbol: "NVDA",     name: "Nvidia",          ticker: "NVDA",    sector: "Tech",      mcap: 52, base: 880,    assetType: "stock" },
+  { symbol: "TSLA",     name: "Tesla",           ticker: "TSLA",    sector: "Auto/Tech", mcap: 53, base: 185,    assetType: "stock" },
+  { symbol: "AMZN",     name: "Amazon",          ticker: "AMZN",    sector: "Tech",      mcap: 54, base: 188,    assetType: "stock" },
+  { symbol: "GOOGL",    name: "Alphabet",        ticker: "GOOGL",   sector: "Tech",      mcap: 55, base: 170,    assetType: "stock" },
+  // ── Indices (simulated)
+  { symbol: "SPX",      name: "S&P 500",         ticker: "SPX",     sector: "Index",     mcap: 60, base: 5280,   assetType: "index" },
+  { symbol: "NDX",      name: "Nasdaq 100",      ticker: "NDX",     sector: "Index",     mcap: 61, base: 18420,  assetType: "index" },
+  { symbol: "XAUUSD",   name: "Gold",            ticker: "XAU/USD", sector: "Commodity", mcap: 62, base: 2320,   assetType: "commodity" },
+] as const;
 
 // ── Price simulation ─────────────────────────────────────────────────
 
@@ -126,13 +145,38 @@ function computeVWAP(prices: number[]): number {
   return vwap;
 }
 
+// ── Fetch live Binance prices (bulk) ─────────────────────────────────
+
+async function fetchBinanceLivePrices(): Promise<Record<string, number>> {
+  try {
+    const resp = await fetch("https://api.binance.com/api/v3/ticker/price", { signal: AbortSignal.timeout(3000) });
+    if (!resp.ok) return {};
+    const list = await resp.json() as { symbol: string; price: string }[];
+    const out: Record<string, number> = {};
+    for (const p of list) out[p.symbol] = parseFloat(p.price);
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 // ── 1. SCREENER ──────────────────────────────────────────────────────
 
-router.get("/tools/screener", (_req, res) => {
+router.get("/tools/screener", async (_req, res) => {
   const now = Date.now();
+
+  // Fetch real Binance prices for all crypto assets in one API call
+  const livePrices = await fetchBinanceLivePrices();
+
   const data = ASSETS.map(asset => {
-    const prices100 = generatePrices(asset.symbol, asset.base, 100, 3_600_000);
-    const prices200 = generatePrices(asset.symbol + "_ext", asset.base, 200, 7_200_000);
+    const isCrypto = asset.assetType === "crypto";
+    const livePrice = isCrypto ? livePrices[asset.symbol] : undefined;
+    const baseForSim = livePrice ?? asset.base;
+
+    const prices100 = generatePrices(asset.symbol, baseForSim, 100, 3_600_000);
+    const prices200 = generatePrices(asset.symbol + "_ext", baseForSim, 200, 7_200_000);
+    // Pin last simulated price to the live price so indicators are anchored to reality
+    if (livePrice) { prices100[prices100.length - 1] = livePrice; prices200[prices200.length - 1] = livePrice; }
 
     const rsi = computeRSI(prices100);
     const macd = computeMACDSignal(prices100);
@@ -158,13 +202,17 @@ router.get("/tools/screener", (_req, res) => {
     const rsiSignal: "overbought" | "oversold" | "neutral" =
       rsi >= 70 ? "overbought" : rsi <= 30 ? "oversold" : "neutral";
 
+    const finalPrice = livePrice ?? price;
+    const dp = asset.base < 0.001 ? 8 : asset.base < 1 ? 4 : 2;
+
     return {
       symbol: asset.symbol,
       name: asset.name,
       ticker: asset.ticker,
       sector: asset.sector,
+      assetType: asset.assetType,
       mcapRank: asset.mcap,
-      price: +price.toFixed(asset.base < 0.001 ? 8 : asset.base < 1 ? 4 : 2),
+      price: +finalPrice.toFixed(dp),
       change24h,
       change7d,
       volume24h,
@@ -173,7 +221,8 @@ router.get("/tools/screener", (_req, res) => {
       macd,
       trend,
       bbPosition: bb,
-      vwap: +vwap.toFixed(asset.base < 0.001 ? 8 : asset.base < 1 ? 4 : 2),
+      vwap: +vwap.toFixed(dp),
+      dataSource: livePrice ? "live" : "simulated",
       updatedAt: now,
     };
   });

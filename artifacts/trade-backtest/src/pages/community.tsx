@@ -499,7 +499,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
       ) : filtered.length === 0 ? (
         <div className="px-4 py-8 text-center text-[12px]" style={{ color: "#bbb" }}>No {filter === "all" ? "" : filter} reports.</div>
       ) : (
-        <div className="divide-y" style={{ divideColor: "rgba(0,0,0,0.05)" }}>
+        <div className="divide-y divide-black/5">
           {filtered.map(r => (
             <div key={r.id} className="px-4 py-3 flex flex-col gap-2">
               <div className="flex items-start justify-between gap-2">

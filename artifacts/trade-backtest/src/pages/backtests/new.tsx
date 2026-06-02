@@ -32,7 +32,29 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
+export const SYMBOLS: { value: string; label: string; realData: boolean }[] = [
+  // Crypto — real Binance historical OHLCV data
+  { value: "BTCUSDT",  label: "BTC/USDT  ★ Real Data", realData: true },
+  { value: "ETHUSDT",  label: "ETH/USDT  ★ Real Data", realData: true },
+  { value: "SOLUSDT",  label: "SOL/USDT  ★ Real Data", realData: true },
+  { value: "BNBUSDT",  label: "BNB/USDT  ★ Real Data", realData: true },
+  { value: "XRPUSDT",  label: "XRP/USDT  ★ Real Data", realData: true },
+  { value: "ADAUSDT",  label: "ADA/USDT  ★ Real Data", realData: true },
+  { value: "DOGEUSDT", label: "DOGE/USDT ★ Real Data", realData: true },
+  { value: "AVAXUSDT", label: "AVAX/USDT ★ Real Data", realData: true },
+  { value: "LINKUSDT", label: "LINK/USDT ★ Real Data", realData: true },
+  { value: "LTCUSDT",  label: "LTC/USDT  ★ Real Data", realData: true },
+  { value: "DOTUSDT",  label: "DOT/USDT  ★ Real Data", realData: true },
+  // Stocks & Indices — simulated data
+  { value: "AAPL",  label: "Apple (AAPL)",     realData: false },
+  { value: "MSFT",  label: "Microsoft (MSFT)", realData: false },
+  { value: "TSLA",  label: "Tesla (TSLA)",     realData: false },
+  { value: "NVDA",  label: "Nvidia (NVDA)",    realData: false },
+  { value: "AMZN",  label: "Amazon (AMZN)",    realData: false },
+  { value: "GOOGL", label: "Alphabet (GOOGL)", realData: false },
+  { value: "SPY",   label: "S&P 500 ETF (SPY)",realData: false },
+  { value: "QQQ",   label: "Nasdaq ETF (QQQ)", realData: false },
+];
 
 export const STRATEGY_TYPES = [
   {
@@ -104,7 +126,7 @@ export default function NewBacktest() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       strategyId: initialStrategyId ? parseInt(initialStrategyId, 10) : 0,
-      symbol: "AAPL",
+      symbol: "BTCUSDT",
       startDate: format(subYears(new Date(), 2), "yyyy-MM-dd"),
       endDate: format(new Date(), "yyyy-MM-dd"),
       initialCapital: 100000,
@@ -304,7 +326,9 @@ export default function NewBacktest() {
                       </FormControl>
                       <SelectContent>
                         {SYMBOLS.map((s) => (
-                          <SelectItem key={s} value={s} className="font-mono">{s}</SelectItem>
+                          <SelectItem key={s.value} value={s.value} className="font-mono">
+                            {s.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

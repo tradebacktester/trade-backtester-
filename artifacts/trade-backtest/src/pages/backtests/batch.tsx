@@ -233,12 +233,12 @@ export default function BatchBacktest() {
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {SYMBOLS.map((sym) => {
-                const active = selectedSymbols.includes(sym);
+                const active = selectedSymbols.includes(sym.value);
                 return (
                   <button
-                    key={sym}
+                    key={sym.value}
                     type="button"
-                    onClick={() => toggleSymbol(sym)}
+                    onClick={() => toggleSymbol(sym.value)}
                     disabled={isRunning}
                     className={`px-3 py-1.5 rounded-lg text-sm font-mono font-medium border transition-all ${
                       active
@@ -246,7 +246,7 @@ export default function BatchBacktest() {
                         : "text-muted-foreground border-border hover:border-muted-foreground"
                     }`}
                   >
-                    {sym}
+                    {sym.value}
                   </button>
                 );
               })}
@@ -256,7 +256,7 @@ export default function BatchBacktest() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectedSymbols([...SYMBOLS])}
+                onClick={() => setSelectedSymbols(SYMBOLS.map(s => s.value))}
                 disabled={isRunning}
                 className="text-xs"
               >
