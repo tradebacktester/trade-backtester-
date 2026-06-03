@@ -13,6 +13,7 @@ import toolsRouter from "./tools";
 import superpowersRouter from "./superpowers";
 import socialRouter from "./social";
 import journalRouter from "./journal";
+import paperRouter from "./paper";
 
 const router: IRouter = Router();
 
@@ -33,5 +34,6 @@ router.use(communityRouter);
 router.use(subscriptionRouter);
 router.use(toolsRouter);
 router.use(socialRouter);
+router.use(paperRouter);
 
 export default router;

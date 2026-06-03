@@ -1122,6 +1122,18 @@ export default function ToolsPage() {
         </div>
       </div>
 
+      {/* Simulated-data notice for tools that use generated prices */}
+      {(activeTab === "heatmap" || activeTab === "depth" || activeTab === "correlation") && (
+        <div className="mb-3 flex items-start gap-2 px-3 py-2 rounded-xl text-xs"
+          style={{ background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.22)", color: C.amber }}>
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            <strong>Simulated data</strong> — prices and volumes shown here are algorithmically generated
+            for educational purposes and do not reflect real market conditions.
+          </span>
+        </div>
+      )}
+
       {/* Tab content */}
       <div className="rounded-2xl p-5" style={CARD}>
         {activeTab === "screener"    && <ScreenerTab />}

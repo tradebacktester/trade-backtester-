@@ -335,7 +335,27 @@ function PaperTradingSection() {
   const [ptAccount, setPtAccount] = useState<PtAccount | null>(null);
   const [ptTrades, setPtTrades] = useState<PtTrade[]>([]);
 
-  const load = () => {
+  const load = async () => {
+    const token = localStorage.getItem("tt_token");
+    if (token) {
+      try {
+        const resp = await fetch("/api/paper/trades", {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const apiTrades = await resp.json() as PtTrade[];
+          if (apiTrades.length > 0) {
+            const totalPnl = apiTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
+            const firstDate = (apiTrades[0] as { openedAt?: string }).openedAt
+              ?? new Date().toISOString();
+            setPtTrades(apiTrades);
+            setPtAccount({ initialCapital: 10_000, balance: 10_000 + totalPnl, createdAt: firstDate });
+            return;
+          }
+        }
+      } catch {}
+    }
+    // Fall back to localStorage
     try {
       const acc = JSON.parse(localStorage.getItem("pt_account") || "null") as PtAccount | null;
       const trades = JSON.parse(localStorage.getItem("pt_trades") || "[]") as PtTrade[];

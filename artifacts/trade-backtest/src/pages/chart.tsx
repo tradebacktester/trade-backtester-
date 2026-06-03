@@ -185,10 +185,36 @@ function readPtCapital(): number {
   } catch { return 10_000; }
 }
 function savePtTrade(trade: { id: number; entryPrice: number; entryTime: number; exitPrice: number; exitTime: number; units: number; pnl: number; pnlPct: number; side?: string; symbol?: string }) {
+  // Normalise shape so ai-assistant.tsx (status/openedAt/closedAt) can read it correctly
+  const normalized = {
+    ...trade,
+    status: "closed",
+    openedAt: new Date(trade.entryTime).toISOString(),
+    closedAt: new Date(trade.exitTime).toISOString(),
+  };
   try {
-    const prev = JSON.parse(localStorage.getItem("pt_trades") || "[]") as typeof trade[];
-    localStorage.setItem("pt_trades", JSON.stringify([...prev, trade]));
+    const prev = JSON.parse(localStorage.getItem("pt_trades") || "[]") as typeof normalized[];
+    localStorage.setItem("pt_trades", JSON.stringify([...prev, normalized]));
   } catch {}
+  // Also persist to server for logged-in users (fire and forget)
+  const token = localStorage.getItem("tt_token");
+  if (token) {
+    fetch("/api/paper/trades", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({
+        symbol: trade.symbol ?? "UNKNOWN",
+        side: trade.side ?? "long",
+        entryPrice: trade.entryPrice,
+        exitPrice: trade.exitPrice,
+        units: trade.units,
+        pnl: trade.pnl,
+        pnlPct: trade.pnlPct,
+        entryTime: trade.entryTime,
+        exitTime: trade.exitTime,
+      }),
+    }).catch(() => {});
+  }
 }
 function updatePtBalance(balance: number) {
   try {
@@ -697,6 +723,14 @@ export default function ChartPage() {
     localStorage.removeItem("pt_trades");
     updatePtBalance(ptCapital);
     markersRef.current = []; applyMarkers();
+    // Also reset server-side trades for logged-in users
+    const token = localStorage.getItem("tt_token");
+    if (token) {
+      fetch("/api/paper/trades", {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` },
+      }).catch(() => {});
+    }
   }, [applyMarkers, ptCapital]);
 
   const handleBuy = useCallback((bar: KlineBar, priceOverride?: number) => {

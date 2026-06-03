@@ -28,6 +28,8 @@ const formSchema = z.object({
   initialCapital: z.coerce.number().min(100, "Minimum capital is 100"),
   commission: z.coerce.number().min(0).max(10).optional(),
   slippage: z.coerce.number().min(0).max(5).optional(),
+  positionSizingMode: z.enum(["pct_capital", "fixed_amount"]).default("pct_capital"),
+  positionSizingValue: z.coerce.number().positive().optional(),
 }).refine(
   (data) => data.startDate < data.endDate,
   { message: "End date must be after start date", path: ["endDate"] }
@@ -144,6 +146,8 @@ export default function NewBacktest() {
       initialCapital: 100000,
       commission: 0.1,
       slippage: 0.05,
+      positionSizingMode: "pct_capital" as const,
+      positionSizingValue: 95,
     },
   });
 
@@ -196,7 +200,13 @@ export default function NewBacktest() {
   }
 
   function onSubmit(data: FormValues) {
+    const positionSizing = data.positionSizingMode === "fixed_amount"
+      ? { mode: "fixed_amount" as const, value: data.positionSizingValue ?? data.initialCapital * 0.95 }
+      : { mode: "risk_pct" as const, value: data.positionSizingValue ?? 95 };
+
     createBacktest.mutate(
+      // positionSizing is an extension beyond the generated type; cast to pass it through
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { data: {
         strategyId: data.strategyId,
         symbol: data.symbol,
@@ -205,7 +215,8 @@ export default function NewBacktest() {
         initialCapital: data.initialCapital,
         commission: data.commission ?? 0,
         slippage: data.slippage ?? 0,
-      }},
+        positionSizing,
+      } as any },
       {
         onSuccess: (backtest) => {
           queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
@@ -410,7 +421,7 @@ export default function NewBacktest() {
                   className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  Advanced Settings (Commission & Slippage)
+                  Advanced Settings (Commission, Slippage &amp; Position Size)
                 </button>
 
                 {showAdvanced && (
@@ -466,6 +477,65 @@ export default function NewBacktest() {
                           </FormItem>
                         )}
                       />
+                    </div>
+
+                    {/* Position sizing */}
+                    <div className="pt-2 border-t border-border space-y-3">
+                      <p className="text-xs font-medium text-foreground">Position Sizing</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="positionSizingMode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Mode</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="pct_capital">% of Capital</SelectItem>
+                                  <SelectItem value="fixed_amount">Fixed Amount ($)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="positionSizingValue"
+                          render={({ field }) => {
+                            const mode = form.watch("positionSizingMode");
+                            return (
+                              <FormItem>
+                                <FormLabel>
+                                  {mode === "fixed_amount" ? "Amount ($)" : "Size (%)"}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    step={mode === "fixed_amount" ? "100" : "1"}
+                                    min={mode === "fixed_amount" ? "100" : "1"}
+                                    max={mode === "fixed_amount" ? undefined : "100"}
+                                    placeholder={mode === "fixed_amount" ? "e.g. 50000" : "e.g. 95"}
+                                    {...field}
+                                    className="font-mono"
+                                  />
+                                </FormControl>
+                                <FormDescription className="text-xs">
+                                  {mode === "fixed_amount"
+                                    ? "Fixed $ per trade (capped at 99% of capital)"
+                                    : "% of current capital per trade (1–100)"}
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

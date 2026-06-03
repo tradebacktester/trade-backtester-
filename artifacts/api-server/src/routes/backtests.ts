@@ -283,6 +283,12 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       parsed.data.symbol, parsed.data.startDate, parsed.data.endDate
     );
 
+    // positionSizing is an optional extension sent by the frontend beyond the generated Zod schema
+    const psRaw = req.body.positionSizing as { mode?: string; value?: number } | undefined;
+    const positionSizing = (psRaw?.mode === "fixed_amount" || psRaw?.mode === "risk_pct")
+      ? { mode: psRaw.mode as "fixed_amount" | "risk_pct", value: typeof psRaw.value === "number" ? psRaw.value : undefined }
+      : undefined;
+
     const result = runBacktest(
       parsed.data.symbol,
       strategy.type,
@@ -294,6 +300,7 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       slippagePct,
       realBars ?? undefined,
       strategy.timeframe ?? "1d",
+      positionSizing,
     );
 
     if (result.trades.length > 0) {
