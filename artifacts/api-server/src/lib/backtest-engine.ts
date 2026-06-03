@@ -113,17 +113,77 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
   const end = new Date(endDate);
   const bars: OHLCVBar[] = [];
 
-  const seeds: Record<string, number> = {
-    AAPL: 150, MSFT: 300, TSLA: 250, NVDA: 400, AMZN: 180,
-    GOOGL: 140, SPY: 420, QQQ: 350, "BTC/USD": 45000, "ETH/USD": 3000,
-  };
-  const volatilities: Record<string, number> = {
-    AAPL: 0.018, MSFT: 0.016, TSLA: 0.04, NVDA: 0.035, AMZN: 0.022,
-    GOOGL: 0.018, SPY: 0.012, QQQ: 0.015, "BTC/USD": 0.055, "ETH/USD": 0.065,
+  // Comprehensive symbol table: seed price, daily volatility, daily drift
+  const SYMBOL_PARAMS: Record<string, { seed: number; vol: number; drift: number }> = {
+    // Crypto
+    BTCUSDT:   { seed: 45000, vol: 0.055,  drift: 0.0004 },
+    ETHUSDT:   { seed: 3000,  vol: 0.065,  drift: 0.0004 },
+    SOLUSDT:   { seed: 120,   vol: 0.080,  drift: 0.0005 },
+    BNBUSDT:   { seed: 400,   vol: 0.060,  drift: 0.0003 },
+    XRPUSDT:   { seed: 0.7,   vol: 0.070,  drift: 0.0002 },
+    ADAUSDT:   { seed: 0.5,   vol: 0.070,  drift: 0.0002 },
+    DOGEUSDT:  { seed: 0.12,  vol: 0.090,  drift: 0.0001 },
+    AVAXUSDT:  { seed: 35,    vol: 0.080,  drift: 0.0003 },
+    DOTUSDT:   { seed: 8,     vol: 0.080,  drift: 0.0002 },
+    LINKUSDT:  { seed: 15,    vol: 0.070,  drift: 0.0003 },
+    MATICUSDT: { seed: 0.9,   vol: 0.090,  drift: 0.0003 },
+    UNIUSDT:   { seed: 6,     vol: 0.085,  drift: 0.0002 },
+    ATOMUSDT:  { seed: 12,    vol: 0.080,  drift: 0.0002 },
+    "BTC/USD": { seed: 45000, vol: 0.055,  drift: 0.0004 },
+    "ETH/USD": { seed: 3000,  vol: 0.065,  drift: 0.0004 },
+    // Tech
+    AAPL:  { seed: 185,  vol: 0.018, drift: 0.0003 },
+    MSFT:  { seed: 375,  vol: 0.016, drift: 0.0003 },
+    NVDA:  { seed: 500,  vol: 0.035, drift: 0.0006 },
+    GOOGL: { seed: 155,  vol: 0.018, drift: 0.0003 },
+    AMZN:  { seed: 180,  vol: 0.022, drift: 0.0003 },
+    META:  { seed: 350,  vol: 0.025, drift: 0.0004 },
+    AMD:   { seed: 165,  vol: 0.038, drift: 0.0004 },
+    INTC:  { seed: 40,   vol: 0.022, drift: 0.0001 },
+    ORCL:  { seed: 110,  vol: 0.020, drift: 0.0002 },
+    CRM:   { seed: 230,  vol: 0.025, drift: 0.0003 },
+    // Auto / Media / Fintech
+    TSLA:  { seed: 250,  vol: 0.040, drift: 0.0003 },
+    NFLX:  { seed: 450,  vol: 0.028, drift: 0.0003 },
+    PYPL:  { seed: 75,   vol: 0.030, drift: 0.0001 },
+    SQ:    { seed: 70,   vol: 0.040, drift: 0.0002 },
+    // Indices
+    SPY:     { seed: 450,   vol: 0.012, drift: 0.0003 },
+    QQQ:     { seed: 380,   vol: 0.015, drift: 0.0003 },
+    IWM:     { seed: 195,   vol: 0.016, drift: 0.0002 },
+    DIA:     { seed: 350,   vol: 0.011, drift: 0.0003 },
+    DAX:     { seed: 16500, vol: 0.014, drift: 0.0003 },
+    FTSE:    { seed: 7600,  vol: 0.012, drift: 0.0002 },
+    NIKKEI:  { seed: 33000, vol: 0.013, drift: 0.0002 },
+    HANGSENG:{ seed: 17000, vol: 0.016, drift: 0.0001 },
+    ASX200:  { seed: 7500,  vol: 0.012, drift: 0.0002 },
+    CAC40:   { seed: 7500,  vol: 0.013, drift: 0.0002 },
+    // Commodities / Metals
+    GLD:     { seed: 185,  vol: 0.010, drift: 0.0001 },
+    SLV:     { seed: 22,   vol: 0.018, drift: 0.0001 },
+    XAUUSD:  { seed: 2000, vol: 0.010, drift: 0.0001 },
+    XAGUSD:  { seed: 24,   vol: 0.018, drift: 0.0001 },
+    COPPER:  { seed: 3.8,  vol: 0.018, drift: 0.0001 },
+    WTIUSD:  { seed: 78,   vol: 0.025, drift: 0.0001 },
+    BRENTUSD:{ seed: 82,   vol: 0.024, drift: 0.0001 },
+    NATGASUSD:{ seed: 2.5, vol: 0.040, drift: -0.0001 },
+    // Forex
+    EURUSD:  { seed: 1.08, vol: 0.006, drift: 0.0 },
+    GBPUSD:  { seed: 1.26, vol: 0.007, drift: 0.0 },
+    USDJPY:  { seed: 148,  vol: 0.005, drift: 0.0001 },
+    AUDUSD:  { seed: 0.65, vol: 0.007, drift: 0.0 },
+    USDCAD:  { seed: 1.36, vol: 0.005, drift: 0.0 },
+    USDCHF:  { seed: 0.88, vol: 0.005, drift: -0.0001 },
+    NZDUSD:  { seed: 0.61, vol: 0.007, drift: 0.0 },
+    // Bonds / Vol
+    TLT:  { seed: 95,  vol: 0.009, drift: 0.0001 },
+    VIX:  { seed: 18,  vol: 0.050, drift: -0.0002 },
   };
 
-  const basePrice = seeds[symbol] ?? 100;
-  const vol = volatilities[symbol] ?? 0.02;
+  const params = SYMBOL_PARAMS[symbol];
+  const basePrice = params?.seed ?? 100;
+  const vol = params?.vol ?? 0.020;
+  const drift = params?.drift ?? 0.0003;
 
   let seed = symbol.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   function rand(): number {
@@ -141,7 +201,7 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
   while (cur <= end) {
     const day = cur.getDay();
     if (day !== 0 && day !== 6) {
-      const change = price * vol * randn() + price * 0.0003;
+      const change = price * vol * randn() + price * drift;
       const open = price;
       price = Math.max(open + change, open * 0.01);
       const high = Math.max(open, price) * (1 + rand() * vol * 0.5);

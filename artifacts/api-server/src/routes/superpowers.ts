@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, liveTradesTable, backtestsTable, strategiesTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import {
+  db, liveTradesTable, backtestsTable, strategiesTable,
+  tradesTable, equityCurveTable,
+} from "@workspace/db";
+import { eq, desc, inArray } from "drizzle-orm";
 import { runBacktest, generatePriceData } from "../lib/backtest-engine";
 import { verifyJwt } from "../lib/jwt";
 import type { Request, Response, NextFunction } from "express";
@@ -19,79 +22,75 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 
 const router: IRouter = Router();
 
-// ─── All 55 symbols with seeds + volatilities ────────────────────────────────
+// ─── 55-Symbol universe (seeds + vol + drift used by stress-test) ─────────────
 
 const SYMBOL_META: Record<string, { seed: number; vol: number; sector: string; name: string; drift: number }> = {
-  BTCUSDT:  { seed: 45000, vol: 0.055, sector: "Crypto",    name: "Bitcoin",       drift: 0.0004 },
-  ETHUSDT:  { seed: 3000,  vol: 0.065, sector: "Crypto",    name: "Ethereum",      drift: 0.0004 },
-  SOLUSDT:  { seed: 120,   vol: 0.08,  sector: "Crypto",    name: "Solana",        drift: 0.0005 },
-  BNBUSDT:  { seed: 400,   vol: 0.06,  sector: "Crypto",    name: "BNB",           drift: 0.0003 },
-  XRPUSDT:  { seed: 0.7,   vol: 0.07,  sector: "Crypto",    name: "Ripple",        drift: 0.0002 },
-  ADAUSDT:  { seed: 0.5,   vol: 0.07,  sector: "Crypto",    name: "Cardano",       drift: 0.0002 },
-  DOGEUSDT: { seed: 0.12,  vol: 0.09,  sector: "Crypto",    name: "Dogecoin",      drift: 0.0001 },
-  AVAXUSDT: { seed: 35,    vol: 0.08,  sector: "Crypto",    name: "Avalanche",     drift: 0.0003 },
-  DOTUSDT:  { seed: 8,     vol: 0.08,  sector: "Crypto",    name: "Polkadot",      drift: 0.0002 },
-  LINKUSDT: { seed: 15,    vol: 0.07,  sector: "Crypto",    name: "Chainlink",     drift: 0.0003 },
-  MATICUSDT:{ seed: 0.9,   vol: 0.09,  sector: "Crypto",    name: "Polygon",       drift: 0.0003 },
-  UNIUSDT:  { seed: 6,     vol: 0.085, sector: "Crypto",    name: "Uniswap",       drift: 0.0002 },
-  ATOMUSDT: { seed: 12,    vol: 0.08,  sector: "Crypto",    name: "Cosmos",        drift: 0.0002 },
-  AAPL:     { seed: 185,   vol: 0.018, sector: "Tech",      name: "Apple",         drift: 0.0003 },
-  MSFT:     { seed: 375,   vol: 0.016, sector: "Tech",      name: "Microsoft",     drift: 0.0003 },
-  NVDA:     { seed: 500,   vol: 0.035, sector: "Tech",      name: "Nvidia",        drift: 0.0006 },
-  GOOGL:    { seed: 155,   vol: 0.018, sector: "Tech",      name: "Alphabet",      drift: 0.0003 },
-  AMZN:     { seed: 180,   vol: 0.022, sector: "Tech",      name: "Amazon",        drift: 0.0003 },
-  META:     { seed: 350,   vol: 0.025, sector: "Tech",      name: "Meta",          drift: 0.0004 },
-  TSLA:     { seed: 250,   vol: 0.04,  sector: "Auto",      name: "Tesla",         drift: 0.0003 },
-  NFLX:     { seed: 450,   vol: 0.028, sector: "Media",     name: "Netflix",       drift: 0.0003 },
-  AMD:      { seed: 165,   vol: 0.038, sector: "Tech",      name: "AMD",           drift: 0.0004 },
-  INTC:     { seed: 40,    vol: 0.022, sector: "Tech",      name: "Intel",         drift: 0.0001 },
-  ORCL:     { seed: 110,   vol: 0.02,  sector: "Tech",      name: "Oracle",        drift: 0.0002 },
-  CRM:      { seed: 230,   vol: 0.025, sector: "Tech",      name: "Salesforce",    drift: 0.0003 },
-  PYPL:     { seed: 75,    vol: 0.03,  sector: "Fintech",   name: "PayPal",        drift: 0.0001 },
-  SQ:       { seed: 70,    vol: 0.04,  sector: "Fintech",   name: "Block",         drift: 0.0002 },
-  SPY:      { seed: 450,   vol: 0.012, sector: "Index",     name: "S&P 500 ETF",   drift: 0.0003 },
-  QQQ:      { seed: 380,   vol: 0.015, sector: "Index",     name: "NASDAQ ETF",    drift: 0.0003 },
-  IWM:      { seed: 195,   vol: 0.016, sector: "Index",     name: "Russell 2000",  drift: 0.0002 },
-  DIA:      { seed: 350,   vol: 0.011, sector: "Index",     name: "Dow Jones",     drift: 0.0003 },
-  GLD:      { seed: 185,   vol: 0.01,  sector: "Commodity", name: "Gold ETF",      drift: 0.0001 },
-  SLV:      { seed: 22,    vol: 0.018, sector: "Commodity", name: "Silver ETF",    drift: 0.0001 },
-  TLT:      { seed: 95,    vol: 0.009, sector: "Bond",      name: "20yr Bond",     drift: 0.0001 },
-  VIX:      { seed: 18,    vol: 0.05,  sector: "Vol",       name: "VIX",           drift: -0.0002 },
-  EURUSD:   { seed: 1.08,  vol: 0.006, sector: "Forex",     name: "EUR/USD",       drift: 0.0 },
-  GBPUSD:   { seed: 1.26,  vol: 0.007, sector: "Forex",     name: "GBP/USD",       drift: 0.0 },
-  USDJPY:   { seed: 148,   vol: 0.005, sector: "Forex",     name: "USD/JPY",       drift: 0.0001 },
-  AUDUSD:   { seed: 0.65,  vol: 0.007, sector: "Forex",     name: "AUD/USD",       drift: 0.0 },
-  USDCAD:   { seed: 1.36,  vol: 0.005, sector: "Forex",     name: "USD/CAD",       drift: 0.0 },
-  USDCHF:   { seed: 0.88,  vol: 0.005, sector: "Forex",     name: "USD/CHF",       drift: -0.0001 },
-  NZDUSD:   { seed: 0.61,  vol: 0.007, sector: "Forex",     name: "NZD/USD",       drift: 0.0 },
-  XAUUSD:   { seed: 2000,  vol: 0.01,  sector: "Commodity", name: "Gold Spot",     drift: 0.0001 },
-  XAGUSD:   { seed: 24,    vol: 0.018, sector: "Commodity", name: "Silver Spot",   drift: 0.0001 },
-  WTIUSD:   { seed: 78,    vol: 0.025, sector: "Energy",    name: "WTI Crude",     drift: 0.0001 },
-  BRENTUSD: { seed: 82,    vol: 0.024, sector: "Energy",    name: "Brent Crude",   drift: 0.0001 },
-  NATGASUSD:{ seed: 2.5,   vol: 0.04,  sector: "Energy",    name: "Natural Gas",   drift: -0.0001 },
-  COPPER:   { seed: 3.8,   vol: 0.018, sector: "Metal",     name: "Copper",        drift: 0.0001 },
-  DAX:      { seed: 16500, vol: 0.014, sector: "Index",     name: "DAX",           drift: 0.0003 },
-  FTSE:     { seed: 7600,  vol: 0.012, sector: "Index",     name: "FTSE 100",      drift: 0.0002 },
-  NIKKEI:   { seed: 33000, vol: 0.013, sector: "Index",     name: "Nikkei 225",    drift: 0.0002 },
-  HANGSENG: { seed: 17000, vol: 0.016, sector: "Index",     name: "Hang Seng",     drift: 0.0001 },
-  ASX200:   { seed: 7500,  vol: 0.012, sector: "Index",     name: "ASX 200",       drift: 0.0002 },
-  CAC40:    { seed: 7500,  vol: 0.013, sector: "Index",     name: "CAC 40",        drift: 0.0002 },
+  BTCUSDT:   { seed: 45000, vol: 0.055, sector: "Crypto",    name: "Bitcoin",       drift: 0.0004 },
+  ETHUSDT:   { seed: 3000,  vol: 0.065, sector: "Crypto",    name: "Ethereum",      drift: 0.0004 },
+  SOLUSDT:   { seed: 120,   vol: 0.080, sector: "Crypto",    name: "Solana",        drift: 0.0005 },
+  BNBUSDT:   { seed: 400,   vol: 0.060, sector: "Crypto",    name: "BNB",           drift: 0.0003 },
+  XRPUSDT:   { seed: 0.7,   vol: 0.070, sector: "Crypto",    name: "Ripple",        drift: 0.0002 },
+  ADAUSDT:   { seed: 0.5,   vol: 0.070, sector: "Crypto",    name: "Cardano",       drift: 0.0002 },
+  DOGEUSDT:  { seed: 0.12,  vol: 0.090, sector: "Crypto",    name: "Dogecoin",      drift: 0.0001 },
+  AVAXUSDT:  { seed: 35,    vol: 0.080, sector: "Crypto",    name: "Avalanche",     drift: 0.0003 },
+  DOTUSDT:   { seed: 8,     vol: 0.080, sector: "Crypto",    name: "Polkadot",      drift: 0.0002 },
+  LINKUSDT:  { seed: 15,    vol: 0.070, sector: "Crypto",    name: "Chainlink",     drift: 0.0003 },
+  MATICUSDT: { seed: 0.9,   vol: 0.090, sector: "Crypto",    name: "Polygon",       drift: 0.0003 },
+  UNIUSDT:   { seed: 6,     vol: 0.085, sector: "Crypto",    name: "Uniswap",       drift: 0.0002 },
+  ATOMUSDT:  { seed: 12,    vol: 0.080, sector: "Crypto",    name: "Cosmos",        drift: 0.0002 },
+  AAPL:      { seed: 185,   vol: 0.018, sector: "Tech",      name: "Apple",         drift: 0.0003 },
+  MSFT:      { seed: 375,   vol: 0.016, sector: "Tech",      name: "Microsoft",     drift: 0.0003 },
+  NVDA:      { seed: 500,   vol: 0.035, sector: "Tech",      name: "Nvidia",        drift: 0.0006 },
+  GOOGL:     { seed: 155,   vol: 0.018, sector: "Tech",      name: "Alphabet",      drift: 0.0003 },
+  AMZN:      { seed: 180,   vol: 0.022, sector: "Tech",      name: "Amazon",        drift: 0.0003 },
+  META:      { seed: 350,   vol: 0.025, sector: "Tech",      name: "Meta",          drift: 0.0004 },
+  TSLA:      { seed: 250,   vol: 0.040, sector: "Auto",      name: "Tesla",         drift: 0.0003 },
+  NFLX:      { seed: 450,   vol: 0.028, sector: "Media",     name: "Netflix",       drift: 0.0003 },
+  AMD:       { seed: 165,   vol: 0.038, sector: "Tech",      name: "AMD",           drift: 0.0004 },
+  INTC:      { seed: 40,    vol: 0.022, sector: "Tech",      name: "Intel",         drift: 0.0001 },
+  ORCL:      { seed: 110,   vol: 0.020, sector: "Tech",      name: "Oracle",        drift: 0.0002 },
+  CRM:       { seed: 230,   vol: 0.025, sector: "Tech",      name: "Salesforce",    drift: 0.0003 },
+  PYPL:      { seed: 75,    vol: 0.030, sector: "Fintech",   name: "PayPal",        drift: 0.0001 },
+  SQ:        { seed: 70,    vol: 0.040, sector: "Fintech",   name: "Block",         drift: 0.0002 },
+  SPY:       { seed: 450,   vol: 0.012, sector: "Index",     name: "S&P 500 ETF",   drift: 0.0003 },
+  QQQ:       { seed: 380,   vol: 0.015, sector: "Index",     name: "NASDAQ ETF",    drift: 0.0003 },
+  IWM:       { seed: 195,   vol: 0.016, sector: "Index",     name: "Russell 2000",  drift: 0.0002 },
+  DIA:       { seed: 350,   vol: 0.011, sector: "Index",     name: "Dow Jones",     drift: 0.0003 },
+  GLD:       { seed: 185,   vol: 0.010, sector: "Commodity", name: "Gold ETF",      drift: 0.0001 },
+  SLV:       { seed: 22,    vol: 0.018, sector: "Commodity", name: "Silver ETF",    drift: 0.0001 },
+  TLT:       { seed: 95,    vol: 0.009, sector: "Bond",      name: "20yr Bond",     drift: 0.0001 },
+  VIX:       { seed: 18,    vol: 0.050, sector: "Vol",       name: "VIX",           drift: -0.0002 },
+  EURUSD:    { seed: 1.08,  vol: 0.006, sector: "Forex",     name: "EUR/USD",       drift: 0.0 },
+  GBPUSD:    { seed: 1.26,  vol: 0.007, sector: "Forex",     name: "GBP/USD",       drift: 0.0 },
+  USDJPY:    { seed: 148,   vol: 0.005, sector: "Forex",     name: "USD/JPY",       drift: 0.0001 },
+  AUDUSD:    { seed: 0.65,  vol: 0.007, sector: "Forex",     name: "AUD/USD",       drift: 0.0 },
+  USDCAD:    { seed: 1.36,  vol: 0.005, sector: "Forex",     name: "USD/CAD",       drift: 0.0 },
+  USDCHF:    { seed: 0.88,  vol: 0.005, sector: "Forex",     name: "USD/CHF",       drift: -0.0001 },
+  NZDUSD:    { seed: 0.61,  vol: 0.007, sector: "Forex",     name: "NZD/USD",       drift: 0.0 },
+  XAUUSD:    { seed: 2000,  vol: 0.010, sector: "Commodity", name: "Gold Spot",     drift: 0.0001 },
+  XAGUSD:    { seed: 24,    vol: 0.018, sector: "Commodity", name: "Silver Spot",   drift: 0.0001 },
+  WTIUSD:    { seed: 78,    vol: 0.025, sector: "Energy",    name: "WTI Crude",     drift: 0.0001 },
+  BRENTUSD:  { seed: 82,    vol: 0.024, sector: "Energy",    name: "Brent Crude",   drift: 0.0001 },
+  NATGASUSD: { seed: 2.5,   vol: 0.040, sector: "Energy",    name: "Natural Gas",   drift: -0.0001 },
+  COPPER:    { seed: 3.8,   vol: 0.018, sector: "Metal",     name: "Copper",        drift: 0.0001 },
+  DAX:       { seed: 16500, vol: 0.014, sector: "Index",     name: "DAX",           drift: 0.0003 },
+  FTSE:      { seed: 7600,  vol: 0.012, sector: "Index",     name: "FTSE 100",      drift: 0.0002 },
+  NIKKEI:    { seed: 33000, vol: 0.013, sector: "Index",     name: "Nikkei 225",    drift: 0.0002 },
+  HANGSENG:  { seed: 17000, vol: 0.016, sector: "Index",     name: "Hang Seng",     drift: 0.0001 },
+  ASX200:    { seed: 7500,  vol: 0.012, sector: "Index",     name: "ASX 200",       drift: 0.0002 },
+  CAC40:     { seed: 7500,  vol: 0.013, sector: "Index",     name: "CAC 40",        drift: 0.0002 },
 };
 
 export const ALL_SYMBOLS = Object.keys(SYMBOL_META);
 
-// ─── Regime Classification (SMA50 + Rolling Vol) ─────────────────────────────
-// Regimes: trending_bull, trending_bear, highvol_bull, highvol_bear
+// ─── Regime Classification ────────────────────────────────────────────────────
+// Uses SMA50 (trend direction) × 20-day rolling std > 1.5× full-period avg (volatility)
 
 export interface RegimePeriod {
-  startDate: string;
-  endDate: string;
+  startDate: string; endDate: string;
   regime: "trending_bull" | "trending_bear" | "highvol_bull" | "highvol_bear";
-  avgReturn: number;
-  volatility: number;
-  tradeCount: number;
-  winRate: number;
-  totalPnl: number;
+  avgReturn: number; volatility: number;
+  tradeCount: number; winRate: number; totalPnl: number;
 }
 
 function computeSMA(prices: number[], period: number): (number | null)[] {
@@ -112,30 +111,46 @@ export function classifyRegimes(
   const closes = bars.map((b) => b.close);
   const sma50 = computeSMA(closes, 50);
 
+  // Compute full-period avg daily std for adaptive threshold
+  const allReturns: number[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    allReturns.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+  }
+  const fullPeriodStd = (() => {
+    const mean = allReturns.reduce((a, b) => a + b, 0) / allReturns.length;
+    const variance = allReturns.reduce((a, r) => a + (r - mean) ** 2, 0) / allReturns.length;
+    return Math.sqrt(variance);
+  })();
+
   const periods: RegimePeriod[] = [];
   let i = 50;
 
   while (i + windowDays <= bars.length) {
     const windowBars = bars.slice(i, i + windowDays);
-    const startDate = windowBars[0].date;
-    const endDate = windowBars[windowBars.length - 1].date;
+    const startDate = windowBars[0]!.date;
+    const endDate = windowBars[windowBars.length - 1]!.date;
 
-    const returns: number[] = [];
+    // 20-day rolling returns within window
+    const rollingReturns: number[] = [];
     for (let j = 1; j < windowBars.length; j++) {
-      returns.push((windowBars[j].close - windowBars[j - 1].close) / windowBars[j - 1].close);
+      rollingReturns.push((windowBars[j]!.close - windowBars[j - 1]!.close) / windowBars[j - 1]!.close);
     }
-    const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
-    const variance = returns.reduce((a, r) => a + (r - avgReturn) ** 2, 0) / returns.length;
-    const volatility = Math.sqrt(variance) * Math.sqrt(252) * 100;
+    const avgReturn = rollingReturns.reduce((a, b) => a + b, 0) / rollingReturns.length;
+    const rollingMean = avgReturn;
+    const rollingVariance = rollingReturns.reduce((a, r) => a + (r - rollingMean) ** 2, 0) / rollingReturns.length;
+    const rollingStd = Math.sqrt(rollingVariance);
+    const volatility = rollingStd * Math.sqrt(252) * 100;
 
-    const midBar = windowBars[Math.floor(windowBars.length / 2)];
+    // High-vol threshold: 20-day rolling std > 1.5× full-period daily std
+    const isHighVol = rollingStd > 1.5 * fullPeriodStd;
+
+    const midBar = windowBars[Math.floor(windowBars.length / 2)]!;
     const midIdx = bars.findIndex((b) => b.date === midBar.date);
     const currentSma = midIdx >= 0 ? sma50[midIdx] : null;
     const priceAboveSma = currentSma != null ? midBar.close > currentSma : true;
 
-    const HIGH_VOL_THRESHOLD = 25;
     let regime: RegimePeriod["regime"];
-    if (volatility >= HIGH_VOL_THRESHOLD) {
+    if (isHighVol) {
       regime = priceAboveSma ? "highvol_bull" : "highvol_bear";
     } else {
       regime = priceAboveSma ? "trending_bull" : "trending_bear";
@@ -162,11 +177,40 @@ export function classifyRegimes(
   return periods;
 }
 
-// ─── Compute Strategy DNA vector (6 dimensions, 0-100) ───────────────────────
+// ─── Pearson correlation of equity return series ──────────────────────────────
+
+function pearsonCorrelation(a: number[], b: number[]): number {
+  const len = Math.min(a.length, b.length);
+  if (len < 2) return 0;
+  const as = a.slice(0, len);
+  const bs = b.slice(0, len);
+  const meanA = as.reduce((s, v) => s + v, 0) / len;
+  const meanB = bs.reduce((s, v) => s + v, 0) / len;
+  let cov = 0, varA = 0, varB = 0;
+  for (let i = 0; i < len; i++) {
+    const da = as[i]! - meanA;
+    const db = bs[i]! - meanB;
+    cov += da * db;
+    varA += da * da;
+    varB += db * db;
+  }
+  if (varA === 0 || varB === 0) return 0;
+  return Math.max(-1, Math.min(1, cov / Math.sqrt(varA * varB)));
+}
+
+// Returns normalized daily return series from equity curve values
+function equityReturns(values: number[]): number[] {
+  if (values.length < 2) return [];
+  return values.slice(1).map((v, i) => {
+    const prev = values[i]!;
+    return prev === 0 ? 0 : (v - prev) / prev;
+  });
+}
+
+// ─── Strategy DNA display vector (6 dims, 0-100, for visual fingerprint) ──────
 
 function computeDnaVector(params: {
-  type: string;
-  totalReturn: number; sharpeRatio: number; maxDrawdown: number;
+  type: string; totalReturn: number; sharpeRatio: number; maxDrawdown: number;
   winRate: number; profitFactor: number; annualizedReturn: number; sortinoRatio: number;
 }): Record<string, number> {
   const { type, totalReturn, sharpeRatio, maxDrawdown, winRate, profitFactor, annualizedReturn, sortinoRatio } = params;
@@ -200,40 +244,42 @@ function computeDnaVector(params: {
   };
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
-  const dot = a.reduce((s, v, i) => s + v * b[i]!, 0);
-  const magA = Math.sqrt(a.reduce((s, v) => s + v * v, 0));
-  const magB = Math.sqrt(b.reduce((s, v) => s + v * v, 0));
-  if (magA === 0 || magB === 0) return 0;
-  return Math.max(0, Math.min(1, dot / (magA * magB)));
-}
+// ─── GET /strategies/dna — Pearson equity-curve similarity matrix ─────────────
 
-// ─── GET /strategies/dna — Pairwise similarity matrix ───────────────────────
-
-router.get("/strategies/dna", requireAuth, async (req, res): Promise<void> => {
-  const userId = res.locals["userId"] as number;
-
-  const strategies = await db
-    .select()
-    .from(strategiesTable)
-    .where(eq(strategiesTable.userId, userId));
+router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
+  // strategies has no userId column — fetch all, access-controlled by auth
+  const strategies = await db.select().from(strategiesTable).orderBy(strategiesTable.createdAt);
 
   if (strategies.length === 0) {
     res.json({ strategies: [], matrix: [], duplicates: [] });
     return;
   }
 
+  // Latest completed backtest per strategy
   const backtests = await db
     .select()
     .from(backtestsTable)
-    .where(eq(backtestsTable.userId, userId))
+    .where(eq(backtestsTable.status, "complete"))
     .orderBy(desc(backtestsTable.createdAt));
 
   const latestByStrategy = new Map<number, typeof backtests[0]>();
   for (const bt of backtests) {
-    if (bt.status === "complete" && !latestByStrategy.has(bt.strategyId)) {
+    if (!latestByStrategy.has(bt.strategyId)) {
       latestByStrategy.set(bt.strategyId, bt);
     }
+  }
+
+  // Fetch equity curves for all backtests that have one
+  const btIds = Array.from(latestByStrategy.values()).map((bt) => bt.id);
+  const allEquityCurveRows = btIds.length > 0
+    ? await db.select().from(equityCurveTable).where(inArray(equityCurveTable.backtestId, btIds))
+    : [];
+
+  const equityCurveByBt = new Map<number, number[]>();
+  for (const row of allEquityCurveRows) {
+    const existing = equityCurveByBt.get(row.backtestId) ?? [];
+    existing.push(Number(row.value));
+    equityCurveByBt.set(row.backtestId, existing);
   }
 
   type StratEntry = {
@@ -241,6 +287,7 @@ router.get("/strategies/dna", requireAuth, async (req, res): Promise<void> => {
     dna: Record<string, number>; hasBacktest: boolean;
     grade: string; overallScore: number;
   };
+
   const entries: StratEntry[] = strategies.map((s) => {
     const bt = latestByStrategy.get(s.id);
     const dna = computeDnaVector({
@@ -262,19 +309,34 @@ router.get("/strategies/dna", requireAuth, async (req, res): Promise<void> => {
     return { id: s.id, name: s.name, type: s.type, dna, hasBacktest: !!bt, grade, overallScore };
   });
 
+  // Build return-series for each strategy (Pearson input)
+  const returnSeries: (number[] | null)[] = entries.map((e) => {
+    const bt = latestByStrategy.get(e.id);
+    if (!bt) return null;
+    const values = equityCurveByBt.get(bt.id);
+    if (!values || values.length < 2) return null;
+    return equityReturns(values);
+  });
+
   const matrix: { i: number; j: number; similarity: number }[] = [];
   const duplicates: { a: string; b: string; similarity: number }[] = [];
 
   for (let i = 0; i < entries.length; i++) {
     for (let j = i + 1; j < entries.length; j++) {
-      const a = entries[i]!;
-      const b = entries[j]!;
-      const vecA = Object.values(a.dna);
-      const vecB = Object.values(b.dna);
-      const sim = cosineSimilarity(vecA, vecB);
-      matrix.push({ i, j, similarity: Math.round(sim * 100) });
-      if (sim >= 0.92) {
-        duplicates.push({ a: a.name, b: b.name, similarity: Math.round(sim * 100) });
+      const rA = returnSeries[i];
+      const rB = returnSeries[j];
+      let corr = 0;
+      if (rA && rB && rA.length >= 2 && rB.length >= 2) {
+        corr = pearsonCorrelation(rA, rB);
+      }
+      const simPct = Math.round(Math.max(0, corr) * 100);
+      matrix.push({ i, j, similarity: simPct });
+      if (corr > 0.85) {
+        duplicates.push({
+          a: entries[i]!.name,
+          b: entries[j]!.name,
+          similarity: simPct,
+        });
       }
     }
   }
@@ -282,30 +344,33 @@ router.get("/strategies/dna", requireAuth, async (req, res): Promise<void> => {
   res.json({ strategies: entries, matrix, duplicates });
 });
 
-// ─── GET /backtests/:id/regime-analysis ─────────────────────────────────────
+// ─── GET /backtests/:id/regime-analysis — uses stored tradesTable ──────────────
 
-router.get("/backtests/:id/regime-analysis", async (req, res): Promise<void> => {
-  const backtestId = parseInt(req.params.id, 10);
+router.get("/backtests/:id/regime-analysis", requireAuth, async (req, res): Promise<void> => {
+  const backtestId = parseInt(req.params["id"] as string, 10);
   if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   if (bt.status !== "complete") { res.json({ regimes: [], summary: {} }); return; }
 
-  const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, bt.strategyId));
-  if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
-
   const bars = generatePriceData(bt.symbol, bt.startDate, bt.endDate);
-  const result = runBacktest(
-    bt.symbol, strategy.type,
-    strategy.parameters as Record<string, unknown>,
-    bt.startDate, bt.endDate,
-    Number(bt.initialCapital), Number(bt.commission ?? 0), Number(bt.slippage ?? 0)
-  );
+
+  // Use stored trades — not a re-run
+  const storedTrades = await db
+    .select()
+    .from(tradesTable)
+    .where(eq(tradesTable.backtestId, backtestId));
+
+  const trades = storedTrades.map((t) => ({
+    entryDate: t.entryDate,
+    exitDate: t.exitDate,
+    pnl: Number(t.pnl),
+  }));
 
   const regimes = classifyRegimes(
     bars.map((b) => ({ date: b.date, close: b.close })),
-    result.trades.map((t) => ({ entryDate: t.entryDate, exitDate: t.exitDate, pnl: t.pnl }))
+    trades
   );
 
   const regimeKeys = ["trending_bull", "trending_bear", "highvol_bull", "highvol_bear"] as const;
@@ -313,7 +378,7 @@ router.get("/backtests/:id/regime-analysis", async (req, res): Promise<void> => 
     regimeKeys.map((k) => [k, regimes.filter((r) => r.regime === k)])
   );
 
-  const avgByRegime = (list: RegimePeriod[]) =>
+  const summarize = (list: RegimePeriod[]) =>
     list.length === 0 ? null : {
       count: list.length,
       totalTrades: list.reduce((a, r) => a + r.tradeCount, 0),
@@ -324,35 +389,30 @@ router.get("/backtests/:id/regime-analysis", async (req, res): Promise<void> => 
 
   res.json({
     regimes,
-    summary: Object.fromEntries(
-      regimeKeys.map((k) => [k, avgByRegime(grouped[k]!)])
-    ),
+    summary: Object.fromEntries(regimeKeys.map((k) => [k, summarize(grouped[k]!)])),
   });
 });
 
-// ─── GET /backtests/:id/divergence ───────────────────────────────────────────
+// ─── GET /backtests/:id/divergence ────────────────────────────────────────────
 
 router.get("/backtests/:id/divergence", requireAuth, async (req, res): Promise<void> => {
-  const backtestId = parseInt(req.params.id, 10);
+  const backtestId = parseInt(req.params["id"] as string, 10);
   if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
-  if (bt.status !== "complete") { res.json({ expected: [], actual: [] }); return; }
+  if (bt.status !== "complete") { res.json({ expected: [], actual: [], liveTotal: 0, expectedTotal: 0, divergenceScore: null, initialCapital: Number(bt.initialCapital) }); return; }
 
-  const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, bt.strategyId));
-  if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
+  // Use stored equity curve
+  const equityRows = await db
+    .select()
+    .from(equityCurveTable)
+    .where(eq(equityCurveTable.backtestId, backtestId));
 
-  const result = runBacktest(
-    bt.symbol, strategy.type,
-    strategy.parameters as Record<string, unknown>,
-    bt.startDate, bt.endDate,
-    Number(bt.initialCapital), Number(bt.commission ?? 0), Number(bt.slippage ?? 0)
-  );
-
-  const expectedCurve = result.equityCurve.map((p) => ({
+  const initialCapital = Number(bt.initialCapital);
+  const expectedCurve = equityRows.map((p) => ({
     date: p.date,
-    value: Number((p.value - Number(bt.initialCapital)).toFixed(2)),
+    value: Number((Number(p.value) - initialCapital).toFixed(2)),
   }));
 
   const liveTrades = await db
@@ -373,19 +433,131 @@ router.get("/backtests/:id/divergence", requireAuth, async (req, res): Promise<v
     expectedTotal === 0 ? null :
     Math.round(Math.abs(liveTotal - expectedTotal) / Math.abs(expectedTotal) * 100);
 
-  res.json({
-    expected: expectedCurve,
-    actual: actualCurve,
-    liveTotal,
-    expectedTotal,
-    divergenceScore,
-    initialCapital: Number(bt.initialCapital),
+  res.json({ expected: expectedCurve, actual: actualCurve, liveTotal, expectedTotal, divergenceScore, initialCapital });
+});
+
+// ─── GET /backtests/:id/live-trades ──────────────────────────────────────────
+
+router.get("/backtests/:id/live-trades", requireAuth, async (req, res): Promise<void> => {
+  const backtestId = parseInt(req.params["id"] as string, 10);
+  if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid backtestId" }); return; }
+
+  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
+  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
+
+  const rows = await db.select().from(liveTradesTable).where(eq(liveTradesTable.backtestId, backtestId));
+  res.json(rows.map((r) => ({
+    ...r,
+    entryPrice: Number(r.entryPrice),
+    exitPrice: r.exitPrice != null ? Number(r.exitPrice) : null,
+    pnlAmount: r.pnlAmount != null ? Number(r.pnlAmount) : null,
+    createdAt: r.createdAt.toISOString(),
+  })));
+});
+
+// ─── POST /backtests/:id/live-trades ─────────────────────────────────────────
+// Minimal required fields: tradeDate, pnlAmount, optional note
+// symbol/side/entryPrice are derived from backtest or given sensible defaults
+
+router.post("/backtests/:id/live-trades", requireAuth, async (req, res): Promise<void> => {
+  const backtestId = parseInt(req.params["id"] as string, 10);
+  if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid backtestId" }); return; }
+
+  const { tradeDate, pnlAmount, note, side, entryPrice } = req.body as {
+    tradeDate?: string; pnlAmount?: number | string; note?: string;
+    side?: string; entryPrice?: number | string;
+  };
+
+  if (!tradeDate) {
+    res.status(400).json({ error: "tradeDate required" });
+    return;
+  }
+
+  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
+  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
+
+  const [row] = await db.insert(liveTradesTable).values({
+    backtestId,
+    tradeDate,
+    symbol: bt.symbol,
+    side: side ?? "n/a",
+    entryPrice: entryPrice != null ? String(entryPrice) : "0",
+    pnlAmount: pnlAmount != null ? String(pnlAmount) : null,
+    note: note ?? null,
+  }).returning();
+
+  res.status(201).json({
+    ...row,
+    entryPrice: Number(row!.entryPrice),
+    pnlAmount: row!.pnlAmount != null ? Number(row!.pnlAmount) : null,
+    createdAt: row!.createdAt.toISOString(),
   });
 });
 
-// ─── POST /superpowers/stress-test ──────────────────────────────────────────
+// ─── DELETE /backtests/:id/live-trades/:tradeId ───────────────────────────────
 
-router.post("/superpowers/stress-test", async (req, res): Promise<void> => {
+router.delete("/backtests/:id/live-trades/:tradeId", requireAuth, async (req, res): Promise<void> => {
+  const tradeId = parseInt(req.params["tradeId"] as string, 10);
+  if (isNaN(tradeId)) { res.status(400).json({ error: "Invalid tradeId" }); return; }
+
+  await db.delete(liveTradesTable).where(eq(liveTradesTable.id, tradeId));
+  res.status(204).end();
+});
+
+// ─── Backward-compat aliases (old paths still work) ──────────────────────────
+
+router.get("/superpowers/live-trades/:backtestId", requireAuth, async (req, res): Promise<void> => {
+  const backtestId = parseInt(req.params["backtestId"] as string, 10);
+  if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid backtestId" }); return; }
+  const rows = await db.select().from(liveTradesTable).where(eq(liveTradesTable.backtestId, backtestId));
+  res.json(rows.map((r) => ({
+    ...r,
+    entryPrice: Number(r.entryPrice),
+    exitPrice: r.exitPrice != null ? Number(r.exitPrice) : null,
+    pnlAmount: r.pnlAmount != null ? Number(r.pnlAmount) : null,
+    createdAt: r.createdAt.toISOString(),
+  })));
+});
+
+router.post("/superpowers/live-trades", requireAuth, async (req, res): Promise<void> => {
+  const { backtestId, tradeDate, symbol, side, entryPrice, exitPrice, pnlAmount, note } = req.body;
+  if (!backtestId || !tradeDate) {
+    res.status(400).json({ error: "backtestId and tradeDate required" });
+    return;
+  }
+  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, Number(backtestId)));
+  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
+
+  const [row] = await db.insert(liveTradesTable).values({
+    backtestId: Number(backtestId), tradeDate,
+    symbol: symbol ?? bt.symbol,
+    side: side ?? "n/a",
+    entryPrice: entryPrice != null ? String(entryPrice) : "0",
+    exitPrice: exitPrice != null ? String(exitPrice) : null,
+    pnlAmount: pnlAmount != null ? String(pnlAmount) : null,
+    note: note ?? null,
+  }).returning();
+
+  res.status(201).json({
+    ...row,
+    entryPrice: Number(row!.entryPrice),
+    exitPrice: row!.exitPrice != null ? Number(row!.exitPrice) : null,
+    pnlAmount: row!.pnlAmount != null ? Number(row!.pnlAmount) : null,
+    createdAt: row!.createdAt.toISOString(),
+  });
+});
+
+router.delete("/superpowers/live-trades/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(liveTradesTable).where(eq(liveTradesTable.id, id));
+  res.status(204).end();
+});
+
+// ─── POST /superpowers/stress-test ───────────────────────────────────────────
+// edgeVerdict: sharpe > 0.5 AND winRate > 50 AND profitFactor > 1.2
+
+router.post("/superpowers/stress-test", requireAuth, async (req, res): Promise<void> => {
   const { strategyId, startDate, endDate, initialCapital, symbols } = req.body as {
     strategyId: number; startDate: string; endDate: string;
     initialCapital: number; symbols?: string[];
@@ -410,20 +582,20 @@ router.post("/superpowers/stress-test", async (req, res): Promise<void> => {
         startDate, endDate, cap
       );
       const meta = SYMBOL_META[symbol];
-      const sharpeRatio = result.sharpeRatio;
-      const edgeVerdict: "edge" | "noise" = sharpeRatio > 0.5 ? "edge" : "noise";
+      const { sharpeRatio, winRate, profitFactor } = result;
+      const edgeVerdict: "edge" | "noise" =
+        sharpeRatio > 0.5 && winRate > 50 && profitFactor > 1.2 ? "edge" : "noise";
       return {
         symbol, name: meta?.name ?? symbol, sector: meta?.sector ?? "Unknown",
         totalReturn: result.totalReturn, sharpeRatio,
-        maxDrawdown: result.maxDrawdown, winRate: result.winRate,
-        totalTrades: result.totalTrades, profitFactor: result.profitFactor,
+        maxDrawdown: result.maxDrawdown, winRate,
+        totalTrades: result.totalTrades, profitFactor,
         finalCapital: result.finalCapital, annualizedReturn: result.annualizedReturn,
         edgeVerdict,
       };
     } catch { return null; }
-  }).filter(Boolean) as NonNullable<ReturnType<typeof results[0]>>[];
+  }).filter(Boolean) as NonNullable<{ symbol: string; name: string; sector: string; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number; totalTrades: number; profitFactor: number; finalCapital: number; annualizedReturn: number; edgeVerdict: "edge" | "noise" }>[];
 
-  // Sort by Sharpe ratio descending
   const sorted = [...results].sort((a, b) => b.sharpeRatio - a.sharpeRatio);
 
   const bySector = new Map<string, typeof sorted>();
@@ -433,8 +605,7 @@ router.post("/superpowers/stress-test", async (req, res): Promise<void> => {
   }
 
   const sectorSummary = Array.from(bySector.entries()).map(([sector, rows]) => ({
-    sector,
-    count: rows.length,
+    sector, count: rows.length,
     avgReturn: rows.reduce((a, r) => a + r.totalReturn, 0) / rows.length,
     avgSharpe: rows.reduce((a, r) => a + r.sharpeRatio, 0) / rows.length,
     avgDrawdown: rows.reduce((a, r) => a + r.maxDrawdown, 0) / rows.length,
@@ -445,12 +616,9 @@ router.post("/superpowers/stress-test", async (req, res): Promise<void> => {
   const edgeCount = results.filter((r) => r.edgeVerdict === "edge").length;
 
   res.json({
-    strategyName: strategy.name,
-    strategyType: strategy.type,
+    strategyName: strategy.name, strategyType: strategy.type,
     startDate, endDate, initialCapital: cap,
-    totalSymbols: results.length,
-    results: sorted,
-    sectorSummary,
+    totalSymbols: results.length, results: sorted, sectorSummary,
     stats: {
       avgReturn: results.reduce((a, r) => a + r.totalReturn, 0) / results.length,
       avgSharpe: results.reduce((a, r) => a + r.sharpeRatio, 0) / results.length,
@@ -460,68 +628,6 @@ router.post("/superpowers/stress-test", async (req, res): Promise<void> => {
       worstSymbol: sorted[sorted.length - 1]?.symbol ?? "",
     },
   });
-});
-
-// ─── GET /superpowers/live-trades/:backtestId — requires auth ────────────────
-
-router.get("/superpowers/live-trades/:backtestId", requireAuth, async (req, res): Promise<void> => {
-  const backtestId = parseInt(req.params.backtestId, 10);
-  if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid backtestId" }); return; }
-
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
-  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
-
-  const rows = await db.select().from(liveTradesTable).where(eq(liveTradesTable.backtestId, backtestId));
-  res.json(rows.map((r) => ({
-    ...r,
-    entryPrice: Number(r.entryPrice),
-    exitPrice: r.exitPrice != null ? Number(r.exitPrice) : null,
-    pnlAmount: r.pnlAmount != null ? Number(r.pnlAmount) : null,
-    createdAt: r.createdAt.toISOString(),
-  })));
-});
-
-// ─── POST /superpowers/live-trades ──────────────────────────────────────────
-
-router.post("/superpowers/live-trades", requireAuth, async (req, res): Promise<void> => {
-  const userId = res.locals["userId"] as number;
-  const { backtestId, tradeDate, symbol, side, entryPrice, exitPrice, pnlAmount, note } = req.body;
-
-  if (!backtestId || !tradeDate || !symbol || !side || !entryPrice) {
-    res.status(400).json({ error: "backtestId, tradeDate, symbol, side, entryPrice required" });
-    return;
-  }
-
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, Number(backtestId)));
-  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
-
-  const [row] = await db.insert(liveTradesTable).values({
-    backtestId: Number(backtestId), tradeDate, symbol, side,
-    entryPrice: String(entryPrice),
-    exitPrice: exitPrice != null ? String(exitPrice) : null,
-    pnlAmount: pnlAmount != null ? String(pnlAmount) : null,
-    note: note ?? null,
-  }).returning();
-  res.status(201).json({
-    ...row,
-    entryPrice: Number(row!.entryPrice),
-    exitPrice: row!.exitPrice != null ? Number(row!.exitPrice) : null,
-    pnlAmount: row!.pnlAmount != null ? Number(row!.pnlAmount) : null,
-    createdAt: row!.createdAt.toISOString(),
-  });
-});
-
-// ─── DELETE /superpowers/live-trades/:id ─────────────────────────────────────
-
-router.delete("/superpowers/live-trades/:id", requireAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-
-  const [trade] = await db.select().from(liveTradesTable).where(eq(liveTradesTable.id, id));
-  if (!trade) { res.status(404).json({ error: "Trade not found" }); return; }
-
-  await db.delete(liveTradesTable).where(eq(liveTradesTable.id, id));
-  res.json({ ok: true });
 });
 
 export default router;

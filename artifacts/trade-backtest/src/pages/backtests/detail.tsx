@@ -1634,11 +1634,15 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loaded, setLoaded] = React.useState(false);
+  const [regimeFilter, setRegimeFilter] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     setIsLoading(true); setError(null);
     try {
-      const resp = await fetch(`/api/backtests/${backtestId}/regime-analysis`);
+      const token = localStorage.getItem("tt_token") ?? "";
+      const resp = await fetch(`/api/backtests/${backtestId}/regime-analysis`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
       if (!resp.ok) throw new Error("Failed to load regime data");
       const data = await resp.json();
       setRegimes(data.regimes ?? []);
@@ -1685,13 +1689,17 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
 
   return (
     <div className="space-y-6">
-      {/* Summary cards */}
+      {/* Summary cards — clickable regime filter */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {REGIME_ORDER.map((k) => {
           const meta = REGIME_META[k];
           const s = summary[k];
+          const isActive = regimeFilter === k;
           return (
-            <div key={k} className="p-4 rounded-xl border" style={{ background: meta.bg, borderColor: `${meta.color}30` }}>
+            <div key={k}
+              onClick={() => setRegimeFilter((f) => f === k ? null : k)}
+              className="p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.02]"
+              style={{ background: meta.bg, borderColor: `${meta.color}30`, outline: isActive ? `2px solid ${meta.color}` : "none", outlineOffset: "2px" }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <span className="text-sm">{meta.icon}</span>
                 <span className="text-[11px] font-medium leading-tight" style={{ color: meta.color }}>{meta.label}</span>
@@ -1757,12 +1765,22 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
       {/* Timeline */}
       <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Regime Timeline</CardTitle>
-          <CardDescription>30-day rolling classification — SMA50 position × volatility → 4 regime types</CardDescription>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-base">Regime Timeline</CardTitle>
+              <CardDescription>30-day rolling classification — SMA50 position × volatility → 4 regime types</CardDescription>
+            </div>
+            {regimeFilter && (
+              <button onClick={() => setRegimeFilter(null)}
+                className="text-[11px] text-primary underline underline-offset-2 hover:opacity-70 transition-opacity">
+                Clear filter ({REGIME_META[regimeFilter as RegimeKey]?.label})
+              </button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-            {regimes.map((r, i) => {
+            {(regimeFilter ? regimes.filter((r) => r.regime === regimeFilter) : regimes).map((r, i) => {
               const meta = REGIME_META[r.regime];
               return (
                 <div key={i} className="flex items-start gap-3 p-3 rounded-xl border transition-all hover:bg-muted/10"
@@ -1830,21 +1848,29 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
   const [divergence, setDivergence] = React.useState<DivergenceData | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showForm, setShowForm] = React.useState(false);
-  const [form, setForm] = React.useState({
-    tradeDate: new Date().toISOString().split("T")[0]!,
-    side: "long", entryPrice: "", exitPrice: "", pnlAmount: "", note: "",
-  });
+  const [form, setForm] = React.useState({ tradeDate: new Date().toISOString().split("T")[0]!, pnlAmount: "", note: "" });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const { toast } = useToast();
 
+  // Divergence threshold: 10-50%, default 20%, persisted per backtestId
+  const THRESHOLD_KEY = `div_threshold_${backtestId}`;
+  const [threshold, setThreshold] = React.useState<number>(() => {
+    const stored = localStorage.getItem(THRESHOLD_KEY);
+    return stored ? Number(stored) : 20;
+  });
+  const handleThresholdChange = (v: number) => {
+    setThreshold(v);
+    localStorage.setItem(THRESHOLD_KEY, String(v));
+  };
+
+  const { toast } = useToast();
   const token = () => localStorage.getItem("tt_token") ?? "";
 
   const loadAll = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const [tradesResp, divResp] = await Promise.all([
-        fetch(`/api/superpowers/live-trades/${backtestId}`, { headers: { "Authorization": `Bearer ${token()}` } }),
-        fetch(`/api/backtests/${backtestId}/divergence`, { headers: { "Authorization": `Bearer ${token()}` } }),
+        fetch(`/api/backtests/${backtestId}/live-trades`, { headers: { "Authorization": `Bearer ${token()}` } }),
+        fetch(`/api/backtests/${backtestId}/divergence`,  { headers: { "Authorization": `Bearer ${token()}` } }),
       ]);
       if (tradesResp.ok) setLiveTrades(await tradesResp.json());
       if (divResp.ok) setDivergence(await divResp.json());
@@ -1855,16 +1881,14 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
   React.useEffect(() => { loadAll(); }, [loadAll]);
 
   async function handleAdd() {
-    if (!form.entryPrice) { toast({ title: "Entry price required", variant: "destructive" }); return; }
+    if (!form.tradeDate) { toast({ title: "Trade date required", variant: "destructive" }); return; }
     setIsSubmitting(true);
     try {
-      const resp = await fetch("/api/superpowers/live-trades", {
+      const resp = await fetch(`/api/backtests/${backtestId}/live-trades`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token()}` },
         body: JSON.stringify({
-          backtestId, symbol, tradeDate: form.tradeDate, side: form.side,
-          entryPrice: Number(form.entryPrice),
-          exitPrice: form.exitPrice ? Number(form.exitPrice) : null,
+          tradeDate: form.tradeDate,
           pnlAmount: form.pnlAmount ? Number(form.pnlAmount) : null,
           note: form.note || null,
         }),
@@ -1872,7 +1896,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
       if (!resp.ok) throw new Error("Failed to add trade");
       await loadAll();
       setShowForm(false);
-      setForm({ tradeDate: new Date().toISOString().split("T")[0]!, side: "long", entryPrice: "", exitPrice: "", pnlAmount: "", note: "" });
+      setForm({ tradeDate: new Date().toISOString().split("T")[0]!, pnlAmount: "", note: "" });
       toast({ title: "Live trade logged" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -1880,7 +1904,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
   }
 
   async function handleDelete(id: number) {
-    await fetch(`/api/superpowers/live-trades/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token()}` } });
+    await fetch(`/api/backtests/${backtestId}/live-trades/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token()}` } });
     await loadAll();
     toast({ title: "Trade removed" });
   }
@@ -1917,32 +1941,16 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
           <CardContent className="pt-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Date</label>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Trade Date</label>
                 <Input type="date" value={form.tradeDate} onChange={(e) => setForm((f) => ({ ...f, tradeDate: e.target.value }))} className="text-xs" />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Side</label>
-                <select value={form.side} onChange={(e) => setForm((f) => ({ ...f, side: e.target.value }))}
-                  className="w-full text-xs bg-muted border border-border rounded-md px-2 py-2 text-foreground">
-                  <option value="long">Long</option>
-                  <option value="short">Short</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Entry Price</label>
-                <Input type="number" placeholder="0.00" value={form.entryPrice} onChange={(e) => setForm((f) => ({ ...f, entryPrice: e.target.value }))} className="text-xs" />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Exit Price (opt)</label>
-                <Input type="number" placeholder="0.00" value={form.exitPrice} onChange={(e) => setForm((f) => ({ ...f, exitPrice: e.target.value }))} className="text-xs" />
-              </div>
-              <div>
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">P&L Amount (opt)</label>
-                <Input type="number" placeholder="0.00" value={form.pnlAmount} onChange={(e) => setForm((f) => ({ ...f, pnlAmount: e.target.value }))} className="text-xs" />
+                <Input type="number" placeholder="e.g. 120.50 or -45.00" value={form.pnlAmount} onChange={(e) => setForm((f) => ({ ...f, pnlAmount: e.target.value }))} className="text-xs" />
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Note (opt)</label>
-                <Input placeholder="Note…" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="text-xs" />
+                <Input placeholder="Optional note…" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="text-xs" />
               </div>
             </div>
             <div className="flex gap-2">
@@ -1964,15 +1972,26 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
                 <CardTitle className="text-base">Expected vs. Live Cumulative P&L</CardTitle>
                 <CardDescription>Blue = backtest expectation · Green = your logged live trades</CardDescription>
               </div>
-              {divergence.divergenceScore != null && (
-                <div className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold ${
-                  divergence.divergenceScore <= 10 ? "border-green-500/30 bg-green-500/10 text-green-400"
-                  : divergence.divergenceScore <= 30 ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-                  : "border-red-500/30 bg-red-500/10 text-red-400"
-                }`}>
-                  {divergence.divergenceScore}% divergence
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Threshold slider */}
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground whitespace-nowrap">Alert at</span>
+                  <input type="range" min={10} max={50} step={5} value={threshold}
+                    onChange={(e) => handleThresholdChange(Number(e.target.value))}
+                    className="w-20 accent-primary" />
+                  <span className="font-mono font-bold text-primary w-8">{threshold}%</span>
                 </div>
-              )}
+                {divergence.divergenceScore != null && (
+                  <div className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold ${
+                    divergence.divergenceScore <= threshold * 0.5 ? "border-green-500/30 bg-green-500/10 text-green-400"
+                    : divergence.divergenceScore <= threshold ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                  }`}>
+                    {divergence.divergenceScore}% divergence
+                    {divergence.divergenceScore > threshold && " ⚠️"}
+                  </div>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -2039,9 +2058,6 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
             <thead className="bg-muted/30">
               <tr className="border-b border-border">
                 <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-left">Date</th>
-                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-left">Side</th>
-                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-right">Entry</th>
-                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-right">Exit</th>
                 <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-right">P&L</th>
                 <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-left">Note</th>
                 <th className="px-3 py-2" />
@@ -2053,21 +2069,14 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
                 return (
                   <tr key={t.id} className="border-b border-border/50 hover:bg-muted/10">
                     <td className="px-3 py-2.5 font-mono text-xs">{t.tradeDate}</td>
-                    <td className="px-3 py-2.5">
-                      <Badge variant="outline" className={`text-[10px] ${t.side === "long" ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-red-500/30 text-red-400 bg-red-500/10"}`}>
-                        {t.side.toUpperCase()}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-xs">${t.entryPrice.toFixed(2)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-xs text-muted-foreground">{t.exitPrice != null ? `$${t.exitPrice.toFixed(2)}` : "—"}</td>
                     <td className="px-3 py-2.5 text-right font-mono text-xs font-bold">
                       {t.pnlAmount != null ? (
                         <span className={isWin ? "text-green-400" : "text-red-400"}>
                           {isWin ? "+" : ""}${t.pnlAmount.toFixed(2)}
                         </span>
-                      ) : "—"}
+                      ) : <span className="text-muted-foreground">—</span>}
                     </td>
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[150px] truncate">{t.note ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[200px] truncate">{t.note ?? "—"}</td>
                     <td className="px-3 py-2.5">
                       <button onClick={() => handleDelete(t.id)} className="text-muted-foreground hover:text-red-400 transition-colors">
                         <Trash className="h-3.5 w-3.5" />

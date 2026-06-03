@@ -76,9 +76,10 @@ export default function StressTestPage() {
     if (!strategyId) { setError("Please select a strategy"); return; }
     setIsLoading(true); setError(null); setResult(null);
     try {
+      const token = localStorage.getItem("tt_token") ?? "";
       const resp = await fetch("/api/superpowers/stress-test", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
           strategyId, startDate, endDate,
           initialCapital: Number(capital),
