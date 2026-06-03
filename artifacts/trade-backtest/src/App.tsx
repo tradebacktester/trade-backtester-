@@ -1,3 +1,4 @@
+import React, { lazy, Suspense } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,7 +10,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { SubscriptionProvider } from "@/lib/subscription-context";
 import { PolicyPopup } from "@/components/policy-popup";
 
-// Pages
+// Pages (eager)
 import Dashboard from "@/pages/dashboard";
 import Strategies from "@/pages/strategies/index";
 import StrategyDetail from "@/pages/strategies/detail";
@@ -20,7 +21,6 @@ import NewBacktest from "@/pages/backtests/new";
 import BacktestDetail from "@/pages/backtests/detail";
 import BacktestBuilder from "@/pages/backtests/builder";
 import BatchBacktest from "@/pages/backtests/batch";
-import ChartPage from "@/pages/chart";
 import SettingsPage from "@/pages/settings";
 import NewsPage from "@/pages/news";
 import DemoPage from "@/pages/demo";
@@ -37,6 +37,9 @@ import StrategyDnaPage from "@/pages/strategy-dna";
 import MarketplacePage from "@/pages/marketplace";
 import MarketplaceDetailPage from "@/pages/marketplace-detail";
 import PsychMatchPage from "@/pages/psych-match";
+
+// Heavy page — lazy-loaded for code splitting
+const ChartPage = lazy(() => import("@/pages/chart"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +60,14 @@ function AdminPanelGuard() {
   return <AdminPanel />;
 }
 
+function ChartFallback() {
+  return (
+    <div className="flex items-center justify-center h-full w-full">
+      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function Router() {
   return (
     <Switch>
@@ -75,7 +86,11 @@ function Router() {
       <Route path="/backtests/batch" component={BatchBacktest} />
       <Route path="/backtests/:id" component={BacktestDetail} />
 
-      <Route path="/chart" component={ChartPage} />
+      <Route path="/chart" component={() => (
+        <Suspense fallback={<ChartFallback />}>
+          <ChartPage />
+        </Suspense>
+      )} />
       <Route path="/demo" component={DemoPage} />
       <Route path="/ai" component={AiAssistant} />
       <Route path="/news" component={NewsPage} />

@@ -111,6 +111,7 @@ function formatBacktest(row: typeof backtestsTable.$inferSelect, strategyName?: 
     profitFactor: row.profitFactor != null ? Number(row.profitFactor) : null,
     consecutiveWins: row.consecutiveWins,
     consecutiveLosses: row.consecutiveLosses,
+    dataSource: row.dataSource ?? null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
   };
@@ -167,14 +168,21 @@ router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const limit = query.data.limit ?? 100;
+  const offset = query.data.offset ?? 0;
+
   let rows: typeof backtestsTable.$inferSelect[];
   if (query.data.strategyId != null) {
     rows = await db.select().from(backtestsTable)
       .where(eq(backtestsTable.strategyId, query.data.strategyId))
-      .orderBy(sql`${backtestsTable.createdAt} DESC`);
+      .orderBy(sql`${backtestsTable.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset);
   } else {
     rows = await db.select().from(backtestsTable)
-      .orderBy(sql`${backtestsTable.createdAt} DESC`);
+      .orderBy(sql`${backtestsTable.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset);
   }
 
   const strategyIds = [...new Set(rows.map((r) => r.strategyId))];
@@ -278,6 +286,7 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       profitFactor: String(result.profitFactor),
       consecutiveWins: result.consecutiveWins,
       consecutiveLosses: result.consecutiveLosses,
+      dataSource: realBars ? "real" : "simulated",
     }).where(eq(backtestsTable.id, backtest.id)).returning();
 
     // Return full detail including yearlyReturns (computed, not stored in DB)

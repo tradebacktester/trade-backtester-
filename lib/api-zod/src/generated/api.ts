@@ -154,7 +154,9 @@ export const GetStrategyPerformanceResponse = zod.object({
  * @summary List all backtests
  */
 export const ListBacktestsQueryParams = zod.object({
-  "strategyId": zod.coerce.number().optional()
+  "strategyId": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().min(1).max(500).optional(),
+  "offset": zod.coerce.number().min(0).optional(),
 })
 
 export const ListBacktestsResponseItem = zod.object({

@@ -988,7 +988,7 @@ export default function BacktestDetail() {
     const winRate = (winners.length / trades.length) * 100;
     const avgWin = winners.length ? winners.reduce((a, t) => a + t.pnlPercent, 0) / winners.length : 0;
     const avgLoss = losers.length ? Math.abs(losers.reduce((a, t) => a + t.pnlPercent, 0) / losers.length) : 0;
-    const avgRR = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? 99 : 0;
+    const avgRR = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? Infinity : 0;
 
     // Streaks
     let maxWins = 0, maxLosses = 0, curW = 0, curL = 0;
@@ -1230,6 +1230,16 @@ export default function BacktestDetail() {
 
           {/* ── TAB 1: Overview ─────────────────────────────────────── */}
           <Tabs.Content value="overview" className="space-y-6 tab-transition">
+            {/* Simulated data warning */}
+            {(backtest as any).dataSource === "simulated" && /USDT$/i.test(backtest.symbol) && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
+                style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.25)" }}>
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: "hsl(38,95%,58%)" }} />
+                <p className="text-xs" style={{ color: "hsl(38,95%,70%)" }}>
+                  Could not fetch live market data for <strong>{backtest.symbol}</strong> — results are based on <strong>simulated price data</strong> and may not reflect actual market conditions.
+                </p>
+              </div>
+            )}
             {/* Stats grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               <StatBox
@@ -1268,7 +1278,7 @@ export default function BacktestDetail() {
               />
               <StatBox
                 label="Calmar Ratio"
-                value={(backtest as any).calmarRatio != null ? fmtNum((backtest as any).calmarRatio) : "—"}
+                value={(backtest as any).calmarRatio != null ? ((backtest as any).calmarRatio >= 999 ? "∞" : fmtNum((backtest as any).calmarRatio)) : "—"}
                 accent={(backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 1 ? "#22c55e" : (backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 0 ? "#f59e0b" : "#ef4444"}
               />
               <StatBox
@@ -1291,7 +1301,7 @@ export default function BacktestDetail() {
               <StatBox label="Total Trades" value={backtest.totalTrades ?? "—"} />
               <StatBox
                 label="Profit Factor"
-                value={backtest.profitFactor != null ? fmtNum(backtest.profitFactor) : "—"}
+                value={backtest.profitFactor != null ? (backtest.profitFactor >= 999 ? "∞" : fmtNum(backtest.profitFactor)) : "—"}
                 accent={backtest.profitFactor != null && backtest.profitFactor > 1 ? "#22c55e" : "#ef4444"}
               />
               {((backtest as any).consecutiveWins ?? 0) > 0 && (
@@ -1456,7 +1466,7 @@ export default function BacktestDetail() {
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-3 gap-3">
                         <div className="text-center p-3 rounded-xl bg-muted/30">
-                          <div className="text-2xl font-bold font-mono text-primary">{fmtNum(analytics.avgRR)}</div>
+                          <div className="text-2xl font-bold font-mono text-primary">{isFinite(analytics.avgRR) ? fmtNum(analytics.avgRR) : "∞"}</div>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Avg R/R</div>
                         </div>
                         <div className="text-center p-3 rounded-xl bg-green-500/10">
