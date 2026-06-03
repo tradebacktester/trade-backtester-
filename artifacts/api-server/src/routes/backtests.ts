@@ -379,10 +379,12 @@ router.get("/backtests/:id/equity", requireAuth, async (req, res): Promise<void>
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   const equity = await db.select().from(equityCurveTable).where(eq(equityCurveTable.backtestId, params.data.id)).orderBy(equityCurveTable.date);
 
-  // Compute benchmark (buy & hold) values for each equity curve date
+  // Compute benchmark (buy & hold) values for each equity curve date.
+  // Prefer real Binance data so the benchmark matches what the backtest used.
   let benchmarkMap = new Map<string, number>();
   try {
-    const bars = generatePriceData(bt.symbol, bt.startDate, bt.endDate);
+    const realBars = await fetchBinanceHistorical(bt.symbol, bt.startDate, bt.endDate);
+    const bars = realBars ?? generatePriceData(bt.symbol, bt.startDate, bt.endDate);
     if (bars.length > 0) {
       const initialCapital = Number(bt.initialCapital);
       const firstPrice = bars[0].open;

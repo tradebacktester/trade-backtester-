@@ -349,7 +349,7 @@ router.post("/marketplace/:id/vote", requireAuth, async (req, res): Promise<void
 
     const [updated] = await db
       .update(marketplaceListingsTable)
-      .set({ votes: Math.max(0, listing.votes - 1) })
+      .set({ votes: sql`GREATEST(0, ${marketplaceListingsTable.votes} - 1)` })
       .where(eq(marketplaceListingsTable.id, id))
       .returning();
 
@@ -361,7 +361,7 @@ router.post("/marketplace/:id/vote", requireAuth, async (req, res): Promise<void
 
   const [updated] = await db
     .update(marketplaceListingsTable)
-    .set({ votes: listing.votes + 1 })
+    .set({ votes: sql`${marketplaceListingsTable.votes} + 1` })
     .where(eq(marketplaceListingsTable.id, id))
     .returning();
 

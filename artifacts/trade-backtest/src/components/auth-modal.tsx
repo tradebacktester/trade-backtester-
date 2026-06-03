@@ -101,6 +101,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                   value={name}
                   onChange={e => setName(e.target.value)}
                   required
+                  autoComplete="name"
                   className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
                   style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
                   onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
@@ -119,6 +120,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
                 style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
                 onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
@@ -136,6 +138,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
+                autoComplete={tab === "signup" ? "new-password" : "current-password"}
                 className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
                 style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
                 onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}

@@ -41,10 +41,11 @@ export function PolicyPopup() {
           background: "#fff",
           border: "1px solid rgba(0,0,0,0.1)",
           boxShadow: "0 24px 80px rgba(0,0,0,0.22)",
+          maxHeight: "90vh",
         }}
       >
-        {/* Header */}
-        <div className="px-6 pt-6 pb-5">
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 px-6 pt-6 pb-2">
           <div className="flex items-center gap-3 mb-4">
             <span
               className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"

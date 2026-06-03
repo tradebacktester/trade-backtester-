@@ -18,7 +18,7 @@ import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
   ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
   Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
-  Brain, Sparkles, Waves, MonitorDot, Plus, Trash, Users2, Medal,
+  Brain, Sparkles, Waves, MonitorDot, Plus, Trash, Users2, Medal, Info,
 } from "lucide-react";
 import { computeOverfittingScore, overfitRating } from "@/lib/overfitting";
 import {
@@ -96,19 +96,33 @@ function WinRateGauge({ pct }: { pct: number }) {
 // ─── Stat Box ────────────────────────────────────────────────────────────────
 
 function StatBox({
-  label, value, sub, valueClass = "font-mono", accent
+  label, value, sub, valueClass = "font-mono", accent, tooltip
 }: {
-  label: string; value: React.ReactNode; sub?: string; valueClass?: string; accent?: string;
+  label: string; value: React.ReactNode; sub?: string; valueClass?: string; accent?: string; tooltip?: string;
 }) {
   return (
     <div
-      className="neon-hover-subtle relative overflow-hidden p-4 rounded-xl border border-border flex flex-col gap-1 bg-card"
+      className="neon-hover-subtle relative p-4 rounded-xl border border-border flex flex-col gap-1 bg-card"
       style={accent ? { borderColor: `${accent}30`, background: `${accent}08` } : {}}
     >
       {accent && (
-        <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${accent}60, transparent)` }} />
+        <div className="absolute top-0 left-0 right-0 h-[1px] rounded-t-xl" style={{ background: `linear-gradient(90deg, transparent, ${accent}60, transparent)` }} />
       )}
-      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+        {label}
+        {tooltip && (
+          <span className="relative group/tip inline-flex items-center">
+            <Info style={{ height: "10px", width: "10px", opacity: 0.5, cursor: "help", flexShrink: 0 }} />
+            <span
+              className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg px-2.5 py-2 text-[11px] leading-snug opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50 normal-case tracking-normal"
+              style={{ background: "#1e1e1e", color: "#e5e5e5", boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}
+            >
+              {tooltip}
+              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent" style={{ borderTopColor: "#1e1e1e" }} />
+            </span>
+          </span>
+        )}
+      </span>
       <span className={`text-xl font-bold leading-tight ${valueClass}`} style={accent ? { color: accent } : {}}>{value}</span>
       {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
     </div>
@@ -1270,27 +1284,34 @@ export default function BacktestDetail() {
                 label="Sharpe Ratio"
                 value={backtest.sharpeRatio != null ? fmtNum(backtest.sharpeRatio) : "—"}
                 accent={backtest.sharpeRatio != null && backtest.sharpeRatio > 1 ? "#22c55e" : backtest.sharpeRatio != null && backtest.sharpeRatio > 0 ? "#f59e0b" : "#ef4444"}
+                tooltip="Return earned per unit of total risk (volatility). Above 1.0 is good; above 2.0 is excellent. Higher is better."
               />
               <StatBox
                 label="Sortino Ratio"
                 value={(backtest as any).sortinoRatio != null ? fmtNum((backtest as any).sortinoRatio) : "—"}
                 accent={(backtest as any).sortinoRatio != null && (backtest as any).sortinoRatio > 1 ? "#22c55e" : (backtest as any).sortinoRatio != null && (backtest as any).sortinoRatio > 0 ? "#f59e0b" : "#ef4444"}
+                tooltip="Like the Sharpe Ratio, but only penalises downside volatility (losses). A higher Sortino than Sharpe means your losses are smoother than your gains."
               />
               <StatBox
                 label="Calmar Ratio"
                 value={(backtest as any).calmarRatio != null ? ((backtest as any).calmarRatio >= 999 ? "∞" : fmtNum((backtest as any).calmarRatio)) : "—"}
                 accent={(backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 1 ? "#22c55e" : (backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 0 ? "#f59e0b" : "#ef4444"}
+                tooltip="Annualised return divided by maximum drawdown. Measures how much return you get per unit of peak-to-trough loss. Above 1.0 is solid."
               />
               <StatBox
-                label="Benchmark (B&H)"
+                label={(backtest as any).dataSource === "simulated" ? "Benchmark B&H (sim.)" : "Benchmark (B&H)"}
                 value={(backtest as any).benchmarkReturn != null ? fmtPct((backtest as any).benchmarkReturn) : "—"}
                 accent={(backtest as any).benchmarkReturn != null && (backtest as any).benchmarkReturn >= 0 ? "#6366f1" : "#ef4444"}
+                tooltip={(backtest as any).dataSource === "simulated"
+                  ? "Buy-and-hold return over the same period using simulated price data. Compare with caution — both strategy and benchmark use generated prices."
+                  : "What a simple buy-and-hold of this asset would have returned over the same period using real market data."}
               />
               {(backtest as any).benchmarkReturn != null && backtest.totalReturn != null && (
                 <StatBox
                   label="Alpha vs B&H"
                   value={fmtPct(backtest.totalReturn - (backtest as any).benchmarkReturn)}
                   accent={backtest.totalReturn - (backtest as any).benchmarkReturn >= 0 ? "#22c55e" : "#ef4444"}
+                  tooltip="Your strategy's total return minus the buy-and-hold benchmark. Positive alpha means your strategy outperformed simply holding the asset."
                 />
               )}
               <StatBox
@@ -1303,6 +1324,7 @@ export default function BacktestDetail() {
                 label="Profit Factor"
                 value={backtest.profitFactor != null ? (backtest.profitFactor >= 999 ? "∞" : fmtNum(backtest.profitFactor)) : "—"}
                 accent={backtest.profitFactor != null && backtest.profitFactor > 1 ? "#22c55e" : "#ef4444"}
+                tooltip="Total gross profit divided by total gross loss. Above 1.0 means you made more than you lost overall. Above 1.5 is considered strong."
               />
               {((backtest as any).consecutiveWins ?? 0) > 0 && (
                 <StatBox label="Max Consec. Wins" value={(backtest as any).consecutiveWins} sub="in a row" accent="#22c55e" />
