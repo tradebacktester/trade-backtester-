@@ -420,8 +420,9 @@ export default function PricingPage() {
       </div>
 
       {/* ── Feature comparison table ──────────────────────────────────── */}
+      <div className="overflow-x-auto -mx-1 px-1">
       <div
-        className="rounded-2xl overflow-hidden"
+        className="rounded-2xl overflow-hidden min-w-[480px]"
         style={{ border: "1px solid rgba(0,0,0,0.08)" }}
       >
         {/* Table header */}
@@ -464,6 +465,7 @@ export default function PricingPage() {
             );
           })}
         </div>
+      </div>
       </div>
 
       {/* ── Footer note ───────────────────────────────────────────────── */}

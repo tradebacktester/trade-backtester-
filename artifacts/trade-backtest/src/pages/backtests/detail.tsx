@@ -1218,7 +1218,7 @@ export default function BacktestDetail() {
       ) : (
         <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
           {/* Tab list */}
-          <Tabs.List className="flex gap-1 p-1 rounded-xl bg-muted/30 border border-border w-fit mb-6">
+          <Tabs.List className="flex gap-1 p-1 rounded-xl bg-muted/30 border border-border mb-6 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
             {[
               { value: "overview", label: "Overview", Icon: LayoutDashboard },
               { value: "analytics", label: "Analytics", Icon: BarChart3 },

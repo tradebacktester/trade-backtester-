@@ -45,7 +45,7 @@ export function PolicyPopup() {
         }}
       >
         {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 px-6 pt-6 pb-2">
+        <div className="overflow-y-auto flex-1 min-h-0 px-6 pt-6 pb-2">
           <div className="flex items-center gap-3 mb-4">
             <span
               className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"

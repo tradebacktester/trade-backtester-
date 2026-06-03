@@ -1506,7 +1506,7 @@ export default function ChartPage() {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="tt-chart-page flex flex-col gap-2" style={{ maxWidth: "100%", overflowX: "hidden" }}>
+    <div className="tt-chart-page flex flex-col gap-2" style={{ maxWidth: "100%" }}>
 
       {/* ── Paper Trading Account Setup Modal ─────────────────────────── */}
       {accountModalOpen && (

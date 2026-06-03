@@ -329,7 +329,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             }
 
             return (
-              <Link key={item.title} href={item.url!} className="flex-1">
+              <Link key={item.title} href={item.url!} className="flex-1 min-w-0">
                 <span
                   className="flex flex-col items-center justify-center gap-[3px] h-full w-full cursor-pointer select-none active:opacity-60"
                   style={{ WebkitTapHighlightColor: "transparent", paddingBottom: "8px" }}
@@ -338,7 +338,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     style={active ? { background: T.activeBg } : {}}>
                     <item.icon style={{ height: "15px", width: "15px", color: active ? "#111" : T.dim }} />
                   </span>
-                  <span className="text-[9px] font-medium tracking-wide"
+                  <span className="text-[9px] font-medium tracking-wide w-full text-center truncate px-0.5"
                     style={{ color: active ? "#111" : T.dim }}>
                     {item.title}
                   </span>
