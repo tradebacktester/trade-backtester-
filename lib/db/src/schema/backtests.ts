@@ -1,15 +1,16 @@
-import { pgTable, text, serial, timestamp, numeric, integer } from "drizzle-orm/pg-core";
-
+import { pgTable, serial, timestamp, numeric, integer, index, text, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
+import { strategiesTable } from "./strategies";
 
 export const backtestsTable = pgTable("backtests", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id"),
-  strategyId: integer("strategy_id").notNull(),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
+  strategyId: integer("strategy_id").notNull().references(() => strategiesTable.id, { onDelete: "cascade" }),
   symbol: text("symbol").notNull(),
-  startDate: text("start_date").notNull(),
-  endDate: text("end_date").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
   initialCapital: numeric("initial_capital", { precision: 18, scale: 4 }).notNull(),
   commission: numeric("commission", { precision: 8, scale: 4 }),
   slippage: numeric("slippage", { precision: 8, scale: 4 }),
@@ -29,7 +30,10 @@ export const backtestsTable = pgTable("backtests", {
   dataSource: text("data_source"),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("backtests_user_id_idx").on(t.userId),
+  index("backtests_strategy_id_idx").on(t.strategyId),
+]);
 
 export const insertBacktestSchema = createInsertSchema(backtestsTable).omit({ id: true, createdAt: true });
 export type InsertBacktest = z.infer<typeof insertBacktestSchema>;

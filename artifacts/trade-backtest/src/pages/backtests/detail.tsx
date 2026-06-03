@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRoute, Link, useLocation } from "wouter";
 import {
@@ -169,9 +169,48 @@ function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: numbe
     try { return JSON.parse(localStorage.getItem(key + "_mistakes") ?? "[]"); } catch { return []; }
   });
   const [isExpanded, setIsExpanded] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("tt_token");
+    if (!token) return;
+    fetch(`/api/backtests/${backtestId}/journal/${tradeId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { note?: string; tags?: string[]; session?: string; emotionPre?: string; emotionPost?: string; confidence?: number; mistakes?: string[] } | null) => {
+        if (!data) return;
+        if (data.note !== undefined) { setNote(data.note); localStorage.setItem(key, data.note); }
+        if (data.tags !== undefined) { setTags(data.tags); localStorage.setItem(key + "_tags", JSON.stringify(data.tags)); }
+        if (data.session !== undefined) { setSession(data.session); localStorage.setItem(key + "_session", data.session); }
+        if (data.emotionPre !== undefined) { setEmotionPre(data.emotionPre); localStorage.setItem(key + "_emotion_pre", data.emotionPre); }
+        if (data.emotionPost !== undefined) { setEmotionPost(data.emotionPost); localStorage.setItem(key + "_emotion_post", data.emotionPost); }
+        if (data.confidence !== undefined) { setConfidence(data.confidence); localStorage.setItem(key + "_confidence", String(data.confidence)); }
+        if (data.mistakes !== undefined) { setMistakes(data.mistakes); localStorage.setItem(key + "_mistakes", JSON.stringify(data.mistakes)); }
+      })
+      .catch(() => {});
+  }, [backtestId, tradeId, key]);
 
   function persist<T>(suffix: string, value: T) {
     localStorage.setItem(key + suffix, typeof value === "string" ? value : JSON.stringify(value));
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const token = localStorage.getItem("tt_token");
+      if (!token) return;
+      fetch(`/api/backtests/${backtestId}/journal/${tradeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          note: localStorage.getItem(key) ?? "",
+          tags: (() => { try { return JSON.parse(localStorage.getItem(key + "_tags") ?? "[]"); } catch { return []; } })(),
+          session: localStorage.getItem(key + "_session") ?? "",
+          emotionPre: localStorage.getItem(key + "_emotion_pre") ?? "",
+          emotionPost: localStorage.getItem(key + "_emotion_post") ?? "",
+          confidence: parseInt(localStorage.getItem(key + "_confidence") ?? "0"),
+          mistakes: (() => { try { return JSON.parse(localStorage.getItem(key + "_mistakes") ?? "[]"); } catch { return []; } })(),
+        }),
+      }).catch(() => {});
+    }, 1500);
   }
 
   function addTag() {

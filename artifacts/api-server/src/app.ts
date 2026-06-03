@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { createRateLimit } from "./lib/rate-limit";
 
 const app: Express = express();
 
@@ -39,6 +40,8 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+app.use(createRateLimit(200));
 
 app.use("/api", router);
 

@@ -5,7 +5,7 @@ import { useBinancePrices } from "@/lib/use-binance-ws";
 import {
   TrendingUp, TrendingDown, DollarSign, Percent, Target, Shield,
   Clock, BarChart2, Zap, Activity, ArrowUpRight, Play,
-  Globe, Bitcoin, Brain, CandlestickChart,
+  Brain, CandlestickChart,
   MessageCircle, Send, X, Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -107,12 +107,12 @@ function StatCard({
 /* ── Watchlist ────────────────────────────────────────────────────── */
 interface WatchItem { symbol: string; price: string; change: number; sub: string; binanceKey?: string }
 const WATCHLIST: WatchItem[] = [
-  { symbol: "BTC/USD", price: "—",      change: 0,     sub: "Bitcoin",   binanceKey: "BTCUSDT" },
-  { symbol: "ETH/USD", price: "—",      change: 0,     sub: "Ethereum",  binanceKey: "ETHUSDT" },
-  { symbol: "EUR/USD", price: "1.0842", change: -0.31, sub: "Forex" },
-  { symbol: "GBP/USD", price: "1.2671", change: -0.18, sub: "Forex" },
-  { symbol: "SPX500",  price: "5,284",  change:  0.42, sub: "Equities" },
-  { symbol: "GOLD",    price: "2,318",  change:  0.74, sub: "Commodity" },
+  { symbol: "BTC/USD", price: "—", change: 0, sub: "Bitcoin",  binanceKey: "BTCUSDT" },
+  { symbol: "ETH/USD", price: "—", change: 0, sub: "Ethereum", binanceKey: "ETHUSDT" },
+  { symbol: "SOL/USD", price: "—", change: 0, sub: "Solana",   binanceKey: "SOLUSDT" },
+  { symbol: "BNB/USD", price: "—", change: 0, sub: "BNB",      binanceKey: "BNBUSDT" },
+  { symbol: "XRP/USD", price: "—", change: 0, sub: "Ripple",   binanceKey: "XRPUSDT" },
+  { symbol: "ADA/USD", price: "—", change: 0, sub: "Cardano",  binanceKey: "ADAUSDT" },
 ];
 
 function fmtLivePrice(p: number): string {
@@ -247,11 +247,6 @@ function DemoSummary() {
 
 /* ── AI insight cards ─────────────────────────────────────────────── */
 interface Insight { icon: React.ElementType; title: string; body: string; tag: string; tagColor: string }
-const AI_INSIGHTS: Insight[] = [
-  { icon: Bitcoin,   title: "Crypto",   body: "BTC holding $65K support with bullish structure. ETH showing relative strength.",  tag: "Bullish", tagColor: C.positive },
-  { icon: Globe,     title: "Forex",    body: "DXY strength pressuring EUR/USD near 1.0820. GBP remains range-bound.",              tag: "Neutral", tagColor: C.amber },
-  { icon: BarChart2, title: "Equities", body: "SPX consolidating near ATH. Tech leading. Watch for breakout above 5,300.",          tag: "Watch",   tagColor: C.muted },
-];
 
 function InsightCard({ item }: { item: Insight }) {
   const Icon = item.icon;
@@ -483,7 +478,7 @@ export default function Dashboard() {
   const { data: backtests, isLoading: loadingBacktests } = useListBacktests();
   const isLoading = loadingSummary || loadingBacktests;
 
-  const livePrices = useBinancePrices(["BTCUSDT", "ETHUSDT"]);
+  const livePrices = useBinancePrices(["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT"]);
   const [sessionStatuses, setSessionStatuses] = useState<("open" | "closed" | "overlap")[]>(computeSessionStatuses);
   useEffect(() => {
     const id = setInterval(() => setSessionStatuses(computeSessionStatuses()), 30_000);
@@ -535,6 +530,45 @@ export default function Dashboard() {
       avgDD:     avg(completed.map((b: any) => b.maxDrawdown ?? 0)),
       bestReturn: Math.max(...completed.map((b: any) => b.totalReturn ?? 0)),
     };
+  }, [backtests]);
+
+  const portfolioInsights = useMemo<Insight[]>(() => {
+    if (!backtests?.length) return [
+      { icon: TrendingUp, title: "Get Started", body: "Run your first backtest to see personalized performance insights here.", tag: "New", tagColor: C.positive },
+    ];
+    const completed = (backtests as any[]).filter((b: any) => b.status === "complete");
+    if (!completed.length) return [];
+    const best = [...completed].sort((a: any, b: any) => Number(b.totalReturn ?? 0) - Number(a.totalReturn ?? 0))[0];
+    const avgReturn = completed.reduce((s: number, b: any) => s + Number(b.totalReturn ?? 0), 0) / completed.length;
+    const avgSharpe = completed.reduce((s: number, b: any) => s + Number(b.sharpeRatio ?? 0), 0) / completed.length;
+    const items: Insight[] = [];
+    if (best) {
+      const ret = Number(best.totalReturn ?? 0);
+      items.push({
+        icon: TrendingUp,
+        title: "Top Strategy",
+        body: `${best.symbol} returned ${ret >= 0 ? "+" : ""}${ret.toFixed(1)}% — your best backtest result to date.`,
+        tag: ret >= 5 ? "Profitable" : ret >= 0 ? "Neutral" : "Loss",
+        tagColor: ret >= 5 ? C.positive : ret >= 0 ? C.amber : C.negative,
+      });
+    }
+    items.push({
+      icon: BarChart2,
+      title: "Portfolio",
+      body: `${completed.length} completed backtest${completed.length > 1 ? "s" : ""}. Average return: ${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(1)}%.`,
+      tag: avgReturn >= 5 ? "Bullish" : avgReturn >= 0 ? "Neutral" : "Review",
+      tagColor: avgReturn >= 5 ? C.positive : avgReturn >= 0 ? C.amber : C.negative,
+    });
+    if (!isNaN(avgSharpe)) {
+      items.push({
+        icon: Shield,
+        title: "Risk Profile",
+        body: `Avg Sharpe: ${avgSharpe.toFixed(2)}. ${avgSharpe >= 1 ? "Solid risk-adjusted returns." : avgSharpe >= 0 ? "Moderate efficiency." : "High volatility relative to returns."}`,
+        tag: avgSharpe >= 1 ? "Good" : avgSharpe >= 0 ? "Watch" : "Risk",
+        tagColor: avgSharpe >= 1 ? C.positive : avgSharpe >= 0 ? C.amber : C.negative,
+      });
+    }
+    return items;
   }, [backtests]);
 
   const recentBacktests = useMemo(
@@ -740,7 +774,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Brain className="h-3.5 w-3.5" style={{ color: C.muted }} />
-            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>AI Insights</p>
+            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>Portfolio Insights</p>
           </div>
           <Link href="/ai">
             <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70"
@@ -750,7 +784,7 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {AI_INSIGHTS.map(item => <InsightCard key={item.title} item={item} />)}
+          {portfolioInsights.map(item => <InsightCard key={item.title} item={item} />)}
         </div>
       </div>
 

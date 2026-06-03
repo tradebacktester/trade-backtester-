@@ -22,6 +22,14 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 
 const router: IRouter = Router();
 
+// ─── DNA result cache (5-min TTL per user+strategySet) ────────────────────────
+const dnaCache = new Map<string, { result: unknown; expiresAt: number }>();
+const DNA_TTL = 5 * 60_000;
+
+function getDnaCacheKey(userId: number, strategyIds: number[]): string {
+  return `${userId}:${[...strategyIds].sort((a, b) => a - b).join(",")}`;
+}
+
 // ─── 55-Symbol universe (seeds + vol + drift used by stress-test) ─────────────
 
 const SYMBOL_META: Record<string, { seed: number; vol: number; sector: string; name: string; drift: number }> = {
@@ -164,6 +172,13 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
     return;
   }
 
+  const cacheKey = getDnaCacheKey(userId, strategies.map(s => s.id));
+  const cached = dnaCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    res.json(cached.result);
+    return;
+  }
+
   // Latest completed backtest per strategy
   const backtests = await db
     .select()
@@ -268,7 +283,9 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
     }
   }
 
-  res.json({ strategies: entries, matrix, duplicates, correlations });
+  const dnaResult = { strategies: entries, matrix, duplicates, correlations };
+  dnaCache.set(cacheKey, { result: dnaResult, expiresAt: Date.now() + DNA_TTL });
+  res.json(dnaResult);
 });
 
 // ─── GET /backtests/:id/regime-analysis — uses stored tradesTable ──────────────

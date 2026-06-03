@@ -12,6 +12,7 @@ import subscriptionRouter from "./subscription";
 import toolsRouter from "./tools";
 import superpowersRouter from "./superpowers";
 import socialRouter from "./social";
+import journalRouter from "./journal";
 
 const router: IRouter = Router();
 
@@ -22,6 +23,7 @@ router.use(healthRouter);
 router.use(superpowersRouter);
 router.use(strategiesRouter);
 router.use(backtestsRouter);
+router.use(journalRouter);
 router.use(chartRouter);
 router.use(newsRouter);
 router.use(aiRouter);

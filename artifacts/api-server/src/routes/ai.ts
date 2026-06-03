@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import OpenAI from "openai";
 import { verifyJwt } from "../lib/jwt";
+import { logger } from "../lib/logger";
 
 const JWT_SECRET_AI = process.env.JWT_SECRET ?? "";
 
@@ -92,9 +93,8 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
     const message = completion.choices[0]?.message?.content ?? "Sorry, I couldn't generate a response.";
     res.json({ message });
   } catch (err) {
-    const e = err as { message?: string; status?: number };
-    const status = typeof e.status === "number" ? e.status : 500;
-    res.status(status).json({ error: e.message ?? "AI chat failed" });
+    logger.error(err, "ai/chat error");
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
   }
 });
 
@@ -188,8 +188,8 @@ Your narrative should:
     const narrative = completion.choices[0]?.message?.content ?? "Unable to generate autopsy.";
     res.json({ narrative });
   } catch (err) {
-    const e = err as { message?: string; status?: number };
-    res.status(e.status ?? 500).json({ error: e.message ?? "Autopsy generation failed" });
+    logger.error(err, "ai/autopsy error");
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
   }
 });
 
@@ -247,8 +247,8 @@ Response shape (use exactly these keys):
     const parsed = JSON.parse(content);
     res.json(parsed);
   } catch (err) {
-    const e = err as { message?: string; status?: number };
-    res.status(e.status ?? 500).json({ error: e.message ?? "Strategy parsing failed" });
+    logger.error(err, "ai/build-strategy error");
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
   }
 });
 
@@ -347,8 +347,8 @@ Key bias signals to check:
     const parsed = JSON.parse(content);
     res.json(parsed);
   } catch (err) {
-    const e = err as { message?: string; status?: number };
-    res.status(e.status ?? 500).json({ error: e.message ?? "Bias report failed" });
+    logger.error(err, "ai/bias-report error");
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
   }
 });
 
@@ -460,8 +460,8 @@ ${topTrades}`;
     const story = completion.choices[0]?.message?.content ?? "Unable to generate story.";
     res.json({ story });
   } catch (err) {
-    const e = err as { message?: string; status?: number };
-    res.status(e.status ?? 500).json({ error: e.message ?? "Narrative generation failed" });
+    logger.error(err, "ai/narrative error");
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
   }
 });
 
@@ -568,8 +568,8 @@ Diagnose this trader's personality type and recommend the 2-3 strategy types tha
     const parsed = JSON.parse(content);
     res.json(parsed);
   } catch (err) {
-    const e = err as { message?: string; status?: number };
-    res.status(e.status ?? 500).json({ error: e.message ?? "Psychology match failed" });
+    logger.error(err, "ai/psych-match error");
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
   }
 });
 

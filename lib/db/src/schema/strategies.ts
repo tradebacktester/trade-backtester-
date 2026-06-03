@@ -1,10 +1,11 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const strategiesTable = pgTable("strategies", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id"),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   type: text("type").notNull(),
@@ -12,7 +13,9 @@ export const strategiesTable = pgTable("strategies", {
   timeframe: text("timeframe").notNull(),
   parameters: jsonb("parameters").notNull().$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("strategies_user_id_idx").on(t.userId),
+]);
 
 export const insertStrategySchema = createInsertSchema(strategiesTable).omit({ id: true, createdAt: true });
 export type InsertStrategy = z.infer<typeof insertStrategySchema>;
