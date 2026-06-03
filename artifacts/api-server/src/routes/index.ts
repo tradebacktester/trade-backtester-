@@ -15,6 +15,10 @@ import superpowersRouter from "./superpowers";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+// superpowersRouter must be mounted BEFORE strategiesRouter so that
+// GET /strategies/dna is matched here (literal) and not swallowed by
+// GET /strategies/:id (param) in strategiesRouter.
+router.use(superpowersRouter);
 router.use(strategiesRouter);
 router.use(backtestsRouter);
 router.use(chartRouter);
@@ -25,6 +29,5 @@ router.use(adminRouter);
 router.use(communityRouter);
 router.use(subscriptionRouter);
 router.use(toolsRouter);
-router.use(superpowersRouter);
 
 export default router;

@@ -142,11 +142,26 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     INTC:  { seed: 40,   vol: 0.022, drift: 0.0001 },
     ORCL:  { seed: 110,  vol: 0.020, drift: 0.0002 },
     CRM:   { seed: 230,  vol: 0.025, drift: 0.0003 },
+    // DeFi
+    AAVEUSDT: { seed: 90,   vol: 0.090, drift: 0.0003 },
     // Auto / Media / Fintech
     TSLA:  { seed: 250,  vol: 0.040, drift: 0.0003 },
     NFLX:  { seed: 450,  vol: 0.028, drift: 0.0003 },
     PYPL:  { seed: 75,   vol: 0.030, drift: 0.0001 },
     SQ:    { seed: 70,   vol: 0.040, drift: 0.0002 },
+    // Financials
+    JPM:   { seed: 185,  vol: 0.018, drift: 0.0003 },
+    BAC:   { seed: 38,   vol: 0.022, drift: 0.0002 },
+    GS:    { seed: 380,  vol: 0.022, drift: 0.0003 },
+    V:     { seed: 240,  vol: 0.014, drift: 0.0003 },
+    MA:    { seed: 420,  vol: 0.015, drift: 0.0003 },
+    // Consumer / Industrial / Energy
+    DIS:   { seed: 95,   vol: 0.022, drift: 0.0002 },
+    BA:    { seed: 210,  vol: 0.030, drift: 0.0002 },
+    GE:    { seed: 110,  vol: 0.025, drift: 0.0002 },
+    XOM:   { seed: 105,  vol: 0.020, drift: 0.0002 },
+    WMT:   { seed: 160,  vol: 0.012, drift: 0.0002 },
+    KO:    { seed: 60,   vol: 0.010, drift: 0.0002 },
     // Indices
     SPY:     { seed: 450,   vol: 0.012, drift: 0.0003 },
     QQQ:     { seed: 380,   vol: 0.015, drift: 0.0003 },
@@ -167,6 +182,8 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     WTIUSD:  { seed: 78,   vol: 0.025, drift: 0.0001 },
     BRENTUSD:{ seed: 82,   vol: 0.024, drift: 0.0001 },
     NATGASUSD:{ seed: 2.5, vol: 0.040, drift: -0.0001 },
+    WHEAT:    { seed: 550,  vol: 0.022, drift: 0.0001 },
+    CORN:     { seed: 450,  vol: 0.020, drift: 0.0001 },
     // Forex
     EURUSD:  { seed: 1.08, vol: 0.006, drift: 0.0 },
     GBPUSD:  { seed: 1.26, vol: 0.007, drift: 0.0 },
