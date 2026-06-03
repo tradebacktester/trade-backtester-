@@ -388,18 +388,28 @@ export function runBacktest(
     const entryBar = bars[sig.entries[0]];
     const exitBar = bars[sig.exits[0]];
 
-    // Apply slippage: worse price for entry & exit
-    const entryPrice = entryBar.open * (1 + slippagePct / 100);
-    const exitPrice = exitBar.close * (1 - slippagePct / 100);
+    // Apply slippage: adverse fill for both longs and shorts (HIGH-010 fix)
+    const isShort = sig.direction === "short";
+    const entryPrice = isShort
+      ? entryBar.open * (1 - slippagePct / 100)  // short entry: sell at lower price
+      : entryBar.open * (1 + slippagePct / 100);  // long entry: buy at higher price
+    const exitPrice = isShort
+      ? exitBar.close * (1 + slippagePct / 100)   // short exit: cover at higher price
+      : exitBar.close * (1 - slippagePct / 100);   // long exit: sell at lower price
 
-    const quantity = (capital * 0.95) / entryPrice;
+    const quantity = (capital * 0.95) / Math.abs(entryPrice);
 
     // Apply commission on both legs
-    const commissionCost = quantity * (entryPrice + exitPrice) * (commissionPct / 100);
+    const commissionCost = quantity * (Math.abs(entryPrice) + Math.abs(exitPrice)) * (commissionPct / 100);
 
-    const rawPnl = (exitPrice - entryPrice) * quantity;
+    // PnL direction depends on trade side (HIGH-010 fix)
+    const rawPnl = isShort
+      ? (entryPrice - exitPrice) * quantity
+      : (exitPrice - entryPrice) * quantity;
     const pnl = rawPnl - commissionCost;
-    const pnlPercent = ((exitPrice - entryPrice) / entryPrice) * 100 - (commissionPct * 2);
+    const pnlPercent = isShort
+      ? ((entryPrice - exitPrice) / entryPrice) * 100 - (commissionPct * 2)
+      : ((exitPrice - entryPrice) / entryPrice) * 100 - (commissionPct * 2);
     const duration = daysBetween(entryBar.date, exitBar.date);
 
     capital += pnl;

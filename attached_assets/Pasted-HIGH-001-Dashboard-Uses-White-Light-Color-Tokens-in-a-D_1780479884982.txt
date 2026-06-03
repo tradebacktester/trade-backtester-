@@ -1,0 +1,85 @@
+HIGH-001 — Dashboard Uses White/Light Color Tokens in a Dark App
+Page: /dashboard
+Severity: 7/10
+
+The dashboard component hardcodes:
+
+const C = { text: "#111111", sub: "#666666", surface: "#f7f7f7", border: "rgba(0,0,0,0.09)" }
+...while every other page uses the dark theme CSS variables. On a dark background, all dashboard text renders near-black on dark-gray, making it barely readable. This is a completely inconsistent user experience.
+
+HIGH-002 — Chart Page Opens With a Modal Blocking the Chart
+Page: /chart
+Severity: 7/10
+
+Steps to reproduce: Navigate to /chart for the first time
+
+Actual: "Open Paper Trading Account" modal appears immediately, blocking the entire chart. New users (especially professionals) want to SEE the chart first, then decide to paper trade. Forcing a modal on entry is a conversion killer.
+
+Fix: Make paper trading opt-in via a button; don't modal-gate the chart.
+
+HIGH-003 — Policy Popup Appears on Every Page, Every Visit
+Page: All pages
+Severity: 7/10
+
+Steps to reproduce:
+
+Navigate to /dashboard — policy popup
+Navigate to /strategies — policy popup AGAIN
+Navigate to /community — policy popup AGAIN
+Actual: Every page renders the <PolicyPopup /> before the user has dismissed it. Since the popup is in the app shell but navigation happens before state persists, it re-triggers on every route change until explicitly dismissed and the localStorage flag is set. Users are forced to click "I agree" on every single page visit during a session.
+
+HIGH-004 — No Rate Limiting on Auth Endpoints
+Page: API — POST /api/auth/signin, POST /api/auth/signup
+Severity: 8/10
+
+Zero rate limiting. An attacker can make 100,000 password attempts per minute on any email address. Account enumeration is also trivially easy: signup returns 409 Conflict for existing emails, confirming the account exists.
+
+HIGH-005 — Community Posts Accept UserId from Request Body
+Page: POST /api/community
+Severity: 7/10
+
+// community.ts
+const { authorName, content, imageUrl, userId } = req.body;
+Any user can post as any userId, impersonating other users in the community feed.
+
+HIGH-006 — GET /backtests/:id/percentile Exposes All Users' Data
+Page: Backtest detail → social tab
+Severity: 6/10
+
+The /backtests/:id/percentile endpoint (in social.ts) is fully public — no auth, no ownership check. Anyone can query any backtest ID and get its metrics.
+
+HIGH-007 — In-Memory Rate Limiting Resets on Server Restart
+Page: /api/ai/chat, /api/community
+Severity: 6/10
+
+Both AI (20 req/min) and community (5 req/min) use in-memory Maps for rate limiting. Any server restart or crash resets all counters. Under load or after a deploy, users and bots get fresh quotas instantly.
+
+HIGH-008 — Payment Verification Bypassed in Dev/Misconfigured Prod
+Page: /pricing → subscribe flow
+Severity: 7/10
+
+// subscription.ts
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET ?? "secret_placeholder";
+// ...
+if (RAZORPAY_KEY_SECRET === "secret_placeholder") {
+  // Skip signature verification
+}
+If RAZORPAY_KEY_SECRET is not set in production, ALL payment signature verification is skipped. Any POST to /api/subscription/verify will mark a subscription active without a real payment.
+
+HIGH-009 — Monthly Return % Calculated Wrong
+Page: Backtest detail → Monthly Returns heatmap
+Severity: 7/10
+
+monthlyReturns.map(([month, pnl]) => ({ month, pnl, pct: (pnl / initialCapital) * 100 }))
+Monthly return percentage is calculated against the initial capital, not the running capital at the start of that month. A strategy that doubles capital in Month 1 will show Month 2's gains as half what they should be as a percentage. This is incorrect compounding math.
+
+Fix: Track running capital per month and use it as the denominator.
+
+HIGH-010 — Short Trades PnL Formula is Wrong (Ready to Break)
+Page: Backtest engine
+Severity: 8/10
+
+The TradeResult interface has side: "long" | "short", but:
+
+rawPnl = (exitPrice - entryPrice) * quantity;
+This formula is correct for longs only. For shorts it must be (entryPrice - exitPrice) * quantity. No strategies currently produce short signals, but the infrastructure is wired for it. The moment any short strategy is added, all short PnL will be inverted (losses shown as wins and vice versa).

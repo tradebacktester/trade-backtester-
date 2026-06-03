@@ -6,6 +6,25 @@ import { signJwt } from "../lib/jwt";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
+// ── Rate limiting (10 req/min per IP) for auth endpoints (HIGH-004) ──────────
+const authRateLimit = new Map<string, { count: number; resetAt: number }>();
+function checkAuthRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const rec = authRateLimit.get(ip);
+  if (!rec || now >= rec.resetAt) {
+    authRateLimit.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (rec.count >= 10) return false;
+  rec.count++;
+  return true;
+}
+function getAuthIp(req: import("express").Request): string {
+  return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? "unknown";
+}
+
 const router: IRouter = Router();
 
 function hashPassword(password: string, salt: string): string {
@@ -29,6 +48,10 @@ function verifyPassword(password: string, hash: string): boolean {
 }
 
 router.post("/auth/signup", async (req, res): Promise<void> => {
+  if (!checkAuthRateLimit(getAuthIp(req))) {
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return;
+  }
   const { email, name, password } = req.body;
   if (!email || !name || !password) {
     res.status(400).json({ error: "Email, name, and password are required" });
@@ -50,6 +73,10 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 });
 
 router.post("/auth/signin", async (req, res): Promise<void> => {
+  if (!checkAuthRateLimit(getAuthIp(req))) {
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return;
+  }
   const { email, password } = req.body;
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required" });

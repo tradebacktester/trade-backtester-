@@ -16,13 +16,11 @@ const POLICY_LINKS = [
 ];
 
 export function PolicyPopup() {
-  const [show, setShow] = useState(false);
+  // Initialise synchronously from localStorage so re-mounting on navigation
+  // never causes the popup to flash for users who have already agreed.
+  const [show, setShow] = useState(() => !localStorage.getItem(STORAGE_KEY));
   const [agreed, setAgreed] = useState(false);
   const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!localStorage.getItem(STORAGE_KEY)) setShow(true);
-  }, []);
 
   if (!show) return null;
 

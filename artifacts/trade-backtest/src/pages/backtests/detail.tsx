@@ -1012,14 +1012,20 @@ export default function BacktestDetail() {
       const m = t.exitDate.slice(0, 7);
       monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
     }
+    // Use running capital as denominator (HIGH-009 fix): correct compounding math
+    let runningCap = backtest.initialCapital;
     const monthlyReturns = Array.from(monthlyMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, pnl]) => ({
-        month,
-        label: format(new Date(month + "-01"), "MMM yy"),
-        pnl,
-        pct: (pnl / backtest.initialCapital) * 100,
-      }));
+      .map(([month, pnl]) => {
+        const pct = runningCap > 0 ? (pnl / runningCap) * 100 : 0;
+        runningCap += pnl;
+        return {
+          month,
+          label: format(new Date(month + "-01"), "MMM yy"),
+          pnl,
+          pct,
+        };
+      });
 
     // Trade distribution (histogram buckets)
     const buckets: Record<string, number> = {};

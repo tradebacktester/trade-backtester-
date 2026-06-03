@@ -260,7 +260,8 @@ export default function ChartPage() {
 
   // Paper trading
   const [ptCapital, setPtCapital] = useState<number>(readPtCapital);
-  const [accountModalOpen, setAccountModalOpen] = useState<boolean>(() => !localStorage.getItem("pt_account"));
+  // Never auto-open on load — paper trading is opt-in (HIGH-002 fix)
+  const [accountModalOpen, setAccountModalOpen] = useState<boolean>(false);
   const [customCapitalInput, setCustomCapitalInput] = useState("");
   const [position, setPosition] = useState<Position | null>(null);
   const [trades, setTrades] = useState<SimTrade[]>([]);
@@ -2412,8 +2413,14 @@ export default function ChartPage() {
               </div>
 
               <div className="rounded-xl border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)", borderColor: "rgba(255,255,255,0.07)" }}>
-                <div className="px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                   <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,42%)" }}>Session</span>
+                  <button
+                    onClick={() => setAccountModalOpen(true)}
+                    className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors"
+                    style={{ color: "hsl(220,14%,40%)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+                    title="Configure paper trading account"
+                  >Setup</button>
                 </div>
                 <div className="px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
                   <div><p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Equity</p><p className="text-sm font-mono font-bold leading-none" style={{ color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p><p className="text-[10px] font-mono mt-0.5" style={{ color: equityGain >= 0 ? "hsl(150,70%,40%)" : "hsl(0,70%,48%)" }}>{fmtPct(equityGainPct)}</p></div>

@@ -20,23 +20,23 @@ function fmtNum(v: number | null | undefined, d = 2) {
   return v.toFixed(d);
 }
 
-/* ── Design tokens — pure white theme ────────────────────────────── */
+/* ── Design tokens — dark theme ──────────────────────────────────── */
 const C = {
-  text:        "#111111",
-  sub:         "#666666",
-  muted:       "#999999",
-  border:      "rgba(0,0,0,0.09)",
-  surface:     "#f7f7f7",
-  surfaceHov:  "rgba(0,0,0,0.03)",
-  positive:    "#16a34a",
-  negative:    "#dc2626",
-  amber:       "#d97706",
+  text:        "hsl(220,14%,88%)",
+  sub:         "hsl(220,14%,60%)",
+  muted:       "hsl(220,14%,40%)",
+  border:      "rgba(255,255,255,0.06)",
+  surface:     "hsl(222,20%,13%)",
+  surfaceHov:  "rgba(255,255,255,0.04)",
+  positive:    "#22c55e",
+  negative:    "#ef4444",
+  amber:       "#f59e0b",
 };
 
 const CARD: React.CSSProperties = {
-  background:  "#f7f7f7",
-  border:      "1px solid rgba(0,0,0,0.09)",
-  boxShadow:   "0 1px 4px rgba(0,0,0,0.06)",
+  background:  "hsl(222,20%,13%)",
+  border:      "1px solid rgba(255,255,255,0.06)",
+  boxShadow:   "0 1px 4px rgba(0,0,0,0.3)",
 };
 
 /* ── Skeleton ─────────────────────────────────────────────────────── */
@@ -44,7 +44,7 @@ function Skel({ className = "" }: { className?: string }) {
   return (
     <div
       className={`rounded-lg animate-pulse ${className}`}
-      style={{ background: "rgba(0,0,0,0.06)" }}
+      style={{ background: "rgba(255,255,255,0.06)" }}
     />
   );
 }

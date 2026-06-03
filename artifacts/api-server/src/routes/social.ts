@@ -61,7 +61,7 @@ function serializeListing(l: typeof marketplaceListingsTable.$inferSelect, voted
 // to all completed backtests on the same symbol + strategy type.
 // ─────────────────────────────────────────────────────────────────────────────
 
-router.get("/backtests/:id/percentile", async (req, res): Promise<void> => {
+router.get("/backtests/:id/percentile", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

@@ -8,3 +8,4 @@
 - [AI chat auth token](ai-chat-auth.md) — /api/ai/chat requires Bearer token; fetch calls must include Authorization header from localStorage.getItem("tt_token"); applies to all /api/ai/* endpoints.
 - [AI endpoints pattern](ai-endpoints-pattern.md) — all new AI endpoints follow: requireAuth middleware + checkAiRateLimit(userId) + groqClient() helper + response_format: json_object for structured outputs; Groq model is llama-3.3-70b-versatile.
 - [Overfitting score frontend](overfitting-score.md) — computed in frontend from trades array (no DB column needed) via lib/overfitting.ts; uses walk-forward IS/OOS split + Monte Carlo shuffle; displayed as colored stat box in backtest detail overview tab.
+- [JWT_SECRET persistence](jwt-secret-persistence.md) — JWT_SECRET is set via setEnvVars (shared env) but must be re-set each new agent session; if API server crashes with "JWT_SECRET required", run setEnvVars again then restart workflow.

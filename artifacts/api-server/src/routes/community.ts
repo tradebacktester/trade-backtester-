@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, communityPostsTable, communityReportsTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gt, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "crypto";
+import { verifyJwt } from "../lib/jwt";
 
 const router: IRouter = Router();
 
@@ -84,11 +85,39 @@ router.post("/community", async (req, res): Promise<void> => {
     res.status(429).json({ error: "Too many posts. Please wait before posting again." });
     return;
   }
-  const { authorName, content, imageUrl, userId } = req.body as {
+
+  // Derive userId from JWT — never trust the request body for identity (HIGH-005 fix)
+  let userId: number | null = null;
+  const authHeader = req.headers["authorization"];
+  if (authHeader && process.env.JWT_SECRET) {
+    const token = authHeader.replace("Bearer ", "").trim();
+    const payload = verifyJwt(token, process.env.JWT_SECRET);
+    if (payload && typeof payload.id === "number") {
+      userId = payload.id;
+
+      // DB-based per-user rate limit: max 5 posts per minute (HIGH-007 fix)
+      // More reliable than in-memory — survives server restarts
+      const oneMinuteAgo = new Date(Date.now() - 60_000);
+      const [{ recentCount }] = await db
+        .select({ recentCount: sql<number>`cast(count(*) as int)` })
+        .from(communityPostsTable)
+        .where(
+          and(
+            eq(communityPostsTable.userId, userId),
+            gt(communityPostsTable.createdAt, oneMinuteAgo),
+          ),
+        );
+      if (recentCount >= 5) {
+        res.status(429).json({ error: "Too many posts. Please wait before posting again." });
+        return;
+      }
+    }
+  }
+
+  const { authorName, content, imageUrl } = req.body as {
     authorName?: string;
     content?: string;
     imageUrl?: string;
-    userId?: number;
   };
 
   if (!authorName || typeof authorName !== "string" || authorName.trim().length < 2) {

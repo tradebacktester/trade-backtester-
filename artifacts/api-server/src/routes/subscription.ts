@@ -202,14 +202,18 @@ router.post("/subscription/verify", async (req, res): Promise<void> => {
     planId: number;
   };
 
-  if (RAZORPAY_KEY_SECRET !== "secret_placeholder") {
-    const expectedSig = createHmac("sha256", RAZORPAY_KEY_SECRET)
-      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-      .digest("hex");
-    if (expectedSig !== razorpaySignature) {
-      res.status(400).json({ error: "Payment verification failed" });
-      return;
-    }
+  // Fail closed: if Razorpay is not configured, reject ALL verify requests.
+  // Never skip signature verification in production (HIGH-008 fix).
+  if (!RAZORPAY_KEY_SECRET || RAZORPAY_KEY_SECRET === "secret_placeholder") {
+    res.status(503).json({ error: "Payment verification is not configured on this server." });
+    return;
+  }
+  const expectedSig = createHmac("sha256", RAZORPAY_KEY_SECRET)
+    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+    .digest("hex");
+  if (expectedSig !== razorpaySignature) {
+    res.status(400).json({ error: "Payment verification failed" });
+    return;
   }
 
   const [plan] = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.id, planId)).limit(1);
