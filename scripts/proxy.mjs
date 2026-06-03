@@ -1,7 +1,7 @@
 import http from "http";
 import httpProxy from "http-proxy";
 
-const TARGET = "http://localhost:24593";
+const TARGET = "http://localhost:80";
 const PORT = 5000;
 
 const proxy = httpProxy.createProxyServer({ ws: true, target: TARGET });
