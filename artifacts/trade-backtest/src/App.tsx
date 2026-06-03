@@ -34,6 +34,8 @@ import ToolsPage from "@/pages/tools";
 import AiBuilder from "@/pages/strategies/ai-builder";
 import StressTestPage from "@/pages/stress-test";
 import StrategyDnaPage from "@/pages/strategy-dna";
+import MarketplacePage from "@/pages/marketplace";
+import MarketplaceDetailPage from "@/pages/marketplace-detail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +74,8 @@ function Router() {
       <Route path="/stress-test" component={StressTestPage} />
       <Route path="/strategy-dna" component={StrategyDnaPage} />
       <Route path="/community" component={CommunityPage} />
+      <Route path="/marketplace" component={MarketplacePage} />
+      <Route path="/marketplace/:id" component={MarketplaceDetailPage} />
 
       <Route path="/pricing" component={PricingPage} />
       <Route path="/billing" component={BillingPage} />

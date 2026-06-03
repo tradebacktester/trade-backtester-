@@ -11,6 +11,7 @@ import communityRouter from "./community";
 import subscriptionRouter from "./subscription";
 import toolsRouter from "./tools";
 import superpowersRouter from "./superpowers";
+import socialRouter from "./social";
 
 const router: IRouter = Router();
 
@@ -29,5 +30,6 @@ router.use(adminRouter);
 router.use(communityRouter);
 router.use(subscriptionRouter);
 router.use(toolsRouter);
+router.use(socialRouter);
 
 export default router;

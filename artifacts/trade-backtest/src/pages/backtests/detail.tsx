@@ -18,7 +18,7 @@ import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
   ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
   Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
-  Brain, Sparkles, Waves, MonitorDot, Plus, Trash,
+  Brain, Sparkles, Waves, MonitorDot, Plus, Trash, Users2, Medal,
 } from "lucide-react";
 import { computeOverfittingScore, overfitRating } from "@/lib/overfitting";
 import {
@@ -540,6 +540,211 @@ function ParameterOptHeatmap({
   );
 }
 
+// ─── Peer Ranking Tab ────────────────────────────────────────────────────────
+
+type PercentileData = {
+  backtestId: number;
+  symbol: string;
+  strategyType: string;
+  peerCount: number;
+  metrics: {
+    sharpe:   { yours: number | null; peerAvg: number; percentile: number | null };
+    drawdown: { yours: number | null; peerAvg: number; percentile: number | null };
+    winRate:  { yours: number | null; peerAvg: number; percentile: number | null };
+    return:   { yours: number | null; peerAvg: number; percentile: number | null };
+  };
+  overallPercentile: number | null;
+};
+
+function PercentileBar({ label, yours, peerAvg, percentile, format, higherIsBetter, color }: {
+  label: string;
+  yours: number | null;
+  peerAvg: number;
+  percentile: number | null;
+  format: (v: number) => string;
+  higherIsBetter: boolean;
+  color?: string;
+}) {
+  const pct = percentile ?? 0;
+  const barColor = percentile === null ? "#555"
+    : higherIsBetter
+      ? pct >= 75 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444"
+      : pct >= 75 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
+
+  const badge = percentile === null ? "—"
+    : pct >= 90 ? "Top 10%" : pct >= 75 ? "Top 25%" : pct >= 50 ? "Above Avg" : pct >= 25 ? "Below Avg" : "Bottom 25%";
+
+  return (
+    <div className="p-4 rounded-2xl space-y-3" style={{ background: "hsl(222,20%,11%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium" style={{ color: "hsl(220,14%,70%)" }}>{label}</span>
+        <span className="text-[11px] px-2 py-0.5 rounded-full font-mono"
+          style={{ background: `${barColor}20`, color: barColor, border: `1px solid ${barColor}40` }}>
+          {badge}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-mono uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,38%)" }}>Yours</p>
+          <p className="text-xl font-bold" style={{ color: barColor }}>{yours !== null ? format(yours) : "—"}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-mono uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,38%)" }}>Peer Avg</p>
+          <p className="text-sm font-medium" style={{ color: "hsl(220,14%,55%)" }}>{format(peerAvg)}</p>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex justify-between text-[10px] font-mono mb-1.5" style={{ color: "hsl(220,14%,35%)" }}>
+          <span>0th</span>
+          <span className="font-semibold" style={{ color: barColor }}>{percentile !== null ? `${percentile}th` : "—"}</span>
+          <span>100th</span>
+        </div>
+        <div className="relative h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+          <div
+            className="absolute left-0 top-0 h-full rounded-full transition-all duration-700"
+            style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${barColor}80, ${barColor})` }}
+          />
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 transition-all duration-700"
+            style={{ left: `calc(${pct}% - 5px)`, background: "#fff", borderColor: barColor }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PeerRankingTab({ backtestId }: { backtestId: number }) {
+  const [data, setData] = React.useState<PercentileData | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/backtests/${backtestId}/percentile`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setError(d.error); return; }
+        setData(d);
+      })
+      .catch(() => setError("Failed to load peer data."))
+      .finally(() => setLoading(false));
+  }, [backtestId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#6366f1" }} />
+      </div>
+    );
+  }
+  if (error || !data) {
+    return (
+      <div className="py-16 text-center" style={{ color: "hsl(220,14%,45%)" }}>
+        <Users2 className="h-10 w-10 mx-auto mb-3" style={{ color: "hsl(220,14%,25%)" }} />
+        <p>{error ?? "No peer data available."}</p>
+      </div>
+    );
+  }
+
+  const overallColor = data.overallPercentile === null ? "#888"
+    : data.overallPercentile >= 75 ? "#22c55e"
+    : data.overallPercentile >= 50 ? "#f59e0b" : "#ef4444";
+
+  return (
+    <div className="space-y-6">
+      {/* Hero percentile */}
+      <Card style={{ background: "hsl(222,20%,10%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div
+                className="h-28 w-28 rounded-full flex flex-col items-center justify-center"
+                style={{
+                  background: `conic-gradient(${overallColor} ${(data.overallPercentile ?? 0) * 3.6}deg, rgba(255,255,255,0.06) 0deg)`,
+                  boxShadow: `0 0 32px ${overallColor}40`,
+                }}
+              >
+                <div className="h-20 w-20 rounded-full flex flex-col items-center justify-center" style={{ background: "hsl(222,20%,10%)" }}>
+                  <Medal className="h-5 w-5 mb-0.5" style={{ color: overallColor }} />
+                  <span className="text-2xl font-bold" style={{ color: overallColor }}>
+                    {data.overallPercentile !== null ? `${data.overallPercentile}` : "—"}
+                  </span>
+                  <span className="text-[9px] font-mono uppercase" style={{ color: "hsl(220,14%,40%)" }}>th pct</span>
+                </div>
+              </div>
+              <p className="text-xs font-medium" style={{ color: "hsl(220,14%,55%)" }}>Overall Rank</p>
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <h3 className="text-base font-semibold" style={{ color: "hsl(220,14%,85%)" }}>
+                {data.overallPercentile !== null && data.overallPercentile >= 75
+                  ? "🏆 Outperforming the crowd"
+                  : data.overallPercentile !== null && data.overallPercentile >= 50
+                  ? "📈 Above average performance"
+                  : "📊 Room to improve"}
+              </h3>
+              <p className="text-sm" style={{ color: "hsl(220,14%,50%)" }}>
+                Compared against <strong style={{ color: "hsl(220,14%,70%)" }}>{data.peerCount}</strong> backtests
+                running <strong style={{ color: "hsl(220,14%,70%)" }}>{data.strategyType.replace(/_/g, " ").toUpperCase()}</strong> strategies
+                on <strong style={{ color: "hsl(220,14%,70%)" }}>{data.symbol}</strong>.
+                Metrics are anonymized aggregates — no individual data is exposed.
+              </p>
+              <div className="flex items-center gap-1.5 mt-2">
+                <Users2 className="h-3.5 w-3.5" style={{ color: "hsl(220,14%,40%)" }} />
+                <span className="text-[11px]" style={{ color: "hsl(220,14%,40%)" }}>{data.peerCount} peers in cohort</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Individual metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <PercentileBar
+          label="Sharpe Ratio"
+          yours={data.metrics.sharpe.yours}
+          peerAvg={data.metrics.sharpe.peerAvg}
+          percentile={data.metrics.sharpe.percentile}
+          format={v => v.toFixed(2)}
+          higherIsBetter={true}
+        />
+        <PercentileBar
+          label="Win Rate"
+          yours={data.metrics.winRate.yours}
+          peerAvg={data.metrics.winRate.peerAvg}
+          percentile={data.metrics.winRate.percentile}
+          format={v => `${v.toFixed(1)}%`}
+          higherIsBetter={true}
+        />
+        <PercentileBar
+          label="Max Drawdown (lower = better)"
+          yours={data.metrics.drawdown.yours}
+          peerAvg={data.metrics.drawdown.peerAvg}
+          percentile={data.metrics.drawdown.percentile}
+          format={v => `-${v.toFixed(2)}%`}
+          higherIsBetter={false}
+        />
+        <PercentileBar
+          label="Total Return"
+          yours={data.metrics.return.yours}
+          peerAvg={data.metrics.return.peerAvg}
+          percentile={data.metrics.return.percentile}
+          format={v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+          higherIsBetter={true}
+        />
+      </div>
+
+      <p className="text-[11px] text-center" style={{ color: "hsl(220,14%,30%)" }}>
+        Percentile ranks are updated live. The cohort grows as more users run similar strategies.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function BacktestDetail() {
@@ -897,6 +1102,7 @@ export default function BacktestDetail() {
             {[
               { value: "overview", label: "Overview", Icon: LayoutDashboard },
               { value: "analytics", label: "Analytics", Icon: BarChart3 },
+              { value: "peers",    label: "Peer Ranking", Icon: Users2 },
               { value: "journal",  label: "Trade Journal", Icon: BookOpen },
               { value: "calendar", label: "P&L Calendar", Icon: CalendarDays },
               { value: "autopsy",  label: "AI Autopsy",     Icon: Brain },
@@ -1346,6 +1552,11 @@ export default function BacktestDetail() {
                 )}
               </>
             )}
+          </Tabs.Content>
+
+          {/* ── TAB: Peer Ranking ────────────────────────────────────── */}
+          <Tabs.Content value="peers" className="tab-transition">
+            <PeerRankingTab backtestId={backtest.id} />
           </Tabs.Content>
 
           {/* ── TAB 3: Trade Journal ─────────────────────────────────── */}

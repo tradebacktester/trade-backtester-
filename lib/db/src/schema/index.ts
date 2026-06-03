@@ -9,3 +9,4 @@ export * from "./subscription_plans";
 export * from "./subscriptions";
 export * from "./payments";
 export * from "./live_trades";
+export * from "./marketplace";
