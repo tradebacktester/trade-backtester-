@@ -121,6 +121,10 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!adminToken) { setLocation("/admin"); return; } }, [adminToken]);
 
+  // BUG-010: Render nothing while unauthenticated — prevents the full admin UI
+  // from flashing before the useEffect redirect fires on the first paint.
+  if (!adminToken) return null;
+
   // useCallback deps now include `headers` (stable useMemo reference) so closures
   // always have the current token without triggering unnecessary recreations.
   const fetchUsers = useCallback(async () => {
