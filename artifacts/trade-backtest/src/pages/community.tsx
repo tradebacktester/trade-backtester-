@@ -288,8 +288,8 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 4 * 1024 * 1024) {
-      setError("Image must be under 4 MB.");
+    if (file.size > 700 * 1024) {
+      setError("Image must be under 700 KB (required to fit within the upload limit).");
       return;
     }
     const reader = new FileReader();

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, avg, count, sql, ne } from "drizzle-orm";
+import { eq, desc, and, avg, count, sql } from "drizzle-orm";
 import {
   db, backtestsTable, strategiesTable,
   marketplaceListingsTable, marketplaceVotesTable,
@@ -87,80 +87,57 @@ router.get("/backtests/:id/percentile", requireAuth, async (req, res): Promise<v
 
   if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
 
-  const peers = await db
-    .select({
-      sharpeRatio: backtestsTable.sharpeRatio,
-      maxDrawdown: backtestsTable.maxDrawdown,
-      winRate: backtestsTable.winRate,
-      totalReturn: backtestsTable.totalReturn,
-    })
-    .from(backtestsTable)
-    .innerJoin(strategiesTable, eq(backtestsTable.strategyId, strategiesTable.id))
-    .where(
-      and(
-        eq(backtestsTable.status, "complete"),
-        eq(backtestsTable.symbol, bt.symbol),
-        eq(strategiesTable.type, strategy.type),
-        ne(backtestsTable.id, id),
-      )
-    )
-    .limit(2000);
+  // Use SQL window functions to compute percentile ranks in a single database pass —
+  // replaces loading up to 2,000 rows into Node.js memory and sorting in-process.
+  const result = await db.execute(sql`
+    SELECT
+      b.id,
+      ROUND(PERCENT_RANK() OVER (ORDER BY b.sharpe_ratio  NULLS FIRST)    * 100)::int AS sharpe_pct,
+      ROUND(PERCENT_RANK() OVER (ORDER BY b.max_drawdown  DESC NULLS LAST) * 100)::int AS drawdown_pct,
+      ROUND(PERCENT_RANK() OVER (ORDER BY b.win_rate      NULLS FIRST)    * 100)::int AS win_rate_pct,
+      ROUND(PERCENT_RANK() OVER (ORDER BY b.total_return  NULLS FIRST)    * 100)::int AS return_pct,
+      COUNT(*)                      OVER ()        AS peer_count,
+      AVG(b.sharpe_ratio::float)    OVER ()        AS avg_sharpe,
+      AVG(b.max_drawdown::float)    OVER ()        AS avg_drawdown,
+      AVG(b.win_rate::float)        OVER ()        AS avg_win_rate,
+      AVG(b.total_return::float)    OVER ()        AS avg_return
+    FROM backtests b
+    INNER JOIN strategies s ON s.id = b.strategy_id
+    WHERE b.status  = 'complete'
+      AND b.symbol  = ${bt.symbol}
+      AND s.type    = ${strategy.type}
+  `);
 
-  const peerCount = peers.length;
+  type PeerRow = {
+    id: unknown; sharpe_pct: unknown; drawdown_pct: unknown;
+    win_rate_pct: unknown; return_pct: unknown; peer_count: unknown;
+    avg_sharpe: unknown; avg_drawdown: unknown; avg_win_rate: unknown; avg_return: unknown;
+  };
+  const rows = result.rows as PeerRow[];
+  const mine = rows.find(r => Number(r.id) === id);
+  const any = rows[0];
 
-  function percentileRank(myValue: number | null | string, values: (number | null | string)[], higherIsBetter: boolean): number | null {
-    if (myValue === null || myValue === undefined) return null;
-    const myNum = Number(myValue);
-    if (isNaN(myNum)) return null;
-    const nums = values.map(v => Number(v)).filter(v => !isNaN(v));
-    if (nums.length === 0) return null;
-    const below = nums.filter(v => higherIsBetter ? v < myNum : v > myNum).length;
-    return Math.round((below / nums.length) * 100);
-  }
-
-  const sharpeValues = peers.map(p => p.sharpeRatio);
-  const drawdownValues = peers.map(p => p.maxDrawdown);
-  const winRateValues = peers.map(p => p.winRate);
-  const returnValues = peers.map(p => p.totalReturn);
-
-  const sharpePercentile = percentileRank(bt.sharpeRatio, sharpeValues, true);
-  const drawdownPercentile = percentileRank(bt.maxDrawdown, drawdownValues, false);
-  const winRatePercentile = percentileRank(bt.winRate, winRateValues, true);
-  const returnPercentile = percentileRank(bt.totalReturn, returnValues, true);
+  const sharpePercentile  = mine ? Number(mine.sharpe_pct)   : null;
+  const drawdownPercentile = mine ? Number(mine.drawdown_pct) : null;
+  const winRatePercentile = mine ? Number(mine.win_rate_pct)  : null;
+  const returnPercentile  = mine ? Number(mine.return_pct)    : null;
+  const peerCount = any ? Number(any.peer_count) : 0;
 
   const validPercentiles = [sharpePercentile, drawdownPercentile, winRatePercentile, returnPercentile].filter(p => p !== null) as number[];
   const overallPercentile = validPercentiles.length > 0
     ? Math.round(validPercentiles.reduce((a, b) => a + b, 0) / validPercentiles.length)
     : null;
 
-  const [peerAgg] = await db
-    .select({
-      avgSharpe: avg(backtestsTable.sharpeRatio),
-      avgDrawdown: avg(backtestsTable.maxDrawdown),
-      avgWinRate: avg(backtestsTable.winRate),
-      avgReturn: avg(backtestsTable.totalReturn),
-      total: count(backtestsTable.id),
-    })
-    .from(backtestsTable)
-    .innerJoin(strategiesTable, eq(backtestsTable.strategyId, strategiesTable.id))
-    .where(
-      and(
-        eq(backtestsTable.status, "complete"),
-        eq(backtestsTable.symbol, bt.symbol),
-        eq(strategiesTable.type, strategy.type),
-      )
-    );
-
   res.json({
     backtestId: id,
     symbol: bt.symbol,
     strategyType: strategy.type,
-    peerCount: peerCount + 1,
+    peerCount,
     metrics: {
-      sharpe:   { yours: bt.sharpeRatio !== null ? Number(bt.sharpeRatio) : null,   peerAvg: Number(peerAgg?.avgSharpe ?? 0),    percentile: sharpePercentile },
-      drawdown: { yours: bt.maxDrawdown !== null ? Number(bt.maxDrawdown) : null,    peerAvg: Number(peerAgg?.avgDrawdown ?? 0),  percentile: drawdownPercentile },
-      winRate:  { yours: bt.winRate !== null ? Number(bt.winRate) : null,            peerAvg: Number(peerAgg?.avgWinRate ?? 0),   percentile: winRatePercentile },
-      return:   { yours: bt.totalReturn !== null ? Number(bt.totalReturn) : null,    peerAvg: Number(peerAgg?.avgReturn ?? 0),    percentile: returnPercentile },
+      sharpe:   { yours: bt.sharpeRatio !== null ? Number(bt.sharpeRatio) : null,  peerAvg: any ? Number(any.avg_sharpe ?? 0) : 0,    percentile: sharpePercentile },
+      drawdown: { yours: bt.maxDrawdown !== null ? Number(bt.maxDrawdown) : null,   peerAvg: any ? Number(any.avg_drawdown ?? 0) : 0,  percentile: drawdownPercentile },
+      winRate:  { yours: bt.winRate !== null ? Number(bt.winRate) : null,           peerAvg: any ? Number(any.avg_win_rate ?? 0) : 0,  percentile: winRatePercentile },
+      return:   { yours: bt.totalReturn !== null ? Number(bt.totalReturn) : null,   peerAvg: any ? Number(any.avg_return ?? 0) : 0,    percentile: returnPercentile },
     },
     overallPercentile,
   });

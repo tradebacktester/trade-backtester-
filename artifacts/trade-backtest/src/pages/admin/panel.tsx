@@ -121,9 +121,13 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!adminToken) { setLocation("/admin"); return; } }, [adminToken]);
 
-  // BUG-010: Render nothing while unauthenticated — prevents the full admin UI
+  // BUG-010: Show a spinner while unauthenticated — prevents the full admin UI
   // from flashing before the useEffect redirect fires on the first paint.
-  if (!adminToken) return null;
+  if (!adminToken) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div style={{ height: 32, width: 32, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", opacity: 0.35 }} />
+    </div>
+  );
 
   // useCallback deps now include `headers` (stable useMemo reference) so closures
   // always have the current token without triggering unnecessary recreations.

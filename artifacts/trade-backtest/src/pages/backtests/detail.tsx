@@ -76,7 +76,7 @@ function WinRateGauge({ pct }: { pct: number }) {
   const color = pct >= 60 ? "#22c55e" : pct >= 45 ? "#f59e0b" : "#ef4444";
 
   return (
-    <svg width={140} height={100} viewBox="0 0 140 100">
+    <svg width="100%" viewBox="0 0 140 100" style={{ maxWidth: 140 }}>
       <path d={bgPath} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={8} strokeLinecap="round" />
       {filled > 0 && (
         <path d={fgPath} fill="none" stroke={color} strokeWidth={8} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 6px ${color}80)` }} />
@@ -1095,10 +1095,21 @@ export default function BacktestDetail() {
     const grossProfit = winners.reduce((a, t) => a + t.pnl, 0);
     const grossLoss = Math.abs(losers.reduce((a, t) => a + t.pnl, 0));
 
+    // Expectancy and SQN (MED-010)
+    const pnls = trades.map(t => t.pnl);
+    const meanPnl = pnls.reduce((a, b) => a + b, 0) / pnls.length;
+    const expectancy = meanPnl; // avg $ profit per trade
+    let sqn = 0;
+    if (pnls.length >= 2) {
+      const stdPnl = Math.sqrt(pnls.reduce((a, v) => a + (v - meanPnl) ** 2, 0) / (pnls.length - 1));
+      sqn = stdPnl > 0 ? (Math.sqrt(pnls.length) * meanPnl) / stdPnl : 0;
+    }
+
     return {
       winRate, avgWin, avgLoss, avgRR, maxWins, maxLosses,
       avgDuration, bestTrade, worstTrade, monthlyReturns, distribution,
       grossProfit, grossLoss, totalWinners: winners.length, totalLosers: losers.length,
+      expectancy, sqn,
     };
   }, [trades, backtest]);
 
@@ -1365,6 +1376,24 @@ export default function BacktestDetail() {
                 accent={backtest.profitFactor != null && backtest.profitFactor > 1 ? "#22c55e" : "#ef4444"}
                 tooltip="Total gross profit divided by total gross loss. Above 1.0 means you made more than you lost overall. Above 1.5 is considered strong."
               />
+              {analytics && (
+                <StatBox
+                  label="Expectancy"
+                  value={`$${analytics.expectancy >= 0 ? "+" : ""}${fmtNum(analytics.expectancy)}`}
+                  sub="avg $ per trade"
+                  accent={analytics.expectancy >= 0 ? "#22c55e" : "#ef4444"}
+                  tooltip="Average dollar profit per trade. Positive means the strategy makes money on average per trade."
+                />
+              )}
+              {analytics && analytics.sqn !== 0 && (
+                <StatBox
+                  label="SQN"
+                  value={analytics.sqn.toFixed(2)}
+                  sub="system quality"
+                  accent={analytics.sqn >= 2 ? "#22c55e" : analytics.sqn >= 1 ? "#f59e0b" : "#ef4444"}
+                  tooltip="System Quality Number (Van Tharp). Below 1: poor. 1–2: acceptable. 2–3: good. 3+: excellent."
+                />
+              )}
               {((backtest as any).consecutiveWins ?? 0) > 0 && (
                 <StatBox label="Max Consec. Wins" value={(backtest as any).consecutiveWins} sub="in a row" accent="#22c55e" />
               )}
@@ -1881,8 +1910,13 @@ export default function BacktestDetail() {
                 </Table>
               </div>
             ) : (
-              <div className="text-center py-12 text-muted-foreground border border-dashed rounded-xl">
-                {tradeSearch || tradeFilter !== "all" ? "No trades match the current filter." : "No trades executed during this period."}
+              <div className="text-center py-12 text-muted-foreground border border-dashed rounded-xl space-y-2">
+                <p className="font-medium text-foreground">
+                  {tradeSearch || tradeFilter !== "all" ? "No trades match the current filter." : "No trades were generated"}
+                </p>
+                {!tradeSearch && tradeFilter === "all" && (
+                  <p className="text-sm">Your strategy conditions were never met in this date range. Try a wider date range, different parameters, or a different indicator type.</p>
+                )}
               </div>
             )}
           </Tabs.Content>

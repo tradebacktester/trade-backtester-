@@ -156,7 +156,7 @@ function StrategyCard({
       <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex gap-2 mt-auto">
         {sample ? (
           <>
-            <Link href="/ai" className="flex-1">
+            <Link href="/ai-assistant" className="flex-1">
               <span className="block w-full py-2 px-3 rounded-xl text-xs font-medium text-center transition-all"
                 style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)" }}>
                 Learn More

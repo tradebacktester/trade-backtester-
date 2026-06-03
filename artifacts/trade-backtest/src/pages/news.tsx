@@ -339,6 +339,17 @@ export default function NewsPage() {
         {/* Filter chips */}
         {showFilters && (
           <div className="glass-panel rounded-xl p-4 space-y-3">
+            {(impact !== "all" || currency !== "all") && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => { setImpact("all"); setCurrency("all"); }}
+                  className="text-xs font-medium px-3 py-1 rounded-full border transition-all duration-150 cursor-pointer"
+                  style={{ background: "transparent", borderColor: "rgba(255,255,255,0.12)", color: "hsl(var(--muted-foreground))" }}
+                >
+                  Reset Filters
+                </button>
+              </div>
+            )}
             <div className="space-y-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Impact</p>
               <div className="flex flex-wrap gap-1.5">

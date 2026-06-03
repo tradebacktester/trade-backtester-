@@ -15,7 +15,7 @@ export const subscriptionsTable = pgTable("subscriptions", {
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
   index("subscriptions_user_id_idx").on(t.userId),
   index("subscriptions_plan_id_idx").on(t.planId),

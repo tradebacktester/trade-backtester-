@@ -12,7 +12,7 @@ export const subscriptionPlansTable = pgTable("subscription_plans", {
   isDefault: boolean("is_default").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
 export type SubscriptionPlan = typeof subscriptionPlansTable.$inferSelect;

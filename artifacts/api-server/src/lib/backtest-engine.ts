@@ -39,6 +39,11 @@ export interface YearlyReturn {
   months: { month: string; pct: number; label: string }[];
 }
 
+export interface PositionSizing {
+  mode: "fixed_fraction" | "fixed_amount" | "risk_pct";
+  value?: number;
+}
+
 export interface BacktestResult {
   trades: TradeResult[];
   equityCurve: EquityPoint[];
@@ -65,6 +70,8 @@ export interface BacktestResult {
   benchmarkReturn: number;
   commissionPct: number;
   slippagePct: number;
+  expectancy: number;
+  sqn: number;
 }
 
 function sma(prices: number[], period: number): (number | null)[] {
@@ -117,7 +124,11 @@ function rsi(prices: number[], period: number): (number | null)[] {
   return result;
 }
 
-export function generatePriceData(symbol: string, startDate: string, endDate: string): OHLCVBar[] {
+const BARS_PER_DAY: Record<string, number> = {
+  "1m": 1440, "5m": 288, "15m": 96, "30m": 48, "1h": 24, "2h": 12, "4h": 6, "1d": 1,
+};
+
+export function generatePriceData(symbol: string, startDate: string, endDate: string, timeframe = "1d"): OHLCVBar[] {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const bars: OHLCVBar[] = [];
@@ -222,21 +233,46 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   }
 
+  const barsPerDay = BARS_PER_DAY[timeframe] ?? 1;
+  const perBarVol = barsPerDay > 1 ? vol / Math.sqrt(barsPerDay) : vol;
+  const perBarDrift = barsPerDay > 1 ? drift / barsPerDay : drift;
+
   let price = basePrice;
   const cur = new Date(start);
   while (cur <= end) {
     const day = cur.getDay();
     if (day !== 0 && day !== 6) {
-      const change = price * vol * randn() + price * drift;
-      const open = price;
-      price = Math.max(open + change, open * 0.01);
-      const high = Math.max(open, price) * (1 + rand() * vol * 0.5);
-      const low = Math.min(open, price) * (1 - rand() * vol * 0.5);
-      bars.push({
-        date: cur.toISOString().split("T")[0],
-        open, high, low, close: price,
-        volume: Math.floor(rand() * 5000000 + 1000000),
-      });
+      const dateStr = cur.toISOString().split("T")[0];
+      if (barsPerDay === 1) {
+        const change = price * perBarVol * randn() + price * perBarDrift;
+        const open = price;
+        price = Math.max(open + change, open * 0.01);
+        const high = Math.max(open, price) * (1 + rand() * perBarVol * 0.5);
+        const low = Math.min(open, price) * (1 - rand() * perBarVol * 0.5);
+        bars.push({
+          date: dateStr,
+          open, high, low, close: price,
+          volume: Math.floor(rand() * 5000000 + 1000000),
+        });
+      } else {
+        const minutesPerBar = Math.round(24 * 60 / barsPerDay);
+        for (let b = 0; b < barsPerDay; b++) {
+          const totalMinutes = b * minutesPerBar;
+          const hour = Math.floor(totalMinutes / 60);
+          const minute = totalMinutes % 60;
+          const timestamp = `${dateStr} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+          const change = price * perBarVol * randn() + price * perBarDrift;
+          const open = price;
+          price = Math.max(open + change, open * 0.01);
+          const high = Math.max(open, price) * (1 + rand() * perBarVol * 0.3);
+          const low = Math.min(open, price) * (1 - rand() * perBarVol * 0.3);
+          bars.push({
+            date: timestamp,
+            open, high, low, close: price,
+            volume: Math.floor(rand() * 500000 + 100000),
+          });
+        }
+      }
     }
     cur.setDate(cur.getDate() + 1);
   }
@@ -355,16 +391,18 @@ export function runBacktest(
   initialCapital: number,
   commissionPct = 0,
   slippagePct = 0,
-  priceData?: OHLCVBar[]
+  priceData?: OHLCVBar[],
+  timeframe = "1d",
+  positionSizing?: PositionSizing
 ): BacktestResult {
-  const bars = (priceData && priceData.length >= 50) ? priceData : generatePriceData(symbol, startDate, endDate);
+  const bars = (priceData && priceData.length >= 50) ? priceData : generatePriceData(symbol, startDate, endDate, timeframe);
   const empty: BacktestResult = {
     trades: [], equityCurve: [{ date: startDate, value: initialCapital, drawdown: 0, benchmark: initialCapital }],
     finalCapital: initialCapital, totalReturn: 0, annualizedReturn: 0, maxDrawdown: 0,
     sharpeRatio: 0, sortinoRatio: 0, calmarRatio: 0, winRate: 0, totalTrades: 0,
     profitFactor: 0, avgWin: 0, avgLoss: 0, avgRR: 0, consecutiveWins: 0, consecutiveLosses: 0,
     avgTradeDuration: 0, bestTrade: 0, worstTrade: 0, monthlyReturns: [], yearlyReturns: [],
-    benchmarkReturn: 0, commissionPct, slippagePct,
+    benchmarkReturn: 0, commissionPct, slippagePct, expectancy: 0, sqn: 0,
   };
   if (bars.length < 50) return empty;
 
@@ -399,7 +437,15 @@ export function runBacktest(
       ? exitBar.open * (1 + slippagePct / 100)   // short exit: cover at higher price (open of next bar)
       : exitBar.open * (1 - slippagePct / 100);   // long exit: sell at lower price (open of next bar)
 
-    const quantity = (capital * 0.95) / Math.abs(entryPrice);
+    let quantity: number;
+    if (positionSizing?.mode === "fixed_amount") {
+      const amt = Math.min(positionSizing.value ?? capital * 0.95, capital * 0.99);
+      quantity = amt / Math.abs(entryPrice);
+    } else if (positionSizing?.mode === "risk_pct") {
+      quantity = (capital * ((positionSizing.value ?? 1) / 100)) / Math.abs(entryPrice);
+    } else {
+      quantity = (capital * 0.95) / Math.abs(entryPrice);
+    }
 
     // Apply commission on both legs
     const commissionCost = quantity * (Math.abs(entryPrice) + Math.abs(exitPrice)) * (commissionPct / 100);
@@ -584,12 +630,26 @@ export function runBacktest(
   // Calmar ratio: annualized return / max drawdown
   const calmarRatio = maxDrawdown > 0 ? annualizedReturn / maxDrawdown : annualizedReturn > 0 ? 999 : 0;
 
+  // Expectancy: average dollar profit per trade (Van Tharp definition)
+  const expectancy = trades.length > 0
+    ? trades.reduce((s, t) => s + t.pnl, 0) / trades.length
+    : 0;
+
+  // SQN (System Quality Number): sqrt(N) × mean(R) / std(R)
+  let sqn = 0;
+  if (trades.length >= 2) {
+    const pnls = trades.map(t => t.pnl);
+    const meanPnl = pnls.reduce((a, b) => a + b, 0) / pnls.length;
+    const stdPnl = Math.sqrt(pnls.reduce((a, v) => a + (v - meanPnl) ** 2, 0) / (pnls.length - 1));
+    sqn = stdPnl > 0 ? (Math.sqrt(pnls.length) * meanPnl) / stdPnl : 0;
+  }
+
   return {
     trades, equityCurve, finalCapital, totalReturn, annualizedReturn, maxDrawdown,
     sharpeRatio, sortinoRatio, calmarRatio, winRate, totalTrades: trades.length,
     profitFactor, avgWin, avgLoss, avgRR, consecutiveWins: maxConsWins, consecutiveLosses: maxConsLosses,
     avgTradeDuration, bestTrade, worstTrade, monthlyReturns, yearlyReturns,
-    benchmarkReturn, commissionPct, slippagePct,
+    benchmarkReturn, commissionPct, slippagePct, expectancy, sqn,
   };
 }
 

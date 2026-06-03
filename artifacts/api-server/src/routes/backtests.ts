@@ -293,6 +293,7 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       commissionPct,
       slippagePct,
       realBars ?? undefined,
+      strategy.timeframe ?? "1d",
     );
 
     if (result.trades.length > 0) {
@@ -503,17 +504,30 @@ function computeYearlyReturnsFromTrades(
   initialCapital: number
 ) {
   const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  // Sort by exit date to compute running equity correctly
+  const sorted = [...trades].sort((a, b) => a.exitDate.localeCompare(b.exitDate));
   const monthlyMap = new Map<string, number>();
-  for (const t of trades) {
+  for (const t of sorted) {
     const m = t.exitDate.slice(0, 7);
     monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
+  }
+
+  // Track running start-of-month equity so each month's % uses the correct base
+  const sortedMonths = Array.from(monthlyMap.keys()).sort();
+  const monthStartCapital = new Map<string, number>();
+  let running = initialCapital;
+  for (const month of sortedMonths) {
+    monthStartCapital.set(month, running);
+    running += monthlyMap.get(month) ?? 0;
   }
 
   const yearlyMap = new Map<string, Map<string, number>>();
   for (const [month, pnl] of monthlyMap.entries()) {
     const yr = month.slice(0, 4);
     if (!yearlyMap.has(yr)) yearlyMap.set(yr, new Map());
-    yearlyMap.get(yr)!.set(month, (pnl / initialCapital) * 100);
+    const base = monthStartCapital.get(month) ?? initialCapital;
+    yearlyMap.get(yr)!.set(month, base > 0 ? (pnl / base) * 100 : 0);
   }
 
   return Array.from(yearlyMap.entries())

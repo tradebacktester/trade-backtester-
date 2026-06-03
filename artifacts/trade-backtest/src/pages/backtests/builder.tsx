@@ -217,6 +217,38 @@ export default function BacktestBuilder() {
   const [initialCapital, setInitialCapital] = useState(100000);
   const [isRunning, setIsRunning] = useState(false);
 
+  // MED-009: Restore form state from sessionStorage on mount
+  React.useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("builder_state");
+      if (!saved) return;
+      const s = JSON.parse(saved) as {
+        selectedType?: string; params?: Record<string, number>;
+        name?: string; symbol?: string; timeframe?: string;
+        startDate?: string; endDate?: string; initialCapital?: number;
+      };
+      if (s.selectedType && STRATEGY_DEFS.some(d => d.type === s.selectedType)) {
+        setSelectedType(s.selectedType as StrategyType);
+      }
+      if (s.params) setParams(s.params);
+      if (s.name) setName(s.name);
+      if (s.symbol) setSymbol(s.symbol);
+      if (s.timeframe) setTimeframe(s.timeframe);
+      if (s.startDate) setStartDate(s.startDate);
+      if (s.endDate) setEndDate(s.endDate);
+      if (typeof s.initialCapital === "number") setInitialCapital(s.initialCapital);
+    } catch { }
+  }, []);
+
+  // MED-009: Persist form state to sessionStorage on every change
+  React.useEffect(() => {
+    try {
+      sessionStorage.setItem("builder_state", JSON.stringify({
+        selectedType, params, name, symbol, timeframe, startDate, endDate, initialCapital,
+      }));
+    } catch { }
+  }, [selectedType, params, name, symbol, timeframe, startDate, endDate, initialCapital]);
+
   // Drag state for condition reordering
   const [draggedCondition, setDraggedCondition] = useState<string | null>(null);
   const [dragOverZone, setDragOverZone] = useState<ConditionZone | null>(null);
@@ -259,6 +291,7 @@ export default function BacktestBuilder() {
       queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
 
       toast({ title: "Backtest started!", description: `Running ${name}...` });
+      try { sessionStorage.removeItem("builder_state"); } catch { }
       setLocation(`/backtests/${backtest.id}`);
     } catch (err: any) {
       toast({ title: "Error", description: err?.error ?? "Something went wrong", variant: "destructive" });
