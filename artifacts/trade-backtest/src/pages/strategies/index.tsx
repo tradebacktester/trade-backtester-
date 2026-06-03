@@ -156,13 +156,12 @@ function StrategyCard({
       <div className="px-4 sm:px-5 pb-4 sm:pb-5 flex gap-2 mt-auto">
         {sample ? (
           <>
-            <button
-              className="flex-1 py-2 px-3 rounded-xl text-xs font-medium transition-all"
-              style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)" }}
-              onClick={() => {}}
-            >
-              Learn More
-            </button>
+            <Link href="/ai" className="flex-1">
+              <span className="block w-full py-2 px-3 rounded-xl text-xs font-medium text-center transition-all"
+                style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)" }}>
+                Learn More
+              </span>
+            </Link>
             <Link href="/backtests/new" className="flex-1">
               <span className="block w-full py-2 px-3 rounded-xl text-xs font-medium text-center transition-all"
                 style={{ background: "hsl(var(--primary))", color: "#fff" }}>
@@ -172,18 +171,18 @@ function StrategyCard({
           </>
         ) : (
           <>
-            <Link href={local ? "#" : `/strategies/${id}`} className="flex-1">
+            <Link href={local ? "/backtests/new" : `/strategies/${id}`} className="flex-1">
               <span className="block w-full py-2 px-3 rounded-xl text-xs font-medium text-center transition-all"
                 style={{ background: "hsl(var(--primary))", color: "#fff" }}>
-                View Details
+                {local ? "Run Backtest" : "View Details"}
               </span>
             </Link>
-            <button
-              className="h-9 w-9 flex items-center justify-center rounded-xl transition-all"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,55%)" }}
-            >
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            <Link href={local ? "/backtests/new" : `/strategies/${id}`}>
+              <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,55%)" }}>
+                <ArrowRight className="h-4 w-4" />
+              </span>
+            </Link>
           </>
         )}
       </div>

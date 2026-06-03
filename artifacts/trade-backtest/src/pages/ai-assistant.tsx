@@ -347,9 +347,13 @@ function ChatPanel() {
     setMessages(newMessages);
     setLoading(true);
     try {
+      const token = localStorage.getItem("tt_token");
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ messages: newMessages }),
       });
       const data = await res.json();

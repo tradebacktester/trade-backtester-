@@ -135,11 +135,20 @@ export default function NewBacktest() {
     },
   });
 
+  function normalizeToSymbolValue(sym: string): string {
+    const direct = SYMBOLS.find(s => s.value === sym);
+    if (direct) return direct.value;
+    const stripped = sym.replace("/", "");
+    const stripMatch = SYMBOLS.find(s => s.value === stripped);
+    if (stripMatch) return stripMatch.value;
+    return "BTCUSDT";
+  }
+
   React.useEffect(() => {
     const sub = form.watch((value, { name }) => {
       if (name === "strategyId" && strategies) {
         const strategy = strategies.find(s => s.id === value.strategyId);
-        if (strategy) form.setValue("symbol", strategy.symbol);
+        if (strategy) form.setValue("symbol", normalizeToSymbolValue(strategy.symbol));
       }
     });
     return () => sub.unsubscribe();

@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useGetBacktestSummary, useListBacktests } from "@workspace/api-client-react";
 import { Link } from "wouter";
+import { useBinancePrices } from "@/lib/use-binance-ws";
 import {
   TrendingUp, TrendingDown, DollarSign, Percent, Target, Shield,
   Clock, BarChart2, Zap, Activity, ArrowUpRight, Play,
@@ -104,18 +105,29 @@ function StatCard({
 }
 
 /* ── Watchlist ────────────────────────────────────────────────────── */
-interface WatchItem { symbol: string; price: string; change: number; sub: string }
+interface WatchItem { symbol: string; price: string; change: number; sub: string; binanceKey?: string }
 const WATCHLIST: WatchItem[] = [
-  { symbol: "BTC/USD", price: "67,420", change: 2.14,  sub: "Bitcoin" },
-  { symbol: "ETH/USD", price: "3,512",  change: 1.87,  sub: "Ethereum" },
+  { symbol: "BTC/USD", price: "—",      change: 0,     sub: "Bitcoin",   binanceKey: "BTCUSDT" },
+  { symbol: "ETH/USD", price: "—",      change: 0,     sub: "Ethereum",  binanceKey: "ETHUSDT" },
   { symbol: "EUR/USD", price: "1.0842", change: -0.31, sub: "Forex" },
   { symbol: "GBP/USD", price: "1.2671", change: -0.18, sub: "Forex" },
-  { symbol: "SPX500",  price: "5,284",  change: 0.42,  sub: "Equities" },
-  { symbol: "GOLD",    price: "2,318",  change: 0.74,  sub: "Commodity" },
+  { symbol: "SPX500",  price: "5,284",  change:  0.42, sub: "Equities" },
+  { symbol: "GOLD",    price: "2,318",  change:  0.74, sub: "Commodity" },
 ];
 
-function WatchRow({ item, last }: { item: WatchItem; last: boolean }) {
-  const up = item.change >= 0;
+function fmtLivePrice(p: number): string {
+  if (p >= 1000) return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (p >= 1)    return p.toFixed(4);
+  return p.toFixed(6);
+}
+
+function WatchRow({ item, last, livePrice }: {
+  item: WatchItem; last: boolean;
+  livePrice?: { price: number; changePct24h: number };
+}) {
+  const displayPrice  = livePrice ? fmtLivePrice(livePrice.price)   : item.price;
+  const displayChange = livePrice ? livePrice.changePct24h           : item.change;
+  const up = displayChange >= 0;
   return (
     <div
       className="flex items-center justify-between py-2.5"
@@ -126,9 +138,9 @@ function WatchRow({ item, last }: { item: WatchItem; last: boolean }) {
         <p className="text-[10px] font-mono" style={{ color: C.muted }}>{item.sub}</p>
       </div>
       <div className="text-right">
-        <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{item.price}</p>
+        <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{displayPrice}</p>
         <p className="text-[11px] font-mono font-semibold" style={{ color: up ? C.positive : C.negative }}>
-          {up ? "+" : ""}{item.change.toFixed(2)}%
+          {up ? "+" : ""}{displayChange.toFixed(2)}%
         </p>
       </div>
     </div>
@@ -136,25 +148,42 @@ function WatchRow({ item, last }: { item: WatchItem; last: boolean }) {
 }
 
 /* ── Trading sessions ─────────────────────────────────────────────── */
-interface Session { name: string; hours: string; status: "open" | "closed" | "overlap"; tz: string }
+interface Session { name: string; hours: string; tz: string; utcStart: number; utcEnd: number }
 const SESSIONS: Session[] = [
-  { name: "Sydney",   hours: "22:00–07:00", status: "closed",  tz: "AEST" },
-  { name: "Tokyo",    hours: "00:00–09:00", status: "closed",  tz: "JST" },
-  { name: "London",   hours: "08:00–17:00", status: "open",    tz: "BST" },
-  { name: "New York", hours: "13:00–22:00", status: "overlap", tz: "EST" },
+  { name: "Sydney",   hours: "22:00–07:00", tz: "AEST", utcStart: 22, utcEnd: 7  },
+  { name: "Tokyo",    hours: "23:00–09:00", tz: "JST",  utcStart: 23, utcEnd: 9  },
+  { name: "London",   hours: "08:00–17:00", tz: "GMT",  utcStart: 8,  utcEnd: 17 },
+  { name: "New York", hours: "13:00–22:00", tz: "EST",  utcStart: 13, utcEnd: 22 },
 ];
-const SCOL: Record<string, string> = { open: "#16a34a", closed: "#ccc", overlap: "#d97706" };
-const SLBL: Record<string, string> = { open: "Open", closed: "Closed", overlap: "Active" };
+const SCOL: Record<string, string> = { open: "#16a34a", closed: "#888", overlap: "#d97706" };
+const SLBL: Record<string, string> = { open: "Open", closed: "Closed", overlap: "Overlap" };
 
-function SessionRow({ s, last }: { s: Session; last: boolean }) {
-  const color = SCOL[s.status];
+function computeSessionStatuses(): ("open" | "closed" | "overlap")[] {
+  const now = new Date();
+  const h = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const opens = SESSIONS.map(s =>
+    s.utcStart > s.utcEnd
+      ? h >= s.utcStart || h < s.utcEnd
+      : h >= s.utcStart && h < s.utcEnd
+  );
+  return opens.map((open, i): "open" | "closed" | "overlap" => {
+    if (!open) return "closed";
+    return opens.some((o, j) => j !== i && o) ? "overlap" : "open";
+  });
+}
+
+function SessionRow({ s, status, last }: { s: Session; status: "open" | "closed" | "overlap"; last: boolean }) {
+  const color = SCOL[status];
   return (
     <div
       className="flex items-center justify-between py-2.5"
       style={last ? {} : { borderBottom: "1px solid rgba(0,0,0,0.07)" }}
     >
       <div className="flex items-center gap-2.5">
-        <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+        <span
+          className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+          style={{ background: color, boxShadow: status !== "closed" ? `0 0 4px ${color}` : "none" }}
+        />
         <div>
           <p className="text-xs font-mono font-semibold" style={{ color: C.text }}>{s.name}</p>
           <p className="text-[10px] font-mono" style={{ color: C.muted }}>{s.hours} {s.tz}</p>
@@ -164,7 +193,7 @@ function SessionRow({ s, last }: { s: Session; last: boolean }) {
         className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full"
         style={{ color, background: `${color}12`, border: `1px solid ${color}30` }}
       >
-        {SLBL[s.status]}
+        {SLBL[status]}
       </span>
     </div>
   );
@@ -172,12 +201,32 @@ function SessionRow({ s, last }: { s: Session; last: boolean }) {
 
 /* ── Demo summary ─────────────────────────────────────────────────── */
 function DemoSummary() {
+  const [balance, setBalance] = useState(10000);
+  const [trades, setTrades] = useState<{ pnl?: number }[]>([]);
+
+  useEffect(() => {
+    try {
+      const acc = JSON.parse(localStorage.getItem("pt_account") || "null") as { capital?: number } | null;
+      if (acc?.capital) setBalance(acc.capital);
+    } catch {}
+    try {
+      const tr = JSON.parse(localStorage.getItem("pt_trades") || "[]") as { pnl?: number }[];
+      if (Array.isArray(tr)) setTrades(tr);
+    } catch {}
+  }, []);
+
+  const totalPnL = trades.reduce((s, t) => s + (t.pnl ?? 0), 0);
+  const winCount = trades.filter(t => (t.pnl ?? 0) > 0).length;
+  const winRate  = trades.length ? (winCount / trades.length) * 100 : 0;
+  const fmt$  = (v: number) => `$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   const items = [
-    { label: "Balance",     value: "$10,000.00", color: C.text },
-    { label: "Equity",      value: "$10,284.50", color: C.positive },
-    { label: "Open P&L",    value: "+$284.50",   color: C.positive },
-    { label: "Margin Used", value: "$1,200.00",  color: C.amber },
+    { label: "Balance",   value: fmt$(balance),                                                          color: C.text },
+    { label: "Total P&L", value: `${totalPnL >= 0 ? "+" : "-"}${fmt$(totalPnL)}`,                       color: totalPnL >= 0 ? C.positive : C.negative },
+    { label: "Win Rate",  value: trades.length ? `${winRate.toFixed(0)}%` : "—",                        color: C.text },
+    { label: "# Trades",  value: `${trades.length}`,                                                    color: C.text },
   ];
+
   return (
     <div className="grid grid-cols-2 gap-2">
       {items.map(it => (
@@ -434,6 +483,13 @@ export default function Dashboard() {
   const { data: backtests, isLoading: loadingBacktests } = useListBacktests();
   const isLoading = loadingSummary || loadingBacktests;
 
+  const livePrices = useBinancePrices(["BTCUSDT", "ETHUSDT"]);
+  const [sessionStatuses, setSessionStatuses] = useState<("open" | "closed" | "overlap")[]>(computeSessionStatuses);
+  useEffect(() => {
+    const id = setInterval(() => setSessionStatuses(computeSessionStatuses()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -448,9 +504,13 @@ export default function Dashboard() {
     setMessages(newMessages);
     setIsChatLoading(true);
     try {
+      const token = localStorage.getItem("tt_token");
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ messages: newMessages }),
       });
       const data = await res.json() as { message?: string; error?: string };
@@ -591,20 +651,26 @@ export default function Dashboard() {
       <Panel>
         <SectionLabel>Market Overview</SectionLabel>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {WATCHLIST.map(w => (
-            <div
-              key={w.symbol}
-              className="rounded-xl px-3 py-2 text-center"
-              style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}
-            >
-              <p className="text-[10px] font-mono mb-1" style={{ color: C.muted }}>{w.symbol}</p>
-              <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{w.price}</p>
-              <p className="text-[11px] font-mono font-semibold"
-                style={{ color: w.change >= 0 ? C.positive : C.negative }}>
-                {w.change >= 0 ? "+" : ""}{w.change.toFixed(2)}%
-              </p>
-            </div>
-          ))}
+          {WATCHLIST.map(w => {
+            const live = w.binanceKey ? livePrices[w.binanceKey] : undefined;
+            const displayPrice  = live ? fmtLivePrice(live.price)   : w.price;
+            const displayChange = live ? live.changePct24h           : w.change;
+            const up = displayChange >= 0;
+            return (
+              <div
+                key={w.symbol}
+                className="rounded-xl px-3 py-2 text-center"
+                style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}
+              >
+                <p className="text-[10px] font-mono mb-1" style={{ color: C.muted }}>{w.symbol}</p>
+                <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{displayPrice}</p>
+                <p className="text-[11px] font-mono font-semibold"
+                  style={{ color: up ? C.positive : C.negative }}>
+                  {up ? "+" : ""}{displayChange.toFixed(2)}%
+                </p>
+              </div>
+            );
+          })}
         </div>
       </Panel>
 
@@ -637,13 +703,22 @@ export default function Dashboard() {
               </span>
             </Link>
           </div>
-          {WATCHLIST.map((w, i) => <WatchRow key={w.symbol} item={w} last={i === WATCHLIST.length - 1} />)}
+          {WATCHLIST.map((w, i) => (
+            <WatchRow
+              key={w.symbol}
+              item={w}
+              last={i === WATCHLIST.length - 1}
+              livePrice={w.binanceKey ? livePrices[w.binanceKey] : undefined}
+            />
+          ))}
         </Panel>
 
         <div className="flex flex-col gap-4">
           <Panel>
             <SectionLabel>Trading Sessions</SectionLabel>
-            {SESSIONS.map((s, i) => <SessionRow key={s.name} s={s} last={i === SESSIONS.length - 1} />)}
+            {SESSIONS.map((s, i) => (
+              <SessionRow key={s.name} s={s} status={sessionStatuses[i] ?? "closed"} last={i === SESSIONS.length - 1} />
+            ))}
           </Panel>
 
           <Panel>
