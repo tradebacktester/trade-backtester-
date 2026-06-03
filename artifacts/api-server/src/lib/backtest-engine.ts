@@ -261,7 +261,7 @@ function runStrategy(
       const f = fast[i], fp = fast[i-1], s = slow[i], sp = slow[i-1];
       if (f == null || fp == null || s == null || sp == null) continue;
       if (!inTrade && fp <= sp && f > s && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
-      else if (inTrade && fp >= sp && f < s) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; entryIdx = -1; }
+      else if (inTrade && fp >= sp && f < s) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
     }
     if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
@@ -275,7 +275,7 @@ function runStrategy(
       const r = rsiValues[i], rp = rsiValues[i-1];
       if (r == null || rp == null) continue;
       if (!inTrade && rp <= oversold && r > oversold && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
-      else if (inTrade && rp < overbought && r >= overbought) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; }
+      else if (inTrade && rp < overbought && r >= overbought) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; }
     }
     if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
@@ -301,7 +301,7 @@ function runStrategy(
       const m = macdLine[i], mp = macdLine[i-1], s = signalLine[i], sp = signalLine[i-1];
       if (m == null || mp == null || s == null || sp == null) continue;
       if (!inTrade && mp <= sp && m > s && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
-      else if (inTrade && mp >= sp && m < s) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; }
+      else if (inTrade && mp >= sp && m < s) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; }
     }
     if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
@@ -328,7 +328,7 @@ function runStrategy(
       const lo = lower[i], lop = lower[i-1], up = upper[i];
       if (lo == null || lop == null || up == null) continue;
       if (!inTrade && closes[i-1] <= (lop ?? 0) && closes[i] > (lo ?? 0) && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
-      else if (inTrade && closes[i] >= (up ?? 0)) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; }
+      else if (inTrade && closes[i] >= (up ?? 0)) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; }
     }
     if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
@@ -389,13 +389,15 @@ export function runBacktest(
     const exitBar = bars[sig.exits[0]];
 
     // Apply slippage: adverse fill for both longs and shorts (HIGH-010 fix)
+    // Entries and exits both use the OPEN of the execution bar (next bar after signal)
+    // to eliminate look-ahead bias — we can't react to a bar's close until it's already closed.
     const isShort = sig.direction === "short";
     const entryPrice = isShort
       ? entryBar.open * (1 - slippagePct / 100)  // short entry: sell at lower price
       : entryBar.open * (1 + slippagePct / 100);  // long entry: buy at higher price
     const exitPrice = isShort
-      ? exitBar.close * (1 + slippagePct / 100)   // short exit: cover at higher price
-      : exitBar.close * (1 - slippagePct / 100);   // long exit: sell at lower price
+      ? exitBar.open * (1 + slippagePct / 100)   // short exit: cover at higher price (open of next bar)
+      : exitBar.open * (1 - slippagePct / 100);   // long exit: sell at lower price (open of next bar)
 
     const quantity = (capital * 0.95) / Math.abs(entryPrice);
 
@@ -443,11 +445,16 @@ export function runBacktest(
         equity += trade.pnl;
         worstEquity += trade.pnl;
       } else if (bi >= entryBarIdx) {
-        // Trade open — mark to market at bar close
-        const unrealized = (bar.close - trade.entryPrice) * trade.quantity;
+        // Trade open — mark to market at bar close, direction-aware
+        // Short positions gain when price falls (entryPrice - bar.close), lose when price rises
+        const unrealized = trade.side === "short"
+          ? (trade.entryPrice - bar.close) * trade.quantity
+          : (bar.close - trade.entryPrice) * trade.quantity;
         equity += unrealized;
-        // Worst case for intra-bar drawdown uses bar low (BUG-006)
-        const unrealizedWorst = (bar.low - trade.entryPrice) * trade.quantity;
+        // Worst-case intra-bar: for longs use bar.low; for shorts use bar.high (worst fill)
+        const unrealizedWorst = trade.side === "short"
+          ? (trade.entryPrice - bar.high) * trade.quantity
+          : (bar.low - trade.entryPrice) * trade.quantity;
         worstEquity += unrealizedWorst;
       }
     }
@@ -472,8 +479,15 @@ export function runBacktest(
   const startMs = new Date(startDate).getTime();
   const endMs = new Date(endDate).getTime();
   const years = Math.max((endMs - startMs) / (365.25 * 24 * 3600 * 1000), 1 / 365);
-  const ratio = finalCapital / initialCapital;
-  const annualizedReturn = ratio > 0 ? (Math.pow(ratio, 1 / years) - 1) * 100 : -100;
+  // Guard against negative/zero capital: NaN from Math.pow of negative base
+  const ratio = initialCapital > 0 ? finalCapital / initialCapital : 0;
+  let annualizedReturn: number;
+  if (ratio <= 0) {
+    annualizedReturn = -100;
+  } else {
+    const raw = (Math.pow(ratio, 1 / years) - 1) * 100;
+    annualizedReturn = isFinite(raw) ? raw : -100;
+  }
 
   const winners = trades.filter((t) => t.pnl > 0);
   const losers = trades.filter((t) => t.pnl <= 0);
@@ -497,15 +511,25 @@ export function runBacktest(
   const bestTrade = pnlPcts.length > 0 ? Math.max(...pnlPcts) : 0;
   const worstTrade = pnlPcts.length > 0 ? Math.min(...pnlPcts) : 0;
 
-  // Monthly returns
+  // Monthly returns — denominator is equity at the START of that month (running capital),
+  // not initialCapital. Using initialCapital would break compounding and make % meaningless.
   const monthlyMap = new Map<string, number>();
   for (const t of trades) {
     const m = monthKey(t.exitDate);
     monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
   }
+  // Build a map of equity at the first bar of each month from the equity curve
+  const monthStartEquity = new Map<string, number>();
+  for (const point of equityCurve) {
+    const m = monthKey(point.date);
+    if (!monthStartEquity.has(m)) monthStartEquity.set(m, point.value);
+  }
   const monthlyReturns: MonthlyReturn[] = Array.from(monthlyMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, pnl]) => ({ month, pnl, pct: (pnl / initialCapital) * 100 }));
+    .map(([month, pnl]) => {
+      const base = monthStartEquity.get(month) ?? initialCapital;
+      return { month, pnl, pct: base > 0 ? (pnl / base) * 100 : 0 };
+    });
 
   // Yearly returns calendar (all months in each year, even if zero)
   const yearlyMap = new Map<string, Map<string, number>>();
@@ -526,12 +550,16 @@ export function runBacktest(
       return { year: yr, pct: total, months };
     });
 
-  // Sharpe ratio (daily returns)
-  const dailyReturns: number[] = [];
+  // Sharpe ratio — use only ACTIVE days (non-zero equity change).
+  // Including flat zero-return days (no position open) artificially shrinks stddev,
+  // inflating Sharpe by 3–10× depending on how much time is spent out of market.
+  const allDailyReturns: number[] = [];
   for (let i = 1; i < equityCurve.length; i++) {
     const prev = equityCurve[i-1].value;
-    if (prev > 0) dailyReturns.push((equityCurve[i].value - prev) / prev);
+    if (prev > 0) allDailyReturns.push((equityCurve[i].value - prev) / prev);
   }
+  // Only days where equity actually moved (position was open or trade settled)
+  const dailyReturns = allDailyReturns.filter(r => r !== 0);
   let sharpeRatio = 0, sortinoRatio = 0;
   if (dailyReturns.length > 1) {
     const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
