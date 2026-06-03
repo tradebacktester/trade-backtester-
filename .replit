@@ -81,4 +81,6 @@ channel = "stable-25_05"
 [userenv.shared]
 ADMIN_ID = "7302782010"
 NODE_ENV = "development"
-JWT_SECRET = "7824f2f4e9bfe8fc88c266e5d2093eeb5faddbe76fa6e6062d5c6fcf26065bcf"
+
+[userenv.development]
+JWT_SECRET = "7b9450fc46fb36710fa0aad7f864ae319f74ab167dc10407d34774c9ef31b7b407b23ebc876fe70ae78babaab0cd42c1a708491629bbc8ff5723d67987687ffd"

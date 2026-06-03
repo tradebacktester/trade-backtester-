@@ -1,22 +1,23 @@
 import { Router, type IRouter } from "express";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, authAttemptsTable } from "@workspace/db";
+import { eq, gt, lt, count as drizzleCount, and as drizzleAnd } from "drizzle-orm";
 import { signJwt } from "../lib/jwt";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-// ── Rate limiting (10 req/min per IP) for auth endpoints (HIGH-004) ──────────
-const authRateLimit = new Map<string, { count: number; resetAt: number }>();
-function checkAuthRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const rec = authRateLimit.get(ip);
-  if (!rec || now >= rec.resetAt) {
-    authRateLimit.set(ip, { count: 1, resetAt: now + 60_000 });
-    return true;
-  }
-  if (rec.count >= 10) return false;
-  rec.count++;
+// ── DB-based rate limiting (10 req/min per IP) — survives server restarts ────
+async function checkAuthRateLimit(ip: string): Promise<boolean> {
+  const oneMinuteAgo = new Date(Date.now() - 60_000);
+  const [{ cnt }] = await db
+    .select({ cnt: drizzleCount(authAttemptsTable.id) })
+    .from(authAttemptsTable)
+    .where(drizzleAnd(eq(authAttemptsTable.ip, ip), gt(authAttemptsTable.createdAt, oneMinuteAgo)));
+  if (cnt >= 10) return false;
+  await db.insert(authAttemptsTable).values({ ip });
+  // Prune records older than 5 minutes to prevent unbounded table growth
+  const fiveMinutesAgo = new Date(Date.now() - 300_000);
+  await db.delete(authAttemptsTable).where(lt(authAttemptsTable.createdAt, fiveMinutesAgo));
   return true;
 }
 function getAuthIp(req: import("express").Request): string {
@@ -48,7 +49,7 @@ function verifyPassword(password: string, hash: string): boolean {
 }
 
 router.post("/auth/signup", async (req, res): Promise<void> => {
-  if (!checkAuthRateLimit(getAuthIp(req))) {
+  if (!await checkAuthRateLimit(getAuthIp(req))) {
     res.status(429).json({ error: "Too many requests. Please try again later." });
     return;
   }
@@ -73,7 +74,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 });
 
 router.post("/auth/signin", async (req, res): Promise<void> => {
-  if (!checkAuthRateLimit(getAuthIp(req))) {
+  if (!await checkAuthRateLimit(getAuthIp(req))) {
     res.status(429).json({ error: "Too many requests. Please try again later." });
     return;
   }

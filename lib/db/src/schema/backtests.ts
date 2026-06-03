@@ -1,9 +1,11 @@
 import { pgTable, text, serial, timestamp, numeric, integer } from "drizzle-orm/pg-core";
+
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const backtestsTable = pgTable("backtests", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id"),
   strategyId: integer("strategy_id").notNull(),
   symbol: text("symbol").notNull(),
   startDate: text("start_date").notNull(),

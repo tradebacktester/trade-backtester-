@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, avg, max, min, count, sql } from "drizzle-orm";
+import { eq, avg, max, min, count, sql, and } from "drizzle-orm";
 import { db, strategiesTable, backtestsTable } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
 import {
@@ -27,15 +27,22 @@ function extractUserId(req: Request): number | null {
 }
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  if (!extractUserId(req)) {
+  const userId = extractUserId(req);
+  if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  res.locals["userId"] = userId;
   next();
 }
 
 router.get("/strategies", requireAuth, async (req, res): Promise<void> => {
-  const rows = await db.select().from(strategiesTable).orderBy(strategiesTable.createdAt);
+  const userId = res.locals["userId"] as number;
+  const rows = await db
+    .select()
+    .from(strategiesTable)
+    .where(eq(strategiesTable.userId, userId))
+    .orderBy(strategiesTable.createdAt);
   res.json(rows.map((r) => ListStrategiesResponseItem.parse({
     ...r,
     createdAt: r.createdAt.toISOString(),
@@ -43,12 +50,14 @@ router.get("/strategies", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const parsed = CreateStrategyBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const [row] = await db.insert(strategiesTable).values({
+    userId,
     name: parsed.data.name,
     description: parsed.data.description ?? null,
     type: parsed.data.type,
@@ -63,12 +72,16 @@ router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/strategies/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const params = GetStrategyParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [row] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, params.data.id));
+  const [row] = await db
+    .select()
+    .from(strategiesTable)
+    .where(and(eq(strategiesTable.id, params.data.id), eq(strategiesTable.userId, userId)));
   if (!row) {
     res.status(404).json({ error: "Strategy not found" });
     return;
@@ -77,6 +90,7 @@ router.get("/strategies/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const params = UpdateStrategyParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -95,7 +109,11 @@ router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => 
   if (parsed.data.timeframe !== undefined) updateData.timeframe = parsed.data.timeframe;
   if (parsed.data.parameters !== undefined) updateData.parameters = parsed.data.parameters as Record<string, unknown>;
 
-  const [row] = await db.update(strategiesTable).set(updateData).where(eq(strategiesTable.id, params.data.id)).returning();
+  const [row] = await db
+    .update(strategiesTable)
+    .set(updateData)
+    .where(and(eq(strategiesTable.id, params.data.id), eq(strategiesTable.userId, userId)))
+    .returning();
   if (!row) {
     res.status(404).json({ error: "Strategy not found" });
     return;
@@ -104,12 +122,16 @@ router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => 
 });
 
 router.delete("/strategies/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const params = DeleteStrategyParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [row] = await db.delete(strategiesTable).where(eq(strategiesTable.id, params.data.id)).returning();
+  const [row] = await db
+    .delete(strategiesTable)
+    .where(and(eq(strategiesTable.id, params.data.id), eq(strategiesTable.userId, userId)))
+    .returning();
   if (!row) {
     res.status(404).json({ error: "Strategy not found" });
     return;
@@ -118,12 +140,16 @@ router.delete("/strategies/:id", requireAuth, async (req, res): Promise<void> =>
 });
 
 router.get("/strategies/:id/performance", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const params = GetStrategyPerformanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, params.data.id));
+  const [strategy] = await db
+    .select()
+    .from(strategiesTable)
+    .where(and(eq(strategiesTable.id, params.data.id), eq(strategiesTable.userId, userId)));
   if (!strategy) {
     res.status(404).json({ error: "Strategy not found" });
     return;

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, avg, max, min, count, sum, sql, inArray } from "drizzle-orm";
+import { eq, avg, max, min, count, sum, sql, inArray, and } from "drizzle-orm";
 import { db, backtestsTable, strategiesTable, tradesTable, equityCurveTable } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
 import {
@@ -80,10 +80,12 @@ function extractUserId(req: Request): number | null {
 }
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  if (!extractUserId(req)) {
+  const userId = extractUserId(req);
+  if (!userId) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  res.locals["userId"] = userId;
   next();
 }
 
@@ -117,7 +119,8 @@ function formatBacktest(row: typeof backtestsTable.$inferSelect, strategyName?: 
   };
 }
 
-router.get("/backtests/summary", requireAuth, async (_req, res): Promise<void> => {
+router.get("/backtests/summary", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const [summary] = await db
     .select({
       totalBacktests: count(backtestsTable.id),
@@ -127,11 +130,12 @@ router.get("/backtests/summary", requireAuth, async (_req, res): Promise<void> =
       totalTrades: sum(backtestsTable.totalTrades),
     })
     .from(backtestsTable)
-    .where(eq(backtestsTable.status, "complete"));
+    .where(and(eq(backtestsTable.status, "complete"), eq(backtestsTable.userId, userId)));
 
   const [stratCount] = await db
     .select({ totalStrategies: count(strategiesTable.id) })
-    .from(strategiesTable);
+    .from(strategiesTable)
+    .where(eq(strategiesTable.userId, userId));
 
   const stratPerf = await db
     .select({
@@ -139,7 +143,7 @@ router.get("/backtests/summary", requireAuth, async (_req, res): Promise<void> =
       avgReturn: avg(backtestsTable.totalReturn),
     })
     .from(backtestsTable)
-    .where(eq(backtestsTable.status, "complete"))
+    .where(and(eq(backtestsTable.status, "complete"), eq(backtestsTable.userId, userId)))
     .groupBy(backtestsTable.strategyId)
     .orderBy(sql`avg(${backtestsTable.totalReturn}) DESC`)
     .limit(1);
@@ -162,6 +166,7 @@ router.get("/backtests/summary", requireAuth, async (_req, res): Promise<void> =
 });
 
 router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const query = ListBacktestsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -174,12 +179,13 @@ router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
   let rows: typeof backtestsTable.$inferSelect[];
   if (query.data.strategyId != null) {
     rows = await db.select().from(backtestsTable)
-      .where(eq(backtestsTable.strategyId, query.data.strategyId))
+      .where(and(eq(backtestsTable.strategyId, query.data.strategyId), eq(backtestsTable.userId, userId)))
       .orderBy(sql`${backtestsTable.createdAt} DESC`)
       .limit(limit)
       .offset(offset);
   } else {
     rows = await db.select().from(backtestsTable)
+      .where(eq(backtestsTable.userId, userId))
       .orderBy(sql`${backtestsTable.createdAt} DESC`)
       .limit(limit)
       .offset(offset);
@@ -210,7 +216,9 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   const commissionPct = parsed.data.commission ?? 0;
   const slippagePct = parsed.data.slippage ?? 0;
 
+  const userId = res.locals["userId"] as number;
   const [backtest] = await db.insert(backtestsTable).values({
+    userId,
     strategyId: parsed.data.strategyId,
     symbol: parsed.data.symbol,
     startDate: parsed.data.startDate,
@@ -301,11 +309,12 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/backtests/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(rawId, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [row] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, id));
+  const [row] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, id), eq(backtestsTable.userId, userId)));
   if (!row) { res.status(404).json({ error: "Backtest not found" }); return; }
 
   const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, row.strategyId));
@@ -344,17 +353,19 @@ router.get("/backtests/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.delete("/backtests/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const params = DeleteBacktestParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
-  const [row] = await db.delete(backtestsTable).where(eq(backtestsTable.id, params.data.id)).returning();
+  const [row] = await db.delete(backtestsTable).where(and(eq(backtestsTable.id, params.data.id), eq(backtestsTable.userId, userId))).returning();
   if (!row) { res.status(404).json({ error: "Backtest not found" }); return; }
   res.sendStatus(204);
 });
 
 router.get("/backtests/:id/trades", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const params = GetBacktestTradesParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, params.data.id));
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, params.data.id), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   const trades = await db.select().from(tradesTable).where(eq(tradesTable.backtestId, params.data.id)).orderBy(tradesTable.entryDate);
   res.json(trades.map((t) => ({
@@ -373,9 +384,10 @@ router.get("/backtests/:id/trades", requireAuth, async (req, res): Promise<void>
 });
 
 router.get("/backtests/:id/equity", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const params = GetEquityCurveParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, params.data.id));
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, params.data.id), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   const equity = await db.select().from(equityCurveTable).where(eq(equityCurveTable.backtestId, params.data.id)).orderBy(equityCurveTable.date);
 

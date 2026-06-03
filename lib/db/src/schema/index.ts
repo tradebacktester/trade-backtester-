@@ -1,4 +1,5 @@
 export * from "./strategies";
+export * from "./auth_attempts";
 export * from "./backtests";
 export * from "./trades";
 export * from "./equity_curve";
