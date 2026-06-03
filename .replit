@@ -24,13 +24,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev & PORT=5000 pnpm --filter @workspace/trade-backtest run dev"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev & sleep 3 && PORT=5000 pnpm --filter @workspace/trade-backtest run dev"
+waitForPort = 5000
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -44,10 +44,6 @@ timeoutMs = 20000
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
 
 [[ports]]
 localPort = 8081
@@ -68,6 +64,5 @@ channel = "stable-25_05"
 
 [userenv.shared]
 ADMIN_ID = "7302782010"
-PORT = "8082"
 NODE_ENV = "development"
 JWT_SECRET = "7824f2f4e9bfe8fc88c266e5d2093eeb5faddbe76fa6e6062d5c6fcf26065bcf"
