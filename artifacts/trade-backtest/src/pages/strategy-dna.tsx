@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Dna, AlertTriangle, TrendingUp, Shield, Target, Zap, BarChart2, Star } from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type StratEntry = {
   id: number; name: string; type: string;
@@ -13,20 +14,29 @@ type StratEntry = {
   hasBacktest: boolean; grade: string; overallScore: number;
 };
 
+type Correlation = {
+  strategyIdA: number; strategyIdB: number;
+  correlation: number;  // raw Pearson: –1 to +1
+  isDuplicate: boolean; // correlation > 0.85
+};
+
 type DnaResponse = {
   strategies: StratEntry[];
   matrix: { i: number; j: number; similarity: number }[];
   duplicates: { a: string; b: string; similarity: number }[];
+  correlations: Correlation[];
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const DNA_DIMS = [
-  { key: "momentum",      label: "Momentum",      icon: TrendingUp, color: "#6366f1" },
-  { key: "meanReversion", label: "Mean Rev.",      icon: Target,     color: "#0ea5e9" },
-  { key: "riskControl",   label: "Risk Ctrl",      icon: Shield,     color: "#22c55e" },
-  { key: "consistency",   label: "Consistency",    icon: BarChart2,  color: "#f59e0b" },
-  { key: "adaptability",  label: "Adaptability",   icon: Zap,        color: "#ec4899" },
-  { key: "profitability", label: "Profitability",  icon: Star,       color: "#14b8a6" },
-] as const;
+  { key: "momentum"      as const, label: "Momentum",     icon: TrendingUp, color: "#6366f1" },
+  { key: "meanReversion" as const, label: "Mean Rev.",     icon: Target,     color: "#0ea5e9" },
+  { key: "riskControl"   as const, label: "Risk Ctrl",     icon: Shield,     color: "#22c55e" },
+  { key: "consistency"   as const, label: "Consistency",   icon: BarChart2,  color: "#f59e0b" },
+  { key: "adaptability"  as const, label: "Adaptability",  icon: Zap,        color: "#ec4899" },
+  { key: "profitability" as const, label: "Profitability", icon: Star,       color: "#14b8a6" },
+];
 
 const GRADE_META: Record<string, { color: string; bg: string; label: string }> = {
   S: { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  label: "Elite" },
@@ -36,18 +46,53 @@ const GRADE_META: Record<string, { color: string; bg: string; label: string }> =
   D: { color: "#ef4444", bg: "rgba(239,68,68,0.12)",   label: "Weak" },
 };
 
-function similarityColor(sim: number) {
-  if (sim >= 90) return "#ef4444";
-  if (sim >= 75) return "#f59e0b";
-  if (sim >= 50) return "#6366f1";
-  return "#6b7280";
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Signed Pearson heatmap color:
+ *   -1 → red (#ef4444)
+ *    0 → neutral gray (#374151)
+ *   +1 → green (#22c55e)
+ */
+function pearsonColor(corr: number): string {
+  if (corr >= 0) {
+    // 0 → gray, 1 → green
+    const g = Math.round(corr * 0xff);
+    const r = Math.round((1 - corr) * 0x37);
+    const b = Math.round((1 - corr) * 0x41);
+    return `rgba(${r},${g + 0x37},${b + 0x21},${0.15 + corr * 0.65})`;
+  } else {
+    // 0 → gray, -1 → red
+    const abs = Math.abs(corr);
+    const r = Math.round(0x37 + abs * (0xef - 0x37));
+    const g = Math.round(0x41 * (1 - abs) + 0x44 * abs);
+    const b = Math.round(0x51 * (1 - abs) + 0x44 * abs);
+    return `rgba(${r},${g},${b},${0.15 + abs * 0.65})`;
+  }
 }
 
-function getSimilarity(matrix: DnaResponse["matrix"], i: number, j: number) {
-  if (i === j) return 100;
-  const entry = matrix.find((m) => (m.i === i && m.j === j) || (m.i === j && m.j === i));
-  return entry?.similarity ?? 0;
+function pearsonTextColor(corr: number): string {
+  return Math.abs(corr) > 0.45 ? "white" : "hsl(var(--muted-foreground))";
 }
+
+function getPearson(
+  correlations: Correlation[],
+  strats: StratEntry[],
+  i: number,
+  j: number
+): number {
+  if (i === j) return 1;
+  const sA = strats[i]?.id;
+  const sB = strats[j]?.id;
+  if (sA == null || sB == null) return 0;
+  const entry = correlations.find(
+    (c) => (c.strategyIdA === sA && c.strategyIdB === sB) ||
+            (c.strategyIdA === sB && c.strategyIdB === sA)
+  );
+  return entry?.correlation ?? 0;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function StrategyDnaPage() {
   const [data, setData] = useState<DnaResponse | null>(null);
@@ -72,6 +117,7 @@ export default function StrategyDnaPage() {
   }, []);
 
   const selected = selectedIdx != null && data ? data.strategies[selectedIdx] : null;
+  const duplicatePairs = data?.correlations.filter((c) => c.isDuplicate) ?? [];
 
   return (
     <motion.div
@@ -87,7 +133,7 @@ export default function StrategyDnaPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Strategy DNA Fingerprint</h1>
-            <p className="text-muted-foreground">Pairwise similarity matrix + behavioral fingerprints across all your strategies</p>
+            <p className="text-muted-foreground">Equity-curve Pearson correlation heatmap + behavioral fingerprints</p>
           </div>
         </div>
         <Button onClick={handleAnalyze} disabled={isLoading} className="gap-2">
@@ -105,7 +151,7 @@ export default function StrategyDnaPage() {
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-16 gap-4">
           <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-          <p className="text-muted-foreground">Computing DNA fingerprints and pairwise similarities…</p>
+          <p className="text-muted-foreground">Computing Pearson correlations across equity curves…</p>
         </div>
       )}
 
@@ -113,33 +159,47 @@ export default function StrategyDnaPage() {
         <div className="py-20 text-center border border-dashed rounded-xl">
           <Dna className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
           <p className="text-sm font-medium">Click "Decode All Strategies" to generate DNA fingerprints</p>
-          <p className="text-xs text-muted-foreground mt-1">Computes 6-dimensional performance signatures and a pairwise similarity matrix across all your strategies</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Only strategies with a completed backtest are included. Correlation &gt;0.85 = near-duplicate pair.
+          </p>
         </div>
       )}
 
       {data && !isLoading && (
         <>
-          {/* Duplicate warnings */}
-          {data.duplicates.length > 0 && (
+          {/* Duplicate warnings — based on isDuplicate from correlations */}
+          {duplicatePairs.length > 0 && (
             <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/8 p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm font-medium text-yellow-500">{data.duplicates.length} Near-Duplicate Strategy Pair{data.duplicates.length > 1 ? "s" : ""} Detected</span>
+                <span className="text-sm font-medium text-yellow-500">
+                  {duplicatePairs.length} Near-Duplicate Pair{duplicatePairs.length > 1 ? "s" : ""} Detected (Pearson &gt; 0.85)
+                </span>
               </div>
-              {data.duplicates.map((d, i) => (
-                <p key={i} className="text-xs text-muted-foreground pl-6">
-                  <span className="font-mono text-foreground">{d.a}</span> and <span className="font-mono text-foreground">{d.b}</span> share <span className="text-yellow-400 font-bold">{d.similarity}%</span> behavioral similarity — they may be redundant.
-                </p>
-              ))}
+              {duplicatePairs.map((c, i) => {
+                const nameA = data.strategies.find((s) => s.id === c.strategyIdA)?.name ?? `#${c.strategyIdA}`;
+                const nameB = data.strategies.find((s) => s.id === c.strategyIdB)?.name ?? `#${c.strategyIdB}`;
+                return (
+                  <p key={i} className="text-xs text-muted-foreground pl-6">
+                    <span className="font-mono text-foreground">{nameA}</span> and{" "}
+                    <span className="font-mono text-foreground">{nameB}</span> share Pearson{" "}
+                    <span className="text-yellow-400 font-bold">{c.correlation.toFixed(2)}</span> — may be redundant.
+                  </p>
+                );
+              })}
             </div>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Strategy list + grades */}
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Strategies ({data.strategies.length})</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Strategies ({data.strategies.length})
+              </h3>
               {data.strategies.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No strategies found. Create at least one strategy first.</p>
+                <p className="text-sm text-muted-foreground">
+                  No strategies with completed backtests found. Run a backtest first.
+                </p>
               ) : (
                 data.strategies.map((s, i) => {
                   const grade = GRADE_META[s.grade] ?? GRADE_META["D"]!;
@@ -153,15 +213,15 @@ export default function StrategyDnaPage() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{s.name}</p>
-                          <p className="text-[10px] text-muted-foreground capitalize">{s.type.replace(/_/g, " ")} · {s.hasBacktest ? "Backtest data" : "No backtest yet"}</p>
+                          <p className="text-[10px] text-muted-foreground capitalize">
+                            {s.type.replace(/_/g, " ")}
+                          </p>
                         </div>
-                        <div className="flex-shrink-0 flex items-center gap-2">
-                          <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold border"
-                            style={{ background: grade.bg, borderColor: `${grade.color}40`, color: grade.color }}
-                          >
-                            {s.grade}
-                          </div>
+                        <div
+                          className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold border"
+                          style={{ background: grade.bg, borderColor: `${grade.color}40`, color: grade.color }}
+                        >
+                          {s.grade}
                         </div>
                       </div>
                     </button>
@@ -170,7 +230,7 @@ export default function StrategyDnaPage() {
               )}
             </div>
 
-            {/* Selected strategy DNA detail */}
+            {/* Selected strategy DNA fingerprint */}
             <div className="lg:col-span-2 space-y-4">
               {selected ? (
                 <>
@@ -179,9 +239,11 @@ export default function StrategyDnaPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <CardTitle className="text-base">{selected.name}</CardTitle>
-                          <CardDescription className="capitalize">{selected.type.replace(/_/g, " ")} · Score: {selected.overallScore}/100</CardDescription>
+                          <CardDescription className="capitalize">
+                            {selected.type.replace(/_/g, " ")} · Score: {selected.overallScore}/100
+                          </CardDescription>
                         </div>
-                        <div className="flex-shrink-0" style={{ color: (GRADE_META[selected.grade] ?? GRADE_META["D"]!).color }}>
+                        <div style={{ color: (GRADE_META[selected.grade] ?? GRADE_META["D"]!).color }}>
                           <span className="text-4xl font-bold">{selected.grade}</span>
                         </div>
                       </div>
@@ -213,31 +275,48 @@ export default function StrategyDnaPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Similarity with other strategies */}
+                  {/* Pearson correlation with other strategies */}
                   {data.strategies.length > 1 && (
                     <Card className="border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Similarity to Other Strategies</CardTitle>
-                        <CardDescription>Cosine similarity of 6-dimensional DNA vectors (≥92% = near-duplicate warning)</CardDescription>
+                        <CardTitle className="text-base">Equity-Curve Correlation</CardTitle>
+                        <CardDescription>
+                          Raw Pearson r of daily equity returns — signed scale: –1 (inverse) → 0 (uncorrelated) → +1 (clone)
+                        </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
                           {data.strategies
-                            .map((s, j) => ({ s, j, sim: getSimilarity(data.matrix, selectedIdx!, j) }))
+                            .map((s, j) => ({
+                              s, j,
+                              corr: getPearson(data.correlations, data.strategies, selectedIdx!, j),
+                            }))
                             .filter(({ j }) => j !== selectedIdx)
-                            .sort((a, b) => b.sim - a.sim)
-                            .map(({ s, j, sim }) => (
+                            .sort((a, b) => b.corr - a.corr)
+                            .map(({ s, j, corr }) => (
                               <div key={j} className="flex items-center gap-3">
                                 <button
                                   onClick={() => setSelectedIdx(j)}
                                   className="flex-1 text-left text-xs font-medium hover:text-primary transition-colors truncate"
                                 >{s.name}</button>
                                 <div className="flex items-center gap-2">
-                                  <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden">
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${sim}%`, background: similarityColor(sim) }} />
+                                  {/* Signed bar: left half = negative, right half = positive */}
+                                  <div className="relative h-1.5 w-24 rounded-full bg-muted overflow-hidden">
+                                    {corr >= 0 ? (
+                                      <div className="absolute left-1/2 top-0 h-full rounded-r-full bg-green-500"
+                                        style={{ width: `${corr * 50}%` }} />
+                                    ) : (
+                                      <div className="absolute top-0 h-full rounded-l-full bg-red-500"
+                                        style={{ right: "50%", width: `${Math.abs(corr) * 50}%` }} />
+                                    )}
+                                    <div className="absolute left-1/2 top-0 h-full w-px bg-border" />
                                   </div>
-                                  <span className="text-xs font-mono font-bold w-10 text-right" style={{ color: similarityColor(sim) }}>{sim}%</span>
-                                  {sim >= 92 && <Badge className="text-[9px] bg-red-500/10 text-red-400 border-red-500/20">Duplicate!</Badge>}
+                                  <span className={`text-xs font-mono font-bold w-12 text-right ${corr >= 0.85 ? "text-yellow-400" : corr >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                    {corr >= 0 ? "+" : ""}{corr.toFixed(2)}
+                                  </span>
+                                  {corr > 0.85 && (
+                                    <Badge className="text-[9px] bg-yellow-500/10 text-yellow-400 border-yellow-500/20">Duplicate!</Badge>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -248,29 +327,38 @@ export default function StrategyDnaPage() {
                 </>
               ) : (
                 <div className="py-12 text-center text-muted-foreground border border-dashed rounded-xl">
-                  Select a strategy on the left to view its DNA
+                  Select a strategy on the left to view its DNA fingerprint
                 </div>
               )}
             </div>
           </div>
 
-          {/* Full similarity heatmap matrix */}
+          {/* Full Pearson correlation heatmap — signed color scale */}
           {data.strategies.length >= 2 && (
             <Card className="border-border overflow-x-auto">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Pairwise Similarity Heatmap</CardTitle>
-                <CardDescription>Full N×N similarity matrix — darker red = more similar, click a cell to compare</CardDescription>
+                <CardTitle className="text-base">Pairwise Correlation Heatmap</CardTitle>
+                <CardDescription>
+                  Equity-curve Pearson r — red = inverse correlation, gray = uncorrelated, green = highly correlated
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="inline-block min-w-full">
-                  <div className="grid gap-1" style={{ gridTemplateColumns: `120px repeat(${data.strategies.length}, minmax(0, 1fr))` }}>
+                  <div
+                    className="grid gap-1"
+                    style={{ gridTemplateColumns: `120px repeat(${data.strategies.length}, minmax(0, 1fr))` }}
+                  >
                     {/* Header row */}
                     <div />
                     {data.strategies.map((s, j) => (
                       <div key={j} className="text-center">
-                        <span className="text-[9px] text-muted-foreground font-mono truncate block" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: 60, paddingBottom: 4 }}>{s.name}</span>
+                        <span
+                          className="text-[9px] text-muted-foreground font-mono truncate block"
+                          style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: 60, paddingBottom: 4 }}
+                        >{s.name}</span>
                       </div>
                     ))}
+
                     {/* Data rows */}
                     {data.strategies.map((rowS, i) => (
                       <React.Fragment key={i}>
@@ -278,23 +366,21 @@ export default function StrategyDnaPage() {
                           <span className="text-[10px] text-muted-foreground font-mono truncate">{rowS.name}</span>
                         </div>
                         {data.strategies.map((_, j) => {
-                          const sim = getSimilarity(data.matrix, i, j);
                           const isDiag = i === j;
+                          const corr = isDiag ? 1 : getPearson(data.correlations, data.strategies, i, j);
                           return (
                             <button
                               key={j}
-                              onClick={() => { setSelectedIdx(i); }}
+                              onClick={() => setSelectedIdx(i)}
                               className="aspect-square rounded-md flex items-center justify-center text-[9px] font-mono font-bold transition-all hover:scale-110"
                               style={{
-                                background: isDiag
-                                  ? "rgba(99,102,241,0.4)"
-                                  : `rgba(239,68,68,${(sim / 100) * 0.7})`,
-                                color: sim > 60 || isDiag ? "white" : "hsl(var(--muted-foreground))",
+                                background: isDiag ? "rgba(99,102,241,0.4)" : pearsonColor(corr),
+                                color: isDiag ? "white" : pearsonTextColor(corr),
                                 border: "1px solid rgba(255,255,255,0.06)",
                                 minHeight: 32,
                               }}
                             >
-                              {isDiag ? "—" : `${sim}%`}
+                              {isDiag ? "—" : corr.toFixed(2)}
                             </button>
                           );
                         })}
@@ -302,14 +388,20 @@ export default function StrategyDnaPage() {
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground">
+
+                {/* Legend */}
+                <div className="flex items-center gap-6 mt-4 text-[10px] text-muted-foreground">
                   <div className="flex items-center gap-1.5">
-                    <div className="h-3 w-3 rounded-sm" style={{ background: "rgba(239,68,68,0.7)" }} />
-                    High similarity (potential duplicate)
+                    <div className="h-3 w-3 rounded-sm" style={{ background: pearsonColor(-1) }} />
+                    –1.0 Inverse
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="h-3 w-3 rounded-sm" style={{ background: "rgba(239,68,68,0.2)" }} />
-                    Low similarity (diverse strategies)
+                    <div className="h-3 w-3 rounded-sm" style={{ background: pearsonColor(0) }} />
+                    0.0 Uncorrelated
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded-sm" style={{ background: pearsonColor(0.85) }} />
+                    +0.85 Near-duplicate
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="h-3 w-3 rounded-sm" style={{ background: "rgba(99,102,241,0.4)" }} />

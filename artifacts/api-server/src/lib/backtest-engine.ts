@@ -500,3 +500,92 @@ export function runBacktest(
 }
 
 function year(monthStr: string): string { return monthStr.slice(0, 4); }
+
+// ─── Regime Classification (exported for superpowers route) ───────────────────
+// SMA50 trend direction × 20-day rolling std > 1.5× full-period avg volatility
+
+export interface RegimePeriod {
+  startDate: string; endDate: string;
+  regime: "trending_bull" | "trending_bear" | "highvol_bull" | "highvol_bear";
+  avgReturn: number; volatility: number;
+  tradeCount: number; winRate: number; totalPnl: number;
+}
+
+function computeRegimeSMA(prices: number[], period: number): (number | null)[] {
+  return prices.map((_, i) => {
+    if (i < period - 1) return null;
+    const slice = prices.slice(i - period + 1, i + 1);
+    return slice.reduce((a, b) => a + b, 0) / period;
+  });
+}
+
+export function classifyRegimes(
+  bars: Array<{ date: string; close: number }>,
+  trades: Array<{ entryDate: string; exitDate: string; pnl: number }>,
+  windowDays = 30
+): RegimePeriod[] {
+  if (bars.length < 60) return [];
+
+  const closes = bars.map((b) => b.close);
+  const sma50 = computeRegimeSMA(closes, 50);
+
+  // Full-period daily std — baseline for adaptive high-vol threshold
+  const allReturns: number[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    allReturns.push((closes[i]! - closes[i - 1]!) / closes[i - 1]!);
+  }
+  const fpMean = allReturns.reduce((a, b) => a + b, 0) / allReturns.length;
+  const fpVariance = allReturns.reduce((a, r) => a + (r - fpMean) ** 2, 0) / allReturns.length;
+  const fullPeriodStd = Math.sqrt(fpVariance);
+
+  const periods: RegimePeriod[] = [];
+  let i = 50;
+
+  while (i + windowDays <= bars.length) {
+    const windowBars = bars.slice(i, i + windowDays);
+    const startDate = windowBars[0]!.date;
+    const endDate = windowBars[windowBars.length - 1]!.date;
+
+    const rollingReturns: number[] = [];
+    for (let j = 1; j < windowBars.length; j++) {
+      rollingReturns.push((windowBars[j]!.close - windowBars[j - 1]!.close) / windowBars[j - 1]!.close);
+    }
+    const avgReturn = rollingReturns.reduce((a, b) => a + b, 0) / rollingReturns.length;
+    const rMean = avgReturn;
+    const rVariance = rollingReturns.reduce((a, r) => a + (r - rMean) ** 2, 0) / rollingReturns.length;
+    const rollingStd = Math.sqrt(rVariance);
+    const volatility = rollingStd * Math.sqrt(252) * 100;
+
+    // High-vol: 20-day rolling std > 1.5× full-period daily std
+    const isHighVol = rollingStd > 1.5 * fullPeriodStd;
+
+    const midBar = windowBars[Math.floor(windowBars.length / 2)]!;
+    const midIdx = bars.findIndex((b) => b.date === midBar.date);
+    const currentSma = midIdx >= 0 ? sma50[midIdx] : null;
+    const priceAboveSma = currentSma != null ? midBar.close > currentSma : true;
+
+    let regime: RegimePeriod["regime"];
+    if (isHighVol) {
+      regime = priceAboveSma ? "highvol_bull" : "highvol_bear";
+    } else {
+      regime = priceAboveSma ? "trending_bull" : "trending_bear";
+    }
+
+    const periodTrades = trades.filter((t) => t.entryDate >= startDate && t.exitDate <= endDate);
+    const winners = periodTrades.filter((t) => t.pnl > 0);
+    const winRate = periodTrades.length > 0 ? (winners.length / periodTrades.length) * 100 : 0;
+    const totalPnl = periodTrades.reduce((a, t) => a + t.pnl, 0);
+
+    periods.push({
+      startDate, endDate, regime,
+      avgReturn: avgReturn * 252 * 100,
+      volatility,
+      tradeCount: periodTrades.length,
+      winRate, totalPnl,
+    });
+
+    i += windowDays;
+  }
+
+  return periods;
+}

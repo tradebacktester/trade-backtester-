@@ -4,7 +4,7 @@ import {
   tradesTable, equityCurveTable,
 } from "@workspace/db";
 import { eq, desc, inArray } from "drizzle-orm";
-import { runBacktest, generatePriceData } from "../lib/backtest-engine";
+import { runBacktest, generatePriceData, classifyRegimes, type RegimePeriod } from "../lib/backtest-engine";
 import { verifyJwt } from "../lib/jwt";
 import type { Request, Response, NextFunction } from "express";
 
@@ -83,99 +83,7 @@ const SYMBOL_META: Record<string, { seed: number; vol: number; sector: string; n
 
 export const ALL_SYMBOLS = Object.keys(SYMBOL_META);
 
-// ─── Regime Classification ────────────────────────────────────────────────────
-// Uses SMA50 (trend direction) × 20-day rolling std > 1.5× full-period avg (volatility)
-
-export interface RegimePeriod {
-  startDate: string; endDate: string;
-  regime: "trending_bull" | "trending_bear" | "highvol_bull" | "highvol_bear";
-  avgReturn: number; volatility: number;
-  tradeCount: number; winRate: number; totalPnl: number;
-}
-
-function computeSMA(prices: number[], period: number): (number | null)[] {
-  return prices.map((_, i) => {
-    if (i < period - 1) return null;
-    const slice = prices.slice(i - period + 1, i + 1);
-    return slice.reduce((a, b) => a + b, 0) / period;
-  });
-}
-
-export function classifyRegimes(
-  bars: Array<{ date: string; close: number }>,
-  trades: Array<{ entryDate: string; exitDate: string; pnl: number }>,
-  windowDays = 30
-): RegimePeriod[] {
-  if (bars.length < 60) return [];
-
-  const closes = bars.map((b) => b.close);
-  const sma50 = computeSMA(closes, 50);
-
-  // Compute full-period avg daily std for adaptive threshold
-  const allReturns: number[] = [];
-  for (let i = 1; i < closes.length; i++) {
-    allReturns.push((closes[i] - closes[i - 1]) / closes[i - 1]);
-  }
-  const fullPeriodStd = (() => {
-    const mean = allReturns.reduce((a, b) => a + b, 0) / allReturns.length;
-    const variance = allReturns.reduce((a, r) => a + (r - mean) ** 2, 0) / allReturns.length;
-    return Math.sqrt(variance);
-  })();
-
-  const periods: RegimePeriod[] = [];
-  let i = 50;
-
-  while (i + windowDays <= bars.length) {
-    const windowBars = bars.slice(i, i + windowDays);
-    const startDate = windowBars[0]!.date;
-    const endDate = windowBars[windowBars.length - 1]!.date;
-
-    // 20-day rolling returns within window
-    const rollingReturns: number[] = [];
-    for (let j = 1; j < windowBars.length; j++) {
-      rollingReturns.push((windowBars[j]!.close - windowBars[j - 1]!.close) / windowBars[j - 1]!.close);
-    }
-    const avgReturn = rollingReturns.reduce((a, b) => a + b, 0) / rollingReturns.length;
-    const rollingMean = avgReturn;
-    const rollingVariance = rollingReturns.reduce((a, r) => a + (r - rollingMean) ** 2, 0) / rollingReturns.length;
-    const rollingStd = Math.sqrt(rollingVariance);
-    const volatility = rollingStd * Math.sqrt(252) * 100;
-
-    // High-vol threshold: 20-day rolling std > 1.5× full-period daily std
-    const isHighVol = rollingStd > 1.5 * fullPeriodStd;
-
-    const midBar = windowBars[Math.floor(windowBars.length / 2)]!;
-    const midIdx = bars.findIndex((b) => b.date === midBar.date);
-    const currentSma = midIdx >= 0 ? sma50[midIdx] : null;
-    const priceAboveSma = currentSma != null ? midBar.close > currentSma : true;
-
-    let regime: RegimePeriod["regime"];
-    if (isHighVol) {
-      regime = priceAboveSma ? "highvol_bull" : "highvol_bear";
-    } else {
-      regime = priceAboveSma ? "trending_bull" : "trending_bear";
-    }
-
-    const periodTrades = trades.filter(
-      (t) => t.entryDate >= startDate && t.exitDate <= endDate
-    );
-    const winners = periodTrades.filter((t) => t.pnl > 0);
-    const winRate = periodTrades.length > 0 ? (winners.length / periodTrades.length) * 100 : 0;
-    const totalPnl = periodTrades.reduce((a, t) => a + t.pnl, 0);
-
-    periods.push({
-      startDate, endDate, regime,
-      avgReturn: avgReturn * 252 * 100,
-      volatility,
-      tradeCount: periodTrades.length,
-      winRate, totalPnl,
-    });
-
-    i += windowDays;
-  }
-
-  return periods;
-}
+// classifyRegimes + RegimePeriod imported from backtest-engine.ts
 
 // ─── Pearson correlation of equity return series ──────────────────────────────
 
@@ -251,7 +159,7 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
   const strategies = await db.select().from(strategiesTable).orderBy(strategiesTable.createdAt);
 
   if (strategies.length === 0) {
-    res.json({ strategies: [], matrix: [], duplicates: [] });
+    res.json({ strategies: [], matrix: [], duplicates: [], correlations: [] });
     return;
   }
 
@@ -269,6 +177,14 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
     }
   }
 
+  // Restrict to strategies that have at least one completed backtest
+  const strategiesWithBacktest = strategies.filter((s) => latestByStrategy.has(s.id));
+
+  if (strategiesWithBacktest.length === 0) {
+    res.json({ strategies: [], matrix: [], duplicates: [], correlations: [] });
+    return;
+  }
+
   // Fetch equity curves for all backtests that have one
   const btIds = Array.from(latestByStrategy.values()).map((bt) => bt.id);
   const allEquityCurveRows = btIds.length > 0
@@ -284,21 +200,21 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
 
   type StratEntry = {
     id: number; name: string; type: string;
-    dna: Record<string, number>; hasBacktest: boolean;
+    dna: Record<string, number>; hasBacktest: true;
     grade: string; overallScore: number;
   };
 
-  const entries: StratEntry[] = strategies.map((s) => {
-    const bt = latestByStrategy.get(s.id);
+  const entries: StratEntry[] = strategiesWithBacktest.map((s) => {
+    const bt = latestByStrategy.get(s.id)!;
     const dna = computeDnaVector({
       type: s.type,
-      totalReturn: bt ? Number(bt.totalReturn ?? 0) : 0,
-      sharpeRatio: bt ? Number(bt.sharpeRatio ?? 0) : 0,
-      maxDrawdown: bt ? Number(bt.maxDrawdown ?? 0) : 0,
-      winRate: bt ? Number(bt.winRate ?? 0) : 0,
-      profitFactor: bt ? Number(bt.profitFactor ?? 0) : 0,
-      annualizedReturn: bt ? Number(bt.annualizedReturn ?? 0) : 0,
-      sortinoRatio: bt ? Number(bt.sortinoRatio ?? 0) : 0,
+      totalReturn: Number(bt.totalReturn ?? 0),
+      sharpeRatio: Number(bt.sharpeRatio ?? 0),
+      maxDrawdown: Number(bt.maxDrawdown ?? 0),
+      winRate: Number(bt.winRate ?? 0),
+      profitFactor: Number(bt.profitFactor ?? 0),
+      annualizedReturn: Number(bt.annualizedReturn ?? 0),
+      sortinoRatio: Number(bt.sortinoRatio ?? 0),
     });
     const overallScore = Math.round(Object.values(dna).reduce((a, b) => a + b, 0) / 6);
     const grade =
@@ -306,7 +222,7 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
       overallScore >= 65 ? "A" :
       overallScore >= 50 ? "B" :
       overallScore >= 35 ? "C" : "D";
-    return { id: s.id, name: s.name, type: s.type, dna, hasBacktest: !!bt, grade, overallScore };
+    return { id: s.id, name: s.name, type: s.type, dna, hasBacktest: true, grade, overallScore };
   });
 
   // Build return-series for each strategy (Pearson input)
@@ -531,10 +447,24 @@ router.post("/backtests/:id/live-trades", requireAuth, async (req, res): Promise
 });
 
 // ─── DELETE /backtests/:id/live-trades/:tradeId ───────────────────────────────
+// Resource-level check: verify the trade belongs to this backtestId before deleting.
 
 router.delete("/backtests/:id/live-trades/:tradeId", requireAuth, async (req, res): Promise<void> => {
+  const backtestId = parseInt(req.params["id"] as string, 10);
   const tradeId = parseInt(req.params["tradeId"] as string, 10);
-  if (isNaN(tradeId)) { res.status(400).json({ error: "Invalid tradeId" }); return; }
+  if (isNaN(tradeId) || isNaN(backtestId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  // Verify the trade exists and belongs to this backtestId (resource-level authz)
+  const [existing] = await db
+    .select()
+    .from(liveTradesTable)
+    .where(eq(liveTradesTable.id, tradeId));
+
+  if (!existing) { res.status(404).json({ error: "Trade not found" }); return; }
+  if (existing.backtestId !== backtestId) {
+    res.status(403).json({ error: "Trade does not belong to this backtest" });
+    return;
+  }
 
   await db.delete(liveTradesTable).where(eq(liveTradesTable.id, tradeId));
   res.status(204).end();
