@@ -68,6 +68,7 @@ type Tab = "users" | "policies" | "plans" | "subscribers" | "payments";
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
   const { adminToken, setAdminToken } = useAuth();
+
   const [tab, setTab] = useState<Tab>("users");
   // Once a tab has been visited its panel stays mounted (just hidden via CSS).
   // This prevents Chrome from needing to rasterize from scratch on every revisit.

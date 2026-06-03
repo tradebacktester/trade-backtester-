@@ -94,16 +94,25 @@ function ema(prices: number[], period: number): (number | null)[] {
 function rsi(prices: number[], period: number): (number | null)[] {
   const result: (number | null)[] = new Array(prices.length).fill(null);
   if (prices.length < period + 1) return result;
-  for (let i = period; i < prices.length; i++) {
-    let gains = 0, losses = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      const diff = prices[j] - prices[j - 1];
-      if (diff > 0) gains += diff; else losses += Math.abs(diff);
-    }
-    const avgGain = gains / period;
-    const avgLoss = losses / period;
-    if (avgLoss === 0) { result[i] = 100; continue; }
-    result[i] = 100 - 100 / (1 + avgGain / avgLoss);
+
+  // Seed: first average gain/loss from initial `period` price changes
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = prices[i] - prices[i - 1];
+    if (diff > 0) avgGain += diff; else avgLoss += -diff;
+  }
+  avgGain /= period;
+  avgLoss /= period;
+  result[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+
+  // Wilder's Smoothing (RMA) — matches TradingView, MetaTrader, Bloomberg
+  for (let i = period + 1; i < prices.length; i++) {
+    const diff = prices[i] - prices[i - 1];
+    const gain = diff > 0 ? diff : 0;
+    const loss = diff < 0 ? -diff : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    result[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
   }
   return result;
 }
@@ -251,10 +260,10 @@ function runStrategy(
     for (let i = 1; i < bars.length; i++) {
       const f = fast[i], fp = fast[i-1], s = slow[i], sp = slow[i-1];
       if (f == null || fp == null || s == null || sp == null) continue;
-      if (!inTrade && fp <= sp && f > s) { inTrade = true; entryIdx = i; }
+      if (!inTrade && fp <= sp && f > s && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
       else if (inTrade && fp >= sp && f < s) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; entryIdx = -1; }
     }
-    if (inTrade && entryIdx >= 0 && entryIdx < bars.length - 1)
+    if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
   } else if (strategyType === "rsi") {
     const period = Number(parameters.period ?? 14);
@@ -265,10 +274,10 @@ function runStrategy(
     for (let i = 1; i < bars.length; i++) {
       const r = rsiValues[i], rp = rsiValues[i-1];
       if (r == null || rp == null) continue;
-      if (!inTrade && rp <= oversold && r > oversold) { inTrade = true; entryIdx = i; }
+      if (!inTrade && rp <= oversold && r > oversold && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
       else if (inTrade && rp < overbought && r >= overbought) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; }
     }
-    if (inTrade && entryIdx >= 0 && entryIdx < bars.length - 1)
+    if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
   } else if (strategyType === "macd") {
     const fastPeriod = Number(parameters.fastPeriod ?? 12);
@@ -291,10 +300,10 @@ function runStrategy(
     for (let i = 1; i < bars.length; i++) {
       const m = macdLine[i], mp = macdLine[i-1], s = signalLine[i], sp = signalLine[i-1];
       if (m == null || mp == null || s == null || sp == null) continue;
-      if (!inTrade && mp <= sp && m > s) { inTrade = true; entryIdx = i; }
+      if (!inTrade && mp <= sp && m > s && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
       else if (inTrade && mp >= sp && m < s) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; }
     }
-    if (inTrade && entryIdx >= 0 && entryIdx < bars.length - 1)
+    if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
   } else if (strategyType === "bollinger_bands") {
     const period = Number(parameters.period ?? 20);
@@ -318,10 +327,10 @@ function runStrategy(
     for (let i = 1; i < bars.length; i++) {
       const lo = lower[i], lop = lower[i-1], up = upper[i];
       if (lo == null || lop == null || up == null) continue;
-      if (!inTrade && closes[i-1] <= (lop ?? 0) && closes[i] > (lo ?? 0)) { inTrade = true; entryIdx = i; }
+      if (!inTrade && closes[i-1] <= (lop ?? 0) && closes[i] > (lo ?? 0) && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
       else if (inTrade && closes[i] >= (up ?? 0)) { signals.push({ entries: [entryIdx], exits: [i], direction: "long" }); inTrade = false; }
     }
-    if (inTrade && entryIdx >= 0 && entryIdx < bars.length - 1)
+    if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
   }
 
@@ -401,23 +410,48 @@ export function runBacktest(
     });
   }
 
-  // Build equity curve
-  const tradeMap = new Map<string, number>();
-  let runningCapital = initialCapital;
-  for (const t of trades) {
-    tradeMap.set(t.exitDate, (tradeMap.get(t.exitDate) ?? 0) + t.pnl);
-  }
-
+  // Build equity curve with mark-to-market tracking (BUG-005 fix)
+  // At each bar: equity = initial + settled PnL from closed trades + unrealized MtM from open trades.
+  // This prevents the "flat equity between exits" problem that artificially inflates Sharpe ratio.
   const equityCurve: EquityPoint[] = [];
   let peakValue = initialCapital;
-  for (const bar of bars) {
-    const pnlOnDay = tradeMap.get(bar.date) ?? 0;
-    runningCapital += pnlOnDay;
-    if (runningCapital > peakValue) peakValue = runningCapital;
-    const drawdown = peakValue > 0 ? ((peakValue - runningCapital) / peakValue) * 100 : 0;
+  let maxDrawdown = 0;
+
+  for (let bi = 0; bi < bars.length; bi++) {
+    const bar = bars[bi];
+    let equity = initialCapital;
+    let worstEquity = initialCapital; // uses bar lows for intra-trade drawdown (BUG-006 fix)
+
+    for (let ti = 0; ti < signals.length && ti < trades.length; ti++) {
+      const sig = signals[ti];
+      const trade = trades[ti];
+      const entryBarIdx = sig.entries[0];
+      const exitBarIdx = sig.exits[0];
+
+      if (bi >= exitBarIdx) {
+        // Trade settled — use final PnL (net of commission)
+        equity += trade.pnl;
+        worstEquity += trade.pnl;
+      } else if (bi >= entryBarIdx) {
+        // Trade open — mark to market at bar close
+        const unrealized = (bar.close - trade.entryPrice) * trade.quantity;
+        equity += unrealized;
+        // Worst case for intra-bar drawdown uses bar low (BUG-006)
+        const unrealizedWorst = (bar.low - trade.entryPrice) * trade.quantity;
+        worstEquity += unrealizedWorst;
+      }
+    }
+
+    if (equity > peakValue) peakValue = equity;
+    const drawdown = peakValue > 0 ? ((peakValue - equity) / peakValue) * 100 : 0;
+
+    // Track max drawdown using bar lows for open positions (BUG-006)
+    const worstDrawdown = peakValue > 0 ? ((peakValue - worstEquity) / peakValue) * 100 : 0;
+    maxDrawdown = Math.max(maxDrawdown, worstDrawdown, 0);
+
     equityCurve.push({
       date: bar.date,
-      value: runningCapital,
+      value: Math.max(equity, 0),
       drawdown,
       benchmark: benchmarkValues.get(bar.date) ?? initialCapital,
     });
@@ -428,8 +462,8 @@ export function runBacktest(
   const startMs = new Date(startDate).getTime();
   const endMs = new Date(endDate).getTime();
   const years = Math.max((endMs - startMs) / (365.25 * 24 * 3600 * 1000), 1 / 365);
-  const annualizedReturn = (Math.pow(finalCapital / initialCapital, 1 / years) - 1) * 100;
-  const maxDrawdown = Math.max(...equityCurve.map((e) => e.drawdown), 0);
+  const ratio = finalCapital / initialCapital;
+  const annualizedReturn = ratio > 0 ? (Math.pow(ratio, 1 / years) - 1) * 100 : -100;
 
   const winners = trades.filter((t) => t.pnl > 0);
   const losers = trades.filter((t) => t.pnl <= 0);

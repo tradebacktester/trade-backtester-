@@ -4,7 +4,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signJwt } from "../lib/jwt";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "";
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 const router: IRouter = Router();
 
@@ -45,7 +45,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   }
   const passwordHash = createPasswordHash(password);
   const [user] = await db.insert(usersTable).values({ email: email.toLowerCase(), name, passwordHash }).returning();
-  const token = JWT_SECRET ? signJwt({ id: user!.id, email: user!.email }, JWT_SECRET) : null;
+  const token = signJwt({ id: user!.id, email: user!.email }, JWT_SECRET);
   res.status(201).json({ user: { id: user!.id, email: user!.email, name: user!.name, banned: user!.banned }, token });
 });
 
@@ -64,7 +64,7 @@ router.post("/auth/signin", async (req, res): Promise<void> => {
     res.status(403).json({ error: `Your account has been suspended${user.bannedReason ? `: ${user.bannedReason}` : ""}` });
     return;
   }
-  const token = JWT_SECRET ? signJwt({ id: user.id, email: user.email }, JWT_SECRET) : null;
+  const token = signJwt({ id: user.id, email: user.email }, JWT_SECRET);
   res.json({ user: { id: user.id, email: user.email, name: user.name, banned: user.banned }, token });
 });
 

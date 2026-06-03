@@ -9,6 +9,12 @@ if (!rawPort) {
   );
 }
 
+if (!process.env["JWT_SECRET"]) {
+  throw new Error(
+    "JWT_SECRET environment variable is required but was not provided. Set it to a long random string.",
+  );
+}
+
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {

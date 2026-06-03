@@ -1,6 +1,7 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, avg, max, min, count, sql } from "drizzle-orm";
 import { db, strategiesTable, backtestsTable } from "@workspace/db";
+import { verifyJwt } from "../lib/jwt";
 import {
   ListStrategiesResponseItem,
   CreateStrategyBody,
@@ -13,7 +14,27 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/strategies", async (req, res): Promise<void> => {
+function extractUserId(req: Request): number | null {
+  try {
+    const auth = req.headers["authorization"];
+    if (!auth || !process.env.JWT_SECRET) return null;
+    const token = auth.replace("Bearer ", "").trim();
+    const payload = verifyJwt(token, process.env.JWT_SECRET);
+    return typeof payload?.id === "number" ? payload.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!extractUserId(req)) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  next();
+}
+
+router.get("/strategies", requireAuth, async (req, res): Promise<void> => {
   const rows = await db.select().from(strategiesTable).orderBy(strategiesTable.createdAt);
   res.json(rows.map((r) => ListStrategiesResponseItem.parse({
     ...r,
@@ -21,7 +42,7 @@ router.get("/strategies", async (req, res): Promise<void> => {
   })));
 });
 
-router.post("/strategies", async (req, res): Promise<void> => {
+router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateStrategyBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -41,7 +62,7 @@ router.post("/strategies", async (req, res): Promise<void> => {
   }));
 });
 
-router.get("/strategies/:id", async (req, res): Promise<void> => {
+router.get("/strategies/:id", requireAuth, async (req, res): Promise<void> => {
   const params = GetStrategyParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -55,7 +76,7 @@ router.get("/strategies/:id", async (req, res): Promise<void> => {
   res.json(ListStrategiesResponseItem.parse({ ...row, createdAt: row.createdAt.toISOString() }));
 });
 
-router.patch("/strategies/:id", async (req, res): Promise<void> => {
+router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => {
   const params = UpdateStrategyParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -82,7 +103,7 @@ router.patch("/strategies/:id", async (req, res): Promise<void> => {
   res.json(ListStrategiesResponseItem.parse({ ...row, createdAt: row.createdAt.toISOString() }));
 });
 
-router.delete("/strategies/:id", async (req, res): Promise<void> => {
+router.delete("/strategies/:id", requireAuth, async (req, res): Promise<void> => {
   const params = DeleteStrategyParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -96,7 +117,7 @@ router.delete("/strategies/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.get("/strategies/:id/performance", async (req, res): Promise<void> => {
+router.get("/strategies/:id/performance", requireAuth, async (req, res): Promise<void> => {
   const params = GetStrategyPerformanceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

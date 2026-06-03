@@ -1,6 +1,7 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, avg, max, min, count, sum, sql, inArray } from "drizzle-orm";
 import { db, backtestsTable, strategiesTable, tradesTable, equityCurveTable } from "@workspace/db";
+import { verifyJwt } from "../lib/jwt";
 import {
   CreateBacktestBody,
   ListBacktestsQueryParams,
@@ -66,6 +67,26 @@ async function fetchBinanceHistorical(symbol: string, startDate: string, endDate
 
 const router: IRouter = Router();
 
+function extractUserId(req: Request): number | null {
+  try {
+    const auth = req.headers["authorization"];
+    if (!auth || !process.env.JWT_SECRET) return null;
+    const token = auth.replace("Bearer ", "").trim();
+    const payload = verifyJwt(token, process.env.JWT_SECRET);
+    return typeof payload?.id === "number" ? payload.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!extractUserId(req)) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  next();
+}
+
 function formatBacktest(row: typeof backtestsTable.$inferSelect, strategyName?: string | null) {
   return {
     id: row.id,
@@ -95,7 +116,7 @@ function formatBacktest(row: typeof backtestsTable.$inferSelect, strategyName?: 
   };
 }
 
-router.get("/backtests/summary", async (_req, res): Promise<void> => {
+router.get("/backtests/summary", requireAuth, async (_req, res): Promise<void> => {
   const [summary] = await db
     .select({
       totalBacktests: count(backtestsTable.id),
@@ -139,7 +160,7 @@ router.get("/backtests/summary", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/backtests", async (req, res): Promise<void> => {
+router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
   const query = ListBacktestsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -165,7 +186,7 @@ router.get("/backtests", async (req, res): Promise<void> => {
   res.json(rows.map((r) => formatBacktest(r, stratMap.get(r.strategyId))));
 });
 
-router.post("/backtests", async (req, res): Promise<void> => {
+router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateBacktestBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -174,7 +195,7 @@ router.post("/backtests", async (req, res): Promise<void> => {
 
   const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, parsed.data.strategyId));
   if (!strategy) {
-    res.status(400).json({ error: "Strategy not found" });
+    res.status(404).json({ error: "Strategy not found" });
     return;
   }
 
@@ -270,7 +291,7 @@ router.post("/backtests", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/backtests/:id", async (req, res): Promise<void> => {
+router.get("/backtests/:id", requireAuth, async (req, res): Promise<void> => {
   const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(rawId, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -313,7 +334,7 @@ router.get("/backtests/:id", async (req, res): Promise<void> => {
   });
 });
 
-router.delete("/backtests/:id", async (req, res): Promise<void> => {
+router.delete("/backtests/:id", requireAuth, async (req, res): Promise<void> => {
   const params = DeleteBacktestParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [row] = await db.delete(backtestsTable).where(eq(backtestsTable.id, params.data.id)).returning();
@@ -321,7 +342,7 @@ router.delete("/backtests/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.get("/backtests/:id/trades", async (req, res): Promise<void> => {
+router.get("/backtests/:id/trades", requireAuth, async (req, res): Promise<void> => {
   const params = GetBacktestTradesParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, params.data.id));
@@ -342,7 +363,7 @@ router.get("/backtests/:id/trades", async (req, res): Promise<void> => {
   })));
 });
 
-router.get("/backtests/:id/equity", async (req, res): Promise<void> => {
+router.get("/backtests/:id/equity", requireAuth, async (req, res): Promise<void> => {
   const params = GetEquityCurveParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, params.data.id));
@@ -372,7 +393,7 @@ router.get("/backtests/:id/equity", async (req, res): Promise<void> => {
 });
 
 // Parameter optimization: grid search over two parameters (no DB writes)
-router.post("/backtests/optimize", async (req, res): Promise<void> => {
+router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> => {
   const { strategyId, symbol, startDate, endDate, initialCapital, param1Name, param1Values, param2Name, param2Values } = req.body;
   if (!strategyId || !symbol || !startDate || !endDate || !initialCapital || !param1Name || !param1Values?.length || !param2Name || !param2Values?.length) {
     res.status(400).json({ error: "Missing required fields" });

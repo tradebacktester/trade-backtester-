@@ -1,11 +1,11 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import { SettingsProvider } from "@/lib/settings-context";
-import { AuthProvider } from "@/lib/auth-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { SubscriptionProvider } from "@/lib/subscription-context";
 import { PolicyPopup } from "@/components/policy-popup";
 
@@ -47,6 +47,16 @@ const queryClient = new QueryClient({
   }
 });
 
+function AdminPanelGuard() {
+  const { adminToken } = useAuth();
+  const [, setLocation] = useLocation();
+  if (!adminToken) {
+    setLocation("/admin");
+    return null;
+  }
+  return <AdminPanel />;
+}
+
 function Router() {
   return (
     <Switch>
@@ -83,7 +93,7 @@ function Router() {
       <Route path="/billing" component={BillingPage} />
 
       <Route path="/admin" component={AdminLogin} />
-      <Route path="/admin/panel" component={AdminPanel} />
+      <Route path="/admin/panel" component={AdminPanelGuard} />
       
       <Route component={NotFound} />
     </Switch>

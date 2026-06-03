@@ -211,11 +211,17 @@ export default function PsychMatchPage() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
-        <Brain className="h-12 w-12" style={{ color: "hsl(220,14%,30%)" }} />
-        <p className="text-base font-medium" style={{ color: "hsl(220,14%,55%)" }}>Sign in to get your Psychology Match</p>
-        <p className="text-sm text-center max-w-sm" style={{ color: "hsl(220,14%,40%)" }}>
-          We analyze your paper trading patterns to recommend the strategies best suited to your personality.
+        <div className="h-16 w-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.25)" }}>
+          <Brain className="h-8 w-8" style={{ color: "#a78bfa" }} />
+        </div>
+        <h2 className="text-xl font-bold" style={{ color: "hsl(220,14%,88%)" }}>Sign In to Get Your Psychology Match</h2>
+        <p className="text-sm text-center max-w-sm leading-relaxed" style={{ color: "hsl(220,14%,60%)" }}>
+          We analyze your backtest patterns — hold time, loss tolerance, trade frequency — to recommend
+          the strategy that fits your personality best.
         </p>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs" style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.15)", color: "#c4b5fd" }}>
+          <Sparkles className="h-3.5 w-3.5" /> Powered by Llama 3.3 70B · Your data stays private
+        </div>
       </div>
     );
   }

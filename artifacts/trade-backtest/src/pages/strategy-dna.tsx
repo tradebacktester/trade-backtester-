@@ -95,6 +95,8 @@ function getPearson(
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function StrategyDnaPage() {
+  const token = typeof window !== "undefined" ? localStorage.getItem("tt_token") : null;
+  const isLoggedIn = Boolean(token);
   const [data, setData] = useState<DnaResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,10 +160,21 @@ export default function StrategyDnaPage() {
       {!isLoading && !data && !error && (
         <div className="py-20 text-center border border-dashed rounded-xl">
           <Dna className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-sm font-medium">Click "Decode All Strategies" to generate DNA fingerprints</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Only strategies with a completed backtest are included. Correlation &gt;0.85 = near-duplicate pair.
-          </p>
+          {isLoggedIn ? (
+            <>
+              <p className="text-sm font-medium">Click "Decode All Strategies" to generate DNA fingerprints</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Only strategies with a completed backtest are included. Correlation &gt;0.85 = near-duplicate pair.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium">Sign in to analyze your Strategy DNA</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Log in, create strategies and backtests, then click "Decode All Strategies" to see correlation fingerprints.
+              </p>
+            </>
+          )}
         </div>
       )}
 

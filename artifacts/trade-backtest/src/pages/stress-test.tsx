@@ -74,9 +74,13 @@ export default function StressTestPage() {
 
   const handleRun = useCallback(async () => {
     if (!strategyId) { setError("Please select a strategy"); return; }
+    const token = localStorage.getItem("tt_token") ?? "";
+    if (!token) {
+      setError("You must be signed in to run a Stress Test. Please log in and try again.");
+      return;
+    }
     setIsLoading(true); setError(null); setResult(null);
     try {
-      const token = localStorage.getItem("tt_token") ?? "";
       const resp = await fetch("/api/superpowers/stress-test", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
