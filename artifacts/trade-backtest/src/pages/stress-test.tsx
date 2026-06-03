@@ -19,6 +19,7 @@ type StressResult = {
   totalReturn: number; sharpeRatio: number; maxDrawdown: number;
   winRate: number; totalTrades: number; profitFactor: number;
   finalCapital: number; annualizedReturn: number;
+  edgeVerdict: "edge" | "noise";
 };
 
 type SectorSummary = {
@@ -33,7 +34,8 @@ type StressResponse = {
   sectorSummary: SectorSummary[];
   stats: {
     avgReturn: number; avgSharpe: number;
-    profitable: number; topSymbol: string; worstSymbol: string;
+    profitable: number; edgeCount: number;
+    topSymbol: string; worstSymbol: string;
   };
 };
 
@@ -190,18 +192,20 @@ export default function StressTestPage() {
       {result && !isLoading && (
         <>
           {/* Stats row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
             {[
               { label: "Symbols Tested", value: result.totalSymbols.toString(), accent: "#6366f1" },
               { label: "Profitable", value: `${result.stats.profitable} / ${result.totalSymbols}`, accent: "#22c55e" },
+              { label: "Real Edge", value: `${result.stats.edgeCount} / ${result.totalSymbols}`, accent: result.stats.edgeCount > result.totalSymbols / 2 ? "#22c55e" : "#f59e0b", note: "Sharpe > 0.5" },
               { label: "Avg Return", value: fmtPct(result.stats.avgReturn), accent: result.stats.avgReturn >= 0 ? "#22c55e" : "#ef4444" },
               { label: "Avg Sharpe", value: fmtNum(result.stats.avgSharpe), accent: result.stats.avgSharpe > 1 ? "#22c55e" : result.stats.avgSharpe > 0 ? "#f59e0b" : "#ef4444" },
               { label: "Best Symbol", value: result.stats.topSymbol, accent: "#22c55e" },
-            ].map(({ label, value, accent }) => (
+            ].map(({ label, value, accent, note }) => (
               <div key={label} className="p-4 rounded-xl border border-border bg-card relative overflow-hidden">
                 <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${accent}60, transparent)` }} />
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
                 <p className="text-xl font-bold font-mono mt-1" style={{ color: accent }}>{value}</p>
+                {note && <p className="text-[9px] text-muted-foreground mt-0.5">{note}</p>}
               </div>
             ))}
           </div>
@@ -264,6 +268,7 @@ export default function StressTestPage() {
                       ["maxDrawdown", "Max DD"],
                       ["winRate", "Win Rate"],
                       ["totalTrades", "Trades"],
+                      ["edgeVerdict", "Edge?"],
                     ] as [keyof StressResult, string][]).map(([k, label]) => (
                       <th key={k} onClick={() => toggleSort(k)}
                         className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground cursor-pointer select-none text-left whitespace-nowrap hover:text-foreground transition-colors">
@@ -311,6 +316,15 @@ export default function StressTestPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2.5 font-mono text-sm text-muted-foreground">{r.totalTrades}</td>
+                      <td className="px-3 py-2.5">
+                        <Badge variant="outline" className={`text-[10px] font-semibold ${
+                          r.edgeVerdict === "edge"
+                            ? "border-green-500/30 text-green-400 bg-green-500/10"
+                            : "border-muted text-muted-foreground"
+                        }`}>
+                          {r.edgeVerdict === "edge" ? "✓ Real Edge" : "Noise"}
+                        </Badge>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

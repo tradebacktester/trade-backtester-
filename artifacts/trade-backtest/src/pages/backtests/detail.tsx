@@ -1609,20 +1609,24 @@ export default function BacktestDetail() {
 // ─── Regime Analysis Tab ─────────────────────────────────────────────────────
 
 const REGIME_META = {
-  bull:     { color: "#22c55e", bg: "rgba(34,197,94,0.12)",  label: "Bull Market",   icon: "📈" },
-  bear:     { color: "#ef4444", bg: "rgba(239,68,68,0.12)",  label: "Bear Market",   icon: "📉" },
-  sideways: { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "Sideways",      icon: "➡️" },
-  volatile: { color: "#a78bfa", bg: "rgba(167,139,250,0.12)",label: "High Volatility",icon: "⚡" },
+  trending_bull:  { color: "#22c55e", bg: "rgba(34,197,94,0.12)",   label: "Trending Bull",   icon: "📈" },
+  trending_bear:  { color: "#ef4444", bg: "rgba(239,68,68,0.12)",   label: "Trending Bear",   icon: "📉" },
+  highvol_bull:   { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  label: "High-Vol Bull",   icon: "⚡📈" },
+  highvol_bear:   { color: "#a78bfa", bg: "rgba(167,139,250,0.12)", label: "High-Vol Bear",   icon: "⚡📉" },
 } as const;
+
+type RegimeKey = keyof typeof REGIME_META;
 
 type RegimePeriod = {
   startDate: string; endDate: string;
-  regime: "bull" | "bear" | "sideways" | "volatile";
+  regime: RegimeKey;
   avgReturn: number; volatility: number;
   tradeCount: number; winRate: number; totalPnl: number;
 };
 
-type RegimeSummaryItem = { count: number; totalTrades: number; avgWinRate: number; totalPnl: number } | null;
+type RegimeSummaryItem = { count: number; totalTrades: number; avgWinRate: number; avgReturn: number; totalPnl: number } | null;
+
+const REGIME_ORDER: RegimeKey[] = ["trending_bull", "trending_bear", "highvol_bull", "highvol_bear"];
 
 function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
   const [regimes, setRegimes] = React.useState<RegimePeriod[]>([]);
@@ -1634,7 +1638,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
   const load = React.useCallback(async () => {
     setIsLoading(true); setError(null);
     try {
-      const resp = await fetch(`/api/superpowers/regime/${backtestId}`);
+      const resp = await fetch(`/api/backtests/${backtestId}/regime-analysis`);
       if (!resp.ok) throw new Error("Failed to load regime data");
       const data = await resp.json();
       setRegimes(data.regimes ?? []);
@@ -1649,11 +1653,24 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
 
   React.useEffect(() => { load(); }, [load]);
 
+  const barData = React.useMemo(() =>
+    REGIME_ORDER.map((k) => {
+      const s = summary[k];
+      const meta = REGIME_META[k];
+      return {
+        regime: meta.label,
+        winRate: s ? Number(s.avgWinRate.toFixed(1)) : 0,
+        avgReturn: s ? Number(s.avgReturn.toFixed(1)) : 0,
+        fill: meta.color,
+        hasPeriods: !!s,
+      };
+    }), [summary]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <div className="h-10 w-10 rounded-full border-3 border-primary border-t-transparent animate-spin" />
-        <p className="text-sm text-muted-foreground">Classifying market regimes…</p>
+        <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <p className="text-sm text-muted-foreground">Classifying market regimes (SMA50 + volatility)…</p>
       </div>
     );
   }
@@ -1661,7 +1678,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
   if (!loaded || regimes.length === 0) {
     return (
       <div className="py-16 text-center text-muted-foreground border border-dashed rounded-xl">
-        No regime data available. This backtest may not have enough data.
+        No regime data available. This backtest requires at least 60 bars of price data.
       </div>
     );
   }
@@ -1670,25 +1687,23 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
     <div className="space-y-6">
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {(["bull","bear","sideways","volatile"] as const).map((regime) => {
-          const meta = REGIME_META[regime];
-          const s = summary[regime];
+        {REGIME_ORDER.map((k) => {
+          const meta = REGIME_META[k];
+          const s = summary[k];
           return (
-            <div key={regime} className="p-4 rounded-xl border" style={{ background: meta.bg, borderColor: `${meta.color}30` }}>
-              <div className="flex items-center gap-2 mb-2">
-                <span>{meta.icon}</span>
-                <span className="text-xs font-medium" style={{ color: meta.color }}>{meta.label}</span>
+            <div key={k} className="p-4 rounded-xl border" style={{ background: meta.bg, borderColor: `${meta.color}30` }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-sm">{meta.icon}</span>
+                <span className="text-[11px] font-medium leading-tight" style={{ color: meta.color }}>{meta.label}</span>
               </div>
               {s ? (
                 <>
                   <p className="text-2xl font-bold font-mono" style={{ color: meta.color }}>{s.count}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">periods</p>
                   <div className="mt-2 space-y-0.5">
-                    <p className="text-[11px]"><span className="text-muted-foreground">Trades:</span> <span className="font-mono">{s.totalTrades}</span></p>
-                    <p className="text-[11px]"><span className="text-muted-foreground">Win rate:</span> <span className="font-mono">{s.avgWinRate.toFixed(1)}%</span></p>
-                    <p className={`text-[11px] font-mono font-semibold ${s.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {s.totalPnl >= 0 ? "+" : ""}${s.totalPnl.toFixed(0)} P&L
-                    </p>
+                    <p className="text-[11px]"><span className="text-muted-foreground">Trades: </span><span className="font-mono">{s.totalTrades}</span></p>
+                    <p className="text-[11px]"><span className="text-muted-foreground">Win rate: </span><span className="font-mono">{s.avgWinRate.toFixed(1)}%</span></p>
+                    <p className="text-[11px]"><span className="text-muted-foreground">Avg return: </span><span className={`font-mono font-semibold ${s.avgReturn >= 0 ? "text-green-400" : "text-red-400"}`}>{s.avgReturn >= 0 ? "+" : ""}{s.avgReturn.toFixed(1)}%</span></p>
                   </div>
                 </>
               ) : (
@@ -1699,20 +1714,60 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
         })}
       </div>
 
+      {/* Grouped bar chart: Win Rate + Avg Return by regime */}
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Performance by Regime</CardTitle>
+          <CardDescription>Win rate and annualized return grouped by SMA50 + volatility classification</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="regime" fontSize={11} stroke="hsl(var(--muted-foreground))" />
+                <YAxis yAxisId="left" tickFormatter={(v) => `${v}%`} fontSize={11} stroke="hsl(var(--muted-foreground))" />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} fontSize={11} stroke="hsl(var(--muted-foreground))" />
+                <RechartsTooltip
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                  formatter={(v: number, name: string) => [`${v.toFixed(1)}%`, name === "winRate" ? "Win Rate" : "Avg Ann. Return"]}
+                />
+                <Bar yAxisId="left" dataKey="winRate" name="winRate" radius={[3, 3, 0, 0]} maxBarSize={40}>
+                  {barData.map((d, i) => (
+                    <Cell key={i} fill={d.fill} fillOpacity={0.7} />
+                  ))}
+                </Bar>
+                <Bar yAxisId="right" dataKey="avgReturn" name="avgReturn" radius={[3, 3, 0, 0]} maxBarSize={40}>
+                  {barData.map((d, i) => (
+                    <Cell key={i} fill={d.fill} fillOpacity={0.35} />
+                  ))}
+                </Bar>
+                <ReferenceLine yAxisId="left" y={50} stroke="#f59e0b" strokeDasharray="4 4" strokeWidth={1} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex gap-4 mt-2 text-[10px] text-muted-foreground justify-center">
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-current opacity-70" />Win Rate (left axis)</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-current opacity-35" />Ann. Return (right axis)</span>
+            <span className="text-yellow-500">— 50% win threshold</span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Timeline */}
       <Card className="border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Regime Timeline</CardTitle>
-          <CardDescription>30-day rolling market classification with strategy performance</CardDescription>
+          <CardDescription>30-day rolling classification — SMA50 position × volatility → 4 regime types</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             {regimes.map((r, i) => {
               const meta = REGIME_META[r.regime];
               return (
                 <div key={i} className="flex items-start gap-3 p-3 rounded-xl border transition-all hover:bg-muted/10"
                   style={{ borderColor: `${meta.color}25`, background: `${meta.color}05` }}>
-                  <span className="text-lg leading-none mt-0.5">{meta.icon}</span>
+                  <span className="text-base leading-none mt-0.5">{meta.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-xs font-mono text-muted-foreground">{r.startDate} → {r.endDate}</span>
@@ -1763,45 +1818,51 @@ type LiveTradeRow = {
   pnlAmount: number | null; note: string | null; createdAt: string;
 };
 
+type DivergenceData = {
+  expected: { date: string; value: number }[];
+  actual: { date: string; value: number }[];
+  liveTotal: number; expectedTotal: number;
+  divergenceScore: number | null; initialCapital: number;
+};
+
 function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: string }) {
   const [liveTrades, setLiveTrades] = React.useState<LiveTradeRow[]>([]);
+  const [divergence, setDivergence] = React.useState<DivergenceData | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showForm, setShowForm] = React.useState(false);
   const [form, setForm] = React.useState({
-    tradeDate: new Date().toISOString().split("T")[0],
-    side: "long",
-    entryPrice: "",
-    exitPrice: "",
-    pnlAmount: "",
-    note: "",
+    tradeDate: new Date().toISOString().split("T")[0]!,
+    side: "long", entryPrice: "", exitPrice: "", pnlAmount: "", note: "",
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
-  const loadTrades = React.useCallback(async () => {
+  const token = () => localStorage.getItem("tt_token") ?? "";
+
+  const loadAll = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const resp = await fetch(`/api/superpowers/live-trades/${backtestId}`);
-      if (!resp.ok) throw new Error("Failed to load");
-      setLiveTrades(await resp.json());
+      const [tradesResp, divResp] = await Promise.all([
+        fetch(`/api/superpowers/live-trades/${backtestId}`, { headers: { "Authorization": `Bearer ${token()}` } }),
+        fetch(`/api/backtests/${backtestId}/divergence`, { headers: { "Authorization": `Bearer ${token()}` } }),
+      ]);
+      if (tradesResp.ok) setLiveTrades(await tradesResp.json());
+      if (divResp.ok) setDivergence(await divResp.json());
     } catch { /* ignore */ }
     finally { setIsLoading(false); }
   }, [backtestId]);
 
-  React.useEffect(() => { loadTrades(); }, [loadTrades]);
+  React.useEffect(() => { loadAll(); }, [loadAll]);
 
   async function handleAdd() {
     if (!form.entryPrice) { toast({ title: "Entry price required", variant: "destructive" }); return; }
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("tt_token") ?? "";
       const resp = await fetch("/api/superpowers/live-trades", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token()}` },
         body: JSON.stringify({
-          backtestId, symbol,
-          tradeDate: form.tradeDate,
-          side: form.side,
+          backtestId, symbol, tradeDate: form.tradeDate, side: form.side,
           entryPrice: Number(form.entryPrice),
           exitPrice: form.exitPrice ? Number(form.exitPrice) : null,
           pnlAmount: form.pnlAmount ? Number(form.pnlAmount) : null,
@@ -1809,9 +1870,9 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
         }),
       });
       if (!resp.ok) throw new Error("Failed to add trade");
-      await loadTrades();
+      await loadAll();
       setShowForm(false);
-      setForm({ tradeDate: new Date().toISOString().split("T")[0], side: "long", entryPrice: "", exitPrice: "", pnlAmount: "", note: "" });
+      setForm({ tradeDate: new Date().toISOString().split("T")[0]!, side: "long", entryPrice: "", exitPrice: "", pnlAmount: "", note: "" });
       toast({ title: "Live trade logged" });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -1819,30 +1880,34 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
   }
 
   async function handleDelete(id: number) {
-    const token = localStorage.getItem("tt_token") ?? "";
-    await fetch(`/api/superpowers/live-trades/${id}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${token}` },
-    });
-    setLiveTrades((prev) => prev.filter((t) => t.id !== id));
+    await fetch(`/api/superpowers/live-trades/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token()}` } });
+    await loadAll();
     toast({ title: "Trade removed" });
   }
 
-  // Compute divergence
-  const backtestAvgPnl = 0; // placeholder — could be enriched
   const liveTotal = liveTrades.reduce((a, t) => a + (t.pnlAmount ?? 0), 0);
-  const liveTrades_w = liveTrades.filter((t) => (t.pnlAmount ?? 0) > 0).length;
-  const liveWinRate = liveTrades.length > 0 ? (liveTrades_w / liveTrades.length) * 100 : 0;
+  const liveWinRate = liveTrades.length > 0
+    ? (liveTrades.filter((t) => (t.pnlAmount ?? 0) > 0).length / liveTrades.length) * 100 : 0;
+
+  const dualChartData = React.useMemo(() => {
+    if (!divergence?.expected?.length) return [];
+    const actualMap = new Map((divergence.actual ?? []).map((p) => [p.date, p.value]));
+    return divergence.expected.slice(0, 200).map((p) => ({
+      date: p.date,
+      expected: p.value,
+      actual: actualMap.has(p.date) ? actualMap.get(p.date)! : null,
+    }));
+  }, [divergence]);
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="font-semibold text-sm">Live Trade Log</h3>
-          <p className="text-xs text-muted-foreground">Log real trades to compare against backtest expectations</p>
+          <h3 className="font-semibold text-sm">Live vs. Backtest Divergence Monitor</h3>
+          <p className="text-xs text-muted-foreground">Log real trades to compare actual performance against backtest expectations</p>
         </div>
         <Button size="sm" onClick={() => setShowForm((v) => !v)} className="gap-2">
-          <Plus className="h-3.5 w-3.5" /> Add Live Trade
+          <Plus className="h-3.5 w-3.5" /> Log Live Trade
         </Button>
       </div>
 
@@ -1890,7 +1955,52 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
         </Card>
       )}
 
-      {/* Divergence summary */}
+      {/* Dual-line divergence chart */}
+      {divergence && (
+        <Card className="border-border">
+          <CardHeader className="pb-2">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <CardTitle className="text-base">Expected vs. Live Cumulative P&L</CardTitle>
+                <CardDescription>Blue = backtest expectation · Green = your logged live trades</CardDescription>
+              </div>
+              {divergence.divergenceScore != null && (
+                <div className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold ${
+                  divergence.divergenceScore <= 10 ? "border-green-500/30 bg-green-500/10 text-green-400"
+                  : divergence.divergenceScore <= 30 ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                  : "border-red-500/30 bg-red-500/10 text-red-400"
+                }`}>
+                  {divergence.divergenceScore}% divergence
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={dualChartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={(d) => d.slice(5)} tick={{ fontSize: 9 }} />
+                  <YAxis tickFormatter={(v) => `$${v >= 0 ? "+" : ""}${v.toFixed(0)}`} fontSize={11} stroke="hsl(var(--muted-foreground))" />
+                  <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                    formatter={(v: number, name: string) => [`$${v >= 0 ? "+" : ""}${v.toFixed(2)}`, name === "expected" ? "Expected P&L" : "Live P&L"]}
+                  />
+                  <Line type="monotone" dataKey="expected" stroke="#6366f1" strokeWidth={2} dot={false} name="expected" />
+                  <Line type="monotone" dataKey="actual" stroke="#22c55e" strokeWidth={2} dot={{ r: 4, fill: "#22c55e" }} connectNulls={false} name="actual" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-4 mt-1 justify-center text-[10px] font-mono text-muted-foreground">
+              <span><span className="text-[#6366f1]">━</span> Expected (backtest): {divergence.expectedTotal >= 0 ? "+" : ""}${divergence.expectedTotal.toFixed(2)}</span>
+              {liveTrades.length > 0 && <span><span className="text-[#22c55e]">━</span> Live actual: {divergence.liveTotal >= 0 ? "+" : ""}${divergence.liveTotal.toFixed(2)}</span>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Divergence stats */}
       {liveTrades.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <div className="p-4 rounded-xl border border-border bg-card">
