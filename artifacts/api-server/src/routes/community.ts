@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, communityPostsTable, communityReportsTable } from "@workspace/db";
+import { db, communityPostsTable, communityReportsTable, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, desc, and, gt, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "crypto";
 import { verifyJwt } from "../lib/jwt";
@@ -35,6 +35,14 @@ function checkPostRateLimit(ip: string): boolean {
   if (rec.count >= 5) return false;
   rec.count++;
   return true;
+}
+
+// ── HTML sanitization ────────────────────────────────────────────────────────
+function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, "")
+    .replace(/javascript\s*:/gi, "")
+    .replace(/on\w+\s*=/gi, "");
 }
 
 // ── Profanity filter ────────────────────────────────────────────────────────
@@ -100,6 +108,38 @@ router.post("/community", async (req, res): Promise<void> => {
     : "";
   const authorName = rawName.length >= 2 ? rawName : "User";
 
+  // H-004: Enforce communityPost plan flag — free users cannot post
+  {
+    const [activeSub] = await db
+      .select({ planId: subscriptionsTable.planId })
+      .from(subscriptionsTable)
+      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+      .orderBy(desc(subscriptionsTable.createdAt))
+      .limit(1);
+
+    let canPost = false;
+    if (activeSub) {
+      const [plan] = await db
+        .select({ features: subscriptionPlansTable.features })
+        .from(subscriptionPlansTable)
+        .where(eq(subscriptionPlansTable.id, activeSub.planId))
+        .limit(1);
+      canPost = (plan?.features as { communityPost?: boolean } | null)?.communityPost === true;
+    } else {
+      const [freePlan] = await db
+        .select({ features: subscriptionPlansTable.features })
+        .from(subscriptionPlansTable)
+        .where(eq(subscriptionPlansTable.isDefault, true))
+        .limit(1);
+      canPost = (freePlan?.features as { communityPost?: boolean } | null)?.communityPost === true;
+    }
+
+    if (!canPost) {
+      res.status(403).json({ error: "Community posting requires a Pro or Elite plan. Upgrade to participate in the community." });
+      return;
+    }
+  }
+
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
   if (!checkPostRateLimit(ip)) {
     res.status(429).json({ error: "Too many posts. Please wait before posting again." });
@@ -127,16 +167,21 @@ router.post("/community", async (req, res): Promise<void> => {
     imageUrl?: string;
   };
 
-  if (!content || typeof content !== "string" || content.trim().length < 3) {
+  if (!content || typeof content !== "string") {
     res.status(400).json({ error: "Post content must be at least 3 characters." });
     return;
   }
-  if (content.trim().length > 1200) {
+  const sanitized = stripHtml(content).trim();
+  if (sanitized.length < 3) {
+    res.status(400).json({ error: "Post content must be at least 3 characters." });
+    return;
+  }
+  if (sanitized.length > 1200) {
     res.status(400).json({ error: "Post content must be under 1200 characters." });
     return;
   }
 
-  const badWord = containsBannedWords(content);
+  const badWord = containsBannedWords(sanitized);
   if (badWord) {
     res.status(400).json({ error: "Your post contains language that is not allowed on this platform." });
     return;
@@ -166,7 +211,7 @@ router.post("/community", async (req, res): Promise<void> => {
   const [post] = await db.insert(communityPostsTable).values({
     userId: userId ?? null,
     authorName: authorName.trim(),
-    content: content.trim(),
+    content: sanitized,
     imageUrl: imageUrl?.trim() || null,
   }).returning();
 

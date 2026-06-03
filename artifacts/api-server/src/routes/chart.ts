@@ -97,7 +97,17 @@ router.get("/klines", async (req, res): Promise<void> => {
   }
 
   const binanceSymbol = SYMBOL_MAP[symbol.toUpperCase()] ?? symbol.replace("/", "").toUpperCase();
-  const klinesLimit = Math.min(Math.max(parseInt(limit ?? "200", 10) || 200, 1), 1000);
+
+  const rawLimit = parseInt(limit ?? "200", 10);
+  if (limit !== undefined && (isNaN(rawLimit) || rawLimit < 1)) {
+    res.status(400).json({ error: "limit must be a positive integer (1–1000)" });
+    return;
+  }
+  if (limit !== undefined && rawLimit > 1000) {
+    res.status(400).json({ error: "limit cannot exceed 1000" });
+    return;
+  }
+  const klinesLimit = isNaN(rawLimit) ? 200 : Math.min(Math.max(rawLimit, 1), 1000);
 
   const cacheKey = `${binanceSymbol}:${interval}:${klinesLimit}`;
   const cached = klinesCache.get(cacheKey);

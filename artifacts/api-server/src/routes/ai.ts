@@ -47,7 +47,7 @@ function checkAiRateLimit(userId: number): boolean {
 const aiDailyCount = new Map<number, { count: number; resetAt: number }>();
 
 async function checkAiPlanLimit(userId: number): Promise<{ allowed: boolean; error?: string }> {
-  let dailyLimit = 10; // Free tier default
+  let dailyLimit = 0; // Default to deny — will be overridden by the plan record
 
   try {
     const [activeSub] = await db
@@ -64,12 +64,29 @@ async function checkAiPlanLimit(userId: number): Promise<{ allowed: boolean; err
         .where(eq(subscriptionPlansTable.id, activeSub.planId))
         .limit(1);
       const lim = (plan?.features as { aiQueriesPerDay?: number } | null)?.aiQueriesPerDay;
-      if (lim === -1) return { allowed: true }; // Unlimited
+      if (lim === -1) return { allowed: true }; // Unlimited (Elite)
       if (typeof lim === "number") dailyLimit = lim;
       else dailyLimit = 50; // Paid plan fallback
+    } else {
+      // No active subscription — look up the default (free) plan
+      const [freePlan] = await db
+        .select({ features: subscriptionPlansTable.features })
+        .from(subscriptionPlansTable)
+        .where(eq(subscriptionPlansTable.isDefault, true))
+        .limit(1);
+      const lim = (freePlan?.features as { aiQueriesPerDay?: number } | null)?.aiQueriesPerDay;
+      if (typeof lim === "number") dailyLimit = lim;
+      else dailyLimit = 0; // Deny if no free plan found
     }
   } catch {
     return { allowed: true }; // Allow through on DB error
+  }
+
+  if (dailyLimit === 0) {
+    return {
+      allowed: false,
+      error: "AI access requires a Pro or Elite plan. Upgrade to unlock AI features.",
+    };
   }
 
   const now = Date.now();
@@ -117,8 +134,8 @@ const SYSTEM_PROMPT = `You are an expert trading and financial markets educator.
 - Fundamental analysis concepts
 Keep responses concise but informative (2–4 paragraphs max). Use clear examples where helpful. Do not give specific investment advice or price predictions.`;
 
-// Apply plan-level daily limit to all AI routes
-router.use(requirePlanAiAccess);
+// Apply plan-level daily limit to all AI routes (scoped to /ai/* only)
+router.use("/ai", requirePlanAiAccess);
 
 /* ─── Chat ────────────────────────────────────────────────────────────────── */
 router.post("/ai/chat", requireAuth, async (req, res) => {

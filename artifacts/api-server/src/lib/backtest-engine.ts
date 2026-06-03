@@ -290,6 +290,9 @@ function runStrategy(
   if (strategyType === "sma_crossover" || strategyType === "ema_crossover") {
     const fastPeriod = Number(parameters.fastPeriod ?? 10);
     const slowPeriod = Number(parameters.slowPeriod ?? 30);
+    if (fastPeriod >= slowPeriod) {
+      throw new Error(`Invalid parameters: fastPeriod (${fastPeriod}) must be less than slowPeriod (${slowPeriod})`);
+    }
     const fast = strategyType === "sma_crossover" ? sma(closes, fastPeriod) : ema(closes, fastPeriod);
     const slow = strategyType === "sma_crossover" ? sma(closes, slowPeriod) : ema(closes, slowPeriod);
     let inTrade = false, entryIdx = -1;

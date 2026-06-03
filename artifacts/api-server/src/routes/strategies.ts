@@ -53,7 +53,8 @@ router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
   const parsed = CreateStrategyBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    const messages = parsed.error.issues.map((i) => `${i.path.length ? i.path.join(".") + ": " : ""}${i.message}`).join("; ");
+    res.status(400).json({ error: messages });
     return;
   }
   const [row] = await db.insert(strategiesTable).values({
@@ -93,12 +94,14 @@ router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => 
   const userId = res.locals["userId"] as number;
   const params = UpdateStrategyParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    const messages = params.error.issues.map((i) => `${i.path.length ? i.path.join(".") + ": " : ""}${i.message}`).join("; ");
+    res.status(400).json({ error: messages });
     return;
   }
   const parsed = UpdateStrategyBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    const messages = parsed.error.issues.map((i) => `${i.path.length ? i.path.join(".") + ": " : ""}${i.message}`).join("; ");
+    res.status(400).json({ error: messages });
     return;
   }
   const updateData: Partial<typeof strategiesTable.$inferInsert> = {};

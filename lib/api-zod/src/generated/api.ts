@@ -64,8 +64,8 @@ export const ListStrategiesResponse = zod.array(ListStrategiesResponseItem)
 
 
 export const CreateStrategyBody = zod.object({
-  "name": zod.string().min(1),
-  "description": zod.string().optional(),
+  "name": zod.string().min(1).max(200),
+  "description": zod.string().max(1000).optional(),
   "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
   "symbol": zod.string().min(1),
   "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
@@ -103,8 +103,8 @@ export const UpdateStrategyParams = zod.object({
 
 
 export const UpdateStrategyBody = zod.object({
-  "name": zod.string().min(1).optional(),
-  "description": zod.string().optional(),
+  "name": zod.string().min(1).max(200).optional(),
+  "description": zod.string().max(1000).optional(),
   "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']).optional(),
   "symbol": zod.string().optional(),
   "timeframe": zod.enum(['1d', '1h', '4h', '1w']).optional(),
@@ -201,11 +201,13 @@ export const createBacktestBodySlippageMax = 5;
 
 
 
+const ISO_DATE = zod.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format");
+
 export const CreateBacktestBody = zod.object({
   "strategyId": zod.number(),
   "symbol": zod.string().min(1),
-  "startDate": zod.string(),
-  "endDate": zod.string(),
+  "startDate": ISO_DATE,
+  "endDate": ISO_DATE,
   "initialCapital": zod.number().min(1),
   "commission": zod.number().min(createBacktestBodyCommissionMin).max(createBacktestBodyCommissionMax).optional().describe('Commission per trade as percentage (e.g. 0.1 for 0.1%)'),
   "slippage": zod.number().min(createBacktestBodySlippageMin).max(createBacktestBodySlippageMax).optional().describe('Slippage per trade as percentage (e.g. 0.05 for 0.05%)')

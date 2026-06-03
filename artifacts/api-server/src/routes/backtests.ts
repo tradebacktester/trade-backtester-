@@ -203,7 +203,13 @@ router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
 router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateBacktestBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    const messages = parsed.error.issues.map((i) => `${i.path.length ? i.path.join(".") + ": " : ""}${i.message}`).join("; ");
+    res.status(400).json({ error: messages });
+    return;
+  }
+
+  if (new Date(parsed.data.startDate) >= new Date(parsed.data.endDate)) {
+    res.status(400).json({ error: "startDate must be before endDate" });
     return;
   }
 
@@ -359,8 +365,10 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       yearlyReturns: result.yearlyReturns,
     });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : "Backtest execution failed";
+    const isParamError = msg.startsWith("Invalid parameters:");
     await db.update(backtestsTable).set({ status: "failed" }).where(eq(backtestsTable.id, backtest.id));
-    res.status(500).json({ error: "Backtest execution failed" });
+    res.status(isParamError ? 400 : 500).json({ error: msg });
   }
 });
 
