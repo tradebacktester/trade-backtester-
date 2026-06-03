@@ -12,7 +12,7 @@ import {
    TYPES
 ───────────────────────────────────────────── */
 type Sentiment  = "bullish" | "bearish" | "neutral";
-type Tab        = "overview" | "news" | "ict" | "calendar" | "chat";
+type Tab        = "overview" | "news" | "ict" | "calendar" | "chat" | "bias";
 type Impact     = "high" | "medium" | "low";
 
 interface MarketCard {
@@ -527,14 +527,221 @@ function ChatPanel() {
 }
 
 /* ─────────────────────────────────────────────
+   BIAS PANEL
+───────────────────────────────────────────── */
+
+interface BiasItem {
+  name: string;
+  severity: "low" | "medium" | "high";
+  description: string;
+  evidence: string;
+  tip: string;
+}
+interface BiasReport {
+  score: number;
+  summary: string;
+  biases: BiasItem[];
+}
+
+const SEVERITY_COLOR = { low: "#16a34a", medium: "#d97706", high: "#dc2626" };
+const SEVERITY_BG    = { low: "rgba(22,163,74,0.09)", medium: "rgba(217,119,6,0.09)", high: "rgba(220,38,38,0.09)" };
+const SEVERITY_LABEL = { low: "Low", medium: "Medium", high: "High" };
+
+function BiasPanel() {
+  const [report, setReport] = useState<BiasReport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [bpError, setBpError] = useState<string | null>(null);
+
+  function readPaperTrades() {
+    try {
+      const raw = localStorage.getItem("pt_trades");
+      if (!raw) return [];
+      const allTrades = JSON.parse(raw) as Array<{
+        status: string;
+        pnl?: number | null;
+        exitPrice?: number | null;
+        entryPrice: number;
+        openedAt: string;
+        closedAt?: string | null;
+        side: string;
+      }>;
+      return allTrades
+        .filter(t => t.status === "closed" && t.pnl != null)
+        .map(t => {
+          const pnl = Number(t.pnl ?? 0);
+          const pnlPct = t.entryPrice > 0
+            ? ((Number(t.exitPrice ?? t.entryPrice) - t.entryPrice) / t.entryPrice) * 100 * (t.side === "short" ? -1 : 1)
+            : 0;
+          const openMs  = new Date(t.openedAt).getTime();
+          const closeMs = t.closedAt ? new Date(t.closedAt).getTime() : openMs;
+          const holdingHours = (closeMs - openMs) / (1000 * 60 * 60);
+          return { isWin: pnl > 0, pnlPct, holdingHours, side: t.side };
+        });
+    } catch { return []; }
+  }
+
+  async function handleAnalyze() {
+    const trades = readPaperTrades();
+    if (trades.length < 3) {
+      setBpError("You need at least 3 closed paper trades to generate a bias report. Head to the Demo page and make some trades first.");
+      return;
+    }
+    setLoading(true);
+    setBpError(null);
+    setReport(null);
+    try {
+      const resp = await fetch("/api/ai/bias-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}`,
+        },
+        body: JSON.stringify({ trades }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error ?? "Failed to generate report");
+      setReport(data as BiasReport);
+    } catch (e: unknown) {
+      setBpError(e instanceof Error ? e.message : "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const tradeCount = readPaperTrades().length;
+  const scoreColor = report
+    ? report.score >= 75 ? C.pos : report.score >= 50 ? C.amb : C.neg
+    : C.muted;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header card */}
+      <div className="rounded-2xl p-4 sm:p-5" style={CARD}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="h-4 w-4 flex-shrink-0" style={{ color: BLUE }} />
+              <p className="font-bold text-[15px]" style={{ color: C.text }}>Behavioral Bias Detector</p>
+            </div>
+            <p className="text-[12px] leading-relaxed" style={{ color: C.sub }}>
+              AI analyzes your paper trading history to detect cognitive biases — revenge trading, FOMO, cutting winners early, holding losers too long.
+            </p>
+            <p className="text-[11px] font-mono mt-2" style={{ color: C.muted }}>
+              {tradeCount} closed paper trade{tradeCount !== 1 ? "s" : ""} available
+            </p>
+          </div>
+          <button
+            onClick={handleAnalyze}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all flex-shrink-0"
+            style={{
+              background: loading ? C.surfaceB : BLUE,
+              color: loading ? C.muted : "#fff",
+              border: `1px solid ${loading ? C.border : BLUE}`,
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? (
+              <><RefreshCw className="h-4 w-4 animate-spin" />Analyzing…</>
+            ) : (
+              <><Shield className="h-4 w-4" />{report ? "Re-analyze" : "Analyze My Trading"}</>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {bpError && (
+        <div className="flex items-start gap-2.5 rounded-xl px-4 py-3"
+          style={{ background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.2)" }}>
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: C.neg }} />
+          <p className="text-[13px]" style={{ color: C.neg }}>{bpError}</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="rounded-2xl p-5 space-y-3 animate-pulse" style={CARD}>
+          <div className="h-4 w-24 rounded-lg" style={{ background: C.surfaceB }} />
+          <div className="h-3 w-full rounded-lg" style={{ background: C.surfaceB }} />
+          <div className="h-3 w-4/5 rounded-lg" style={{ background: C.surfaceB }} />
+          <div className="h-3 w-3/5 rounded-lg" style={{ background: C.surfaceB }} />
+        </div>
+      )}
+
+      {report && !loading && (
+        <>
+          <div className="rounded-2xl p-4 sm:p-5 flex items-center gap-5" style={CARD}>
+            <div className="h-20 w-20 rounded-2xl flex flex-col items-center justify-center flex-shrink-0"
+              style={{ background: `${scoreColor}18`, border: `2px solid ${scoreColor}55` }}>
+              <span className="text-2xl font-bold font-mono" style={{ color: scoreColor }}>{report.score}</span>
+              <span className="text-[9px] font-mono" style={{ color: C.muted }}>/100</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold mb-1" style={{ color: scoreColor }}>
+                {report.score >= 75 ? "Disciplined Trader" : report.score >= 50 ? "Some Biases Detected" : "Significant Biases Found"}
+              </p>
+              <p className="text-[12px] leading-relaxed" style={{ color: C.sub }}>{report.summary}</p>
+            </div>
+          </div>
+
+          {report.biases.map((bias, i) => {
+            const col = SEVERITY_COLOR[bias.severity];
+            const bg  = SEVERITY_BG[bias.severity];
+            return (
+              <div key={i} className="rounded-2xl p-4 sm:p-5 space-y-3" style={CARD}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-bold text-[14px]" style={{ color: C.text }}>{bias.name}</p>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                    style={{ background: bg, color: col, border: `1px solid ${col}44` }}>
+                    {SEVERITY_LABEL[bias.severity]} severity
+                  </span>
+                </div>
+                <p className="text-[12px] leading-relaxed" style={{ color: C.sub }}>{bias.description}</p>
+                <div className="rounded-xl px-3 py-2.5" style={{ background: C.surfaceB, border: `1px solid ${C.border}` }}>
+                  <p className="text-[10px] font-mono uppercase tracking-wide mb-1" style={{ color: C.muted }}>Evidence from your trades</p>
+                  <p className="text-[12px]" style={{ color: C.sub }}>{bias.evidence}</p>
+                </div>
+                <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: bg, border: `1px solid ${col}33` }}>
+                  <Target className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: col }} />
+                  <p className="text-[12px]" style={{ color: col }}>{bias.tip}</p>
+                </div>
+              </div>
+            );
+          })}
+
+          <p className="text-[11px] font-mono text-center" style={{ color: C.muted }}>
+            Analysis by Llama 3.3 70B · Based on paper trading history · Not financial advice
+          </p>
+        </>
+      )}
+
+      {!report && !loading && !bpError && (
+        <div className="rounded-2xl p-8 flex flex-col items-center justify-center gap-3" style={CARD}>
+          <div className="h-14 w-14 rounded-2xl flex items-center justify-center"
+            style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}>
+            <Activity className="h-7 w-7" style={{ color: BLUE }} />
+          </div>
+          <div className="text-center max-w-xs">
+            <p className="font-semibold text-[14px]" style={{ color: C.text }}>Discover your trading psychology</p>
+            <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: C.sub }}>
+              Make paper trades in the Demo section, then click "Analyze My Trading" to get your personalized bias report.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    TAB CONFIG
 ───────────────────────────────────────────── */
 const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
-  { id: "overview", label: "Overview", Icon: Brain },
-  { id: "news",     label: "News",     Icon: Newspaper },
-  { id: "ict",      label: "ICT",      Icon: Target },
-  { id: "calendar", label: "Calendar", Icon: Clock },
-  { id: "chat",     label: "Chat AI",  Icon: MessageCircle },
+  { id: "overview", label: "Overview",    Icon: Brain },
+  { id: "news",     label: "News",        Icon: Newspaper },
+  { id: "ict",      label: "ICT",         Icon: Target },
+  { id: "calendar", label: "Calendar",    Icon: Clock },
+  { id: "chat",     label: "Chat AI",     Icon: MessageCircle },
+  { id: "bias",     label: "Psychology",  Icon: Activity },
 ];
 
 /* ─────────────────────────────────────────────
@@ -747,6 +954,13 @@ export default function AiAssistant() {
       ══════════════════════════════════════════════ */}
       <div style={show("chat")}>
         <ChatPanel />
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PSYCHOLOGY / BIAS DETECTOR
+      ══════════════════════════════════════════════ */}
+      <div style={show("bias")}>
+        <BiasPanel />
       </div>
 
     </div>

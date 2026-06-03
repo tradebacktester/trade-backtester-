@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useListStrategies } from "@workspace/api-client-react";
 import {
   Plus, ArrowRight, TrendingUp, BarChart2,
-  Zap, Activity, Target, Layers, HardDrive,
+  Zap, Activity, Target, Layers, HardDrive, Wand2,
 } from "lucide-react";
 import { loadLocalStrategies, type LocalStrategy } from "./new";
 
@@ -245,18 +245,31 @@ export default function Strategies() {
               <p className="text-xs sm:text-sm mt-0.5" style={{ color: "hsl(220,14%,42%)" }}>Manage strategies, run backtests</p>
             </div>
           </div>
-          <Link href="/strategies/new">
-            <span className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all"
-              style={{
-                background: "linear-gradient(135deg, hsl(190,90%,40%), hsl(210,80%,48%))",
-                color: "#fff",
-                boxShadow: "0 4px 16px rgba(0,229,255,0.2)",
-              }}>
-              <Plus className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">New Strategy</span>
-              <span className="sm:hidden">New</span>
-            </span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/strategies/ai-builder">
+              <span className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all"
+                style={{
+                  background: "rgba(139,92,246,0.12)",
+                  color: "hsl(263,80%,65%)",
+                  border: "1px solid rgba(139,92,246,0.25)",
+                }}>
+                <Wand2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">AI Builder</span>
+              </span>
+            </Link>
+            <Link href="/strategies/new">
+              <span className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all"
+                style={{
+                  background: "linear-gradient(135deg, hsl(190,90%,40%), hsl(210,80%,48%))",
+                  color: "#fff",
+                  boxShadow: "0 4px 16px rgba(0,229,255,0.2)",
+                }}>
+                <Plus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">New Strategy</span>
+                <span className="sm:hidden">New</span>
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
 

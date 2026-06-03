@@ -31,6 +31,7 @@ import CommunityPage from "@/pages/community";
 import PricingPage from "@/pages/pricing";
 import BillingPage from "@/pages/billing";
 import ToolsPage from "@/pages/tools";
+import AiBuilder from "@/pages/strategies/ai-builder";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +50,7 @@ function Router() {
       
       <Route path="/strategies" component={Strategies} />
       <Route path="/strategies/new" component={NewStrategy} />
+      <Route path="/strategies/ai-builder" component={AiBuilder} />
       <Route path="/strategies/:id" component={StrategyDetail} />
       <Route path="/strategies/:id/edit" component={EditStrategy} />
       

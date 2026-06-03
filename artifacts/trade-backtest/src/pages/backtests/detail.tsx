@@ -18,7 +18,9 @@ import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
   ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
   Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
+  Brain, Sparkles,
 } from "lucide-react";
+import { computeOverfittingScore, overfitRating } from "@/lib/overfitting";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
@@ -592,6 +594,9 @@ export default function BacktestDetail() {
     localStorage.getItem(`published_bt_${id}`) === "true"
   );
   const [shareCopied, setShareCopied] = useState(false);
+  const [autopsyText, setAutopsyText] = useState<string | null>(null);
+  const [autopsyError, setAutopsyError] = useState<string | null>(null);
+  const [isLoadingAutopsy, setIsLoadingAutopsy] = useState(false);
 
   const handleShare = useCallback(async () => {
     try {
@@ -615,6 +620,58 @@ export default function BacktestDetail() {
     navigator.clipboard.writeText(window.location.href).catch(() => {});
     toast({ title: "Published!", description: "Results are now shareable. Link copied." });
   }, [id, toast]);
+
+  const overfittingScore = useMemo(() => {
+    if (!trades || trades.length < 5) return null;
+    return computeOverfittingScore(trades.map(t => ({ pnl: t.pnl, pnlPercent: t.pnlPercent })));
+  }, [trades]);
+
+  async function handleGenerateAutopsy() {
+    if (!backtest || !trades?.length) return;
+    setIsLoadingAutopsy(true);
+    setAutopsyError(null);
+    setAutopsyText(null);
+    try {
+      const resp = await fetch("/api/ai/autopsy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}`,
+        },
+        body: JSON.stringify({
+          symbol: backtest.symbol,
+          strategyName: (backtest as any).strategyName ?? "Unknown Strategy",
+          metrics: {
+            totalReturn: backtest.totalReturn ?? 0,
+            maxDrawdown: backtest.maxDrawdown ?? 0,
+            sharpeRatio: backtest.sharpeRatio ?? 0,
+            winRate: backtest.winRate ?? 0,
+            totalTrades: backtest.totalTrades ?? 0,
+            bestTrade: (backtest as any).bestTrade ?? 0,
+            worstTrade: (backtest as any).worstTrade ?? 0,
+            profitFactor: backtest.profitFactor ?? 0,
+            avgTradeDuration: (backtest as any).avgTradeDuration ?? 0,
+          },
+          trades: trades.slice(0, 50).map(t => ({
+            side: t.side,
+            entryDate: t.entryDate,
+            exitDate: t.exitDate,
+            entryPrice: t.entryPrice,
+            exitPrice: t.exitPrice,
+            pnl: t.pnl,
+            pnlPercent: t.pnlPercent,
+          })),
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error ?? "Failed to generate autopsy");
+      setAutopsyText(data.narrative);
+    } catch (e: unknown) {
+      setAutopsyError(e instanceof Error ? e.message : "Failed to generate autopsy");
+    } finally {
+      setIsLoadingAutopsy(false);
+    }
+  }
 
   // ─── Compute Analytics ─────────────────────────────────────────────────────
 
@@ -842,6 +899,7 @@ export default function BacktestDetail() {
               { value: "analytics", label: "Analytics", Icon: BarChart3 },
               { value: "journal",  label: "Trade Journal", Icon: BookOpen },
               { value: "calendar", label: "P&L Calendar", Icon: CalendarDays },
+              { value: "autopsy",  label: "AI Autopsy", Icon: Brain },
             ].map(({ value, label, Icon }) => (
               <Tabs.Trigger
                 key={value}
@@ -940,6 +998,23 @@ export default function BacktestDetail() {
                   sub="per side"
                 />
               )}
+              {overfittingScore !== null && (() => {
+                const rating = overfitRating(overfittingScore);
+                return (
+                  <div
+                    className="rounded-xl p-4 flex flex-col gap-1"
+                    style={{ background: rating.bg, border: `1px solid ${rating.color}44` }}
+                  >
+                    <p className="text-[11px] font-mono uppercase tracking-wide" style={{ color: rating.color, opacity: 0.85 }}>Overfit Risk</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-bold tabular-nums" style={{ color: rating.color }}>{overfittingScore}</span>
+                      <span className="text-xs" style={{ color: rating.color, opacity: 0.65 }}>/100</span>
+                    </div>
+                    <p className="text-[11px] font-semibold leading-tight" style={{ color: rating.color }}>{rating.label}</p>
+                    <p className="text-[10px] leading-snug text-muted-foreground mt-0.5">{rating.description}</p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Equity curve */}
@@ -1423,6 +1498,94 @@ export default function BacktestDetail() {
           {/* ── TAB 4: P&L Calendar ──────────────────────────────────── */}
           <Tabs.Content value="calendar" className="space-y-6 tab-transition">
             <PnLCalendar trades={trades ?? []} />
+          </Tabs.Content>
+
+          {/* ── TAB 5: AI Autopsy ────────────────────────────────────── */}
+          <Tabs.Content value="autopsy" className="space-y-6 tab-transition">
+            <Card className="glass-card border-0">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-primary" />
+                      AI Trade Autopsy
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      AI narrates why trades were taken, what market conditions drove results, and whether this strategy has a real edge.
+                    </CardDescription>
+                  </div>
+                  {!autopsyText && (
+                    <Button
+                      onClick={handleGenerateAutopsy}
+                      disabled={isLoadingAutopsy || !trades?.length}
+                      className="gap-2 flex-shrink-0"
+                    >
+                      {isLoadingAutopsy ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Analyzing…</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" />Generate Autopsy</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!trades?.length && (
+                  <p className="text-sm text-muted-foreground">Run the backtest to completion before generating an autopsy.</p>
+                )}
+                {autopsyError && (
+                  <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{autopsyError}</p>
+                  </div>
+                )}
+                {isLoadingAutopsy && (
+                  <div className="space-y-3 animate-pulse py-2">
+                    {[1, 0.92, 0.78, 0, 1, 0.85, 0.65].map((w, i) => (
+                      w === 0 ? <div key={i} className="h-3" /> :
+                      <div key={i} className="h-4 rounded bg-muted" style={{ width: `${w * 100}%` }} />
+                    ))}
+                  </div>
+                )}
+                {autopsyText && (
+                  <>
+                    <div className="space-y-4">
+                      {autopsyText.split("\n\n").filter(p => p.trim()).map((para, i) => (
+                        <p key={i} className="text-sm leading-relaxed text-foreground/90">
+                          {para.trim()}
+                        </p>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 pt-3 border-t border-border/40 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateAutopsy}
+                        disabled={isLoadingAutopsy}
+                        className="gap-2"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Regenerate
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">Powered by Llama 3.3 70B · Not financial advice</p>
+                    </div>
+                  </>
+                )}
+                {!autopsyText && !isLoadingAutopsy && !autopsyError && trades && trades.length > 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Brain className="h-8 w-8 text-primary/60" />
+                    </div>
+                    <div className="text-center max-w-sm">
+                      <p className="text-sm font-medium text-foreground">Your autopsy awaits</p>
+                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                        Click "Generate Autopsy" for an AI-written narrative — what worked, what didn't, and whether this strategy has a genuine edge.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </Tabs.Content>
         </Tabs.Root>
       )}
