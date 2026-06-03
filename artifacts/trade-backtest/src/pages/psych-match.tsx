@@ -98,8 +98,7 @@ function FitScoreRing({ score, color }: { score: number; color: string }) {
 }
 
 export default function PsychMatchPage() {
-  const { user } = useAuth();
-  const token = localStorage.getItem("tt_token");
+  const { user, token } = useAuth();
   const { toast } = useToast();
   const [profile, setProfile] = useState<TradeProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -272,7 +271,7 @@ export default function PsychMatchPage() {
               { label: "Win Rate", value: `${profile.winRate.toFixed(1)}%` },
               { label: "Avg Hold Time", value: `${profile.avgHoldingDays.toFixed(1)}d` },
               { label: "Backtests", value: profile.backtestCount.toString() },
-              { label: "Profit Factor", value: profile.profitFactor.toFixed(2) },
+              { label: "Profit Factor", value: profile.profitFactor >= 50 ? "∞" : profile.profitFactor.toFixed(2) },
               { label: "Avg Win", value: `+${profile.avgWinPct.toFixed(1)}%` },
               { label: "Avg Loss", value: `-${profile.avgLossPct.toFixed(1)}%` },
               { label: "Max Consec. Losses", value: profile.maxConsecutiveLosses.toString() },

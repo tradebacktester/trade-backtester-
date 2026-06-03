@@ -1284,7 +1284,7 @@ export default function BacktestDetail() {
                 label="Sharpe Ratio"
                 value={backtest.sharpeRatio != null ? fmtNum(backtest.sharpeRatio) : "—"}
                 accent={backtest.sharpeRatio != null && backtest.sharpeRatio > 1 ? "#22c55e" : backtest.sharpeRatio != null && backtest.sharpeRatio > 0 ? "#f59e0b" : "#ef4444"}
-                tooltip="Return earned per unit of total risk (volatility). Above 1.0 is good; above 2.0 is excellent. Higher is better."
+                tooltip="Excess return above a 4% risk-free rate per unit of total volatility (sample std). Computed over all calendar days including days out of market. Figures reflect simulated price data — not real market conditions."
               />
               <StatBox
                 label="Sortino Ratio"

@@ -11,3 +11,6 @@
 - [JWT_SECRET persistence](jwt-secret-persistence.md) — JWT_SECRET moved OUT of userenv.shared (git-tracked) into development env; if missing after restart, run setEnvVars({ values: { JWT_SECRET: <random-hex> }, environment: "development" }).
 - [User-scoped data model](user-scoped-data.md) — strategies and backtests tables both have nullable userId column; all route handlers filter by res.locals["userId"] set by requireAuth; users can only see/modify their own records.
 - [DB-based auth rate limiting](db-auth-ratelimit.md) — auth_attempts table replaces in-memory Map; survives restarts; auto-prunes records older than 5 minutes via lt() in each request handler.
+- [Sharpe ratio formula](sharpe-formula.md) — use ALL daily equity returns (incl. zero/flat days), subtract RF=0.04/252 per day, sample std (N-1); filtering zero-return days inflates Sharpe.
+- [Backtest data always simulated](backtest-simulated-data.md) — ALL backtest symbols (crypto + stocks) use generatePriceData(); live Binance ticker is real-time but historical backtest data is never real; SYMBOLS array has all realData:false.
+- [Auth context token in components](auth-context-token.md) — use `const { token } = useAuth()` not `localStorage.getItem("tt_token")` directly; the context value is reactive and avoids React render-timing races.

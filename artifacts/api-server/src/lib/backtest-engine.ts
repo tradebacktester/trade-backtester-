@@ -550,29 +550,34 @@ export function runBacktest(
       return { year: yr, pct: total, months };
     });
 
-  // Sharpe ratio — use only ACTIVE days (non-zero equity change).
-  // Including flat zero-return days (no position open) artificially shrinks stddev,
-  // inflating Sharpe by 3–10× depending on how much time is spent out of market.
+  // Sharpe ratio — proper formula using ALL calendar days (including flat/out-of-market days).
+  // Excluding zero-return days inflates Sharpe by reducing N; including them is academically correct
+  // because idle capital still has an opportunity cost (the risk-free rate).
+  // Risk-free rate: 4 % annual → 0.04/252 per trading day.
+  // Uses sample std dev (N-1) to avoid downward bias on finite series.
+  const RF_DAILY = 0.04 / 252;
   const allDailyReturns: number[] = [];
   for (let i = 1; i < equityCurve.length; i++) {
-    const prev = equityCurve[i-1].value;
+    const prev = equityCurve[i - 1].value;
     if (prev > 0) allDailyReturns.push((equityCurve[i].value - prev) / prev);
   }
-  // Only days where equity actually moved (position was open or trade settled)
-  const dailyReturns = allDailyReturns.filter(r => r !== 0);
   let sharpeRatio = 0, sortinoRatio = 0;
-  if (dailyReturns.length > 1) {
-    const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
-    const variance = dailyReturns.reduce((a, b) => a + (b - mean) ** 2, 0) / dailyReturns.length;
+  const nDays = allDailyReturns.length;
+  if (nDays > 1) {
+    const excessReturns = allDailyReturns.map(r => r - RF_DAILY);
+    const meanExcess = excessReturns.reduce((a, b) => a + b, 0) / nDays;
+    // Sample variance (N-1)
+    const variance = excessReturns.reduce((a, b) => a + (b - meanExcess) ** 2, 0) / (nDays - 1);
     const stddev = Math.sqrt(variance);
-    sharpeRatio = stddev > 0 ? (mean / stddev) * Math.sqrt(252) : 0;
+    sharpeRatio = stddev > 0 ? (meanExcess / stddev) * Math.sqrt(252) : 0;
 
-    // Sortino: only downside deviation
-    const negReturns = dailyReturns.filter((r) => r < 0);
-    if (negReturns.length > 0) {
-      const downsideVariance = negReturns.reduce((a, r) => a + r * r, 0) / dailyReturns.length;
+    // Sortino: semi-deviation on downside excess returns only
+    const negExcess = excessReturns.filter(r => r < 0);
+    if (negExcess.length > 0) {
+      // Denominator uses full N (standard Sortino convention)
+      const downsideVariance = negExcess.reduce((a, r) => a + r * r, 0) / nDays;
       const downsideStd = Math.sqrt(downsideVariance);
-      sortinoRatio = downsideStd > 0 ? (mean / downsideStd) * Math.sqrt(252) : 0;
+      sortinoRatio = downsideStd > 0 ? (meanExcess / downsideStd) * Math.sqrt(252) : 0;
     }
   }
 

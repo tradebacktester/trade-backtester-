@@ -32,28 +32,31 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+// All backtest data uses deterministic simulated OHLCV prices (generatePriceData).
+// Real-time live ticker prices in the chart are streamed from Binance WebSocket,
+// but historical data for backtesting is ALWAYS simulated — no real price history.
 export const SYMBOLS: { value: string; label: string; realData: boolean }[] = [
-  // Crypto — real Binance historical OHLCV data
-  { value: "BTCUSDT",  label: "BTC/USDT  ★ Real Data", realData: true },
-  { value: "ETHUSDT",  label: "ETH/USDT  ★ Real Data", realData: true },
-  { value: "SOLUSDT",  label: "SOL/USDT  ★ Real Data", realData: true },
-  { value: "BNBUSDT",  label: "BNB/USDT  ★ Real Data", realData: true },
-  { value: "XRPUSDT",  label: "XRP/USDT  ★ Real Data", realData: true },
-  { value: "ADAUSDT",  label: "ADA/USDT  ★ Real Data", realData: true },
-  { value: "DOGEUSDT", label: "DOGE/USDT ★ Real Data", realData: true },
-  { value: "AVAXUSDT", label: "AVAX/USDT ★ Real Data", realData: true },
-  { value: "LINKUSDT", label: "LINK/USDT ★ Real Data", realData: true },
-  { value: "LTCUSDT",  label: "LTC/USDT  ★ Real Data", realData: true },
-  { value: "DOTUSDT",  label: "DOT/USDT  ★ Real Data", realData: true },
-  // Stocks & Indices — simulated data
-  { value: "AAPL",  label: "Apple (AAPL)",     realData: false },
-  { value: "MSFT",  label: "Microsoft (MSFT)", realData: false },
-  { value: "TSLA",  label: "Tesla (TSLA)",     realData: false },
-  { value: "NVDA",  label: "Nvidia (NVDA)",    realData: false },
-  { value: "AMZN",  label: "Amazon (AMZN)",    realData: false },
-  { value: "GOOGL", label: "Alphabet (GOOGL)", realData: false },
-  { value: "SPY",   label: "S&P 500 ETF (SPY)",realData: false },
-  { value: "QQQ",   label: "Nasdaq ETF (QQQ)", realData: false },
+  // Crypto
+  { value: "BTCUSDT",  label: "BTC/USDT",  realData: false },
+  { value: "ETHUSDT",  label: "ETH/USDT",  realData: false },
+  { value: "SOLUSDT",  label: "SOL/USDT",  realData: false },
+  { value: "BNBUSDT",  label: "BNB/USDT",  realData: false },
+  { value: "XRPUSDT",  label: "XRP/USDT",  realData: false },
+  { value: "ADAUSDT",  label: "ADA/USDT",  realData: false },
+  { value: "DOGEUSDT", label: "DOGE/USDT", realData: false },
+  { value: "AVAXUSDT", label: "AVAX/USDT", realData: false },
+  { value: "LINKUSDT", label: "LINK/USDT", realData: false },
+  { value: "LTCUSDT",  label: "LTC/USDT",  realData: false },
+  { value: "DOTUSDT",  label: "DOT/USDT",  realData: false },
+  // Stocks & Indices
+  { value: "AAPL",  label: "Apple (AAPL)",      realData: false },
+  { value: "MSFT",  label: "Microsoft (MSFT)",  realData: false },
+  { value: "TSLA",  label: "Tesla (TSLA)",      realData: false },
+  { value: "NVDA",  label: "Nvidia (NVDA)",     realData: false },
+  { value: "AMZN",  label: "Amazon (AMZN)",     realData: false },
+  { value: "GOOGL", label: "Alphabet (GOOGL)",  realData: false },
+  { value: "SPY",   label: "S&P 500 ETF (SPY)", realData: false },
+  { value: "QQQ",   label: "Nasdaq ETF (QQQ)",  realData: false },
 ];
 
 export const STRATEGY_TYPES = [
@@ -227,7 +230,7 @@ export default function NewBacktest() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Run Backtest</h1>
-          <p className="text-muted-foreground">Test a strategy against historical data.</p>
+          <p className="text-muted-foreground">Test a strategy against <span className="font-medium">simulated</span> historical price data.</p>
         </div>
         <Button variant="outline" size="sm" asChild>
           <Link href="/backtests/batch">
