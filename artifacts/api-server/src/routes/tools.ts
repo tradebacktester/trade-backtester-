@@ -314,9 +314,12 @@ router.get("/tools/correlation", (req, res) => {
 
   const subset = ASSETS.slice(0, 12);
 
+  // Use a day-stable seed (86_400_000 ms = 1 day) so the correlation matrix
+  // only changes once per day instead of every 30min–2hrs.
   const windowMs = tf === "7d" ? 1_800_000 : tf === "90d" ? 7_200_000 : 3_600_000;
+  const DAILY_SEED_MS = 86_400_000;
   const series = subset.map(a => {
-    const raw = generatePrices(a.symbol + tf, a.base, steps + 1, windowMs);
+    const raw = generatePrices(a.symbol + tf, a.base, steps + 1, DAILY_SEED_MS);
     return raw.slice(1).map((v, i) => (v - raw[i]) / raw[i]);
   });
 

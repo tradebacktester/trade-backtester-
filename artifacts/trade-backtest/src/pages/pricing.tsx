@@ -229,9 +229,8 @@ export default function PricingPage() {
 
       if (order.keyId === "rzp_test_placeholder") {
         toast({
-          title: "Payments not configured",
-          description: "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables to enable payments.",
-          variant: "destructive",
+          title: "Subscriptions coming soon",
+          description: "Online payments are not yet enabled for this platform. Please contact the administrator to upgrade your plan.",
         });
         setSubscribing(null);
         return;

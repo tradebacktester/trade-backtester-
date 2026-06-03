@@ -4,6 +4,18 @@ const router: IRouter = Router();
 
 const VALID_INTERVALS = new Set(["1m", "5m", "15m", "1h", "4h", "1d", "1w"]);
 
+// TTL cache for klines responses — keyed by "symbol:interval:limit"
+const klinesCache = new Map<string, { bars: unknown[]; expiresAt: number }>();
+const KLINES_TTL: Record<string, number> = {
+  "1m": 30_000,
+  "5m": 60_000,
+  "15m": 90_000,
+  "1h": 120_000,
+  "4h": 300_000,
+  "1d": 600_000,
+  "1w": 1_800_000,
+};
+
 const INTERVAL_SEC: Record<string, number> = {
   "1m": 60, "5m": 300, "15m": 900, "1h": 3600,
   "4h": 14400, "1d": 86400, "1w": 604800,
@@ -87,6 +99,13 @@ router.get("/klines", async (req, res): Promise<void> => {
   const binanceSymbol = SYMBOL_MAP[symbol.toUpperCase()] ?? symbol.replace("/", "").toUpperCase();
   const klinesLimit = Math.min(Math.max(parseInt(limit ?? "200", 10) || 200, 1), 1000);
 
+  const cacheKey = `${binanceSymbol}:${interval}:${klinesLimit}`;
+  const cached = klinesCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    res.json(cached.bars);
+    return;
+  }
+
   const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=${klinesLimit}`;
 
   try {
@@ -101,6 +120,8 @@ router.get("/klines", async (req, res): Promise<void> => {
         close: parseFloat(k[4] as string),
         volume: parseFloat(k[5] as string),
       }));
+      const ttl = KLINES_TTL[interval] ?? 60_000;
+      klinesCache.set(cacheKey, { bars, expiresAt: Date.now() + ttl });
       res.json(bars);
       return;
     }
