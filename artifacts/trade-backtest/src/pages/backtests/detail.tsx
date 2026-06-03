@@ -18,7 +18,7 @@ import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
   ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
   Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
-  Brain, Sparkles,
+  Brain, Sparkles, Waves, MonitorDot, Plus, Trash,
 } from "lucide-react";
 import { computeOverfittingScore, overfitRating } from "@/lib/overfitting";
 import {
@@ -899,7 +899,9 @@ export default function BacktestDetail() {
               { value: "analytics", label: "Analytics", Icon: BarChart3 },
               { value: "journal",  label: "Trade Journal", Icon: BookOpen },
               { value: "calendar", label: "P&L Calendar", Icon: CalendarDays },
-              { value: "autopsy",  label: "AI Autopsy", Icon: Brain },
+              { value: "autopsy",  label: "AI Autopsy",     Icon: Brain },
+              { value: "regime",   label: "Regime Analysis", Icon: Waves },
+              { value: "live",     label: "Live Monitor",    Icon: MonitorDot },
             ].map(({ value, label, Icon }) => (
               <Tabs.Trigger
                 key={value}
@@ -1587,9 +1589,388 @@ export default function BacktestDetail() {
               </CardContent>
             </Card>
           </Tabs.Content>
+
+          {/* ── TAB 6: Regime Analysis ───────────────────────────────── */}
+          <Tabs.Content value="regime" className="space-y-6 tab-transition">
+            <RegimeAnalysisTab backtestId={id} />
+          </Tabs.Content>
+
+          {/* ── TAB 7: Live Monitor ──────────────────────────────────── */}
+          <Tabs.Content value="live" className="space-y-6 tab-transition">
+            <LiveMonitorTab backtestId={id} symbol={backtest.symbol} />
+          </Tabs.Content>
+
         </Tabs.Root>
       )}
     </motion.div>
+  );
+}
+
+// ─── Regime Analysis Tab ─────────────────────────────────────────────────────
+
+const REGIME_META = {
+  bull:     { color: "#22c55e", bg: "rgba(34,197,94,0.12)",  label: "Bull Market",   icon: "📈" },
+  bear:     { color: "#ef4444", bg: "rgba(239,68,68,0.12)",  label: "Bear Market",   icon: "📉" },
+  sideways: { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "Sideways",      icon: "➡️" },
+  volatile: { color: "#a78bfa", bg: "rgba(167,139,250,0.12)",label: "High Volatility",icon: "⚡" },
+} as const;
+
+type RegimePeriod = {
+  startDate: string; endDate: string;
+  regime: "bull" | "bear" | "sideways" | "volatile";
+  avgReturn: number; volatility: number;
+  tradeCount: number; winRate: number; totalPnl: number;
+};
+
+type RegimeSummaryItem = { count: number; totalTrades: number; avgWinRate: number; totalPnl: number } | null;
+
+function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
+  const [regimes, setRegimes] = React.useState<RegimePeriod[]>([]);
+  const [summary, setSummary] = React.useState<Record<string, RegimeSummaryItem>>({});
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [loaded, setLoaded] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    setIsLoading(true); setError(null);
+    try {
+      const resp = await fetch(`/api/superpowers/regime/${backtestId}`);
+      if (!resp.ok) throw new Error("Failed to load regime data");
+      const data = await resp.json();
+      setRegimes(data.regimes ?? []);
+      setSummary(data.summary ?? {});
+      setLoaded(true);
+    } catch (e: any) {
+      setError(e.message || "Failed to load");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [backtestId]);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3">
+        <div className="h-10 w-10 rounded-full border-3 border-primary border-t-transparent animate-spin" />
+        <p className="text-sm text-muted-foreground">Classifying market regimes…</p>
+      </div>
+    );
+  }
+  if (error) return <p className="text-sm text-red-500">{error}</p>;
+  if (!loaded || regimes.length === 0) {
+    return (
+      <div className="py-16 text-center text-muted-foreground border border-dashed rounded-xl">
+        No regime data available. This backtest may not have enough data.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {(["bull","bear","sideways","volatile"] as const).map((regime) => {
+          const meta = REGIME_META[regime];
+          const s = summary[regime];
+          return (
+            <div key={regime} className="p-4 rounded-xl border" style={{ background: meta.bg, borderColor: `${meta.color}30` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span>{meta.icon}</span>
+                <span className="text-xs font-medium" style={{ color: meta.color }}>{meta.label}</span>
+              </div>
+              {s ? (
+                <>
+                  <p className="text-2xl font-bold font-mono" style={{ color: meta.color }}>{s.count}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">periods</p>
+                  <div className="mt-2 space-y-0.5">
+                    <p className="text-[11px]"><span className="text-muted-foreground">Trades:</span> <span className="font-mono">{s.totalTrades}</span></p>
+                    <p className="text-[11px]"><span className="text-muted-foreground">Win rate:</span> <span className="font-mono">{s.avgWinRate.toFixed(1)}%</span></p>
+                    <p className={`text-[11px] font-mono font-semibold ${s.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {s.totalPnl >= 0 ? "+" : ""}${s.totalPnl.toFixed(0)} P&L
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-1">No periods</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Timeline */}
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Regime Timeline</CardTitle>
+          <CardDescription>30-day rolling market classification with strategy performance</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+            {regimes.map((r, i) => {
+              const meta = REGIME_META[r.regime];
+              return (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-xl border transition-all hover:bg-muted/10"
+                  style={{ borderColor: `${meta.color}25`, background: `${meta.color}05` }}>
+                  <span className="text-lg leading-none mt-0.5">{meta.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-xs font-mono text-muted-foreground">{r.startDate} → {r.endDate}</span>
+                      <Badge className="text-[10px]" style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.color}30` }}>
+                        {meta.label}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase">Ann. Return</p>
+                        <p className={`text-xs font-mono font-medium ${r.avgReturn >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {r.avgReturn >= 0 ? "+" : ""}{r.avgReturn.toFixed(1)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase">Volatility</p>
+                        <p className="text-xs font-mono font-medium">{r.volatility.toFixed(1)}%</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase">Trades</p>
+                        <p className="text-xs font-mono font-medium">{r.tradeCount}</p>
+                      </div>
+                      {r.tradeCount > 0 && (
+                        <div>
+                          <p className="text-[9px] text-muted-foreground uppercase">Win Rate</p>
+                          <p className={`text-xs font-mono font-medium ${r.winRate >= 50 ? "text-green-400" : "text-red-400"}`}>
+                            {r.winRate.toFixed(0)}%
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Live Monitor Tab ────────────────────────────────────────────────────────
+
+type LiveTradeRow = {
+  id: number; backtestId: number; tradeDate: string; symbol: string;
+  side: string; entryPrice: number; exitPrice: number | null;
+  pnlAmount: number | null; note: string | null; createdAt: string;
+};
+
+function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: string }) {
+  const [liveTrades, setLiveTrades] = React.useState<LiveTradeRow[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [showForm, setShowForm] = React.useState(false);
+  const [form, setForm] = React.useState({
+    tradeDate: new Date().toISOString().split("T")[0],
+    side: "long",
+    entryPrice: "",
+    exitPrice: "",
+    pnlAmount: "",
+    note: "",
+  });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const { toast } = useToast();
+
+  const loadTrades = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const resp = await fetch(`/api/superpowers/live-trades/${backtestId}`);
+      if (!resp.ok) throw new Error("Failed to load");
+      setLiveTrades(await resp.json());
+    } catch { /* ignore */ }
+    finally { setIsLoading(false); }
+  }, [backtestId]);
+
+  React.useEffect(() => { loadTrades(); }, [loadTrades]);
+
+  async function handleAdd() {
+    if (!form.entryPrice) { toast({ title: "Entry price required", variant: "destructive" }); return; }
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem("tt_token") ?? "";
+      const resp = await fetch("/api/superpowers/live-trades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          backtestId, symbol,
+          tradeDate: form.tradeDate,
+          side: form.side,
+          entryPrice: Number(form.entryPrice),
+          exitPrice: form.exitPrice ? Number(form.exitPrice) : null,
+          pnlAmount: form.pnlAmount ? Number(form.pnlAmount) : null,
+          note: form.note || null,
+        }),
+      });
+      if (!resp.ok) throw new Error("Failed to add trade");
+      await loadTrades();
+      setShowForm(false);
+      setForm({ tradeDate: new Date().toISOString().split("T")[0], side: "long", entryPrice: "", exitPrice: "", pnlAmount: "", note: "" });
+      toast({ title: "Live trade logged" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally { setIsSubmitting(false); }
+  }
+
+  async function handleDelete(id: number) {
+    const token = localStorage.getItem("tt_token") ?? "";
+    await fetch(`/api/superpowers/live-trades/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+    setLiveTrades((prev) => prev.filter((t) => t.id !== id));
+    toast({ title: "Trade removed" });
+  }
+
+  // Compute divergence
+  const backtestAvgPnl = 0; // placeholder — could be enriched
+  const liveTotal = liveTrades.reduce((a, t) => a + (t.pnlAmount ?? 0), 0);
+  const liveTrades_w = liveTrades.filter((t) => (t.pnlAmount ?? 0) > 0).length;
+  const liveWinRate = liveTrades.length > 0 ? (liveTrades_w / liveTrades.length) * 100 : 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="font-semibold text-sm">Live Trade Log</h3>
+          <p className="text-xs text-muted-foreground">Log real trades to compare against backtest expectations</p>
+        </div>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)} className="gap-2">
+          <Plus className="h-3.5 w-3.5" /> Add Live Trade
+        </Button>
+      </div>
+
+      {/* Add form */}
+      {showForm && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Date</label>
+                <Input type="date" value={form.tradeDate} onChange={(e) => setForm((f) => ({ ...f, tradeDate: e.target.value }))} className="text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Side</label>
+                <select value={form.side} onChange={(e) => setForm((f) => ({ ...f, side: e.target.value }))}
+                  className="w-full text-xs bg-muted border border-border rounded-md px-2 py-2 text-foreground">
+                  <option value="long">Long</option>
+                  <option value="short">Short</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Entry Price</label>
+                <Input type="number" placeholder="0.00" value={form.entryPrice} onChange={(e) => setForm((f) => ({ ...f, entryPrice: e.target.value }))} className="text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Exit Price (opt)</label>
+                <Input type="number" placeholder="0.00" value={form.exitPrice} onChange={(e) => setForm((f) => ({ ...f, exitPrice: e.target.value }))} className="text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">P&L Amount (opt)</label>
+                <Input type="number" placeholder="0.00" value={form.pnlAmount} onChange={(e) => setForm((f) => ({ ...f, pnlAmount: e.target.value }))} className="text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Note (opt)</label>
+                <Input placeholder="Note…" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="text-xs" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAdd} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Divergence summary */}
+      {liveTrades.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="p-4 rounded-xl border border-border bg-card">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Live Trades</p>
+            <p className="text-2xl font-bold font-mono mt-1">{liveTrades.length}</p>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Live P&L</p>
+            <p className={`text-2xl font-bold font-mono mt-1 ${liveTotal >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {liveTotal >= 0 ? "+" : ""}${liveTotal.toFixed(2)}
+            </p>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Live Win Rate</p>
+            <p className={`text-2xl font-bold font-mono mt-1 ${liveWinRate >= 50 ? "text-green-400" : "text-red-400"}`}>
+              {liveWinRate.toFixed(0)}%
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Trade list */}
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1,2,3].map((i) => <div key={i} className="h-12 rounded-xl bg-muted animate-pulse" />)}
+        </div>
+      ) : liveTrades.length === 0 ? (
+        <div className="py-16 text-center border border-dashed rounded-xl">
+          <MonitorDot className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">No live trades logged yet.</p>
+          <p className="text-xs text-muted-foreground mt-1">Log real trades to compare against backtest expectations.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30">
+              <tr className="border-b border-border">
+                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-left">Date</th>
+                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-left">Side</th>
+                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-right">Entry</th>
+                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-right">Exit</th>
+                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-right">P&L</th>
+                <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground text-left">Note</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {liveTrades.map((t) => {
+                const isWin = (t.pnlAmount ?? 0) > 0;
+                return (
+                  <tr key={t.id} className="border-b border-border/50 hover:bg-muted/10">
+                    <td className="px-3 py-2.5 font-mono text-xs">{t.tradeDate}</td>
+                    <td className="px-3 py-2.5">
+                      <Badge variant="outline" className={`text-[10px] ${t.side === "long" ? "border-green-500/30 text-green-400 bg-green-500/10" : "border-red-500/30 text-red-400 bg-red-500/10"}`}>
+                        {t.side.toUpperCase()}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-xs">${t.entryPrice.toFixed(2)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-xs text-muted-foreground">{t.exitPrice != null ? `$${t.exitPrice.toFixed(2)}` : "—"}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-xs font-bold">
+                      {t.pnlAmount != null ? (
+                        <span className={isWin ? "text-green-400" : "text-red-400"}>
+                          {isWin ? "+" : ""}${t.pnlAmount.toFixed(2)}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[150px] truncate">{t.note ?? "—"}</td>
+                    <td className="px-3 py-2.5">
+                      <button onClick={() => handleDelete(t.id)} className="text-muted-foreground hover:text-red-400 transition-colors">
+                        <Trash className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

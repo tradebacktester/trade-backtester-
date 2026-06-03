@@ -32,6 +32,8 @@ import PricingPage from "@/pages/pricing";
 import BillingPage from "@/pages/billing";
 import ToolsPage from "@/pages/tools";
 import AiBuilder from "@/pages/strategies/ai-builder";
+import StressTestPage from "@/pages/stress-test";
+import StrategyDnaPage from "@/pages/strategy-dna";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +69,8 @@ function Router() {
       <Route path="/settings" component={SettingsPage} />
 
       <Route path="/tools" component={ToolsPage} />
+      <Route path="/stress-test" component={StressTestPage} />
+      <Route path="/strategy-dna" component={StrategyDnaPage} />
       <Route path="/community" component={CommunityPage} />
 
       <Route path="/pricing" component={PricingPage} />
