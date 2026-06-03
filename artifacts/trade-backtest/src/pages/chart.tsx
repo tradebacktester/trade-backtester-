@@ -1511,7 +1511,7 @@ export default function ChartPage() {
       {/* ── Paper Trading Account Setup Modal ─────────────────────────── */}
       {accountModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(8px)" }}>
-          <div className="w-full max-w-md rounded-2xl border overflow-hidden" style={{ background: "hsl(222,22%,10%)", borderColor: "rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
+          <div className="w-full max-w-md rounded-2xl border overflow-y-auto" style={{ background: "hsl(222,22%,10%)", borderColor: "rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)", maxHeight: "90dvh" }}>
             <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: "linear-gradient(135deg, hsl(150,75%,22%), hsl(150,75%,15%))", border: "1px solid rgba(52,211,153,0.3)" }}>
                 <TrendingUp className="h-5 w-5" style={{ color: "hsl(150,90%,65%)" }} />

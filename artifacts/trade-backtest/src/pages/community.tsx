@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Heart, Flag, Trash2, Send, ImageIcon, X,
   AlertTriangle, CheckCircle, Users,
-  MessageSquare, RefreshCw, Shield, Upload,
+  MessageSquare, RefreshCw, Shield, Upload, Camera,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -273,6 +273,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user?.name) setDisplayName(user.name);
@@ -313,10 +314,8 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
       const post = await apiFetch("/api/community", {
         method: "POST",
         body: JSON.stringify({
-          authorName: displayName.trim(),
           content: content.trim(),
           imageUrl: imagePreview ?? undefined,
-          userId: user?.id ?? undefined,
         }),
       }) as Post;
       onCreated(post);
@@ -390,8 +389,9 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
         </div>
       )}
 
-      {/* Hidden file input */}
+      {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
 
       <div className="flex items-center gap-2 px-4 py-3 border-t border-black/5">
         <button onClick={() => fileInputRef.current?.click()}
@@ -400,7 +400,13 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
             ? { background: "#eff6ff", color: "#3b82f6" }
             : { background: "#f5f5f5", color: "#666" }}>
           <Upload style={{ height: 12, width: 12 }} />
-          {imagePreview ? "Change" : "Photo"}
+          {imagePreview ? "Change" : "Gallery"}
+        </button>
+        <button onClick={() => cameraInputRef.current?.click()}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
+          style={{ background: "#f5f5f5", color: "#666" }}>
+          <Camera style={{ height: 12, width: 12 }} />
+          Camera
         </button>
 
         <span className="text-[11px] ml-auto" style={{ color: overLimit ? "#ef4444" : "#ccc" }}>

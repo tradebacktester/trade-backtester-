@@ -2,6 +2,8 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import OpenAI from "openai";
 import { verifyJwt } from "../lib/jwt";
 import { logger } from "../lib/logger";
+import { db, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
 
 const JWT_SECRET_AI = process.env.JWT_SECRET ?? "";
 
@@ -41,6 +43,66 @@ function checkAiRateLimit(userId: number): boolean {
   return true;
 }
 
+// Per-user daily AI query counter (resets at midnight)
+const aiDailyCount = new Map<number, { count: number; resetAt: number }>();
+
+async function checkAiPlanLimit(userId: number): Promise<{ allowed: boolean; error?: string }> {
+  let dailyLimit = 10; // Free tier default
+
+  try {
+    const [activeSub] = await db
+      .select({ planId: subscriptionsTable.planId })
+      .from(subscriptionsTable)
+      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+      .orderBy(desc(subscriptionsTable.createdAt))
+      .limit(1);
+
+    if (activeSub) {
+      const [plan] = await db
+        .select({ features: subscriptionPlansTable.features })
+        .from(subscriptionPlansTable)
+        .where(eq(subscriptionPlansTable.id, activeSub.planId))
+        .limit(1);
+      const lim = (plan?.features as { aiQueriesPerDay?: number } | null)?.aiQueriesPerDay;
+      if (lim === -1) return { allowed: true }; // Unlimited
+      if (typeof lim === "number") dailyLimit = lim;
+      else dailyLimit = 50; // Paid plan fallback
+    }
+  } catch {
+    return { allowed: true }; // Allow through on DB error
+  }
+
+  const now = Date.now();
+  const midnight = new Date();
+  midnight.setHours(24, 0, 0, 0); // Next midnight
+  const resetAt = midnight.getTime();
+
+  const rec = aiDailyCount.get(userId);
+  if (!rec || now >= rec.resetAt) {
+    aiDailyCount.set(userId, { count: 1, resetAt });
+    return { allowed: true };
+  }
+  if (rec.count >= dailyLimit) {
+    return {
+      allowed: false,
+      error: `Daily AI limit reached (${dailyLimit} queries/day). Upgrade your plan for more AI access.`,
+    };
+  }
+  rec.count++;
+  return { allowed: true };
+}
+
+async function requirePlanAiAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const userId = extractUserId(req);
+  if (!userId) { next(); return; } // requireAuth handles unauthenticated
+  const check = await checkAiPlanLimit(userId);
+  if (!check.allowed) {
+    res.status(403).json({ error: check.error, limitReached: true });
+    return;
+  }
+  next();
+}
+
 function groqClient(): OpenAI {
   const apiKey = process.env["GROQ_API_KEY"] ?? "";
   return new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
@@ -54,6 +116,9 @@ const SYSTEM_PROMPT = `You are an expert trading and financial markets educator.
 - Financial instruments (crypto, forex, stocks, indices, commodities, futures)
 - Fundamental analysis concepts
 Keep responses concise but informative (2–4 paragraphs max). Use clear examples where helpful. Do not give specific investment advice or price predictions.`;
+
+// Apply plan-level daily limit to all AI routes
+router.use(requirePlanAiAccess);
 
 /* ─── Chat ────────────────────────────────────────────────────────────────── */
 router.post("/ai/chat", requireAuth, async (req, res) => {

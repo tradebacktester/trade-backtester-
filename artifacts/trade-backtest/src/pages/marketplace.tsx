@@ -61,10 +61,11 @@ function MetricPill({ label, value, color }: { label: string; value: string | nu
   );
 }
 
-function ListingCard({ listing, token, onVote }: {
+function ListingCard({ listing, token, onVote, onAuthRequired }: {
   listing: Listing;
   token: string | null;
   onVote: (id: number, currentVoted: boolean) => void;
+  onAuthRequired: () => void;
 }) {
   const [, navigate] = useLocation();
   const color = TYPE_COLORS[listing.strategyType] ?? "#6366f1";
@@ -94,14 +95,13 @@ function ListingCard({ listing, token, onVote }: {
             <p className="text-[12px] mt-1 line-clamp-2" style={{ color: "hsl(220,14%,50%)" }}>{listing.description}</p>
           </div>
           <button
-            onClick={e => { e.stopPropagation(); if (token) onVote(listing.id, listing.voted); }}
-            disabled={!token}
+            onClick={e => { e.stopPropagation(); if (token) onVote(listing.id, listing.voted); else onAuthRequired(); }}
             className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all flex-shrink-0"
             style={{
               background: listing.voted ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
               border: `1px solid ${listing.voted ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.07)"}`,
-              cursor: token ? "pointer" : "not-allowed",
-              opacity: token ? 1 : 0.5,
+              cursor: "pointer",
+              opacity: token ? 1 : 0.55,
             }}
             title={token ? (listing.voted ? "Remove vote" : "Upvote") : "Sign in to vote"}
           >
@@ -291,6 +291,13 @@ export default function MarketplacePage() {
 
   useEffect(() => { load(); }, [load]);
 
+  function handleAuthRequired() {
+    toast({
+      title: "Sign in required",
+      description: "Please sign in or create an account to vote on strategies.",
+    });
+  }
+
   async function handleVote(id: number, currentVoted: boolean) {
     if (!token) return;
     try {
@@ -417,7 +424,7 @@ export default function MarketplacePage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(l => (
-            <ListingCard key={l.id} listing={l} token={token} onVote={handleVote} />
+            <ListingCard key={l.id} listing={l} token={token} onVote={handleVote} onAuthRequired={handleAuthRequired} />
           ))}
         </div>
       )}

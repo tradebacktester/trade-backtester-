@@ -540,7 +540,8 @@ function ParameterOptHeatmap({
           </div>
         )}
         {result && !isLoading && (
-          <div className="overflow-x-auto">
+          <div className="relative">
+            <div className="overflow-x-auto">
             <div className="space-y-1 min-w-[400px]">
               {/* Header row */}
               <div className="flex gap-1 items-center">
@@ -587,6 +588,8 @@ function ParameterOptHeatmap({
               </div>
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground text-right mt-1 sm:hidden">← swipe to scroll →</p>
+        </div>
         )}
       </CardContent>
     </Card>
@@ -1516,9 +1519,11 @@ export default function BacktestDetail() {
                       <CardTitle className="text-base">Win / Loss Breakdown</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center gap-6">
-                        <WinRateGauge pct={analytics.winRate} />
-                        <div className="space-y-3 flex-1">
+                      <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                        <div className="shrink-0">
+                          <WinRateGauge pct={analytics.winRate} />
+                        </div>
+                        <div className="space-y-3 flex-1 min-w-[160px]">
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">Winners</span>
                             <span className="font-mono font-semibold text-green-500">{analytics.totalWinners}</span>
@@ -1640,7 +1645,8 @@ export default function BacktestDetail() {
                       <CardTitle className="text-base">Return Calendar</CardTitle>
                       <CardDescription>Monthly PnL as % of initial capital, grouped by year</CardDescription>
                     </CardHeader>
-                    <CardContent className="overflow-x-auto">
+                    <CardContent className="overflow-x-auto pb-1">
+                      <p className="text-[10px] text-muted-foreground text-right mb-1 sm:hidden">← swipe to scroll →</p>
                       <div className="space-y-3 min-w-[560px]">
                         {/* Month header */}
                         <div className="flex gap-1 items-center">

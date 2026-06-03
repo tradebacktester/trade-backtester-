@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { db, journalEntriesTable } from "@workspace/db";
+import { db, journalEntriesTable, backtestsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { verifyJwt } from "../lib/jwt";
 import { logger } from "../lib/logger";
@@ -30,13 +30,21 @@ const router = Router();
 
 router.get("/backtests/:backtestId/journal/:tradeId", requireAuth, async (req, res) => {
   const userId = res.locals["userId"] as number;
-  const backtestId = parseInt(req.params["backtestId"]!, 10);
-  const tradeId = parseInt(req.params["tradeId"]!, 10);
+  const backtestId = parseInt(String(req.params["backtestId"]), 10);
+  const tradeId = parseInt(String(req.params["tradeId"]), 10);
   if (isNaN(backtestId) || isNaN(tradeId)) {
     res.status(400).json({ error: "Invalid IDs" });
     return;
   }
   try {
+    const [backtest] = await db
+      .select({ id: backtestsTable.id })
+      .from(backtestsTable)
+      .where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
+    if (!backtest) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     const [entry] = await db
       .select()
       .from(journalEntriesTable)
@@ -56,13 +64,21 @@ router.get("/backtests/:backtestId/journal/:tradeId", requireAuth, async (req, r
 
 router.put("/backtests/:backtestId/journal/:tradeId", requireAuth, async (req, res) => {
   const userId = res.locals["userId"] as number;
-  const backtestId = parseInt(req.params["backtestId"]!, 10);
-  const tradeId = parseInt(req.params["tradeId"]!, 10);
+  const backtestId = parseInt(String(req.params["backtestId"]), 10);
+  const tradeId = parseInt(String(req.params["tradeId"]), 10);
   if (isNaN(backtestId) || isNaN(tradeId)) {
     res.status(400).json({ error: "Invalid IDs" });
     return;
   }
   try {
+    const [backtest] = await db
+      .select({ id: backtestsTable.id })
+      .from(backtestsTable)
+      .where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
+    if (!backtest) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     const {
       note = "",
       tags = [],

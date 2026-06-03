@@ -28,6 +28,8 @@ app.use(
 );
 const CORS_ORIGIN = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim())
+  : process.env.REPLIT_DEV_DOMAIN
+  ? [`https://${process.env.REPLIT_DEV_DOMAIN}`]
   : /\.(replit\.app|replit\.dev|repl\.co)$/;
 
 app.use(
