@@ -104,12 +104,14 @@ router.get("/klines", async (req, res): Promise<void> => {
       res.json(bars);
       return;
     }
-    req.log.warn({ status: response.status }, "Binance unavailable, using sim data");
+    req.log.warn({ status: response.status }, "Binance klines request failed");
   } catch (err) {
-    req.log.warn({ err }, "Binance unreachable, using sim data");
+    req.log.warn({ err }, "Binance unreachable");
   }
 
-  res.json(generateSimBars(binanceSymbol, interval, klinesLimit));
+  // CRIT-009: Never silently serve fake data as real market data.
+  // Return a proper 503 so the chart can show an honest error state.
+  res.status(503).json({ error: "Market data unavailable. Binance API is unreachable — please try again shortly." });
 });
 
 export default router;

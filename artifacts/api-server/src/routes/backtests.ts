@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, avg, max, min, count, sum, sql, inArray, and } from "drizzle-orm";
-import { db, backtestsTable, strategiesTable, tradesTable, equityCurveTable } from "@workspace/db";
+import { eq, avg, max, min, count, sum, sql, inArray, and, gte } from "drizzle-orm";
+import { db, backtestsTable, strategiesTable, tradesTable, equityCurveTable, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
 import {
   CreateBacktestBody,
@@ -217,6 +217,54 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   const slippagePct = parsed.data.slippage ?? 0;
 
   const userId = res.locals["userId"] as number;
+
+  // CRIT-004: Enforce plan limits server-side — client-side gating alone is trivially bypassable
+  {
+    const [activeSub] = await db
+      .select({ planId: subscriptionsTable.planId })
+      .from(subscriptionsTable)
+      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+      .orderBy(sql`${subscriptionsTable.createdAt} DESC`)
+      .limit(1);
+
+    let maxBacktests = 5;
+    if (activeSub) {
+      const [plan] = await db
+        .select({ features: subscriptionPlansTable.features })
+        .from(subscriptionPlansTable)
+        .where(eq(subscriptionPlansTable.id, activeSub.planId))
+        .limit(1);
+      const lim = (plan?.features as { maxBacktestsPerMonth?: number } | null)?.maxBacktestsPerMonth;
+      if (lim === -1) maxBacktests = -1;
+      else if (typeof lim === "number") maxBacktests = lim;
+    } else {
+      const [freePlan] = await db
+        .select({ features: subscriptionPlansTable.features })
+        .from(subscriptionPlansTable)
+        .where(eq(subscriptionPlansTable.isDefault, true))
+        .limit(1);
+      const lim = (freePlan?.features as { maxBacktestsPerMonth?: number } | null)?.maxBacktestsPerMonth;
+      if (typeof lim === "number" && lim !== -1) maxBacktests = lim;
+    }
+
+    if (maxBacktests !== -1) {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const [{ monthCount }] = await db
+        .select({ monthCount: count(backtestsTable.id) })
+        .from(backtestsTable)
+        .where(and(eq(backtestsTable.userId, userId), gte(backtestsTable.createdAt, monthStart)));
+      if (monthCount >= maxBacktests) {
+        res.status(403).json({
+          error: `Monthly limit reached: ${monthCount}/${maxBacktests} backtests used this month. Upgrade your plan to run more.`,
+          limitReached: true,
+        });
+        return;
+      }
+    }
+  }
+
   const [backtest] = await db.insert(backtestsTable).values({
     userId,
     strategyId: parsed.data.strategyId,

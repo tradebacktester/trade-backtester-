@@ -28,7 +28,16 @@ const formSchema = z.object({
   initialCapital: z.coerce.number().min(100, "Minimum capital is 100"),
   commission: z.coerce.number().min(0).max(10).optional(),
   slippage: z.coerce.number().min(0).max(5).optional(),
-});
+}).refine(
+  (data) => data.startDate < data.endDate,
+  { message: "End date must be after start date", path: ["endDate"] }
+).refine(
+  (data) => {
+    const diffDays = (new Date(data.endDate).getTime() - new Date(data.startDate).getTime()) / 86_400_000;
+    return diffDays >= 90;
+  },
+  { message: "Date range must be at least 3 months — the engine needs 90+ daily bars to produce meaningful results", path: ["endDate"] }
+);
 
 type FormValues = z.infer<typeof formSchema>;
 

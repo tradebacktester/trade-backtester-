@@ -44,8 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function signout() {
     setUserState(null);
     setTokenState(null);
+    setAdminTokenState(null);
     localStorage.removeItem("tt_user");
     localStorage.removeItem("tt_token");
+    localStorage.removeItem("tt_admin_token");
   }
 
   function setAdminToken(tok: string | null) {

@@ -3,7 +3,7 @@ import {
   db, liveTradesTable, backtestsTable, strategiesTable,
   tradesTable, equityCurveTable,
 } from "@workspace/db";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and } from "drizzle-orm";
 import { runBacktest, generatePriceData, classifyRegimes, type RegimePeriod } from "../lib/backtest-engine";
 import { verifyJwt } from "../lib/jwt";
 import type { Request, Response, NextFunction } from "express";
@@ -155,8 +155,9 @@ function computeDnaVector(params: {
 // ─── GET /strategies/dna — Pearson equity-curve similarity matrix ─────────────
 
 router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
-  // strategies has no userId column — fetch all, access-controlled by auth
-  const strategies = await db.select().from(strategiesTable).orderBy(strategiesTable.createdAt);
+  // CRIT-002: Scope to the authenticated user's strategies — never return all strategies platform-wide
+  const userId = res.locals["userId"] as number;
+  const strategies = await db.select().from(strategiesTable).where(eq(strategiesTable.userId, userId)).orderBy(strategiesTable.createdAt);
 
   if (strategies.length === 0) {
     res.json({ strategies: [], matrix: [], duplicates: [], correlations: [] });
@@ -167,7 +168,7 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
   const backtests = await db
     .select()
     .from(backtestsTable)
-    .where(eq(backtestsTable.status, "complete"))
+    .where(and(eq(backtestsTable.status, "complete"), eq(backtestsTable.userId, userId)))
     .orderBy(desc(backtestsTable.createdAt));
 
   const latestByStrategy = new Map<number, typeof backtests[0]>();
@@ -391,10 +392,12 @@ router.get("/backtests/:id/divergence", requireAuth, async (req, res): Promise<v
 // ─── GET /backtests/:id/live-trades ──────────────────────────────────────────
 
 router.get("/backtests/:id/live-trades", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const backtestId = parseInt(req.params["id"] as string, 10);
   if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid backtestId" }); return; }
 
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
+  // CRIT-003: Verify backtest ownership before exposing trade journal
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
 
   const rows = await db.select().from(liveTradesTable).where(eq(liveTradesTable.backtestId, backtestId));
@@ -412,6 +415,7 @@ router.get("/backtests/:id/live-trades", requireAuth, async (req, res): Promise<
 // symbol/side/entryPrice are derived from backtest or given sensible defaults
 
 router.post("/backtests/:id/live-trades", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const backtestId = parseInt(req.params["id"] as string, 10);
   if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid backtestId" }); return; }
 
@@ -425,7 +429,8 @@ router.post("/backtests/:id/live-trades", requireAuth, async (req, res): Promise
     return;
   }
 
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
+  // CRIT-003: Verify backtest belongs to the authenticated user before writing journal entries
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
 
   const [row] = await db.insert(liveTradesTable).values({
@@ -450,11 +455,16 @@ router.post("/backtests/:id/live-trades", requireAuth, async (req, res): Promise
 // Resource-level check: verify the trade belongs to this backtestId before deleting.
 
 router.delete("/backtests/:id/live-trades/:tradeId", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const backtestId = parseInt(req.params["id"] as string, 10);
   const tradeId = parseInt(req.params["tradeId"] as string, 10);
   if (isNaN(tradeId) || isNaN(backtestId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  // Verify the trade exists and belongs to this backtestId (resource-level authz)
+  // CRIT-003: Verify the backtest belongs to the authenticated user before any mutation
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
+  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
+
+  // Verify the trade exists and belongs to this backtestId
   const [existing] = await db
     .select()
     .from(liveTradesTable)
@@ -473,8 +483,11 @@ router.delete("/backtests/:id/live-trades/:tradeId", requireAuth, async (req, re
 // ─── Backward-compat aliases (old paths still work) ──────────────────────────
 
 router.get("/superpowers/live-trades/:backtestId", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const backtestId = parseInt(req.params["backtestId"] as string, 10);
   if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid backtestId" }); return; }
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
+  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   const rows = await db.select().from(liveTradesTable).where(eq(liveTradesTable.backtestId, backtestId));
   res.json(rows.map((r) => ({
     ...r,
@@ -486,12 +499,13 @@ router.get("/superpowers/live-trades/:backtestId", requireAuth, async (req, res)
 });
 
 router.post("/superpowers/live-trades", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const { backtestId, tradeDate, symbol, side, entryPrice, exitPrice, pnlAmount, note } = req.body;
   if (!backtestId || !tradeDate) {
     res.status(400).json({ error: "backtestId and tradeDate required" });
     return;
   }
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, Number(backtestId)));
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, Number(backtestId)), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
 
   const [row] = await db.insert(liveTradesTable).values({
@@ -514,8 +528,14 @@ router.post("/superpowers/live-trades", requireAuth, async (req, res): Promise<v
 });
 
 router.delete("/superpowers/live-trades/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  // Verify ownership via trade→backtest chain
+  const [trade] = await db.select().from(liveTradesTable).where(eq(liveTradesTable.id, id));
+  if (!trade) { res.status(404).json({ error: "Trade not found" }); return; }
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, trade.backtestId), eq(backtestsTable.userId, userId)));
+  if (!bt) { res.status(403).json({ error: "Forbidden" }); return; }
   await db.delete(liveTradesTable).where(eq(liveTradesTable.id, id));
   res.status(204).end();
 });

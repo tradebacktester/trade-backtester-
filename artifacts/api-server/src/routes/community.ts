@@ -78,52 +78,55 @@ router.get("/community", async (_req, res): Promise<void> => {
   res.json(posts.map(serializePost));
 });
 
-// POST /community — create a post
+// POST /community — create a post (authentication required)
 router.post("/community", async (req, res): Promise<void> => {
+  // CRIT-008: Require auth — prevents authorName spoofing and fully anonymous spam
+  const authHeader = req.headers["authorization"];
+  if (!authHeader || !process.env.JWT_SECRET) {
+    res.status(401).json({ error: "You must be signed in to post." });
+    return;
+  }
+  const authToken = authHeader.replace("Bearer ", "").trim();
+  const payload = verifyJwt(authToken, process.env.JWT_SECRET);
+  if (!payload || typeof payload.id !== "number") {
+    res.status(401).json({ error: "You must be signed in to post." });
+    return;
+  }
+  const userId: number = payload.id;
+
+  // CRIT-008: Derive authorName server-side from verified identity — never trust client
+  const rawName = typeof payload.email === "string"
+    ? payload.email.split("@")[0]!.replace(/[.+_-]+/g, " ").trim()
+    : "";
+  const authorName = rawName.length >= 2 ? rawName : "User";
+
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
   if (!checkPostRateLimit(ip)) {
     res.status(429).json({ error: "Too many posts. Please wait before posting again." });
     return;
   }
 
-  // Derive userId from JWT — never trust the request body for identity (HIGH-005 fix)
-  let userId: number | null = null;
-  const authHeader = req.headers["authorization"];
-  if (authHeader && process.env.JWT_SECRET) {
-    const token = authHeader.replace("Bearer ", "").trim();
-    const payload = verifyJwt(token, process.env.JWT_SECRET);
-    if (payload && typeof payload.id === "number") {
-      userId = payload.id;
-
-      // DB-based per-user rate limit: max 5 posts per minute (HIGH-007 fix)
-      // More reliable than in-memory — survives server restarts
-      const oneMinuteAgo = new Date(Date.now() - 60_000);
-      const [{ recentCount }] = await db
-        .select({ recentCount: sql<number>`cast(count(*) as int)` })
-        .from(communityPostsTable)
-        .where(
-          and(
-            eq(communityPostsTable.userId, userId),
-            gt(communityPostsTable.createdAt, oneMinuteAgo),
-          ),
-        );
-      if (recentCount >= 5) {
-        res.status(429).json({ error: "Too many posts. Please wait before posting again." });
-        return;
-      }
-    }
+  // DB-based per-user rate limit: max 5 posts per minute
+  const oneMinuteAgo = new Date(Date.now() - 60_000);
+  const [{ recentCount }] = await db
+    .select({ recentCount: sql<number>`cast(count(*) as int)` })
+    .from(communityPostsTable)
+    .where(
+      and(
+        eq(communityPostsTable.userId, userId),
+        gt(communityPostsTable.createdAt, oneMinuteAgo),
+      ),
+    );
+  if (recentCount >= 5) {
+    res.status(429).json({ error: "Too many posts. Please wait before posting again." });
+    return;
   }
 
-  const { authorName, content, imageUrl } = req.body as {
-    authorName?: string;
+  const { content, imageUrl } = req.body as {
     content?: string;
     imageUrl?: string;
   };
 
-  if (!authorName || typeof authorName !== "string" || authorName.trim().length < 2) {
-    res.status(400).json({ error: "Display name must be at least 2 characters." });
-    return;
-  }
   if (!content || typeof content !== "string" || content.trim().length < 3) {
     res.status(400).json({ error: "Post content must be at least 3 characters." });
     return;
@@ -133,7 +136,7 @@ router.post("/community", async (req, res): Promise<void> => {
     return;
   }
 
-  const badWord = containsBannedWords(authorName) || containsBannedWords(content);
+  const badWord = containsBannedWords(content);
   if (badWord) {
     res.status(400).json({ error: "Your post contains language that is not allowed on this platform." });
     return;
@@ -170,8 +173,20 @@ router.post("/community", async (req, res): Promise<void> => {
   res.status(201).json(serializePost(post!));
 });
 
-// POST /community/:id/like — toggle like (simple increment, no auth tracking)
+// POST /community/:id/like — toggle like (authentication required — CRIT-001)
 router.post("/community/:id/like", async (req, res): Promise<void> => {
+  // CRIT-001: Require auth to prevent unauthenticated bot-flooding of likes
+  const likeAuth = req.headers["authorization"];
+  if (!likeAuth || !process.env.JWT_SECRET) {
+    res.status(401).json({ error: "You must be signed in to like posts." });
+    return;
+  }
+  const likePayload = verifyJwt(likeAuth.replace("Bearer ", "").trim(), process.env.JWT_SECRET);
+  if (!likePayload) {
+    res.status(401).json({ error: "You must be signed in to like posts." });
+    return;
+  }
+
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

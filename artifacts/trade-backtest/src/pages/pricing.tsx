@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useSubscription, type SubscriptionPlan } from "@/lib/subscription-context";
 import { AuthModal } from "@/components/auth-modal";
+import { useToast } from "@/hooks/use-toast";
 
 declare global {
   interface Window {
@@ -189,6 +190,7 @@ function FeatureRow({
 export default function PricingPage() {
   const { user } = useAuth();
   const { plan: currentPlan, subscription, refresh } = useSubscription();
+  const { toast } = useToast();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState<number | null>(null);
@@ -219,10 +221,18 @@ export default function PricingPage() {
         body: JSON.stringify({ planId: plan.id }),
       });
       const order = await orderRes.json();
-      if (!orderRes.ok) { alert(order.error ?? "Failed to create order"); setSubscribing(null); return; }
+      if (!orderRes.ok) {
+        toast({ title: "Order failed", description: order.error ?? "Failed to create order", variant: "destructive" });
+        setSubscribing(null);
+        return;
+      }
 
       if (order.keyId === "rzp_test_placeholder") {
-        alert("Razorpay credentials not configured yet. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables to enable payments.");
+        toast({
+          title: "Payments not configured",
+          description: "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables to enable payments.",
+          variant: "destructive",
+        });
         setSubscribing(null);
         return;
       }
@@ -249,12 +259,12 @@ export default function PricingPage() {
             }),
           });
           if (verifyRes.ok) { refresh(); navigate("/billing"); }
-          else { alert("Payment verification failed. Contact support."); }
+          else { toast({ title: "Verification failed", description: "Payment could not be verified. Please contact support.", variant: "destructive" }); }
         },
       });
       rzp.open();
     } catch {
-      alert("Something went wrong. Please try again.");
+      toast({ title: "Unexpected error", description: "Something went wrong. Please try again.", variant: "destructive" });
     } finally {
       setSubscribing(null);
     }
