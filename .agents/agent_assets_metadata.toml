@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "ia_C-FSulmOAbZKwXN84Q"
+uri = "file://AUDIT_REPORT.md"
+type = "text"
+title = "Trade Lab — Comprehensive Audit Report"
