@@ -600,4 +600,141 @@ async function stressTestHandler(req: import("express").Request, res: import("ex
 router.post("/stress-test", requireAuth, stressTestHandler);
 router.post("/superpowers/stress-test", requireAuth, stressTestHandler);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ECONOMIC EVENT IMPACT OVERLAY
+// GET /backtests/:id/event-impact
+// Overlaps the backtest's trade history with a catalog of historical economic
+// events and returns per-event impact stats (win rate in vs. out of window).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ECONOMIC_EVENTS = [
+  // ── Fed FOMC meetings ─────────────────────────────────────────────────────
+  { id: "fomc-2020-03-15", name: "Emergency Fed Cut (COVID)", type: "fed", date: "2020-03-15", windowDays: 5, description: "Emergency 100bps cut to near-zero as COVID shock hits markets" },
+  { id: "fomc-2021-06-16", name: "Fed Tapering Signals Begin", type: "fed", date: "2021-06-16", windowDays: 4, description: "Fed signals it's thinking about thinking about tapering" },
+  { id: "fomc-2021-11-03", name: "Fed Taper Announced", type: "fed", date: "2021-11-03", windowDays: 4, description: "Official start of bond-purchase tapering" },
+  { id: "fomc-2022-03-16", name: "Fed Hike +25bps (First)", type: "fed", date: "2022-03-16", windowDays: 4, description: "First rate hike since 2018, beginning of aggressive tightening cycle" },
+  { id: "fomc-2022-05-04", name: "Fed Hike +50bps", type: "fed", date: "2022-05-04", windowDays: 4, description: "Largest single hike in 22 years signals inflation war declared" },
+  { id: "fomc-2022-06-15", name: "Fed Hike +75bps (First)", type: "fed", date: "2022-06-15", windowDays: 4, description: "75bps — first of four consecutive 75bps moves, shocking markets" },
+  { id: "fomc-2022-07-27", name: "Fed Hike +75bps", type: "fed", date: "2022-07-27", windowDays: 4, description: "Second consecutive 75bps hike" },
+  { id: "fomc-2022-09-21", name: "Fed Hike +75bps", type: "fed", date: "2022-09-21", windowDays: 4, description: "Third consecutive 75bps, peak hawkishness" },
+  { id: "fomc-2022-11-02", name: "Fed Hike +75bps", type: "fed", date: "2022-11-02", windowDays: 4, description: "Fourth consecutive 75bps hike" },
+  { id: "fomc-2022-12-14", name: "Fed Hike +50bps (Step Down)", type: "fed", date: "2022-12-14", windowDays: 4, description: "Step down signals peak rate approaching" },
+  { id: "fomc-2023-02-01", name: "Fed Hike +25bps", type: "fed", date: "2023-02-01", windowDays: 4, description: "Smaller hike as inflation data improves" },
+  { id: "fomc-2023-05-03", name: "Fed Hike +25bps (Likely Last)", type: "fed", date: "2023-05-03", windowDays: 4, description: "Possibly final hike of the cycle" },
+  { id: "fomc-2023-07-26", name: "Fed Hike +25bps (Peak Rate)", type: "fed", date: "2023-07-26", windowDays: 4, description: "Rates peak at 5.25–5.50%, highest since 2001" },
+  { id: "fomc-2024-09-18", name: "Fed First Cut -50bps", type: "fed", date: "2024-09-18", windowDays: 4, description: "Pivots to easing cycle with a jumbo 50bps cut" },
+  // ── CPI prints ────────────────────────────────────────────────────────────
+  { id: "cpi-2021-10-13", name: "CPI 5.4% — Inflation Not Transitory", type: "cpi", date: "2021-10-13", windowDays: 3, description: "CPI hits 30-year high, Fed 'transitory' narrative collapses" },
+  { id: "cpi-2022-06-10", name: "CPI 8.6% — 41-Year High", type: "cpi", date: "2022-06-10", windowDays: 3, description: "Shock CPI triggers recession fears and crypto crash" },
+  { id: "cpi-2022-07-13", name: "CPI 9.1% — Peak Inflation", type: "cpi", date: "2022-07-13", windowDays: 3, description: "Highest US inflation since 1981, markets brace for more hikes" },
+  { id: "cpi-2022-10-13", name: "CPI 8.2% — 'Core' Surprise", type: "cpi", date: "2022-10-13", windowDays: 3, description: "Hot core CPI triggers massive intraday reversal across assets" },
+  { id: "cpi-2023-02-14", name: "CPI 6.4% — Stickier Than Expected", type: "cpi", date: "2023-02-14", windowDays: 3, description: "Higher-than-expected read dashes rate cut hopes" },
+  { id: "cpi-2023-06-13", name: "CPI 4.0% — Cooling Confirmed", type: "cpi", date: "2023-06-13", windowDays: 3, description: "Significant drop sparks risk-on rally" },
+  { id: "cpi-2024-03-12", name: "CPI 3.2% — Disinflation Stalls", type: "cpi", date: "2024-03-12", windowDays: 3, description: "Above-consensus CPI delays expected rate cuts" },
+  // ── Major macro events ────────────────────────────────────────────────────
+  { id: "macro-2020-02-20", name: "COVID-19 Market Crash Begins", type: "macro", date: "2020-02-20", windowDays: 20, description: "S&P falls 34% in 33 days — fastest bear market in history" },
+  { id: "macro-2020-03-23", name: "COVID Crash Bottom / Fed Bazooka", type: "macro", date: "2020-03-23", windowDays: 10, description: "Fed announces unlimited QE, markets find floor" },
+  { id: "macro-2021-01-28", name: "GameStop / Meme Stock Frenzy", type: "macro", date: "2021-01-28", windowDays: 7, description: "Retail squeeze triggers extreme volatility across risk assets" },
+  { id: "macro-2021-05-19", name: "Crypto Flash Crash -50%", type: "macro", date: "2021-05-19", windowDays: 5, description: "BTC drops 50% in a week on China mining ban and Musk tweets" },
+  { id: "macro-2022-05-12", name: "LUNA/UST Collapse", type: "macro", date: "2022-05-12", windowDays: 7, description: "$60B Terra ecosystem implodes, crypto contagion spreads" },
+  { id: "macro-2022-11-11", name: "FTX Bankruptcy", type: "macro", date: "2022-11-11", windowDays: 10, description: "FTX collapses, second-largest crypto exchange gone overnight" },
+  { id: "macro-2023-03-10", name: "SVB / Banking Crisis", type: "macro", date: "2023-03-10", windowDays: 10, description: "Silicon Valley Bank failure triggers bank run fears, safe-haven flows" },
+  { id: "macro-2023-10-07", name: "Israel-Hamas Conflict Outbreak", type: "macro", date: "2023-10-07", windowDays: 5, description: "Geopolitical shock lifts oil and gold, pressures risk assets" },
+  { id: "macro-2024-08-05", name: "Global Market Selloff (Yen Carry)", type: "macro", date: "2024-08-05", windowDays: 5, description: "BOJ rate hike unwinds yen carry trade, VIX spikes to 65" },
+  // ── US Elections ──────────────────────────────────────────────────────────
+  { id: "election-2020-11-03", name: "US Presidential Election 2020", type: "election", date: "2020-11-03", windowDays: 7, description: "Biden wins, markets rally on expectation of stimulus" },
+  { id: "election-2024-11-05", name: "US Presidential Election 2024", type: "election", date: "2024-11-05", windowDays: 5, description: "Trump wins, crypto surges, risk-on rotation" },
+] as const;
+
+router.get("/backtests/:id/event-impact", async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [backtest] = await db
+    .select({ id: backtestsTable.id, startDate: backtestsTable.startDate, endDate: backtestsTable.endDate, status: backtestsTable.status })
+    .from(backtestsTable)
+    .where(eq(backtestsTable.id, id));
+
+  if (!backtest) { res.status(404).json({ error: "Backtest not found" }); return; }
+
+  const trades = await db
+    .select()
+    .from(tradesTable)
+    .where(eq(tradesTable.backtestId, id));
+
+  if (!trades.length) {
+    res.json({ events: [], summary: { totalEvents: 0, tradesInEvents: 0, winRateInEvents: null, winRateOutEvents: null } });
+    return;
+  }
+
+  const btStart = new Date(backtest.startDate).getTime();
+  const btEnd = new Date(backtest.endDate).getTime();
+
+  function overlap(tradeEntry: string, tradeExit: string, eventDate: string, windowDays: number): boolean {
+    const eDate = new Date(eventDate).getTime();
+    const winStart = eDate - windowDays * 86400000;
+    const winEnd = eDate + windowDays * 86400000;
+    const tEntry = new Date(tradeEntry).getTime();
+    const tExit = new Date(tradeExit).getTime();
+    return tEntry <= winEnd && tExit >= winStart;
+  }
+
+  const relevantEvents = ECONOMIC_EVENTS.filter(ev => {
+    const eDate = new Date(ev.date).getTime();
+    return eDate >= btStart - ev.windowDays * 86400000 && eDate <= btEnd + ev.windowDays * 86400000;
+  });
+
+  const results = relevantEvents.map(ev => {
+    const inWindow = trades.filter(t => overlap(t.entryDate, t.exitDate, ev.date, ev.windowDays));
+    const wins = inWindow.filter(t => Number(t.pnl) > 0);
+    const avgPnl = inWindow.length ? inWindow.reduce((s, t) => s + Number(t.pnlPercent), 0) / inWindow.length : null;
+    return {
+      id: ev.id,
+      name: ev.name,
+      type: ev.type,
+      date: ev.date,
+      windowDays: ev.windowDays,
+      description: ev.description,
+      tradesInWindow: inWindow.length,
+      winsInWindow: wins.length,
+      winRateInWindow: inWindow.length ? (wins.length / inWindow.length) * 100 : null,
+      avgPnlInWindow: avgPnl,
+      trades: inWindow.map(t => ({
+        entryDate: t.entryDate,
+        exitDate: t.exitDate,
+        side: t.side,
+        pnlPercent: Number(t.pnlPercent),
+        pnl: Number(t.pnl),
+      })),
+    };
+  });
+
+  const activeEvents = results.filter(r => r.tradesInWindow > 0);
+  const allEventTrades = trades.filter(t =>
+    relevantEvents.some(ev => overlap(t.entryDate, t.exitDate, ev.date, ev.windowDays))
+  );
+  const outsideTrades = trades.filter(t =>
+    !relevantEvents.some(ev => overlap(t.entryDate, t.exitDate, ev.date, ev.windowDays))
+  );
+
+  const winRateIn = allEventTrades.length
+    ? (allEventTrades.filter(t => Number(t.pnl) > 0).length / allEventTrades.length) * 100
+    : null;
+  const winRateOut = outsideTrades.length
+    ? (outsideTrades.filter(t => Number(t.pnl) > 0).length / outsideTrades.length) * 100
+    : null;
+
+  res.json({
+    events: results,
+    summary: {
+      totalEvents: relevantEvents.length,
+      activeEvents: activeEvents.length,
+      tradesInEvents: allEventTrades.length,
+      tradesOutEvents: outsideTrades.length,
+      winRateInEvents: winRateIn,
+      winRateOutEvents: winRateOut,
+    },
+  });
+});
+
 export default router;

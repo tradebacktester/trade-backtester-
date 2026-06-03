@@ -803,6 +803,22 @@ export default function BacktestDetail() {
   const [autopsyError, setAutopsyError] = useState<string | null>(null);
   const [isLoadingAutopsy, setIsLoadingAutopsy] = useState(false);
 
+  const [narrativeText, setNarrativeText] = useState<string | null>(null);
+  const [narrativeError, setNarrativeError] = useState<string | null>(null);
+  const [isLoadingNarrative, setIsLoadingNarrative] = useState(false);
+
+  type EventImpact = {
+    id: string; name: string; type: string; date: string;
+    windowDays: number; description: string;
+    tradesInWindow: number; winsInWindow: number;
+    winRateInWindow: number | null; avgPnlInWindow: number | null;
+    trades: Array<{ entryDate: string; exitDate: string; side: string; pnlPercent: number; pnl: number }>;
+  };
+  type EventSummary = { totalEvents: number; activeEvents: number; tradesInEvents: number; tradesOutEvents: number; winRateInEvents: number | null; winRateOutEvents: number | null };
+  const [eventData, setEventData] = useState<{ events: EventImpact[]; summary: EventSummary } | null>(null);
+  const [eventError, setEventError] = useState<string | null>(null);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+
   const handleShare = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -875,6 +891,90 @@ export default function BacktestDetail() {
       setAutopsyError(e instanceof Error ? e.message : "Failed to generate autopsy");
     } finally {
       setIsLoadingAutopsy(false);
+    }
+  }
+
+  async function handleGenerateNarrative() {
+    if (!backtest || !trades?.length) return;
+    setIsLoadingNarrative(true);
+    setNarrativeError(null);
+    setNarrativeText(null);
+    try {
+      // Detect drawdown periods from equity curve
+      const equityPeaks: Array<{ peakDate: string; troughDate: string; drawdownPct: number; recoveryDays: number | null }> = [];
+      if (equityCurve?.length) {
+        let peakVal = equityCurve[0]?.value ?? 0;
+        let peakDate = equityCurve[0]?.date ?? "";
+        let troughVal = peakVal;
+        let troughDate = peakDate;
+        for (const pt of equityCurve) {
+          const eq = pt.value;
+          if (eq > peakVal) {
+            if (peakVal > 0 && troughVal < peakVal) {
+              const dd = ((peakVal - troughVal) / peakVal) * 100;
+              if (dd > 5) {
+                const recoveryDays = null;
+                equityPeaks.push({ peakDate, troughDate, drawdownPct: dd, recoveryDays });
+              }
+            }
+            peakVal = eq; peakDate = pt.date as string; troughVal = eq; troughDate = pt.date as string;
+          } else if (eq < troughVal) {
+            troughVal = eq; troughDate = pt.date as string;
+          }
+        }
+      }
+
+      const resp = await fetch("/api/ai/narrative", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}` },
+        body: JSON.stringify({
+          symbol: backtest.symbol,
+          strategyName: (backtest as any).strategyName ?? "Unknown Strategy",
+          strategyType: (backtest as any).strategyType ?? "unknown",
+          startDate: backtest.startDate,
+          endDate: backtest.endDate,
+          metrics: {
+            totalReturn: backtest.totalReturn ?? 0,
+            annualizedReturn: (backtest as any).annualizedReturn ?? 0,
+            maxDrawdown: backtest.maxDrawdown ?? 0,
+            sharpeRatio: backtest.sharpeRatio ?? 0,
+            winRate: backtest.winRate ?? 0,
+            totalTrades: backtest.totalTrades ?? 0,
+            profitFactor: backtest.profitFactor ?? 0,
+            initialCapital: (backtest as any).initialCapital ?? 10000,
+            finalCapital: ((backtest as any).initialCapital ?? 10000) * (1 + (backtest.totalReturn ?? 0) / 100),
+          },
+          trades: trades.slice(0, 60).map(t => ({
+            side: t.side, entryDate: t.entryDate, exitDate: t.exitDate,
+            entryPrice: t.entryPrice, exitPrice: t.exitPrice, pnl: t.pnl, pnlPercent: t.pnlPercent,
+            holdingDays: Math.max(1, differenceInDays(new Date(t.exitDate), new Date(t.entryDate))),
+          })),
+          equityPeaks: equityPeaks.slice(0, 4),
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error ?? "Failed to generate narrative");
+      setNarrativeText(data.story);
+    } catch (e: unknown) {
+      setNarrativeError(e instanceof Error ? e.message : "Failed to generate narrative");
+    } finally {
+      setIsLoadingNarrative(false);
+    }
+  }
+
+  async function handleLoadEventImpact() {
+    if (!id) return;
+    setIsLoadingEvents(true);
+    setEventError(null);
+    try {
+      const resp = await fetch(`/api/backtests/${id}/event-impact`);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error ?? "Failed to load event data");
+      setEventData(data);
+    } catch (e: unknown) {
+      setEventError(e instanceof Error ? e.message : "Failed to load event data");
+    } finally {
+      setIsLoadingEvents(false);
     }
   }
 
@@ -1106,6 +1206,8 @@ export default function BacktestDetail() {
               { value: "journal",  label: "Trade Journal", Icon: BookOpen },
               { value: "calendar", label: "P&L Calendar", Icon: CalendarDays },
               { value: "autopsy",  label: "AI Autopsy",     Icon: Brain },
+              { value: "narrative",label: "Story Mode",      Icon: Sparkles },
+              { value: "events",   label: "Event Impact",    Icon: Activity },
               { value: "regime",   label: "Regime Analysis", Icon: Waves },
               { value: "live",     label: "Live Monitor",    Icon: MonitorDot },
             ].map(({ value, label, Icon }) => (
@@ -1793,6 +1895,283 @@ export default function BacktestDetail() {
                       <p className="text-sm font-medium text-foreground">Your autopsy awaits</p>
                       <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                         Click "Generate Autopsy" for an AI-written narrative — what worked, what didn't, and whether this strategy has a genuine edge.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </Tabs.Content>
+
+          {/* ── TAB: Story Mode (Narrative) ───────────────────────────── */}
+          <Tabs.Content value="narrative" className="space-y-6 tab-transition">
+            <Card className="glass-card border-0">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      Story Mode
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      AI converts your backtest into a compelling narrative — vivid chapters covering the campaign, turning points, and a sharp verdict on your strategy's edge.
+                    </CardDescription>
+                  </div>
+                  {!narrativeText && (
+                    <Button
+                      onClick={handleGenerateNarrative}
+                      disabled={isLoadingNarrative || !trades?.length}
+                      className="gap-2 flex-shrink-0"
+                    >
+                      {isLoadingNarrative ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Crafting story…</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" />Generate Story</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!trades?.length && (
+                  <p className="text-sm text-muted-foreground">Complete the backtest before generating a story.</p>
+                )}
+                {narrativeError && (
+                  <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{narrativeError}</p>
+                  </div>
+                )}
+                {isLoadingNarrative && (
+                  <div className="space-y-3 animate-pulse py-2">
+                    {[1, 0.95, 0.82, 0, 1, 0.88, 0.72, 0, 1, 0.91, 0.65, 0, 1, 0.79].map((w, i) => (
+                      w === 0 ? <div key={i} className="h-3" /> :
+                      <div key={i} className="h-4 rounded bg-muted" style={{ width: `${w * 100}%` }} />
+                    ))}
+                  </div>
+                )}
+                {narrativeText && (
+                  <>
+                    {/* Chapter-by-chapter rendering */}
+                    <div className="space-y-5">
+                      {narrativeText.split("\n\n").filter(p => p.trim()).map((para, i) => {
+                        const chapterMatch = para.match(/^Chapter\s+\d+\s*[—–-]\s*[""]?(.+?)[""]?:/i);
+                        if (chapterMatch) {
+                          return (
+                            <div key={i} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold"
+                                  style={{ background: "rgba(99,102,241,0.2)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
+                                  {i + 1}
+                                </span>
+                                <span className="text-xs font-semibold tracking-wide" style={{ color: "#818cf8" }}>
+                                  {para.split(":")[0].replace(/^Chapter\s*\d+\s*[—–-]\s*/i, "").replace(/["""]/g, "")}
+                                </span>
+                              </div>
+                              <p className="text-sm leading-relaxed text-foreground/90 pl-7">
+                                {para.split(":").slice(1).join(":").trim()}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <p key={i} className="text-sm leading-relaxed text-foreground/90">{para.trim()}</p>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2 pt-3 border-t border-border/40 flex-wrap">
+                      <Button variant="outline" size="sm" onClick={handleGenerateNarrative} disabled={isLoadingNarrative} className="gap-2">
+                        <Sparkles className="h-3.5 w-3.5" />Regenerate
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">Powered by Llama 3.3 70B · Not financial advice</p>
+                    </div>
+                  </>
+                )}
+                {!narrativeText && !isLoadingNarrative && !narrativeError && trades && trades.length > 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Sparkles className="h-8 w-8 text-primary/60" />
+                    </div>
+                    <div className="text-center max-w-sm">
+                      <p className="text-sm font-medium text-foreground">Your strategy has a story</p>
+                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                        Click "Generate Story" — the AI will narrate your campaign in vivid chapters, from first entry through the final trade.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </Tabs.Content>
+
+          {/* ── TAB: Economic Event Impact ───────────────────────────── */}
+          <Tabs.Content value="events" className="space-y-6 tab-transition">
+            <Card className="glass-card border-0">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-5 w-5 text-primary" />
+                      Economic Event Impact
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      Shows how your trades performed during major economic events — Fed meetings, CPI prints, and market shocks — vs. ordinary market conditions.
+                    </CardDescription>
+                  </div>
+                  {!eventData && (
+                    <Button onClick={handleLoadEventImpact} disabled={isLoadingEvents} className="gap-2 flex-shrink-0">
+                      {isLoadingEvents ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Loading…</>
+                      ) : (
+                        <><Activity className="h-4 w-4" />Analyze Events</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {eventError && (
+                  <div className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{eventError}</p>
+                  </div>
+                )}
+                {isLoadingEvents && (
+                  <div className="space-y-2 animate-pulse py-2">
+                    {[1, 0.7, 0.85, 0.6, 0.9, 0.75].map((w, i) => (
+                      <div key={i} className="h-12 rounded-xl bg-muted" style={{ width: `${w * 100}%` }} />
+                    ))}
+                  </div>
+                )}
+                {eventData && (
+                  <>
+                    {/* Summary comparison bars */}
+                    {eventData.summary.winRateInEvents !== null && eventData.summary.winRateOutEvents !== null && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                          { label: "During Events", value: eventData.summary.winRateInEvents, trades: eventData.summary.tradesInEvents, color: "#f59e0b" },
+                          { label: "Outside Events", value: eventData.summary.winRateOutEvents, trades: eventData.summary.tradesOutEvents, color: "#34d399" },
+                          { label: "Events Covered", value: null, count: eventData.summary.activeEvents, total: eventData.summary.totalEvents, color: "#818cf8" },
+                        ].map(item => (
+                          <div key={item.label} className="p-4 rounded-xl"
+                            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                            <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: "hsl(220,14%,40%)" }}>{item.label}</p>
+                            {item.value !== undefined && item.value !== null ? (
+                              <>
+                                <p className="text-2xl font-bold mb-1" style={{ color: item.color }}>{item.value.toFixed(1)}%</p>
+                                <p className="text-[11px]" style={{ color: "hsl(220,14%,45%)" }}>win rate · {item.trades} trades</p>
+                                <div className="mt-2 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                  <div className="h-1.5 rounded-full" style={{ width: `${Math.min(item.value, 100)}%`, background: item.color }} />
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-2xl font-bold mb-1" style={{ color: item.color }}>{item.count} <span className="text-sm font-normal" style={{ color: "hsl(220,14%,45%)" }}>of {item.total}</span></p>
+                                <p className="text-[11px]" style={{ color: "hsl(220,14%,45%)" }}>events had active trades</p>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Event list */}
+                    {eventData.events.filter(e => e.tradesInWindow > 0).length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 gap-3">
+                        <Activity className="h-8 w-8" style={{ color: "hsl(220,14%,30%)" }} />
+                        <p className="text-sm font-medium" style={{ color: "hsl(220,14%,50%)" }}>No event overlaps found</p>
+                        <p className="text-xs text-center max-w-sm" style={{ color: "hsl(220,14%,38%)" }}>
+                          None of your {(trades?.length ?? 0)} trades were open during the {eventData.summary.totalEvents} economic events in our catalog for this date range.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>
+                          Events with active trades ({eventData.events.filter(e => e.tradesInWindow > 0).length})
+                        </p>
+                        {eventData.events.filter(e => e.tradesInWindow > 0).map(ev => {
+                          const typeColor: Record<string, string> = { fed: "#60a5fa", cpi: "#f59e0b", macro: "#ef4444", election: "#a78bfa" };
+                          const col = typeColor[ev.type] ?? "#6366f1";
+                          const wr = ev.winRateInWindow;
+                          const wrColor = wr !== null ? (wr >= 60 ? "#34d399" : wr >= 40 ? "#f59e0b" : "#ef4444") : "#6b7280";
+                          return (
+                            <div key={ev.id} className="p-4 rounded-xl space-y-2"
+                              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                              <div className="flex items-start justify-between gap-3 flex-wrap">
+                                <div className="flex items-start gap-3">
+                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full mt-0.5 flex-shrink-0"
+                                    style={{ background: `${col}20`, color: col, border: `1px solid ${col}40` }}>
+                                    {ev.type.toUpperCase()}
+                                  </span>
+                                  <div>
+                                    <p className="text-sm font-medium" style={{ color: "hsl(220,14%,80%)" }}>{ev.name}</p>
+                                    <p className="text-[11px]" style={{ color: "hsl(220,14%,42%)" }}>{ev.date} · ±{ev.windowDays}d window</p>
+                                    <p className="text-[11px] mt-0.5" style={{ color: "hsl(220,14%,38%)" }}>{ev.description}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  {wr !== null ? (
+                                    <>
+                                      <p className="text-lg font-bold" style={{ color: wrColor }}>{wr.toFixed(0)}%</p>
+                                      <p className="text-[10px]" style={{ color: "hsl(220,14%,42%)" }}>win rate</p>
+                                    </>
+                                  ) : (
+                                    <p className="text-sm" style={{ color: "hsl(220,14%,42%)" }}>—</p>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Micro trade chips */}
+                              {ev.trades.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {ev.trades.map((t, ti) => (
+                                    <span key={ti} className="text-[10px] font-mono px-2 py-0.5 rounded-lg"
+                                      style={{
+                                        background: t.pnl > 0 ? "rgba(52,211,153,0.1)" : "rgba(239,68,68,0.1)",
+                                        color: t.pnl > 0 ? "#34d399" : "#ef4444",
+                                        border: `1px solid ${t.pnl > 0 ? "rgba(52,211,153,0.25)" : "rgba(239,68,68,0.25)"}`,
+                                      }}>
+                                      {t.pnlPercent >= 0 ? "+" : ""}{t.pnlPercent.toFixed(2)}%
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Events with no trades — collapsed list */}
+                    {eventData.events.filter(e => e.tradesInWindow === 0).length > 0 && (
+                      <details className="text-[11px]" style={{ color: "hsl(220,14%,38%)" }}>
+                        <summary className="cursor-pointer font-mono uppercase tracking-widest hover:opacity-80">
+                          {eventData.events.filter(e => e.tradesInWindow === 0).length} events with no active trades
+                        </summary>
+                        <div className="mt-2 space-y-1 pl-2">
+                          {eventData.events.filter(e => e.tradesInWindow === 0).map(ev => (
+                            <p key={ev.id}>{ev.date} — {ev.name}</p>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                      <Button variant="outline" size="sm" onClick={handleLoadEventImpact} disabled={isLoadingEvents} className="gap-2">
+                        <Activity className="h-3.5 w-3.5" />Refresh
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">Catalog: {eventData.summary.totalEvents} events · 2020–2024</p>
+                    </div>
+                  </>
+                )}
+                {!eventData && !isLoadingEvents && !eventError && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Activity className="h-8 w-8 text-primary/60" />
+                    </div>
+                    <div className="text-center max-w-sm">
+                      <p className="text-sm font-medium text-foreground">See your strategy through major events</p>
+                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                        Click "Analyze Events" to overlay your trades against Fed meetings, CPI prints, market crashes, and elections.
                       </p>
                     </div>
                   </div>

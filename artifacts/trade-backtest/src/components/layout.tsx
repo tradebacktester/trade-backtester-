@@ -26,28 +26,30 @@ const MOBILE_MAIN = [
 ] as const;
 
 const DESKTOP_MORE = [
-  { title: "Marketplace", url: "/marketplace",  icon: Store },
-  { title: "Tools",       url: "/tools",        icon: Wrench },
-  { title: "Stress Test", url: "/stress-test",  icon: Zap },
-  { title: "Strategy DNA",url: "/strategy-dna", icon: BarChart2 },
-  { title: "Analytics",   url: "/strategies",   icon: BarChart2 },
-  { title: "Pricing",     url: "/pricing",      icon: Crown },
-  { title: "Billing",     url: "/billing",      icon: CreditCard },
-  { title: "Settings",    url: "/settings",     icon: Settings },
-  { title: "Admin",       url: "/admin",        icon: Shield },
+  { title: "Marketplace",    url: "/marketplace",  icon: Store },
+  { title: "Psych Match",    url: "/psych-match",  icon: Brain },
+  { title: "Tools",          url: "/tools",        icon: Wrench },
+  { title: "Stress Test",    url: "/stress-test",  icon: Zap },
+  { title: "Strategy DNA",   url: "/strategy-dna", icon: BarChart2 },
+  { title: "Analytics",      url: "/strategies",   icon: BarChart2 },
+  { title: "Pricing",        url: "/pricing",      icon: Crown },
+  { title: "Billing",        url: "/billing",      icon: CreditCard },
+  { title: "Settings",       url: "/settings",     icon: Settings },
+  { title: "Admin",          url: "/admin",        icon: Shield },
 ] as const;
 
 const MOBILE_MORE = [
-  { title: "Marketplace", url: "/marketplace",  icon: Store },
-  { title: "Tools",       url: "/tools",        icon: Wrench },
-  { title: "Stress Test", url: "/stress-test",  icon: Zap },
-  { title: "Strategy DNA",url: "/strategy-dna", icon: BarChart2 },
-  { title: "Journal",     url: "/backtests",    icon: BookOpen },
-  { title: "Analytics",   url: "/strategies",   icon: BarChart2 },
-  { title: "Pricing",     url: "/pricing",      icon: Crown },
-  { title: "Billing",     url: "/billing",      icon: CreditCard },
-  { title: "Settings",    url: "/settings",     icon: Settings },
-  { title: "Admin",       url: "/admin",        icon: Shield },
+  { title: "Marketplace",    url: "/marketplace",  icon: Store },
+  { title: "Psych Match",    url: "/psych-match",  icon: Brain },
+  { title: "Tools",          url: "/tools",        icon: Wrench },
+  { title: "Stress Test",    url: "/stress-test",  icon: Zap },
+  { title: "Strategy DNA",   url: "/strategy-dna", icon: BarChart2 },
+  { title: "Journal",        url: "/backtests",    icon: BookOpen },
+  { title: "Analytics",      url: "/strategies",   icon: BarChart2 },
+  { title: "Pricing",        url: "/pricing",      icon: Crown },
+  { title: "Billing",        url: "/billing",      icon: CreditCard },
+  { title: "Settings",       url: "/settings",     icon: Settings },
+  { title: "Admin",          url: "/admin",        icon: Shield },
 ] as const;
 
 const T = {

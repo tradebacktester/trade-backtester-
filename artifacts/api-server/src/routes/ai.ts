@@ -352,4 +352,225 @@ Key bias signals to check:
   }
 });
 
+/* ─── Narrative Mode ──────────────────────────────────────────────────────── */
+router.post("/ai/narrative", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait a moment." });
+    return;
+  }
+
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI not configured." }); return; }
+
+  const { symbol, strategyName, strategyType, startDate, endDate, metrics, trades, equityPeaks } = req.body as {
+    symbol: string;
+    strategyName: string;
+    strategyType: string;
+    startDate: string;
+    endDate: string;
+    metrics: {
+      totalReturn: number;
+      annualizedReturn: number;
+      maxDrawdown: number;
+      sharpeRatio: number;
+      winRate: number;
+      totalTrades: number;
+      profitFactor: number;
+      initialCapital: number;
+      finalCapital: number;
+    };
+    trades: Array<{
+      side: string;
+      entryDate: string;
+      exitDate: string;
+      entryPrice: number;
+      exitPrice: number;
+      pnl: number;
+      pnlPercent: number;
+      holdingDays: number;
+    }>;
+    equityPeaks?: { peakDate: string; troughDate: string; drawdownPct: number; recoveryDays: number | null }[];
+  };
+
+  if (!symbol || !trades?.length) {
+    res.status(400).json({ error: "symbol and trades are required" });
+    return;
+  }
+
+  const winners = trades.filter(t => t.pnl > 0);
+  const losers = trades.filter(t => t.pnl <= 0);
+  const avgHoldWin = winners.length ? (winners.reduce((s, t) => s + t.holdingDays, 0) / winners.length).toFixed(1) : "N/A";
+  const avgHoldLoss = losers.length ? (losers.reduce((s, t) => s + t.holdingDays, 0) / losers.length).toFixed(1) : "N/A";
+  const bestTrade = [...trades].sort((a, b) => b.pnlPercent - a.pnlPercent)[0];
+  const worstTrade = [...trades].sort((a, b) => a.pnlPercent - b.pnlPercent)[0];
+
+  const topTrades = [...trades]
+    .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
+    .slice(0, 5)
+    .map(t => `  • ${t.side.toUpperCase()} ${t.entryDate}→${t.exitDate} (${t.holdingDays}d) @ $${t.entryPrice.toFixed(2)}→$${t.exitPrice.toFixed(2)} | ${t.pnl >= 0 ? "+" : ""}${t.pnlPercent.toFixed(2)}%`)
+    .join("\n");
+
+  const peakLines = equityPeaks?.length
+    ? equityPeaks.map(p => `  • Peak→Trough ${p.peakDate}→${p.troughDate}: -${p.drawdownPct.toFixed(1)}% drawdown, ${p.recoveryDays !== null ? `recovered in ${p.recoveryDays} days` : "not yet recovered"}`).join("\n")
+    : "  No major drawdown periods identified";
+
+  const systemPrompt = `You are a master financial storyteller — think Michael Lewis meets a quantitative analyst. Convert a dry backtest report into a compelling, vivid narrative. Write in present-tense, active voice, as if narrating events as they unfolded. Use SPECIFIC dates, prices, and numbers from the data. Structure your story in exactly 4 chapters, each as a paragraph:
+
+Chapter 1 — "Setting the Stage": Describe the asset, strategy, time period, and what the trader was trying to achieve.
+Chapter 2 — "The Campaign": Walk through how the strategy played out month by month, referencing key turning points.
+Chapter 3 — "Moments of Truth": Narrate the best and worst trades — what market conditions caused them.  
+Chapter 4 — "The Verdict": Give an honest, sharp assessment of whether this strategy has a real edge.
+
+Use vivid language but stay factually grounded in the exact numbers provided. Keep it to ~500 words total.`;
+
+  const userPrompt = `Write a backtest narrative story for:
+
+STRATEGY: "${strategyName}" (${strategyType}) on ${symbol}
+PERIOD: ${startDate} → ${endDate}
+
+RESULTS:
+  Capital: $${metrics.initialCapital.toLocaleString()} → $${metrics.finalCapital.toLocaleString()} (${metrics.totalReturn >= 0 ? "+" : ""}${metrics.totalReturn.toFixed(2)}%)
+  Annualized Return: ${metrics.annualizedReturn >= 0 ? "+" : ""}${metrics.annualizedReturn.toFixed(2)}%
+  Max Drawdown: -${metrics.maxDrawdown.toFixed(2)}%
+  Sharpe Ratio: ${metrics.sharpeRatio.toFixed(2)}
+  Win Rate: ${metrics.winRate.toFixed(1)}% (${winners.length}W / ${losers.length}L out of ${trades.length} trades)
+  Profit Factor: ${metrics.profitFactor.toFixed(2)}
+  Avg hold: winners ${avgHoldWin}d, losers ${avgHoldLoss}d
+  Best trade: +${bestTrade?.pnlPercent.toFixed(2)}% on ${bestTrade?.entryDate}
+  Worst trade: ${worstTrade?.pnlPercent.toFixed(2)}% on ${worstTrade?.entryDate}
+
+DRAWDOWN PERIODS:
+${peakLines}
+
+MOST IMPACTFUL TRADES:
+${topTrades}`;
+
+  try {
+    const client = groqClient();
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 900,
+      temperature: 0.78,
+    });
+    const story = completion.choices[0]?.message?.content ?? "Unable to generate story.";
+    res.json({ story });
+  } catch (err) {
+    const e = err as { message?: string; status?: number };
+    res.status(e.status ?? 500).json({ error: e.message ?? "Narrative generation failed" });
+  }
+});
+
+/* ─── Psychology-Matched Strategy Recommendations ─────────────────────────── */
+router.post("/ai/psych-match", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait a moment." });
+    return;
+  }
+
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI not configured." }); return; }
+
+  const { profile } = req.body as {
+    profile: {
+      totalTrades: number;
+      winRate: number;
+      avgHoldingDays: number;
+      avgWinPct: number;
+      avgLossPct: number;
+      profitFactor: number;
+      maxConsecutiveLosses: number;
+      avgTradesPerBacktest: number;
+      preferredSymbols: string[];
+      lossToleranceRatio: number;
+      backtestCount: number;
+    };
+  };
+
+  if (!profile || profile.totalTrades < 3) {
+    res.status(400).json({ error: "Not enough trading history. Run at least one backtest with trades to get recommendations." });
+    return;
+  }
+
+  const systemPrompt = `You are an elite trading psychology coach and strategy matchmaker. Based on a trader's behavioral pattern from their paper trading history, diagnose their trading personality and recommend the best-fit strategy types. Respond with ONLY valid JSON — no markdown, no explanation outside JSON.
+
+Available strategy types:
+- "sma_crossover": Trend-following, slow signals, large moves, low trade frequency. Best for patient traders who hate false signals.
+- "ema_crossover": Faster trend following, more responsive. Good for traders who want trend riding with tighter signals.
+- "rsi": Mean reversion, counter-trend. Best for disciplined contrarians who can hold through pullbacks.
+- "macd": Momentum + trend confirmation. Balanced approach for traders who want both trend and momentum signals.
+- "bollinger_bands": Volatility-based, range and breakout hybrid. Good for traders who want defined entry/exit levels.
+
+Response format:
+{
+  "personalityType": "<one of: Trend Rider | Momentum Hunter | Patient Contrarian | Disciplined Ranger | Reactive Scalper>",
+  "personalityDescription": "<2-3 sentence vivid description of this trader's psychological profile based on their data>",
+  "dominantTraits": ["<trait 1>", "<trait 2>", "<trait 3>"],
+  "recommendations": [
+    {
+      "strategyType": "<type from list>",
+      "fitScore": <integer 60–100>,
+      "fitLabel": "<Perfect Fit | Strong Match | Good Match>",
+      "reason": "<2 sentences explaining why this matches their psychology based on their specific stats>",
+      "suggestedParams": { <specific parameter values for this strategy type> },
+      "warning": "<one sentence about the risk or mismatch to watch for>"
+    }
+  ],
+  "redFlags": ["<behavior 1 to avoid>", "<behavior 2>"],
+  "coachingTip": "<one actionable, concrete coaching tip tailored to their specific stats>"
+}
+
+Include 2-3 recommendations ordered by fit score (highest first).`;
+
+  const p = profile;
+  const holdProfile = p.avgHoldingDays < 3 ? "very short-term (< 3 days)"
+    : p.avgHoldingDays < 10 ? "short-term (3–10 days)"
+    : p.avgHoldingDays < 30 ? "medium-term (10–30 days)"
+    : "long-term (30+ days)";
+
+  const lossProfile = p.lossToleranceRatio < 0.5 ? "very low loss tolerance (cuts losses quickly)"
+    : p.lossToleranceRatio < 1.0 ? "moderate loss tolerance"
+    : "high loss tolerance (lets losses run)";
+
+  const userPrompt = `Analyze this trader's behavioral profile:
+
+Total trades: ${p.totalTrades} across ${p.backtestCount} backtests
+Win rate: ${p.winRate.toFixed(1)}%
+Avg holding time: ${p.avgHoldingDays.toFixed(1)} days (${holdProfile})
+Avg winner: +${p.avgWinPct.toFixed(2)}% | Avg loser: -${p.avgLossPct.toFixed(2)}%
+Win/Loss size ratio: ${(p.avgWinPct / Math.max(p.avgLossPct, 0.01)).toFixed(2)}x (winners vs. losers)
+Profit factor: ${p.profitFactor.toFixed(2)}
+Max consecutive losses: ${p.maxConsecutiveLosses}
+Avg trades per backtest: ${p.avgTradesPerBacktest.toFixed(1)}
+Loss tolerance: ${lossProfile} (ratio: ${p.lossToleranceRatio.toFixed(2)})
+Preferred assets: ${p.preferredSymbols.slice(0, 4).join(", ") || "unknown"}
+
+Diagnose this trader's personality type and recommend the 2-3 strategy types that best match their psychological profile.`;
+
+  try {
+    const client = groqClient();
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 1200,
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+    });
+    const content = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(content);
+    res.json(parsed);
+  } catch (err) {
+    const e = err as { message?: string; status?: number };
+    res.status(e.status ?? 500).json({ error: e.message ?? "Psychology match failed" });
+  }
+});
+
 export default router;
