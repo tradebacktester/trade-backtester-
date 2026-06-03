@@ -1631,6 +1631,7 @@ const REGIME_ORDER: RegimeKey[] = ["trending_bull", "trending_bear", "highvol_bu
 function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
   const [regimes, setRegimes] = React.useState<RegimePeriod[]>([]);
   const [summary, setSummary] = React.useState<Record<string, RegimeSummaryItem>>({});
+  const [regimeEquity, setRegimeEquity] = React.useState<Record<string, { date: string; value: number }[]>>({});
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loaded, setLoaded] = React.useState(false);
@@ -1647,6 +1648,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
       const data = await resp.json();
       setRegimes(data.regimes ?? []);
       setSummary(data.summary ?? {});
+      setRegimeEquity(data.regimeEquity ?? {});
       setLoaded(true);
     } catch (e: any) {
       setError(e.message || "Failed to load");
@@ -1721,6 +1723,56 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
           );
         })}
       </div>
+
+      {/* Regime equity sub-chart — shown when a regime is active */}
+      {regimeFilter && (regimeEquity[regimeFilter]?.length ?? 0) > 0 && (
+        <Card className="border-border" style={{ borderColor: `${REGIME_META[regimeFilter as RegimeKey]?.color}30` }}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <span>{REGIME_META[regimeFilter as RegimeKey]?.icon}</span>
+              <CardTitle className="text-base" style={{ color: REGIME_META[regimeFilter as RegimeKey]?.color }}>
+                Equity Curve — {REGIME_META[regimeFilter as RegimeKey]?.label} Periods
+              </CardTitle>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {regimeEquity[regimeFilter]!.length} data points
+              </span>
+            </div>
+            <CardDescription>Equity curve filtered to {REGIME_META[regimeFilter as RegimeKey]?.label.toLowerCase()} regime windows only</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={regimeEquity[regimeFilter]!.map((p) => ({ date: p.date, value: p.value }))}
+                  margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+                >
+                  <defs>
+                    <linearGradient id="regimeEquityGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={REGIME_META[regimeFilter as RegimeKey]?.color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={REGIME_META[regimeFilter as RegimeKey]?.color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={(d) => d.slice(2, 7)} tick={{ dy: 4 }} />
+                  <YAxis fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} width={52} />
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                    formatter={(v: number) => [`$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, "Equity"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={REGIME_META[regimeFilter as RegimeKey]?.color}
+                    strokeWidth={2}
+                    fill="url(#regimeEquityGrad)"
+                    dot={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Grouped bar chart: Win Rate + Avg Return by regime */}
       <Card className="border-border">

@@ -318,8 +318,13 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
     return equityReturns(values);
   });
 
+  // matrix (legacy) + flat correlations array (primary)
   const matrix: { i: number; j: number; similarity: number }[] = [];
   const duplicates: { a: string; b: string; similarity: number }[] = [];
+  const correlations: {
+    strategyIdA: number; strategyIdB: number;
+    correlation: number; isDuplicate: boolean;
+  }[] = [];
 
   for (let i = 0; i < entries.length; i++) {
     for (let j = i + 1; j < entries.length; j++) {
@@ -327,21 +332,26 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
       const rB = returnSeries[j];
       let corr = 0;
       if (rA && rB && rA.length >= 2 && rB.length >= 2) {
-        corr = pearsonCorrelation(rA, rB);
+        corr = pearsonCorrelation(rA, rB); // raw Pearson: –1 to 1, not clamped
       }
+      const isDuplicate = corr > 0.85;
+      // Legacy matrix uses percentage similarity (display only)
       const simPct = Math.round(Math.max(0, corr) * 100);
       matrix.push({ i, j, similarity: simPct });
-      if (corr > 0.85) {
-        duplicates.push({
-          a: entries[i]!.name,
-          b: entries[j]!.name,
-          similarity: simPct,
-        });
+      if (isDuplicate) {
+        duplicates.push({ a: entries[i]!.name, b: entries[j]!.name, similarity: simPct });
       }
+      // Primary correlations array — raw Pearson value, strategy IDs
+      correlations.push({
+        strategyIdA: entries[i]!.id,
+        strategyIdB: entries[j]!.id,
+        correlation: Number(corr.toFixed(4)),
+        isDuplicate,
+      });
     }
   }
 
-  res.json({ strategies: entries, matrix, duplicates });
+  res.json({ strategies: entries, matrix, duplicates, correlations });
 });
 
 // ─── GET /backtests/:id/regime-analysis — uses stored tradesTable ──────────────
@@ -373,10 +383,35 @@ router.get("/backtests/:id/regime-analysis", requireAuth, async (req, res): Prom
     trades
   );
 
+  // Stored equity curve for per-regime sub-series
+  const equityRows = await db
+    .select()
+    .from(equityCurveTable)
+    .where(eq(equityCurveTable.backtestId, backtestId));
+
+  // Build date→value map for fast lookup
+  const equityByDate = new Map(equityRows.map((r) => [r.date, Number(r.value)]));
+
   const regimeKeys = ["trending_bull", "trending_bear", "highvol_bull", "highvol_bear"] as const;
   const grouped = Object.fromEntries(
     regimeKeys.map((k) => [k, regimes.filter((r) => r.regime === k)])
   );
+
+  // Per-regime equity sub-series: equity curve points within each regime's periods
+  const regimeEquity: Record<string, { date: string; value: number }[]> = {};
+  for (const k of regimeKeys) {
+    const periods = grouped[k]!;
+    const pts: { date: string; value: number }[] = [];
+    for (const period of periods) {
+      for (const [date, value] of equityByDate) {
+        if (date >= period.startDate && date <= period.endDate) {
+          pts.push({ date, value });
+        }
+      }
+    }
+    pts.sort((a, b) => a.date.localeCompare(b.date));
+    regimeEquity[k] = pts;
+  }
 
   const summarize = (list: RegimePeriod[]) =>
     list.length === 0 ? null : {
@@ -389,6 +424,7 @@ router.get("/backtests/:id/regime-analysis", requireAuth, async (req, res): Prom
 
   res.json({
     regimes,
+    regimeEquity,
     summary: Object.fromEntries(regimeKeys.map((k) => [k, summarize(grouped[k]!)])),
   });
 });
@@ -554,10 +590,10 @@ router.delete("/superpowers/live-trades/:id", requireAuth, async (req, res): Pro
   res.status(204).end();
 });
 
-// ─── POST /superpowers/stress-test ───────────────────────────────────────────
+// ─── POST /superpowers/stress-test & /stress-test ────────────────────────────
 // edgeVerdict: sharpe > 0.5 AND winRate > 50 AND profitFactor > 1.2
 
-router.post("/superpowers/stress-test", requireAuth, async (req, res): Promise<void> => {
+async function stressTestHandler(req: import("express").Request, res: import("express").Response): Promise<void> {
   const { strategyId, startDate, endDate, initialCapital, symbols } = req.body as {
     strategyId: number; startDate: string; endDate: string;
     initialCapital: number; symbols?: string[];
@@ -628,6 +664,10 @@ router.post("/superpowers/stress-test", requireAuth, async (req, res): Promise<v
       worstSymbol: sorted[sorted.length - 1]?.symbol ?? "",
     },
   });
-});
+}
+
+// Register on both paths — canonical spec path + legacy path
+router.post("/stress-test", requireAuth, stressTestHandler);
+router.post("/superpowers/stress-test", requireAuth, stressTestHandler);
 
 export default router;
