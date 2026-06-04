@@ -11,11 +11,12 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-2xl border text-card-foreground",
-      "transition-[box-shadow,border-color,transform] duration-[240ms] ease-out",
+      "rounded-[22px] border text-card-foreground",
+      "transition-[box-shadow,border-color,transform] duration-[280ms]",
+      "transition-timing-function-[cubic-bezier(0.34,1.2,0.64,1)]",
       "relative overflow-hidden",
       glass
-        ? "backdrop-blur-[24px] saturate-150"
+        ? "backdrop-blur-[24px] saturate-[180%]"
         : "bg-card",
       glow === "cyan" && "hover:glow-cyan",
       glow === "indigo" && "hover:glow-indigo",
@@ -24,17 +25,17 @@ const Card = React.forwardRef<
     )}
     style={{
       background: glass ? "var(--glass-bg)" : undefined,
-      borderColor: glass ? "var(--glass-border)" : "var(--glass-border)",
+      borderColor: "var(--glass-border)",
       boxShadow: "var(--shadow-card)",
       ...(props.style),
     }}
     {...props}
   >
-    {/* Subtle glass shine overlay */}
+    {/* Premium glass shine overlay */}
     <div
-      className="pointer-events-none absolute inset-0 rounded-2xl"
+      className="pointer-events-none absolute inset-0 rounded-[22px]"
       style={{
-        background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%)",
+        background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%)",
         zIndex: 0,
       }}
     />

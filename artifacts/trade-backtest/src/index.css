@@ -56,49 +56,50 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   LIGHT THEME — Off-white / soft white / dark grey / glass
+   LIGHT THEME — Apple / Notion / Linear
+   #F8F9FB bg | #FFFFFF surface | #111111 text | rgba(0,0,0,0.06) borders
    ════════════════════════════════════════════════════════════════════ */
 :root {
-  --background: 40 18% 97%;         /* #F8F7F5 warm off-white */
-  --foreground: 220 15% 12%;        /* #1A1C22 dark grey */
-  --border: 220 10% 88%;            /* #DDE0E7 soft grey border */
+  --background: 213 22% 98%;         /* #F8F9FB cool off-white */
+  --foreground: 0 0% 7%;             /* #111111 near-black */
+  --border: 220 14% 90%;             /* soft grey */
 
-  --card: 0 0% 100%;                /* pure white cards */
-  --card-foreground: 220 15% 12%;
-  --card-border: 220 8% 90%;
+  --card: 0 0% 100%;                 /* pure white — glass effect via override */
+  --card-foreground: 0 0% 7%;
+  --card-border: 220 14% 91%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 220 15% 12%;
-  --popover-border: 220 8% 88%;
+  --popover-foreground: 0 0% 7%;
+  --popover-border: 220 14% 90%;
 
-  --primary: 220 15% 14%;           /* near-black dark grey */
+  --primary: 220 14% 11%;            /* #18181B dark charcoal */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 8% 92%;          /* soft white-grey */
-  --secondary-foreground: 220 15% 14%;
+  --secondary: 213 15% 94%;          /* #EEF1F5 secondary bg */
+  --secondary-foreground: 220 14% 11%;
 
-  --muted: 40 12% 95%;              /* off-white muted bg */
-  --muted-foreground: 220 8% 50%;   /* mid grey */
+  --muted: 213 15% 94%;              /* #EEF1F5 */
+  --muted-foreground: 220 9% 46%;    /* #6B7280 */
 
-  --accent: 220 10% 93%;            /* very light grey */
-  --accent-foreground: 220 15% 12%;
+  --accent: 213 15% 92%;
+  --accent-foreground: 0 0% 7%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --sidebar: 40 15% 98%;
-  --sidebar-foreground: 220 12% 18%;
-  --sidebar-border: 220 8% 90%;
-  --sidebar-primary: 220 15% 14%;
+  --sidebar: 213 22% 98%;
+  --sidebar-foreground: 220 14% 13%;
+  --sidebar-border: 220 14% 90%;
+  --sidebar-primary: 220 14% 11%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 220 10% 93%;
-  --sidebar-accent-foreground: 220 15% 12%;
-  --sidebar-ring: 220 12% 40%;
+  --sidebar-accent: 213 15% 94%;
+  --sidebar-accent-foreground: 0 0% 7%;
+  --sidebar-ring: 220 14% 40%;
 
-  --input: 220 8% 91%;
-  --ring: 220 15% 25%;
+  --input: 213 14% 91%;
+  --ring: 220 14% 25%;
 
-  --chart-1: 215 70% 50%;
+  --chart-1: 211 100% 65%;
   --chart-2: 142 72% 40%;
   --chart-3: 38 90% 50%;
   --chart-4: 270 60% 55%;
@@ -109,52 +110,52 @@
   --app-font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
   --radius: 0.875rem;
 
-  /* Light glass tokens — frosted white glass */
-  --glass-bg:          rgba(255,255,255,0.68);
-  --glass-bg-strong:   rgba(255,255,255,0.94);
-  --glass-border:      rgba(0,0,0,0.06);
-  --glass-border-strong: rgba(0,0,0,0.11);
-  --nav-bg:            rgba(248,247,245,0.88);
-  --nav-border:        rgba(0,0,0,0.06);
-  --surface-bg:        rgba(252,251,249,0.92);
-  --sheet-bg:          rgba(255,255,255,0.98);
-  --nav-active-bg:     rgba(0,0,0,0.06);
-  --nav-active-border: rgba(0,0,0,0.13);
-  --nav-active-color:  #18181B;
-  --nav-dim-color:     #71717A;
+  /* Light glass tokens — frosted soft white glass */
+  --glass-bg:            rgba(255,255,255,0.75);
+  --glass-bg-strong:     rgba(255,255,255,0.96);
+  --glass-border:        rgba(0,0,0,0.06);
+  --glass-border-strong: rgba(0,0,0,0.10);
+  --nav-bg:              rgba(248,249,251,0.90);
+  --nav-border:          rgba(0,0,0,0.05);
+  --surface-bg:          rgba(238,241,245,0.92);
+  --sheet-bg:            rgba(255,255,255,0.98);
+  --nav-active-bg:       rgba(0,0,0,0.05);
+  --nav-active-border:   rgba(0,0,0,0.09);
+  --nav-active-color:    #111111;
+  --nav-dim-color:       #6B7280;
 
   --opaque-button-border-intensity: -6;
   --elevate-1: rgba(0,0,0,0.02);
   --elevate-2: rgba(0,0,0,0.04);
-  --button-outline: rgba(0,0,0,0.08);
+  --button-outline: rgba(0,0,0,0.07);
   --badge-outline: rgba(0,0,0,0.04);
 
-  /* Shadows — clean soft layered */
-  --shadow-2xs:  0 1px 1px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.03);
-  --shadow-xs:   0 1px 2px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.05);
-  --shadow-sm:   0 1px 2px rgba(0,0,0,0.04), 0 3px 8px rgba(0,0,0,0.06);
-  --shadow:      0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.07);
-  --shadow-md:   0 2px 4px rgba(0,0,0,0.05), 0 6px 16px rgba(0,0,0,0.08);
-  --shadow-lg:   0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.09);
-  --shadow-xl:   0 4px 8px rgba(0,0,0,0.05), 0 12px 32px rgba(0,0,0,0.10);
-  --shadow-2xl:  0 4px 12px rgba(0,0,0,0.06), 0 20px 48px rgba(0,0,0,0.12);
-  --shadow-nav:  0 1px 0 rgba(0,0,0,0.05), 0 4px 20px rgba(0,0,0,0.04);
-  --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06);
-  --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.06), 0 8px 20px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.04);
-  --shadow-btn:  0 1px 2px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.05);
-  --shadow-btn-hover: 0 2px 4px rgba(0,0,0,0.09), 0 4px 12px rgba(0,0,0,0.07);
-  --shadow-btn-active: 0 0px 1px rgba(0,0,0,0.07);
-  --shadow-tab-active: 0 1px 3px rgba(0,0,0,0.08), 0 3px 8px rgba(0,0,0,0.05);
-  --shadow-dropdown: 0 2px 8px rgba(0,0,0,0.07), 0 8px 24px rgba(0,0,0,0.10);
-  --shadow-modal: 0 4px 16px rgba(0,0,0,0.08), 0 20px 56px rgba(0,0,0,0.14);
-  --shadow-sheet: 0 -2px 8px rgba(0,0,0,0.05), 0 -8px 32px rgba(0,0,0,0.09);
-  --shadow-chart: 0 1px 3px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.07);
-  --shadow-input-focus: 0 0 0 3px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.07);
+  /* Shadows — soft Apple-style depth */
+  --shadow-2xs:  0 1px 2px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02);
+  --shadow-xs:   0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.05), 0 3px 10px rgba(0,0,0,0.05);
+  --shadow:      0 2px 4px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.06);
+  --shadow-md:   0 2px 6px rgba(0,0,0,0.06), 0 6px 18px rgba(0,0,0,0.07);
+  --shadow-lg:   0 3px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-xl:   0 4px 10px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.09);
+  --shadow-2xl:  0 6px 16px rgba(0,0,0,0.07), 0 20px 48px rgba(0,0,0,0.10);
+  --shadow-nav:  0 1px 0 rgba(0,0,0,0.04), 0 4px 20px rgba(0,0,0,0.03);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-card-hover: 0 2px 6px rgba(0,0,0,0.06), 0 8px 22px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05);
+  --shadow-btn:  0 1px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.05);
+  --shadow-btn-hover: 0 2px 5px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.07);
+  --shadow-btn-active: 0 0px 1px rgba(0,0,0,0.06);
+  --shadow-tab-active: 0 1px 3px rgba(0,0,0,0.07), 0 3px 8px rgba(0,0,0,0.04);
+  --shadow-dropdown: 0 2px 8px rgba(0,0,0,0.06), 0 10px 32px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-modal: 0 4px 16px rgba(0,0,0,0.07), 0 20px 56px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-sheet: 0 -2px 8px rgba(0,0,0,0.04), 0 -8px 32px rgba(0,0,0,0.07);
+  --shadow-chart: 0 1px 3px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.05);
+  --shadow-input-focus: 0 0 0 3px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
   --shadow-inner-sm: inset 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-inner:    inset 0 1px 4px rgba(0,0,0,0.06);
-  --shadow-glow-cyan: 0 0 20px rgba(0,0,0,0.06), 0 0 40px rgba(0,0,0,0.03);
-  --shadow-glow-indigo: 0 0 20px rgba(0,0,0,0.06), 0 0 40px rgba(0,0,0,0.03);
-  --shadow-glow-green: 0 0 16px rgba(34,197,94,0.2), 0 0 32px rgba(34,197,94,0.08);
+  --shadow-inner:    inset 0 1px 4px rgba(0,0,0,0.05);
+  --shadow-glow-cyan:   0 0 20px rgba(77,163,255,0.12), 0 0 40px rgba(77,163,255,0.05);
+  --shadow-glow-indigo: 0 0 20px rgba(107,63,229,0.10), 0 0 40px rgba(107,63,229,0.04);
+  --shadow-glow-green:  0 0 16px rgba(34,197,94,0.15), 0 0 32px rgba(34,197,94,0.06);
 
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -173,112 +174,112 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   DARK THEME — Black / Dark Blue / Greyish
-   Background: #05080F | Surfaces: #0C1222 dark navy | Accent: #5B8DEF blue-grey
+   DARK THEME — TradingView Premium / Arc / Apple Vision Pro
+   #050816 bg | #0B1220 secondary | #121826 surface | #4DA3FF accent
    ════════════════════════════════════════════════════════════════════ */
 .dark {
-  --background: 222 40% 4%;         /* #050810 near-black with blue tint */
-  --foreground: 218 20% 86%;        /* #D2D7E6 light blue-grey */
-  --border: 222 35% 14%;            /* #182035 dark navy border */
+  --background: 222 47% 5%;          /* #050816 deep navy black */
+  --foreground: 0 0% 100%;           /* #FFFFFF */
+  --border: 222 30% 16%;             /* dark navy border */
 
-  --card: 222 38% 8%;               /* #0C1120 dark navy card */
-  --card-foreground: 218 18% 88%;
-  --card-border: 222 35% 12%;
+  --card: 222 36% 11%;               /* #141826 — glass override below */
+  --card-foreground: 0 0% 98%;
+  --card-border: 222 30% 16%;
 
-  --popover: 222 38% 7%;            /* #0A0F1C */
-  --popover-foreground: 218 18% 88%;
-  --popover-border: 222 35% 13%;
+  --popover: 222 40% 8%;             /* #0B1220 */
+  --popover-foreground: 0 0% 98%;
+  --popover-border: 222 30% 14%;
 
-  --primary: 213 70% 62%;           /* #5B8DEF medium blue */
-  --primary-foreground: 222 40% 6%;
+  --primary: 211 100% 65%;           /* #4DA3FF blue accent */
+  --primary-foreground: 222 47% 6%;
 
-  --secondary: 222 30% 18%;         /* #1D2640 dark blue-grey */
-  --secondary-foreground: 218 18% 82%;
+  --secondary: 222 35% 14%;          /* #1A2035 dark surface */
+  --secondary-foreground: 0 0% 90%;
 
-  --muted: 222 35% 11%;             /* #101828 dark navy muted */
-  --muted-foreground: 218 14% 55%;  /* #7D8899 grey */
+  --muted: 222 40% 9%;               /* #0B1220 */
+  --muted-foreground: 215 16% 65%;   /* #94A3B8 */
 
-  --accent: 222 32% 13%;            /* #131D30 accent surface */
-  --accent-foreground: 218 18% 88%;
+  --accent: 222 35% 14%;
+  --accent-foreground: 0 0% 98%;
 
   --destructive: 0 80% 58%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive-foreground: 0 0% 100%;
 
-  --sidebar: 222 40% 4%;
-  --sidebar-foreground: 218 16% 76%;
-  --sidebar-border: 222 35% 12%;
-  --sidebar-primary: 213 70% 62%;
-  --sidebar-primary-foreground: 222 40% 6%;
-  --sidebar-accent: 222 32% 13%;
-  --sidebar-accent-foreground: 218 18% 82%;
-  --sidebar-ring: 213 60% 50%;
+  --sidebar: 222 47% 5%;
+  --sidebar-foreground: 215 16% 75%;
+  --sidebar-border: 222 30% 14%;
+  --sidebar-primary: 211 100% 65%;
+  --sidebar-primary-foreground: 222 47% 6%;
+  --sidebar-accent: 222 35% 14%;
+  --sidebar-accent-foreground: 0 0% 90%;
+  --sidebar-ring: 211 90% 60%;
 
-  --input: 222 32% 13%;
-  --ring: 213 60% 55%;
+  --input: 222 35% 13%;
+  --ring: 211 90% 65%;
 
-  --chart-1: 213 70% 62%;
-  --chart-2: 142 65% 48%;
-  --chart-3: 38 90% 56%;
-  --chart-4: 260 65% 65%;
-  --chart-5: 0 80% 58%;
+  --chart-1: 211 100% 65%;
+  --chart-2: 142 65% 50%;
+  --chart-3: 38 90% 58%;
+  --chart-4: 260 70% 68%;
+  --chart-5: 0 80% 60%;
 
-  /* Dark glass tokens — dark navy blue glass */
-  --glass-bg:          rgba(10,16,38,0.55);
-  --glass-bg-strong:   rgba(8,12,30,0.96);
-  --glass-border:      rgba(60,90,180,0.14);
-  --glass-border-strong: rgba(80,110,200,0.22);
-  --nav-bg:            rgba(4,6,18,0.92);
-  --nav-border:        rgba(50,80,160,0.18);
-  --surface-bg:        rgba(10,15,35,0.93);
-  --sheet-bg:          rgba(6,9,24,0.98);
-  --nav-active-bg:     rgba(60,100,220,0.13);
-  --nav-active-border: rgba(80,120,230,0.28);
-  --nav-active-color:  #8BB4F0;
-  --nav-dim-color:     #637089;
+  /* Dark glass tokens — deep navy blue premium */
+  --glass-bg:            rgba(20,24,38,0.60);
+  --glass-bg-strong:     rgba(10,14,28,0.96);
+  --glass-border:        rgba(255,255,255,0.08);
+  --glass-border-strong: rgba(255,255,255,0.14);
+  --nav-bg:              rgba(5,8,22,0.92);
+  --nav-border:          rgba(255,255,255,0.06);
+  --surface-bg:          rgba(18,24,38,0.95);
+  --sheet-bg:            rgba(8,10,24,0.98);
+  --nav-active-bg:       rgba(77,163,255,0.12);
+  --nav-active-border:   rgba(77,163,255,0.25);
+  --nav-active-color:    #4DA3FF;
+  --nav-dim-color:       #94A3B8;
 
   --opaque-button-border-intensity: 8;
   --elevate-1: rgba(255,255,255,0.02);
   --elevate-2: rgba(255,255,255,0.04);
-  --button-outline: rgba(60,90,180,0.2);
-  --badge-outline: rgba(60,90,180,0.1);
+  --button-outline: rgba(255,255,255,0.10);
+  --badge-outline: rgba(255,255,255,0.06);
 
-  /* Dark Shadows — deep cinematic with blue tint */
-  --shadow-2xs:  0 1px 2px rgba(0,0,0,0.55), 0 1px 4px rgba(0,5,20,0.3);
-  --shadow-xs:   0 1px 2px rgba(0,0,0,0.6), 0 2px 8px rgba(0,5,20,0.4);
-  --shadow-sm:   0 1px 3px rgba(0,0,0,0.65), 0 4px 12px rgba(0,5,20,0.45);
-  --shadow:      0 2px 4px rgba(0,0,0,0.7), 0 6px 18px rgba(0,5,20,0.5);
-  --shadow-md:   0 2px 6px rgba(0,0,0,0.7), 0 8px 22px rgba(0,5,20,0.55);
-  --shadow-lg:   0 4px 8px rgba(0,0,0,0.7), 0 12px 30px rgba(0,5,20,0.55);
-  --shadow-xl:   0 4px 12px rgba(0,0,0,0.75), 0 18px 44px rgba(0,5,20,0.6);
-  --shadow-2xl:  0 8px 20px rgba(0,0,0,0.8), 0 28px 60px rgba(0,5,20,0.65);
-  --shadow-nav:  0 1px 0 rgba(60,90,180,0.1), 0 4px 28px rgba(0,0,0,0.65);
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.65), 0 4px 16px rgba(0,5,20,0.45), 0 0 0 1px rgba(60,90,180,0.08);
-  --shadow-card-hover: 0 2px 6px rgba(0,0,0,0.7), 0 10px 28px rgba(0,5,20,0.55), 0 0 0 1px rgba(80,120,220,0.14);
-  --shadow-btn:  0 1px 3px rgba(0,0,0,0.7), 0 2px 8px rgba(0,5,20,0.55);
-  --shadow-btn-hover: 0 2px 5px rgba(0,0,0,0.75), 0 4px 14px rgba(0,5,20,0.6);
-  --shadow-btn-active: 0 0px 2px rgba(0,0,0,0.6);
-  --shadow-tab-active: 0 1px 3px rgba(0,0,0,0.7), 0 3px 10px rgba(0,5,20,0.5);
-  --shadow-dropdown: 0 4px 12px rgba(0,0,0,0.75), 0 12px 36px rgba(0,5,20,0.65), 0 0 0 1px rgba(60,90,180,0.1);
-  --shadow-modal: 0 8px 24px rgba(0,0,0,0.85), 0 24px 64px rgba(0,5,20,0.7), 0 0 0 1px rgba(60,90,180,0.1);
-  --shadow-sheet: 0 -2px 10px rgba(0,0,0,0.65), 0 -12px 48px rgba(0,5,20,0.6);
-  --shadow-chart: 0 1px 3px rgba(0,0,0,0.65), 0 4px 16px rgba(0,5,20,0.45);
-  --shadow-input-focus: 0 0 0 3px rgba(80,130,220,0.2), 0 1px 4px rgba(0,0,0,0.5);
-  --shadow-inner-sm: inset 0 1px 2px rgba(0,0,0,0.5);
-  --shadow-inner:    inset 0 1px 6px rgba(0,0,0,0.6);
+  /* Dark Shadows — cinematic deep blue-black */
+  --shadow-2xs:  0 1px 2px rgba(0,0,0,0.55), 0 1px 4px rgba(0,4,20,0.30);
+  --shadow-xs:   0 1px 2px rgba(0,0,0,0.60), 0 2px 8px rgba(0,4,20,0.40);
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.65), 0 4px 12px rgba(0,4,20,0.45);
+  --shadow:      0 2px 4px rgba(0,0,0,0.70), 0 6px 18px rgba(0,4,20,0.50);
+  --shadow-md:   0 2px 6px rgba(0,0,0,0.70), 0 8px 22px rgba(0,4,20,0.55);
+  --shadow-lg:   0 4px 8px rgba(0,0,0,0.70), 0 12px 30px rgba(0,4,20,0.55);
+  --shadow-xl:   0 4px 12px rgba(0,0,0,0.75), 0 18px 44px rgba(0,4,20,0.60);
+  --shadow-2xl:  0 8px 20px rgba(0,0,0,0.80), 0 28px 60px rgba(0,4,20,0.65);
+  --shadow-nav:  0 1px 0 rgba(255,255,255,0.04), 0 4px 28px rgba(0,0,0,0.70);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.65), 0 4px 16px rgba(0,4,20,0.45), 0 0 0 1px rgba(255,255,255,0.05);
+  --shadow-card-hover: 0 2px 6px rgba(0,0,0,0.70), 0 10px 28px rgba(0,4,20,0.55), 0 0 0 1px rgba(77,163,255,0.15);
+  --shadow-btn:  0 1px 3px rgba(0,0,0,0.70), 0 2px 8px rgba(0,4,20,0.55);
+  --shadow-btn-hover: 0 2px 5px rgba(0,0,0,0.75), 0 4px 14px rgba(0,4,20,0.60), 0 0 20px rgba(77,163,255,0.15);
+  --shadow-btn-active: 0 0px 2px rgba(0,0,0,0.60);
+  --shadow-tab-active: 0 1px 3px rgba(0,0,0,0.70), 0 3px 10px rgba(0,4,20,0.50);
+  --shadow-dropdown: 0 4px 12px rgba(0,0,0,0.75), 0 12px 36px rgba(0,4,20,0.65), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-modal: 0 8px 24px rgba(0,0,0,0.85), 0 24px 64px rgba(0,4,20,0.70), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-sheet: 0 -2px 10px rgba(0,0,0,0.65), 0 -12px 48px rgba(0,4,20,0.60);
+  --shadow-chart: 0 1px 3px rgba(0,0,0,0.65), 0 4px 16px rgba(0,4,20,0.45);
+  --shadow-input-focus: 0 0 0 3px rgba(77,163,255,0.18), 0 1px 4px rgba(0,0,0,0.50);
+  --shadow-inner-sm: inset 0 1px 2px rgba(0,0,0,0.50);
+  --shadow-inner:    inset 0 1px 6px rgba(0,0,0,0.60);
 
-  /* Glow shadows */
-  --shadow-glow-cyan:   0 0 16px rgba(91,141,239,0.25), 0 0 40px rgba(91,141,239,0.08);
-  --shadow-glow-indigo: 0 0 16px rgba(100,80,220,0.25), 0 0 40px rgba(100,80,220,0.08);
-  --shadow-glow-green:  0 0 16px rgba(34,197,94,0.25), 0 0 40px rgba(34,197,94,0.08);
-  --shadow-glow-red:    0 0 16px rgba(239,68,68,0.25), 0 0 40px rgba(239,68,68,0.08);
+  /* Premium glow shadows */
+  --shadow-glow-cyan:   0 0 16px rgba(77,163,255,0.30), 0 0 40px rgba(77,163,255,0.10), 0 0 80px rgba(77,163,255,0.04);
+  --shadow-glow-indigo: 0 0 16px rgba(107,63,229,0.30), 0 0 40px rgba(107,63,229,0.10);
+  --shadow-glow-green:  0 0 16px rgba(34,197,94,0.28), 0 0 40px rgba(34,197,94,0.10);
+  --shadow-glow-red:    0 0 16px rgba(239,68,68,0.28), 0 0 40px rgba(239,68,68,0.10);
 
-  /* Dock specific — dark navy */
+  /* Dock — deep navy glass */
   --dock-bg: rgba(5,8,22,0.94);
-  --dock-border: rgba(50,80,160,0.22);
-  --dock-shadow: 0 0 0 0.5px rgba(60,90,180,0.12), 0 8px 40px rgba(0,0,0,0.85), 0 24px 80px rgba(0,5,20,0.55);
-  --dock-active-bg: rgba(60,100,220,0.14);
-  --dock-active-border: rgba(80,120,230,0.30);
-  --dock-active-glow: 0 0 14px rgba(91,141,239,0.2), 0 0 28px rgba(91,141,239,0.06);
+  --dock-border: rgba(255,255,255,0.08);
+  --dock-shadow: 0 0 0 0.5px rgba(255,255,255,0.05), 0 8px 40px rgba(0,0,0,0.85), 0 24px 80px rgba(0,4,20,0.55);
+  --dock-active-bg: rgba(77,163,255,0.13);
+  --dock-active-border: rgba(77,163,255,0.28);
+  --dock-active-glow: 0 0 14px rgba(77,163,255,0.22), 0 0 28px rgba(77,163,255,0.08);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -372,17 +373,17 @@ body {
 
 .glass-card {
   background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-card);
-  border-radius: 1.25rem;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+  border-radius: 1.375rem;
+  transition: box-shadow 0.28s ease, border-color 0.28s ease, transform 0.28s cubic-bezier(0.34,1.2,0.64,1);
 }
 .glass-card:hover {
   border-color: var(--glass-border-strong);
   box-shadow: var(--shadow-card-hover);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
 }
 
 .glass-panel {
@@ -397,25 +398,30 @@ body {
    PREMIUM CARD SYSTEM — 3D depth layers
    ════════════════════════════════════════════════════════════════════ */
 .premium-card {
-  background: hsl(var(--card));
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-card);
-  border-radius: 1.25rem;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+  border-radius: 1.375rem;
+  transition: box-shadow 0.28s ease, border-color 0.28s ease, transform 0.28s cubic-bezier(0.34,1.2,0.64,1);
   position: relative;
   overflow: hidden;
+}
+.dark .premium-card {
+  background: rgba(20,24,38,0.80);
 }
 .premium-card::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 55%);
   pointer-events: none;
 }
 .premium-card:hover {
   box-shadow: var(--shadow-card-hover);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
 }
 
 .depth-card {
@@ -439,15 +445,15 @@ body {
 
 /* Ambient glow backgrounds — for hero sections */
 .ambient-cyan {
-  background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,212,255,0.12) 0%, transparent 70%);
+  background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(77,163,255,0.10) 0%, transparent 70%);
 }
 .ambient-indigo {
-  background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(79,70,229,0.12) 0%, transparent 70%);
+  background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(107,63,229,0.10) 0%, transparent 70%);
 }
 .ambient-mixed {
   background:
-    radial-gradient(ellipse 60% 40% at 20% 0%, rgba(0,212,255,0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 0%, rgba(79,70,229,0.08) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 20% 0%, rgba(77,163,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 0%, rgba(125,211,252,0.07) 0%, transparent 60%);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -496,14 +502,29 @@ body {
   box-shadow: var(--dock-active-glow, 0 0 12px rgba(0,212,255,0.4));
 }
 
-/* Light dock overrides — frosted off-white glass */
+/* Light dock overrides — frosted white glass */
 :root .tt-float-dock {
-  background: rgba(248,247,245,0.92);
-  border-color: rgba(0,0,0,0.07);
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.12);
-  --dock-active-bg: rgba(0,0,0,0.07);
-  --dock-active-border: rgba(0,0,0,0.14);
+  background: rgba(255,255,255,0.88);
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.10);
+  --dock-active-bg: rgba(0,0,0,0.06);
+  --dock-active-border: rgba(0,0,0,0.11);
   --dock-active-glow: none;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   GLOBAL GLASS CARD SURFACE
+   Applies backdrop-blur + glass bg to all Shadcn Card elements
+   ════════════════════════════════════════════════════════════════════ */
+.bg-card {
+  background: rgba(255,255,255,0.80) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.dark .bg-card {
+  background: rgba(20,24,38,0.80) !important;
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -602,8 +623,8 @@ input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
 .scale-in { animation: scale-in 0.22s cubic-bezier(0.32, 0.72, 0, 1) both; }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.4); }
-  50%       { box-shadow: 0 0 20px rgba(0,212,255,0.7), 0 0 40px rgba(0,212,255,0.3); }
+  0%, 100% { box-shadow: 0 0 8px rgba(77,163,255,0.35); }
+  50%       { box-shadow: 0 0 20px rgba(77,163,255,0.60), 0 0 40px rgba(77,163,255,0.25); }
 }
 .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
 
@@ -679,8 +700,8 @@ html, body, #root { overflow-x: hidden; max-width: 100vw; }
 .dark .loss   { color: #f87171; }
 
 .glow-text {
-  text-shadow: 0 0 20px rgba(0,212,255,0.5), 0 0 40px rgba(0,212,255,0.2);
-  color: var(--accent-cyan);
+  text-shadow: 0 0 20px rgba(77,163,255,0.45), 0 0 40px rgba(77,163,255,0.18);
+  color: #4DA3FF;
 }
 
 .impact-high    { background: rgba(239,68,68,0.08);  color: #ef4444; border-color: rgba(239,68,68,0.2); }
@@ -690,7 +711,10 @@ html, body, #root { overflow-x: hidden; max-width: 100vw; }
 
 /* Card stat accent bar */
 .stat-card-accent {
-  background: linear-gradient(90deg, var(--accent-cyan) 0%, var(--accent-indigo) 100%);
+  background: linear-gradient(90deg, #4DA3FF 0%, #7DD3FC 100%);
+}
+.dark .stat-card-accent {
+  background: linear-gradient(90deg, #4DA3FF 0%, #7DD3FC 100%);
 }
 
 @media (max-width: 767px) {

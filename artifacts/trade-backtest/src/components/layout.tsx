@@ -186,9 +186,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               style={{
                 padding: "5px 13px", borderRadius: "9px",
                 fontSize: "13px", fontWeight: 600,
-                border: `1px solid ${isDark ? "rgba(80,120,230,0.28)" : "rgba(0,0,0,0.1)"}`,
-                background: isDark ? "rgba(60,100,220,0.12)" : "rgba(0,0,0,0.04)",
-                color: isDark ? "#8BB4F0" : "var(--nav-dim-color)",
+                border: `1px solid ${isDark ? "rgba(77,163,255,0.25)" : "rgba(0,0,0,0.08)"}`,
+                background: isDark ? "rgba(77,163,255,0.10)" : "rgba(0,0,0,0.04)",
+                color: isDark ? "#4DA3FF" : "var(--nav-dim-color)",
                 cursor: "pointer",
               }}
             >
@@ -379,9 +379,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   onClick={() => { setShowAuthModal(true); setSheetOpen(false); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl"
                   style={{
-                    background: isDark ? "rgba(60,100,220,0.14)" : "hsl(var(--primary))",
-                    color: isDark ? "#8BB4F0" : "white",
-                    border: `1px solid ${isDark ? "rgba(80,120,230,0.28)" : "transparent"}`,
+                    background: isDark ? "rgba(77,163,255,0.12)" : "hsl(var(--primary))",
+                    color: isDark ? "#4DA3FF" : "white",
+                    border: `1px solid ${isDark ? "rgba(77,163,255,0.25)" : "transparent"}`,
                     boxShadow: isDark ? "none" : "var(--shadow-btn)",
                     fontWeight: 600, fontSize: "14px",
                   }}

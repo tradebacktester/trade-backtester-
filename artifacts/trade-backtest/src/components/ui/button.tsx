@@ -45,11 +45,11 @@ const buttonVariants = cva(
           " hover:[box-shadow:var(--shadow-md)] hover:-translate-y-px hover:[border-color:var(--glass-border-strong)]" +
           " active:scale-[0.98]",
         cyan:
-          "rounded-xl font-bold text-[#050505]" +
-          " [background:linear-gradient(135deg,#00D4FF_0%,#00B8E6_100%)]" +
-          " [border:1px_solid_rgba(0,212,255,0.4)]" +
-          " [box-shadow:0_0_20px_rgba(0,212,255,0.3),var(--shadow-btn)]" +
-          " hover:[box-shadow:0_0_32px_rgba(0,212,255,0.5),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
+          "rounded-xl font-bold text-white" +
+          " [background:linear-gradient(135deg,#4DA3FF_0%,#2E8FFF_100%)]" +
+          " [border:1px_solid_rgba(77,163,255,0.40)]" +
+          " [box-shadow:0_0_20px_rgba(77,163,255,0.25),var(--shadow-btn)]" +
+          " hover:[box-shadow:0_0_32px_rgba(77,163,255,0.45),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
           " active:scale-[0.97]",
         link: "text-primary underline-offset-4 hover:underline font-medium",
       },
