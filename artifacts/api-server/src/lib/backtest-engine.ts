@@ -53,7 +53,7 @@ export interface BacktestResult {
   maxDrawdown: number;
   sharpeRatio: number;
   sortinoRatio: number;
-  calmarRatio: number;
+  calmarRatio: number | null;
   winRate: number;
   totalTrades: number;
   profitFactor: number;
@@ -630,8 +630,11 @@ export function runBacktest(
     }
   }
 
-  // Calmar ratio: annualized return / max drawdown
-  const calmarRatio = maxDrawdown > 0 ? annualizedReturn / maxDrawdown : annualizedReturn > 0 ? 999 : 0;
+  // Calmar ratio: annualized return / max drawdown.
+  // Returns null when maxDrawdown=0 and strategy is profitable (truly infinite — no drawdown).
+  const calmarRatio: number | null = maxDrawdown > 0
+    ? annualizedReturn / maxDrawdown
+    : annualizedReturn > 0 ? null : 0;
 
   // Expectancy: average dollar profit per trade (Van Tharp definition)
   const expectancy = trades.length > 0

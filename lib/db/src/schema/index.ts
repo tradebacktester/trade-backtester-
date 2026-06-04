@@ -13,3 +13,4 @@ export * from "./live_trades";
 export * from "./marketplace";
 export * from "./journal_entries";
 export * from "./paper_trades";
+export * from "./ai_usage";

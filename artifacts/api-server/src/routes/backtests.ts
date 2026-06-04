@@ -349,14 +349,14 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       maxDrawdown: String(result.maxDrawdown),
       sharpeRatio: String(result.sharpeRatio),
       sortinoRatio: String(result.sortinoRatio),
-      calmarRatio: String(result.calmarRatio),
+      calmarRatio: result.calmarRatio != null ? String(result.calmarRatio) : null,
       benchmarkReturn: String(result.benchmarkReturn),
       winRate: String(result.winRate),
       totalTrades: result.totalTrades,
       profitFactor: String(result.profitFactor),
       consecutiveWins: result.consecutiveWins,
       consecutiveLosses: result.consecutiveLosses,
-      dataSource: realBars ? "real" : "simulated",
+      dataSource: (realBars && realBars.length >= 50) ? "real" : "simulated",
     }).where(eq(backtestsTable.id, backtest.id)).returning();
 
     // Return full detail including yearlyReturns (computed, not stored in DB)

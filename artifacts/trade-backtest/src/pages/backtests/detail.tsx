@@ -1324,9 +1324,22 @@ export default function BacktestDetail() {
                 accent={backtest.totalReturn != null && backtest.totalReturn >= 0 ? "#22c55e" : "#ef4444"}
               />
               <StatBox
-                label="Ann. Return"
+                label={(() => {
+                  const d = backtest.startDate && backtest.endDate
+                    ? Math.floor((new Date(backtest.endDate).getTime() - new Date(backtest.startDate).getTime()) / 86400000)
+                    : null;
+                  return (d != null && d < 365) ? "Ann. Return ⚠" : "Ann. Return";
+                })()}
                 value={backtest.annualizedReturn != null ? fmtPct(backtest.annualizedReturn) : "—"}
                 accent={backtest.annualizedReturn != null && backtest.annualizedReturn >= 0 ? "#22c55e" : "#ef4444"}
+                tooltip={(() => {
+                  const d = backtest.startDate && backtest.endDate
+                    ? Math.floor((new Date(backtest.endDate).getTime() - new Date(backtest.startDate).getTime()) / 86400000)
+                    : null;
+                  return (d != null && d < 365)
+                    ? `Extrapolated from a ${d}-day period. Short backtests amplify compounding — e.g. 10% in 2 weeks projects to ~2,600% annualized. Treat this figure with caution.`
+                    : "Return extrapolated to an annual rate using the compound growth formula.";
+                })()}
               />
               <StatBox
                 label="Max Drawdown"
@@ -1347,7 +1360,7 @@ export default function BacktestDetail() {
               />
               <StatBox
                 label="Calmar Ratio"
-                value={(backtest as any).calmarRatio != null ? ((backtest as any).calmarRatio >= 999 ? "∞" : fmtNum((backtest as any).calmarRatio)) : "—"}
+                value={(backtest as any).calmarRatio != null ? fmtNum((backtest as any).calmarRatio) : ((backtest as any).calmarRatio === null && (backtest as any).annualizedReturn > 0 ? "∞" : "—")}
                 accent={(backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 1 ? "#22c55e" : (backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 0 ? "#f59e0b" : "#ef4444"}
                 tooltip="Annualised return divided by maximum drawdown. Measures how much return you get per unit of peak-to-trough loss. Above 1.0 is solid."
               />

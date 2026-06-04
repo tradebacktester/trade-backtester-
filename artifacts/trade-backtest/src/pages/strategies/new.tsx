@@ -8,7 +8,6 @@ const STRATEGY_TYPES = [
   { value: "rsi",             label: "RSI Mean Reversion",     desc: "Oversold/overbought RSI entries" },
   { value: "macd",            label: "MACD Trend",             desc: "MACD histogram trend following" },
   { value: "bollinger_bands", label: "Bollinger Bands",        desc: "Breakout on band expansion" },
-  { value: "ict_ob",          label: "ICT Order Block",        desc: "Institutional order block entries" },
 ];
 
 const SYMBOLS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "SPX500", "EUR/USD", "GBP/USD"];

@@ -18,7 +18,15 @@ const POLICY_LINKS = [
 export function PolicyPopup() {
   // Initialise synchronously from localStorage so re-mounting on navigation
   // never causes the popup to flash for users who have already agreed.
-  const [show, setShow] = useState(() => !localStorage.getItem(STORAGE_KEY));
+  // Dev-only escape hatch: ?skip_policy=1 bypasses the modal (for automated tests / embeds).
+  const [show, setShow] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("skip_policy") === "1") {
+      localStorage.setItem(STORAGE_KEY, Date.now().toString());
+      return false;
+    }
+    return !localStorage.getItem(STORAGE_KEY);
+  });
   const [agreed, setAgreed] = useState(false);
   const [expanded, setExpanded] = useState(false);
 

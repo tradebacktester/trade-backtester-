@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import OpenAI from "openai";
 import { verifyJwt } from "../lib/jwt";
 import { logger } from "../lib/logger";
-import { db, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
+import { db, subscriptionsTable, subscriptionPlansTable, aiUsageTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 
 const JWT_SECRET_AI = process.env.JWT_SECRET ?? "";
@@ -42,9 +42,6 @@ function checkAiRateLimit(userId: number): boolean {
   rec.count++;
   return true;
 }
-
-// Per-user daily AI query counter (resets at midnight)
-const aiDailyCount = new Map<number, { count: number; resetAt: number }>();
 
 async function checkAiPlanLimit(userId: number): Promise<{ allowed: boolean; error?: string }> {
   let dailyLimit = 0; // Default to deny — will be overridden by the plan record
@@ -89,23 +86,36 @@ async function checkAiPlanLimit(userId: number): Promise<{ allowed: boolean; err
     };
   }
 
-  const now = Date.now();
-  const midnight = new Date();
-  midnight.setHours(24, 0, 0, 0); // Next midnight
-  const resetAt = midnight.getTime();
+  // DB-backed daily counter — survives server restarts and deploys
+  const today = new Date().toISOString().split("T")[0]!;
+  try {
+    const [usageRec] = await db
+      .select({ count: aiUsageTable.count })
+      .from(aiUsageTable)
+      .where(and(eq(aiUsageTable.userId, userId), eq(aiUsageTable.date, today)))
+      .limit(1);
 
-  const rec = aiDailyCount.get(userId);
-  if (!rec || now >= rec.resetAt) {
-    aiDailyCount.set(userId, { count: 1, resetAt });
+    const currentCount = usageRec?.count ?? 0;
+    if (currentCount >= dailyLimit) {
+      return {
+        allowed: false,
+        error: `Daily AI limit reached (${dailyLimit} queries/day). Upgrade your plan for more AI access.`,
+      };
+    }
+
+    // Upsert: insert first use or increment existing
+    if (!usageRec) {
+      await db.insert(aiUsageTable).values({ userId, date: today, count: 1 });
+    } else {
+      await db.update(aiUsageTable)
+        .set({ count: currentCount + 1 })
+        .where(and(eq(aiUsageTable.userId, userId), eq(aiUsageTable.date, today)));
+    }
+  } catch {
+    // Allow through on DB error — don't block users due to tracking failure
     return { allowed: true };
   }
-  if (rec.count >= dailyLimit) {
-    return {
-      allowed: false,
-      error: `Daily AI limit reached (${dailyLimit} queries/day). Upgrade your plan for more AI access.`,
-    };
-  }
-  rec.count++;
+
   return { allowed: true };
 }
 

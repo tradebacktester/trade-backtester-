@@ -15,3 +15,4 @@
 - [Backtest data always simulated](backtest-simulated-data.md) — ALL backtest symbols (crypto + stocks) use generatePriceData(); live Binance ticker is real-time but historical backtest data is never real; SYMBOLS array has all realData:false.
 - [Auth context token in components](auth-context-token.md) — use `const { token } = useAuth()` not `localStorage.getItem("tt_token")` directly; the context value is reactive and avoids React render-timing races.
 - [AI router middleware scope](ai-router-middleware-scope.md) — router.use(middleware) without a path in a sub-router mounted via router.use(subRouter) intercepts ALL requests; always scope to router.use("/ai", middleware) to avoid bleeding into community/other routes.
+- [AI usage table](ai-usage-table.md) — ai_usage table (userId, date YYYY-MM-DD, count) tracks daily AI quota in DB; survives restarts; upsert pattern: insert on first use, update otherwise; free-plan users never reach it (blocked at dailyLimit=0).
