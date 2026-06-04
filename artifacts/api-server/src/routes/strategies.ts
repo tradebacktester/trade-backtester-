@@ -22,6 +22,26 @@ function stripHtml(text: string): string {
     .trim();
 }
 
+type StrategyType = "sma_crossover" | "ema_crossover" | "rsi" | "macd" | "bollinger_bands";
+
+const REQUIRED_PARAMS: Record<StrategyType, string[]> = {
+  sma_crossover:    ["fastPeriod", "slowPeriod"],
+  ema_crossover:    ["fastPeriod", "slowPeriod"],
+  rsi:              ["period", "oversold", "overbought"],
+  macd:             ["fastPeriod", "slowPeriod", "signalPeriod"],
+  bollinger_bands:  ["period", "stdDev"],
+};
+
+function validateStrategyParams(type: StrategyType, params: Record<string, unknown>): string | null {
+  const required = REQUIRED_PARAMS[type];
+  if (!required) return null;
+  const missing = required.filter((k) => params[k] == null || params[k] === "");
+  if (missing.length > 0) {
+    return `Missing required parameters for ${type}: ${missing.join(", ")}`;
+  }
+  return null;
+}
+
 function extractUserId(req: Request): number | null {
   try {
     const auth = req.headers["authorization"];
@@ -65,6 +85,15 @@ router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: messages });
     return;
   }
+  const paramError = validateStrategyParams(
+    parsed.data.type as StrategyType,
+    parsed.data.parameters as Record<string, unknown>
+  );
+  if (paramError) {
+    res.status(400).json({ error: paramError });
+    return;
+  }
+
   const [row] = await db.insert(strategiesTable).values({
     userId,
     name: stripHtml(parsed.data.name),

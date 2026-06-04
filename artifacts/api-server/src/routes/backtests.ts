@@ -337,10 +337,20 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       );
     }
 
+    // Ensure equity curve always covers start→end even when there are no trades
+    let rawCurve = result.equityCurve;
+    if (rawCurve.length === 0 || rawCurve[rawCurve.length - 1].date < parsed.data.endDate) {
+      const lastVal = rawCurve.length > 0 ? rawCurve[rawCurve.length - 1].value : result.finalCapital;
+      rawCurve = [...rawCurve, { date: parsed.data.endDate, value: lastVal, drawdown: 0 }];
+    }
+    if (rawCurve.length === 1) {
+      rawCurve = [{ date: parsed.data.startDate, value: parsed.data.initialCapital, drawdown: 0 }, ...rawCurve];
+    }
+
     // Sample equity curve to ≤500 points, store benchmark value
-    const equitySample = result.equityCurve.length > 500
-      ? result.equityCurve.filter((_, i) => i % Math.ceil(result.equityCurve.length / 500) === 0)
-      : result.equityCurve;
+    const equitySample = rawCurve.length > 500
+      ? rawCurve.filter((_, i) => i % Math.ceil(rawCurve.length / 500) === 0)
+      : rawCurve;
     if (equitySample.length > 0) {
       await db.insert(equityCurveTable).values(
         equitySample.map((e) => ({
