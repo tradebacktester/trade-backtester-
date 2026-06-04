@@ -95,7 +95,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="flex items-center gap-2.5 px-5 cursor-pointer select-none">
             <div className="h-7 w-7 rounded-xl overflow-hidden flex-shrink-0" style={{
               boxShadow: isDark
-                ? "0 0 0 1px rgba(255,255,255,0.1), 0 0 12px rgba(0,212,255,0.2)"
+                ? "0 0 0 1px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.4)"
                 : "0 0 0 1px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.1)",
             }}>
               <img src="/logo.png" className="h-full w-full object-cover" alt="Trade Lab" />
@@ -125,7 +125,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     border: `1px solid ${active ? "var(--nav-active-border)" : (isHome ? "var(--nav-border)" : "transparent")}`,
                     background: active ? "var(--nav-active-bg)" : (isHome ? (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)") : "transparent"),
                     color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                    boxShadow: active ? (isDark ? "var(--shadow-glow-cyan)" : "var(--shadow-tab-active)") : (isHome ? "var(--shadow-2xs)" : "none"),
+                    boxShadow: active ? "var(--shadow-tab-active)" : (isHome ? "var(--shadow-2xs)" : "none"),
                     transition: "all 0.18s cubic-bezier(0.34,1.2,0.64,1)",
                   }}
                 >
@@ -186,10 +186,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               style={{
                 padding: "5px 13px", borderRadius: "9px",
                 fontSize: "13px", fontWeight: 600,
-                border: `1px solid ${isDark ? "rgba(0,212,255,0.25)" : "rgba(0,0,0,0.1)"}`,
-                background: isDark ? "rgba(0,212,255,0.08)" : "rgba(0,0,0,0.04)",
-                color: isDark ? "#00D4FF" : "var(--nav-dim-color)",
-                boxShadow: isDark ? "0 0 12px rgba(0,212,255,0.1)" : "none",
+                border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.1)"}`,
+                background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.04)",
+                color: isDark ? "#ffffff" : "var(--nav-dim-color)",
                 cursor: "pointer",
               }}
             >
@@ -360,7 +359,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: "1px solid var(--nav-border)" }}>
                   <div className="flex items-center gap-3">
                     <span className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      style={{ background: isDark ? "rgba(0,212,255,0.12)" : "rgba(0,0,0,0.08)", color: "var(--nav-active-color)", border: "1px solid var(--nav-active-border)" }}>
+                      style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", color: "var(--nav-active-color)", border: "1px solid var(--nav-active-border)" }}>
                       {user.name.charAt(0).toUpperCase()}
                     </span>
                     <div>
@@ -380,10 +379,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   onClick={() => { setShowAuthModal(true); setSheetOpen(false); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl"
                   style={{
-                    background: isDark ? "rgba(0,212,255,0.1)" : "hsl(var(--primary))",
-                    color: isDark ? "#00D4FF" : "white",
-                    border: `1px solid ${isDark ? "rgba(0,212,255,0.25)" : "transparent"}`,
-                    boxShadow: isDark ? "0 0 20px rgba(0,212,255,0.2)" : "var(--shadow-btn)",
+                    background: isDark ? "rgba(255,255,255,0.08)" : "hsl(var(--primary))",
+                    color: isDark ? "#ffffff" : "white",
+                    border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "transparent"}`,
+                    boxShadow: isDark ? "none" : "var(--shadow-btn)",
                     fontWeight: 600, fontSize: "14px",
                   }}
                 >
@@ -394,7 +393,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Items */}
-            <div className="px-4 flex flex-col gap-1.5">
+            <div className="px-4 flex flex-col gap-1.5 overflow-y-auto" style={{ maxHeight: "calc(60dvh - 8px)", paddingBottom: "4px" }}>
               {MOBILE_MORE.map(item => {
                 const active = isActive(item.url);
                 return (
@@ -407,7 +406,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           : (isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)"),
                         border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
                         color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                        boxShadow: active ? (isDark ? "0 0 12px rgba(0,212,255,0.1)" : "none") : "none",
+                        boxShadow: "none",
                       }}
                     >
                       <span className="h-9 w-9 flex-shrink-0 rounded-xl flex items-center justify-center"
