@@ -170,6 +170,9 @@ export default function BatchBacktest() {
                   <SelectValue placeholder={isLoadingStrategies ? "Loading..." : "Select a strategy"} />
                 </SelectTrigger>
                 <SelectContent>
+                  {(!strategies || strategies.length === 0) && !isLoadingStrategies && (
+                    <SelectItem value="__none__" disabled>No strategies yet — create one first</SelectItem>
+                  )}
                   {strategies?.map((s) => (
                     <SelectItem key={s.id} value={s.id.toString()}>
                       {s.name}

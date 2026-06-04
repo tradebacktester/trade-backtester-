@@ -108,38 +108,6 @@ router.post("/community", async (req, res): Promise<void> => {
     : "";
   const authorName = rawName.length >= 2 ? rawName : "User";
 
-  // H-004: Enforce communityPost plan flag — free users cannot post
-  {
-    const [activeSub] = await db
-      .select({ planId: subscriptionsTable.planId })
-      .from(subscriptionsTable)
-      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
-      .orderBy(desc(subscriptionsTable.createdAt))
-      .limit(1);
-
-    let canPost = false;
-    if (activeSub) {
-      const [plan] = await db
-        .select({ features: subscriptionPlansTable.features })
-        .from(subscriptionPlansTable)
-        .where(eq(subscriptionPlansTable.id, activeSub.planId))
-        .limit(1);
-      canPost = (plan?.features as { communityPost?: boolean } | null)?.communityPost === true;
-    } else {
-      const [freePlan] = await db
-        .select({ features: subscriptionPlansTable.features })
-        .from(subscriptionPlansTable)
-        .where(eq(subscriptionPlansTable.isDefault, true))
-        .limit(1);
-      canPost = (freePlan?.features as { communityPost?: boolean } | null)?.communityPost === true;
-    }
-
-    if (!canPost) {
-      res.status(403).json({ error: "Community posting requires a Pro or Elite plan. Upgrade to participate in the community." });
-      return;
-    }
-  }
-
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
   if (!checkPostRateLimit(ip)) {
     res.status(429).json({ error: "Too many posts. Please wait before posting again." });

@@ -294,7 +294,7 @@ export default function BacktestBuilder() {
       try { sessionStorage.removeItem("builder_state"); } catch { }
       setLocation(`/backtests/${backtest.id}`);
     } catch (err: any) {
-      toast({ title: "Error", description: err?.error ?? "Something went wrong", variant: "destructive" });
+      toast({ title: "Error", description: err?.data?.error ?? err?.message ?? "Something went wrong", variant: "destructive" });
     } finally {
       setIsRunning(false);
     }

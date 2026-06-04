@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, Fragment } from "react";
 import { useBinanceLivePrice, useBinancePrices } from "@/lib/use-binance-ws";
 import {
   createChart,
@@ -512,6 +512,7 @@ export default function ChartPage() {
     { id: "hline",            icon: <Minus className="h-3.5 w-3.5" />,                         label: "H-Line",    key: "H" },
     { id: "trendline",        icon: <GitCommit className="h-3.5 w-3.5 rotate-45" />,           label: "Trend",     key: "T" },
     { id: "ray",              icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="2" y1="12" x2="12" y2="2"/><polyline points="8,2 12,2 12,6" fill="none"/></svg>, label: "Ray", key: "R" },
+    { id: "arrow",            icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="currentColor" stroke="currentColor" strokeWidth="0"><line x1="2" y1="12" x2="11" y2="3" stroke="currentColor" strokeWidth="1.5" fill="none"/><polygon points="7,2 12,2 12,7"/></svg>, label: "Arrow", key: "A" },
     { id: "fibonacci",        icon: <Hash className="h-3.5 w-3.5" />,                          label: "Fib",       key: "F" },
     { id: "rectangle",        icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="10" height="8" rx="1"/></svg>, label: "Rect", key: "Q" },
     { id: "parallel_channel", icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="2" y1="4" x2="12" y2="4"/><line x1="2" y1="10" x2="12" y2="10"/></svg>, label: "Channel", key: "C" },
@@ -551,8 +552,9 @@ export default function ChartPage() {
     if (last.kind === "text")             candleSeriesRef.current.removePriceLine(last.priceLine);
     if (last.kind === "trendline")        chartRef.current.removeSeries(last.series);
     if (last.kind === "fibonacci")        last.priceLines.forEach(pl => candleSeriesRef.current!.removePriceLine(pl));
-    if (last.kind === "rectangle")        { chartRef.current.removeSeries(last.series); chartRef.current.removeSeries(last.series2); }
+    if (last.kind === "rectangle")        { chartRef.current.removeSeries(last.series); chartRef.current.removeSeries(last.series2); chartRef.current.removeSeries(last.series3); chartRef.current.removeSeries(last.series4); }
     if (last.kind === "ray")              chartRef.current.removeSeries(last.series);
+    if (last.kind === "arrow")            chartRef.current.removeSeries(last.series);
     if (last.kind === "parallel_channel") { chartRef.current.removeSeries(last.series); chartRef.current.removeSeries(last.series2); }
     if (last.kind === "pitchfork")        { chartRef.current.removeSeries(last.series); chartRef.current.removeSeries(last.series2); chartRef.current.removeSeries(last.series3); }
     setDrawings(prev => prev.slice(0, -1));
@@ -581,7 +583,7 @@ export default function ChartPage() {
     }
 
     // 2-point tools
-    if (activeTool === "trendline" || activeTool === "fibonacci" || activeTool === "ray" || activeTool === "rectangle") {
+    if (activeTool === "trendline" || activeTool === "fibonacci" || activeTool === "ray" || activeTool === "rectangle" || activeTool === "arrow") {
       if (!drawStart) {
         setDrawStart({ x, y, price, time });
       } else {
@@ -589,13 +591,17 @@ export default function ChartPage() {
         const p2 = price;           const t2 = time as number;
         const id = Date.now();
 
-        if (activeTool === "trendline") {
+        if (activeTool === "trendline" || activeTool === "arrow") {
           const pts = t1 <= t2
             ? [{ time: t1 as Time, value: p1 }, { time: t2 as Time, value: p2 }]
             : [{ time: t2 as Time, value: p2 }, { time: t1 as Time, value: p1 }];
-          const series = chartRef.current!.addSeries(LineSeries, { color: drawColor, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+          const series = chartRef.current!.addSeries(LineSeries, { color: drawColor, lineWidth: activeTool === "arrow" ? 2 : 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
           series.setData(pts);
-          setDrawings(prev => [...prev, { kind: "trendline", series, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
+          if (activeTool === "arrow") {
+            setDrawings(prev => [...prev, { kind: "arrow", series, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
+          } else {
+            setDrawings(prev => [...prev, { kind: "trendline", series, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
+          }
         } else if (activeTool === "ray") {
           const bars  = sortedKlinesRef.current;
           const slope = t2 !== t1 ? (p2 - p1) / (t2 - t1) : 0;
@@ -617,7 +623,11 @@ export default function ChartPage() {
           s.setData([{ time: tMin, value: pMax }, { time: tMax, value: pMax }]);
           const s2 = chartRef.current!.addSeries(LineSeries, opts);
           s2.setData([{ time: tMin, value: pMin }, { time: tMax, value: pMin }]);
-          setDrawings(prev => [...prev, { kind: "rectangle", series: s, series2: s2, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
+          const s3 = chartRef.current!.addSeries(LineSeries, opts);
+          s3.setData([{ time: tMin, value: pMin }, { time: (Number(tMin) + 1) as Time, value: pMax }]);
+          const s4 = chartRef.current!.addSeries(LineSeries, opts);
+          s4.setData([{ time: (Number(tMax) - 1) as Time, value: pMin }, { time: tMax, value: pMax }]);
+          setDrawings(prev => [...prev, { kind: "rectangle", series: s, series2: s2, series3: s3, series4: s4, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
         } else {
           // Fibonacci
           const high = Math.max(p1, p2); const low = Math.min(p1, p2); const range = high - low;
@@ -836,6 +846,7 @@ export default function ChartPage() {
       if (e.key === "t") setActiveTool("trendline");
       if (e.key === "f") setActiveTool("fibonacci");
       if (e.key === "e") setActiveTool("eraser");
+      if (e.key === "a") setActiveTool("arrow");
       if (e.key === "q") setActiveTool("rectangle");
       if (e.key === "c") setActiveTool("parallel_channel");
       if (e.key === "p") setActiveTool("pitchfork");
@@ -1419,7 +1430,15 @@ export default function ChartPage() {
           const opts = { color: d.color, lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
           const s  = chartRef.current.addSeries(LineSeries, opts); s.setData([{ time: tMin, value: pMax }, { time: tMax, value: pMax }]);
           const s2 = chartRef.current.addSeries(LineSeries, opts); s2.setData([{ time: tMin, value: pMin }, { time: tMax, value: pMin }]);
-          newDrawings.push({ kind: "rectangle", series: s, series2: s2, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
+          const s3 = chartRef.current.addSeries(LineSeries, opts); s3.setData([{ time: tMin, value: pMin }, { time: (Number(tMin) + 1) as Time, value: pMax }]);
+          const s4 = chartRef.current.addSeries(LineSeries, opts); s4.setData([{ time: (Number(tMax) - 1) as Time, value: pMin }, { time: tMax, value: pMax }]);
+          newDrawings.push({ kind: "rectangle", series: s, series2: s2, series3: s3, series4: s4, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
+        } else if (d.kind === "arrow") {
+          const t1 = d.p1.time; const t2 = d.p2.time;
+          const pts = t1 <= t2 ? [{ time: t1 as Time, value: d.p1.price }, { time: t2 as Time, value: d.p2.price }] : [{ time: t2 as Time, value: d.p2.price }, { time: t1 as Time, value: d.p1.price }];
+          const s = chartRef.current.addSeries(LineSeries, { color: d.color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+          s.setData(pts);
+          newDrawings.push({ kind: "arrow", series: s, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
         } else if (d.kind === "ray") {
           const t1 = d.p1.time; const p1 = d.p1.price; const t2 = d.p2.time; const p2 = d.p2.price;
           const slope = t2 !== t1 ? (p2 - p1) / (t2 - t1) : 0;
@@ -1467,6 +1486,7 @@ export default function ChartPage() {
       if (d.kind === "ray")              return { kind: "ray", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
       if (d.kind === "parallel_channel") return { kind: "parallel_channel", id: d.id, p1: d.p1, p2: d.p2, p3: d.p3, color: d.color } as SerializableDrawing;
       if (d.kind === "pitchfork")        return { kind: "pitchfork", id: d.id, p1: d.p1, p2: d.p2, p3: d.p3, color: d.color } as SerializableDrawing;
+      if (d.kind === "arrow")            return { kind: "arrow", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
       return null!;
     }).filter(Boolean);
   }, []);
@@ -2085,13 +2105,18 @@ export default function ChartPage() {
             )}
 
             {/* Ghost preview while drawing (2-point tools) */}
-            {drawStart && mousePos && (activeTool === "trendline" || activeTool === "ray" || activeTool === "fibonacci" || activeTool === "rectangle") && (
+            {drawStart && mousePos && (activeTool === "trendline" || activeTool === "ray" || activeTool === "fibonacci" || activeTool === "rectangle" || activeTool === "arrow") && (
               <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 22, width: "100%", height: "100%", overflow: "visible" }}>
-                <defs><filter id="glow-filter-lw"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+                <defs>
+                  <filter id="glow-filter-lw"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                  <marker id="arrowhead-ghost" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><polygon points="0 0, 7 3.5, 0 7" fill={drawColor} opacity="0.9" /></marker>
+                </defs>
                 {activeTool === "rectangle" ? (
                   <rect x={Math.min(drawStart.x, mousePos.x)} y={Math.min(drawStart.y, mousePos.y)}
                     width={Math.abs(mousePos.x - drawStart.x)} height={Math.abs(mousePos.y - drawStart.y)}
                     fill={`${drawColor}15`} stroke={drawColor} strokeWidth="1" strokeDasharray="6 3" opacity="0.7" filter="url(#glow-filter-lw)" />
+                ) : activeTool === "arrow" ? (
+                  <line x1={drawStart.x} y1={drawStart.y} x2={mousePos.x} y2={mousePos.y} stroke={drawColor} strokeWidth="2" strokeDasharray="6 3" opacity="0.85" filter="url(#glow-filter-lw)" markerEnd="url(#arrowhead-ghost)" />
                 ) : (
                   <line x1={drawStart.x} y1={drawStart.y} x2={mousePos.x} y2={mousePos.y} stroke={drawColor} strokeWidth="1.5" strokeDasharray="6 3" opacity="0.8" filter="url(#glow-filter-lw)" />
                 )}
@@ -2153,6 +2178,7 @@ export default function ChartPage() {
                   {activeTool === "hline" && "Click to place horizontal line"}
                   {activeTool === "text" && "Click on chart to place text annotation"}
                   {activeTool === "trendline" && (drawStart ? "Click 2nd point to finish" : "Click to set start point")}
+                  {activeTool === "arrow" && (drawStart ? "Click 2nd point to finish arrow" : "Click to set arrow start point")}
                   {activeTool === "ray" && (drawStart ? "Click 2nd point — ray extends forward" : "Click start point")}
                   {activeTool === "fibonacci" && (drawStart ? "Click 2nd point for Fib levels" : "Click high or low to start")}
                   {activeTool === "rectangle" && (drawStart ? "Click 2nd point to finish" : "Click first corner")}
@@ -2168,15 +2194,21 @@ export default function ChartPage() {
           {!replayMode && (
             <div className="flex items-center gap-1 px-2 py-1.5 rounded-2xl overflow-x-auto scrollbar-none"
               style={{ background: "rgba(10,12,18,0.88)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.09)", flexShrink: 0 }}>
-              {DRAW_TOOLS.map(tool => (
-                <button key={tool.id} onClick={() => setActiveTool(tool.id)} title={`${tool.label} [${tool.key}]`}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
-                  style={activeTool === tool.id
-                    ? { background: tool.id === "eraser" ? "rgba(239,68,68,0.2)" : "rgba(0,229,255,0.15)", color: tool.id === "eraser" ? "hsl(0,85%,65%)" : "hsl(190,90%,65%)", border: `1px solid ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.3)"}`, boxShadow: `0 0 12px ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.25)"}` }
-                    : { color: "hsl(220,14%,50%)", border: "1px solid transparent" }}>
-                  {tool.icon}
-                </button>
-              ))}
+              {DRAW_TOOLS.map(tool => {
+                const breakBefore: DrawTool[] = ["hline", "rectangle", "text", "eraser"];
+                return (
+                  <Fragment key={tool.id}>
+                    {breakBefore.includes(tool.id) && <div className="w-px h-5 bg-white/10 mx-0.5 flex-shrink-0" />}
+                    <button onClick={() => setActiveTool(tool.id)} title={`${tool.label} [${tool.key}]`}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
+                      style={activeTool === tool.id
+                        ? { background: tool.id === "eraser" ? "rgba(239,68,68,0.2)" : "rgba(0,229,255,0.15)", color: tool.id === "eraser" ? "hsl(0,85%,65%)" : "hsl(190,90%,65%)", border: `1px solid ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.3)"}`, boxShadow: `0 0 12px ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.25)"}` }
+                        : { color: "hsl(220,14%,50%)", border: "1px solid transparent" }}>
+                      {tool.icon}
+                    </button>
+                  </Fragment>
+                );
+              })}
               <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
               {DRAW_COLORS.map(c => (
                 <button key={c.value} onClick={() => setDrawColor(c.value)} title={c.label}
@@ -2189,8 +2221,9 @@ export default function ChartPage() {
                   <button onClick={() => {
                     drawings.forEach(d => {
                       if (d.kind === "hline" || d.kind === "text") candleSeriesRef.current?.removePriceLine(d.priceLine);
-                      if (d.kind === "trendline" || d.kind === "ray") chartRef.current?.removeSeries(d.series);
-                      if (d.kind === "rectangle" || d.kind === "parallel_channel") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); }
+                      if (d.kind === "trendline" || d.kind === "ray" || d.kind === "arrow") chartRef.current?.removeSeries(d.series);
+                      if (d.kind === "parallel_channel") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); }
+                      if (d.kind === "rectangle") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); chartRef.current?.removeSeries(d.series3); chartRef.current?.removeSeries(d.series4); }
                       if (d.kind === "fibonacci") d.priceLines.forEach(pl => candleSeriesRef.current?.removePriceLine(pl));
                       if (d.kind === "pitchfork") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); chartRef.current?.removeSeries(d.series3); }
                     });

@@ -665,4 +665,76 @@ Diagnose this trader's personality type and recommend the 2-3 strategy types tha
   }
 });
 
+router.post("/ai/analyze-trade", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait a moment." });
+    return;
+  }
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI not configured." }); return; }
+
+  const { trade, context } = req.body as {
+    trade: {
+      side: string;
+      entryDate: string;
+      exitDate: string;
+      entryPrice: number;
+      exitPrice: number;
+      pnl: number;
+      pnlPercent: number;
+    };
+    context: {
+      symbol: string;
+      strategyName: string;
+      strategyType: string;
+      winRate: number;
+      totalReturn: number;
+    };
+  };
+
+  if (!trade || !context?.symbol) {
+    res.status(400).json({ error: "trade and context.symbol are required" });
+    return;
+  }
+
+  const outcome = trade.pnl >= 0 ? "winning" : "losing";
+  const sign = trade.pnl >= 0 ? "+" : "";
+  const durationDays = Math.max(1, Math.round(
+    (new Date(trade.exitDate).getTime() - new Date(trade.entryDate).getTime()) / 86400000
+  ));
+
+  const systemPrompt = `You are an expert trading coach giving a crisp, actionable post-trade review for a retail trader. Be direct, specific, and educational. No fluff.`;
+
+  const userPrompt = `Review this individual ${outcome} trade:
+
+Strategy: ${context.strategyName} (${context.strategyType}) on ${context.symbol}
+Side: ${trade.side.toUpperCase()}
+Entry: ${trade.entryDate} @ $${Number(trade.entryPrice).toFixed(2)}
+Exit:  ${trade.exitDate}  @ $${Number(trade.exitPrice).toFixed(2)}
+P&L:   ${sign}${Number(trade.pnlPercent).toFixed(2)}% (${sign}$${Number(trade.pnl).toFixed(2)})
+Duration: ${durationDays} day${durationDays !== 1 ? "s" : ""}
+Strategy context: ${Number(context.winRate).toFixed(1)}% win rate, ${sign}${Number(context.totalReturn).toFixed(2)}% total return
+
+In 2-3 sentences explain: (1) why this trade ${trade.pnl >= 0 ? "succeeded" : "failed"}, (2) what market condition it likely encountered, and (3) one specific takeaway for the trader.`;
+
+  try {
+    const client = groqClient();
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 220,
+      temperature: 0.65,
+    });
+    const analysis = completion.choices[0]?.message?.content?.trim() ?? "Unable to generate analysis.";
+    res.json({ analysis });
+  } catch (err) {
+    logger.error(err, "ai/analyze-trade error");
+    res.status(500).json({ error: "AI analysis failed. Please try again." });
+  }
+});
+
 export default router;

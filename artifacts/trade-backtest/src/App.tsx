@@ -38,6 +38,7 @@ import StrategyDnaPage from "@/pages/strategy-dna";
 import MarketplacePage from "@/pages/marketplace";
 import MarketplaceDetailPage from "@/pages/marketplace-detail";
 import PsychMatchPage from "@/pages/psych-match";
+import AnalyticsPage from "@/pages/analytics";
 
 const ChartPage = lazy(() => import("@/pages/chart"));
 
@@ -103,6 +104,7 @@ function Router() {
       <Route path="/marketplace" component={MarketplacePage} />
       <Route path="/marketplace/:id" component={MarketplaceDetailPage} />
       <Route path="/psych-match" component={PsychMatchPage} />
+      <Route path="/analytics" component={AnalyticsPage} />
 
       <Route path="/pricing" component={PricingPage} />
       <Route path="/billing" component={BillingPage} />

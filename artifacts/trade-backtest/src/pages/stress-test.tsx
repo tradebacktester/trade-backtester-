@@ -161,6 +161,9 @@ export default function StressTestPage() {
                 className="w-full text-sm bg-muted border border-border rounded-md px-2 py-2 text-foreground"
               >
                 <option value="">Select strategy…</option>
+                {!loadingStrats && (!strategies || strategies.length === 0) && (
+                  <option disabled>No strategies yet — create one first</option>
+                )}
                 {(strategies ?? []).map((s: any) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}

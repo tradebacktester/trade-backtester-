@@ -2,13 +2,14 @@ import type { IPriceLine, ISeriesApi, Time } from "lightweight-charts";
 
 // ── Draw types ────────────────────────────────────────────────────
 
-export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser" | "doodle" | "parallel_channel" | "text" | "pitchfork";
+export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser" | "doodle" | "parallel_channel" | "text" | "pitchfork" | "arrow";
 
 export type DrawnObject =
   | { kind: "hline";            priceLine: IPriceLine; id: number; price: number; color: string }
   | { kind: "trendline";        series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
   | { kind: "fibonacci";        priceLines: IPriceLine[]; id: number; high: number; low: number; color: string }
-  | { kind: "rectangle";        series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "rectangle";        series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; series3: ISeriesApi<"Line">; series4: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
+  | { kind: "arrow";            series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
   | { kind: "ray";              series: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
   | { kind: "parallel_channel"; series: ISeriesApi<"Line">; series2: ISeriesApi<"Line">; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string }
   | { kind: "text";             priceLine: IPriceLine; id: number; price: number; time: number; text: string; color: string }
@@ -22,7 +23,8 @@ export type SerializableDrawing =
   | { kind: "ray";              id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string }
   | { kind: "parallel_channel"; id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string }
   | { kind: "text";             id: number; price: number; time: number; text: string; color: string }
-  | { kind: "pitchfork";        id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string };
+  | { kind: "pitchfork";        id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; p3: { time: number; price: number }; color: string }
+  | { kind: "arrow";            id: number; p1: { time: number; price: number }; p2: { time: number; price: number }; color: string };
 
 export type DrawStart = { x: number; y: number; price: number; time: Time };
 

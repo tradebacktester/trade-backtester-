@@ -24,13 +24,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash scripts/start.sh"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node proxy.mjs"
+waitForPort = 5000
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -45,6 +45,18 @@ timeoutMs = 20000
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 24593
+externalPort = 3000
+
 [nix]
 channel = "stable-25_05"
 
@@ -53,5 +65,6 @@ channel = "stable-25_05"
 [userenv.shared]
 ADMIN_ID = "7302782010"
 NODE_ENV = "development"
+ADMIN_PASSWORD = "adivasutrade"
 
 [userenv.development]

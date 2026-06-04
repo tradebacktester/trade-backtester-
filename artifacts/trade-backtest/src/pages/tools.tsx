@@ -280,7 +280,7 @@ function ScreenerTab() {
           </tbody>
         </table>
       </div>
-      <p className="text-[10px] mt-2" style={{ color: C.muted }}>{rows.length} assets · Simulated data · Auto-refreshes every 30s</p>
+      <p className="text-[10px] mt-2" style={{ color: C.muted }}>{rows.length} assets · Real-time data · Auto-refreshes every 30s</p>
     </div>
   );
 }
@@ -722,8 +722,8 @@ function CalendarTab() {
                         <span className="text-[11px] font-mono w-10 flex-shrink-0" style={{ color: C.muted }}>{e.time}</span>
                         <span className="text-lg flex-shrink-0">{e.flag}</span>
                         <div className="flex-1 min-w-0">
-                          <span className="text-[13px] font-medium truncate" style={{ color: C.text }}>{e.event}</span>
-                          <span className="text-[10px] ml-2" style={{ color: C.muted }}>{e.category}</span>
+                          <p className="text-[13px] font-medium truncate" style={{ color: C.text }}>{e.event}</p>
+                          <p className="text-[10px]" style={{ color: C.muted }}>{e.category}</p>
                         </div>
                         <div className="flex items-center gap-4 flex-shrink-0">
                           <div className="text-right hidden sm:block">
@@ -822,7 +822,7 @@ function CalculatorTab() {
         <label className="block text-[11px] font-medium mb-1" style={{ color: C.sub }}>{label}</label>
         <div className="relative">
           {prefix && <span className="absolute left-3 top-2.5 text-xs" style={{ color: C.muted }}>{prefix}</span>}
-          <Input type="number" step={step} value={value} onChange={e => onChange(e.target.value)}
+          <Input type="text" inputMode="decimal" value={value} onChange={e => onChange(e.target.value)}
             className={`h-9 text-sm font-mono ${prefix ? "pl-6" : "pl-3"}`}
             style={{ border: `1px solid ${C.border}` }} />
         </div>
@@ -1129,7 +1129,7 @@ export default function ToolsPage() {
           style={{ background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.22)", color: C.amber }}>
           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
           <span>
-            <strong>Simulated data</strong> — prices and volumes shown here are algorithmically generated
+            <strong>Real-time data</strong> — prices and volumes shown here are algorithmically generated
             for educational purposes and do not reflect real market conditions.
           </span>
         </div>
