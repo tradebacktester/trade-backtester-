@@ -26,7 +26,7 @@ const C = {
   sub:         "hsl(var(--muted-foreground))",
   muted:       "hsl(var(--muted-foreground))",
   border:      "hsl(var(--border))",
-  surface:     "hsl(var(--card))",
+  surface:     "var(--card-bg)",
   surfaceHov:  "var(--glass-bg)",
   positive:    "#22c55e",
   negative:    "#ef4444",
@@ -34,7 +34,7 @@ const C = {
 };
 
 const CARD: React.CSSProperties = {
-  background:  "hsl(var(--card))",
+  background:  "var(--card-bg)",
   border:      "1px solid hsl(var(--border))",
   boxShadow:   "var(--shadow-card)",
 };
@@ -97,14 +97,14 @@ function AiMarketPulse() {
     <div
       className="relative rounded-3xl overflow-hidden p-5 sm:p-6"
       style={{
-        background: "hsl(var(--card))",
+        background: "var(--card-bg)",
         border: "1px solid var(--glass-border)",
         boxShadow: "var(--shadow-card)",
       }}
     >
       {/* Ambient glow layers */}
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(0,212,255,0.07) 0%, transparent 65%)" }} />
+        style={{ background: "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(77,163,255,0.07) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
         style={{ background: "radial-gradient(ellipse 50% 60% at 85% 20%, rgba(79,70,229,0.07) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
@@ -115,9 +115,9 @@ function AiMarketPulse() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-3">
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold"
-              style={{ background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.25)", color: "var(--accent-cyan)" }}>
+              style={{ background: "rgba(77,163,255,0.1)", border: "1px solid rgba(77,163,255,0.25)", color: "#4DA3FF" }}>
               <span className="h-1.5 w-1.5 rounded-full live-pulse"
-                style={{ background: "var(--accent-cyan)", boxShadow: "0 0 6px var(--accent-cyan)" }} />
+                style={{ background: "#4DA3FF", boxShadow: "0 0 6px #4DA3FF" }} />
               AI MARKET PULSE
             </span>
             <span className="hidden sm:block text-[10px] font-mono" style={{ color: "var(--nav-dim-color)" }}>
@@ -127,7 +127,7 @@ function AiMarketPulse() {
 
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-1" style={{ color: "hsl(var(--foreground))" }}>
             Markets trending&nbsp;
-            <span style={{ color: "var(--accent-cyan)", textShadow: "0 0 20px rgba(0,212,255,0.3)" }}>bullish</span>
+            <span style={{ color: "#4DA3FF", textShadow: "0 0 20px rgba(77,163,255,0.3)" }}>bullish</span>
           </h2>
           <p className="text-xs sm:text-sm font-mono leading-relaxed mb-4"
             style={{ color: "hsl(var(--muted-foreground))" }}>
@@ -174,7 +174,7 @@ function AiMarketPulse() {
           <div className="relative" style={{ width: 128, height: 128 }}>
             {/* Glow behind gauge */}
             <div className="absolute inset-0 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%)" }} />
+              style={{ background: "radial-gradient(circle, rgba(77,163,255,0.08) 0%, transparent 70%)" }} />
 
             <svg width="128" height="128" viewBox="0 0 128 128" style={{ transform: `rotate(${rotation}deg)` }}>
               {/* Track */}
@@ -195,14 +195,14 @@ function AiMarketPulse() {
               <defs>
                 <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor="#4F46E5" />
-                  <stop offset="100%" stopColor="#00D4FF" />
+                  <stop offset="100%" stopColor="#4DA3FF" />
                 </linearGradient>
               </defs>
             </svg>
 
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold font-mono leading-none" style={{ color: "var(--accent-cyan)" }}>
+              <span className="text-2xl font-bold font-mono leading-none" style={{ color: "#4DA3FF" }}>
                 {SCORE}
               </span>
               <span className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
@@ -213,7 +213,7 @@ function AiMarketPulse() {
 
           {/* Confidence badge */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono px-3 py-1.5 rounded-full"
-            style={{ background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "var(--accent-cyan)" }}>
+            style={{ background: "rgba(77,163,255,0.08)", border: "1px solid rgba(77,163,255,0.2)", color: "#4DA3FF" }}>
             <Sparkles style={{ height: "9px", width: "9px" }} />
             82% Confidence
           </div>
@@ -417,7 +417,7 @@ function InsightCard({ item }: { item: Insight }) {
         <div className="flex items-center gap-2 mb-2.5">
           <span
             className="h-7 w-7 flex items-center justify-center rounded-xl flex-shrink-0"
-            style={{ background: "#efefef", border: "1px solid rgba(0,0,0,0.08)" }}
+            style={{ background: "rgba(128,128,128,0.10)", border: "1px solid rgba(0,0,0,0.08)" }}
           >
             <Icon className="h-3.5 w-3.5" style={{ color: "#555" }} />
           </span>
@@ -761,15 +761,15 @@ export default function Dashboard() {
 
       {/* AI Chat Panel */}
       <div className="rounded-2xl overflow-hidden"
-        style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+        style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
         <div
           className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
           style={{ borderBottom: chatOpen ? "1px solid var(--glass-border)" : "none" }}
           onClick={() => setChatOpen(v => !v)}
         >
           <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)" }}>
-            <Bot className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+            style={{ background: "rgba(77,163,255,0.12)", border: "1px solid rgba(77,163,255,0.25)" }}>
+            <Bot className="h-4 w-4" style={{ color: "#4DA3FF" }} />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold leading-none mb-0.5" style={{ color: C.text }}>Trading AI</p>
@@ -815,7 +815,7 @@ export default function Dashboard() {
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className="max-w-[80%] px-3 py-2 rounded-2xl text-xs font-mono leading-relaxed whitespace-pre-wrap"
                     style={m.role === "user"
-                      ? { background: "var(--accent-cyan)", color: "#050505", borderBottomRightRadius: 4, fontWeight: 600 }
+                      ? { background: "#4DA3FF", color: "#050505", borderBottomRightRadius: 4, fontWeight: 600 }
                       : { background: "var(--glass-bg)", color: C.text, border: "1px solid var(--glass-border)", borderBottomLeftRadius: 4 }}
                   >{m.content}</div>
                 </div>
@@ -824,7 +824,7 @@ export default function Dashboard() {
                 <div className="flex justify-start">
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono"
                     style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.muted }}>
-                    <span className="h-1 w-1 rounded-full live-pulse" style={{ background: "var(--accent-cyan)" }} />
+                    <span className="h-1 w-1 rounded-full live-pulse" style={{ background: "#4DA3FF" }} />
                     Thinking…
                   </div>
                 </div>
@@ -844,7 +844,7 @@ export default function Dashboard() {
                 />
                 <button onClick={() => void sendMessage()} disabled={!chatInput.trim() || isChatLoading}
                   className="h-6 w-6 rounded-lg flex items-center justify-center disabled:opacity-30"
-                  style={{ background: "var(--accent-cyan)", color: "#050505" }}
+                  style={{ background: "#4DA3FF", color: "#050505" }}
                 ><Send className="h-3 w-3" /></button>
               </div>
             </div>

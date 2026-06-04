@@ -58,7 +58,7 @@ export default function BillingPage() {
         <CreditCard className="h-10 w-10" style={{ color: "hsl(var(--muted-foreground))" }} />
         <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Sign in to manage your billing</p>
         <button onClick={() => navigate("/dashboard")} className="text-sm px-4 py-2 rounded-xl"
-          style={{ background: "var(--accent-cyan)", color: "#050505" }}>Go to Dashboard</button>
+          style={{ background: "#4DA3FF", color: "#050505" }}>Go to Dashboard</button>
       </div>
     );
   }
@@ -67,8 +67,8 @@ export default function BillingPage() {
     <div className="max-w-2xl mx-auto px-4 py-10">
       <div className="flex items-center gap-3 mb-8">
         <span className="h-9 w-9 rounded-xl flex items-center justify-center"
-          style={{ background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.2)" }}>
-          <CreditCard style={{ height: "16px", width: "16px", color: "var(--accent-cyan)" }} />
+          style={{ background: "rgba(77,163,255,0.1)", border: "1px solid rgba(77,163,255,0.2)" }}>
+          <CreditCard style={{ height: "16px", width: "16px", color: "#4DA3FF" }} />
         </span>
         <div>
           <h1 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>Billing & Subscription</h1>
@@ -77,7 +77,7 @@ export default function BillingPage() {
       </div>
 
       {/* Current plan */}
-      <div className="rounded-2xl p-5 mb-5" style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)" }}>
+      <div className="rounded-2xl p-5 mb-5" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
         <p className="text-xs font-medium mb-3 tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>CURRENT PLAN</p>
         {subLoading ? (
           <div className="flex items-center gap-2 py-2"><Loader2 className="h-4 w-4 animate-spin" style={{ color: "hsl(var(--muted-foreground))" }} /></div>
@@ -127,7 +127,7 @@ export default function BillingPage() {
 
       {/* Plan features */}
       {plan && (
-        <div className="rounded-2xl p-5 mb-5" style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)" }}>
+        <div className="rounded-2xl p-5 mb-5" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
           <p className="text-xs font-medium mb-3 tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>YOUR FEATURES</p>
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -152,7 +152,7 @@ export default function BillingPage() {
       )}
 
       {/* Payment history */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)" }}>
+      <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
         <div className="px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
           <p className="text-xs font-medium tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>PAYMENT HISTORY</p>
         </div>

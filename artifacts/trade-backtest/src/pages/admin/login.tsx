@@ -41,7 +41,7 @@ export default function AdminLogin() {
     <div className="flex items-center justify-center min-h-[70vh]">
       <div
         className="w-full max-w-sm rounded-2xl"
-        style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}
+        style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}
       >
         <div className="px-8 pt-8 pb-6 flex flex-col items-center" style={{ borderBottom: "1px solid var(--glass-border)" }}>
           <span className="h-12 w-12 rounded-2xl flex items-center justify-center mb-3" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
@@ -103,7 +103,7 @@ export default function AdminLogin() {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-            style={{ background: "var(--accent-cyan)", color: "#050505", opacity: loading ? 0.6 : 1 }}
+            style={{ background: "#4DA3FF", color: "#050505", opacity: loading ? 0.6 : 1 }}
           >
             {loading ? "Verifying…" : "Login as Admin"}
           </button>

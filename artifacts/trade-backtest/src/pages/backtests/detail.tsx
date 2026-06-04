@@ -1495,7 +1495,7 @@ export default function BacktestDetail() {
                           tickFormatter={(v) => `${v.toFixed(0)}%`}
                         />
                         <RechartsTooltip
-                          contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                          contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                           labelFormatter={(v) => format(new Date(v), "MMM d, yyyy")}
                           formatter={(value: number, name: string) => {
                             if (name === "Strategy" || name === "value") return [fmtUSD(value), "Equity"];
@@ -1724,7 +1724,7 @@ export default function BacktestDetail() {
                             <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${v.toFixed(1)}%`} />
                             <ReferenceLine yAxisId={undefined} y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
                             <RechartsTooltip
-                              contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                              contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                               formatter={(value: number, name: string) => [`${value.toFixed(2)}%`, "Return"]}
                             />
                             <Bar dataKey="pct" radius={[3, 3, 0, 0]}>
@@ -1763,7 +1763,7 @@ export default function BacktestDetail() {
                             <XAxis dataKey="range" fontSize={10} stroke="hsl(var(--muted-foreground))" />
                             <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
                             <RechartsTooltip
-                              contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                              contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                               formatter={(v: number) => [v, "Trades"]}
                             />
                             <Bar dataKey="count" radius={[3, 3, 0, 0]}>
@@ -2476,7 +2476,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
                   <XAxis dataKey="date" fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={(d) => d.slice(2, 7)} tick={{ dy: 4 }} />
                   <YAxis fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} width={52} />
                   <RechartsTooltip
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                    contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                     formatter={(v: number) => [`$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, "Equity"]}
                   />
                   <Area
@@ -2509,7 +2509,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
                 <YAxis yAxisId="left" tickFormatter={(v) => `${v}%`} fontSize={11} stroke="hsl(var(--muted-foreground))" />
                 <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} fontSize={11} stroke="hsl(var(--muted-foreground))" />
                 <RechartsTooltip
-                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                  contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                   formatter={(v: number, name: string) => [`${v.toFixed(1)}%`, name === "winRate" ? "Win Rate" : "Avg Ann. Return"]}
                 />
                 <Bar yAxisId="left" dataKey="winRate" name="winRate" radius={[3, 3, 0, 0]} maxBarSize={40}>
@@ -2775,7 +2775,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
                   <YAxis tickFormatter={(v) => `$${v >= 0 ? "+" : ""}${v.toFixed(0)}`} fontSize={11} stroke="hsl(var(--muted-foreground))" />
                   <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
                   <RechartsTooltip
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                    contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                     formatter={(v: number, name: string) => [`$${v >= 0 ? "+" : ""}${v.toFixed(2)}`, name === "expected" ? "Expected P&L" : "Live P&L"]}
                   />
                   <Line type="monotone" dataKey="expected" stroke="#6366f1" strokeWidth={2} dot={false} name="expected" />

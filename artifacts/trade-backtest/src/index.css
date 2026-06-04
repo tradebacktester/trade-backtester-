@@ -110,6 +110,9 @@
   --app-font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
   --radius: 0.875rem;
 
+  /* Card glass surface — used by ALL card inline styles */
+  --card-bg: rgba(255,255,255,0.80);
+
   /* Light glass tokens — frosted soft white glass */
   --glass-bg:            rgba(255,255,255,0.75);
   --glass-bg-strong:     rgba(255,255,255,0.96);
@@ -222,6 +225,9 @@
   --chart-3: 38 90% 58%;
   --chart-4: 260 70% 68%;
   --chart-5: 0 80% 60%;
+
+  /* Card glass surface — used by ALL card inline styles */
+  --card-bg: rgba(20,24,38,0.80);
 
   /* Dark glass tokens — deep navy blue premium */
   --glass-bg:            rgba(20,24,38,0.60);
@@ -497,13 +503,13 @@ body {
 .dock-item:active { transform: scale(0.9); }
 
 .dock-item-active {
-  background: var(--dock-active-bg, rgba(0,212,255,0.12));
-  border-color: var(--dock-active-border, rgba(0,212,255,0.3));
-  box-shadow: var(--dock-active-glow, 0 0 12px rgba(0,212,255,0.4));
+  background: var(--dock-active-bg, rgba(77,163,255,0.12));
+  border-color: var(--dock-active-border, rgba(77,163,255,0.30));
+  box-shadow: var(--dock-active-glow, 0 0 12px rgba(77,163,255,0.40));
 }
 
-/* Light dock overrides — frosted white glass */
-:root .tt-float-dock {
+/* Light dock — frosted white glass (only when dark class is absent) */
+:root:not(.dark) .tt-float-dock {
   background: rgba(255,255,255,0.88);
   border-color: rgba(0,0,0,0.06);
   box-shadow: 0 0 0 0.5px rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.10);
@@ -512,17 +518,25 @@ body {
   --dock-active-glow: none;
 }
 
+/* Dark dock — deep navy glass */
+.dark .tt-float-dock {
+  background: rgba(5,8,22,0.94);
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 0.5px rgba(255,255,255,0.05), 0 8px 40px rgba(0,0,0,0.85);
+}
+
 /* ════════════════════════════════════════════════════════════════════
    GLOBAL GLASS CARD SURFACE
-   Applies backdrop-blur + glass bg to all Shadcn Card elements
+   Applies backdrop-blur + glass bg to all Shadcn Card elements (bg-card class)
+   Inline-style cards use var(--card-bg) directly and get translucency.
    ════════════════════════════════════════════════════════════════════ */
 .bg-card {
-  background: rgba(255,255,255,0.80) !important;
+  background: var(--card-bg) !important;
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 .dark .bg-card {
-  background: rgba(20,24,38,0.80) !important;
+  background: var(--card-bg) !important;
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
@@ -592,10 +606,14 @@ input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
   100% { background-position:  800px 0; }
 }
 .skeleton-shimmer {
-  background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--accent)) 50%, hsl(var(--muted)) 100%);
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 100%);
   background-size: 800px 100%;
   animation: shimmer 1.8s infinite linear;
   border-radius: 0.5rem;
+}
+:root:not(.dark) .skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.09) 50%, rgba(0,0,0,0.04) 100%);
+  background-size: 800px 100%;
 }
 
 @keyframes tt-slide-up {
@@ -691,7 +709,7 @@ html, body, #root { overflow-x: hidden; max-width: 100vw; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
 /* Accent text */
-.text-accent-cyan   { color: var(--accent-cyan); }
+.text-accent-cyan   { color: #4DA3FF; }
 .text-accent-indigo { color: var(--accent-indigo); }
 
 .profit { color: #22c55e; font-family: var(--app-font-mono); }

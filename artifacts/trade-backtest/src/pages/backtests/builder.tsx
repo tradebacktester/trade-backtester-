@@ -387,7 +387,7 @@ export default function BacktestBuilder() {
                   style={{
                     background: isSelected
                       ? `linear-gradient(135deg, ${d.gradientFrom}18, ${d.gradientTo}10)`
-                      : "hsl(var(--card))",
+                      : "var(--card-bg)",
                     borderColor: isSelected ? d.color : "hsl(var(--border))",
                     boxShadow: isSelected ? `0 0 0 1px ${d.color}40, 0 4px 24px ${d.color}20` : undefined,
                   }}
@@ -466,7 +466,7 @@ export default function BacktestBuilder() {
                         ? `${d.color}15`
                         : highlightedPalette === d.type
                         ? `${d.color}20`
-                        : "hsl(var(--card))",
+                        : "var(--card-bg)",
                       borderColor: selectedType === d.type ? d.color : "hsl(var(--border))",
                     }}
                   >

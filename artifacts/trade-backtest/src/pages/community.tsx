@@ -104,7 +104,7 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.35)" }} onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}
-          style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+          style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--glass-border)" }}>
           <div className="flex items-center gap-2">
             <Flag style={{ height: 15, width: 15, color: "#f87171" }} />
@@ -147,7 +147,7 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
                   <button key={r} onClick={() => setReason(r)}
                     className="text-left px-3 py-2 rounded-xl text-[13px] transition-all"
                     style={reason === r
-                      ? { background: "var(--accent-cyan)", color: "#050505" }
+                      ? { background: "#4DA3FF", color: "#050505" }
                       : { background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)" }}>
                     {r}
                   </button>
@@ -184,7 +184,7 @@ function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
 
   return (
     <article className="rounded-2xl overflow-hidden"
-      style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+      style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
 
       {/* Header */}
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
@@ -336,7 +336,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
 
   return (
     <div className="rounded-2xl overflow-hidden"
-      style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+      style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
 
       <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--glass-border)" }}>
         <div className="flex items-center gap-3">
@@ -400,7 +400,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
         <button onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
           style={imagePreview
-            ? { background: "rgba(0,212,255,0.1)", color: "var(--accent-cyan)" }
+            ? { background: "rgba(77,163,255,0.1)", color: "#4DA3FF" }
             : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
           <Upload style={{ height: 12, width: 12 }} />
           {imagePreview ? "Change" : "Gallery"}
@@ -420,7 +420,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
           onClick={submit}
           disabled={sending || overLimit || !content.trim()}
           className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-40"
-          style={{ background: "var(--accent-cyan)", color: "#050505" }}>
+          style={{ background: "#4DA3FF", color: "#050505" }}>
           <Send style={{ height: 12, width: 12 }} />
           {sending ? "Posting…" : "Post"}
         </button>
@@ -476,7 +476,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
 
   return (
     <div className="rounded-2xl overflow-hidden"
-      style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+      style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
 
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--glass-border)" }}>
         <div className="flex items-center gap-2">
@@ -499,7 +499,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
           <button key={f} onClick={() => setFilter(f)}
             className="px-3 py-1 rounded-lg text-[11px] font-medium capitalize transition-all"
             style={filter === f
-              ? { background: "var(--accent-cyan)", color: "#050505" }
+              ? { background: "#4DA3FF", color: "#050505" }
               : { color: "hsl(var(--muted-foreground))" }}>
             {f}
           </button>
@@ -639,7 +639,7 @@ export default function CommunityPage() {
       <div className="flex flex-col sm:flex-row sm:items-end gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <MessageSquare style={{ height: 20, width: 20, color: "var(--accent-cyan)" }} />
+            <MessageSquare style={{ height: 20, width: 20, color: "#4DA3FF" }} />
             <h1 className="text-[22px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>Community</h1>
           </div>
           <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>Share trading ideas, insights, and quotes with fellow traders.</p>
@@ -672,7 +672,7 @@ export default function CommunityPage() {
             <button onClick={() => setShowAdminPanel(v => !v)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium transition-all"
               style={showAdminPanel
-                ? { background: "var(--accent-cyan)", color: "#050505", border: "1px solid rgba(0,212,255,0.4)" }
+                ? { background: "#4DA3FF", color: "#050505", border: "1px solid rgba(77,163,255,0.4)" }
                 : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
               <Shield style={{ height: 13, width: 13 }} />
               Admin
@@ -701,7 +701,7 @@ export default function CommunityPage() {
             <div className="flex flex-col gap-3">
               {[1, 2, 3].map(i => (
                 <div key={i} className="rounded-2xl p-4 animate-pulse"
-                  style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)" }}>
+                  style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-9 w-9 rounded-full" style={{ background: "var(--glass-border)" }} />
                     <div className="flex-1">
@@ -719,7 +719,7 @@ export default function CommunityPage() {
             </div>
           ) : error ? (
             <div className="rounded-2xl p-8 text-center"
-              style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)" }}>
+              style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
               <AlertTriangle style={{ height: 28, width: 28, color: "#f59e0b", margin: "0 auto 12px" }} />
               <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>{error}</p>
               <button onClick={fetchPosts} className="mt-3 px-4 py-2 rounded-xl text-[12px] font-medium"
@@ -727,7 +727,7 @@ export default function CommunityPage() {
             </div>
           ) : posts.length === 0 ? (
             <div className="rounded-2xl p-12 text-center"
-              style={{ border: "1px dashed var(--glass-border)", background: "hsl(var(--card))" }}>
+              style={{ border: "1px dashed var(--glass-border)", background: "var(--card-bg)" }}>
               <MessageSquare style={{ height: 36, width: 36, color: "hsl(var(--muted-foreground))", margin: "0 auto 12px" }} />
               <p className="text-[15px] font-medium mb-1" style={{ color: "hsl(var(--foreground))" }}>No posts yet</p>
               <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>Be the first to share a trading idea!</p>
@@ -750,7 +750,7 @@ export default function CommunityPage() {
         {/* Right: Sidebar */}
         <div className="flex flex-col gap-4">
           {/* Guidelines */}
-          <div className="rounded-2xl p-4" style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
             <p className="text-[12px] font-semibold uppercase tracking-wider mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Community Guidelines</p>
             <ul className="flex flex-col gap-2">
               {[
@@ -763,7 +763,7 @@ export default function CommunityPage() {
               ].map((g, i) => (
                 <li key={i} className="flex items-start gap-2 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
                   <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
-                    style={{ background: "var(--accent-cyan-dim)", color: "var(--accent-cyan)", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
+                    style={{ background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
                   {g}
                 </li>
               ))}
@@ -772,7 +772,7 @@ export default function CommunityPage() {
 
           {/* Top contributors */}
           {posts.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
               <p className="text-[12px] font-semibold uppercase tracking-wider mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Top Contributors</p>
               <div className="flex flex-col gap-2">
                 {(() => {
@@ -798,12 +798,12 @@ export default function CommunityPage() {
           )}
 
           {/* Trending topics / tags placeholder */}
-          <div className="rounded-2xl p-4" style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
             <p className="text-[12px] font-semibold uppercase tracking-wider mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
             <div className="flex flex-wrap gap-1.5">
               {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#Risk Management", "#Crypto"].map(tag => (
                 <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors"
-                  style={{ background: "var(--accent-cyan-dim)", color: "var(--accent-cyan)", border: "1px solid var(--accent-cyan-border)" }}>
+                  style={{ background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }}>
                   {tag}
                 </span>
               ))}

@@ -44,7 +44,7 @@ const PLANS_META: Record<string, {
     accentBg: "var(--glass-bg)",
     accentBorder: "var(--glass-border)",
     gradient: "linear-gradient(135deg, hsl(var(--muted-foreground)) 0%, #444 100%)",
-    cardBg: "hsl(var(--card))",
+    cardBg: "var(--card-bg)",
     cardBorder: "var(--glass-border)",
     shadow: "none",
   },
@@ -54,7 +54,7 @@ const PLANS_META: Record<string, {
     accentBg: "rgba(139,92,246,0.1)",
     accentBorder: "rgba(139,92,246,0.28)",
     gradient: "linear-gradient(135deg, hsl(265,89%,60%) 0%, hsl(285,89%,58%) 100%)",
-    cardBg: "hsl(var(--card))",
+    cardBg: "var(--card-bg)",
     cardBorder: "rgba(139,92,246,0.3)",
     shadow: "0 0 0 1px rgba(139,92,246,0.28), 0 12px 40px rgba(139,92,246,0.2)",
     badge: "Most Popular",
@@ -65,7 +65,7 @@ const PLANS_META: Record<string, {
     accentBg: "rgba(245,158,11,0.1)",
     accentBorder: "rgba(245,158,11,0.3)",
     gradient: "linear-gradient(135deg, hsl(38,100%,50%) 0%, hsl(20,100%,52%) 100%)",
-    cardBg: "hsl(var(--card))",
+    cardBg: "var(--card-bg)",
     cardBorder: "rgba(245,158,11,0.3)",
     shadow: "0 0 0 1px rgba(245,158,11,0.25), 0 12px 40px rgba(245,158,11,0.18)",
   },
@@ -316,7 +316,7 @@ export default function PricingPage() {
               key={plan.id}
               className="relative flex flex-col rounded-2xl p-6"
               style={{
-                background: meta?.cardBg ?? "hsl(var(--card))",
+                background: meta?.cardBg ?? "var(--card-bg)",
                 border: `1px solid ${meta?.cardBorder ?? "var(--glass-border)"}`,
                 boxShadow: meta?.shadow ?? "none",
               }}
@@ -432,7 +432,7 @@ export default function PricingPage() {
       <div className="overflow-x-auto -mx-1 px-1">
       <div
         className="rounded-2xl overflow-hidden min-w-[480px]"
-        style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}
+        style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}
       >
         {/* Table header */}
         <div

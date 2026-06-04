@@ -112,7 +112,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
               onClick={() => { setTab(t); setError(""); setPassword(""); }}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150"
               style={tab === t ? {
-                background: "hsl(var(--card))",
+                background: "var(--card-bg)",
                 color: "hsl(var(--foreground))",
                 boxShadow: "var(--shadow-xs)",
               } : { color: "hsl(var(--muted-foreground))" }}

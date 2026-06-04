@@ -353,7 +353,7 @@ export default function StressTestPage() {
                       <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} fontSize={11} stroke="hsl(var(--muted-foreground))" />
                       <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
                       <RechartsTooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                        contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                         formatter={(v: number) => [`${v.toFixed(2)}%`, "Return"]}
                       />
                       <Bar dataKey="value" radius={[3, 3, 0, 0]}>
@@ -385,12 +385,12 @@ export default function StressTestPage() {
                       <ZAxis type="number" dataKey="z" range={[40, 400]} />
                       <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
                       <RechartsTooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
+                        contentStyle={{ backgroundColor: "var(--card-bg)", borderColor: "hsl(var(--border))", borderRadius: "0.5rem" }}
                         content={({ active, payload }) => {
                           if (!active || !payload?.length) return null;
                           const d = payload[0]?.payload;
                           return (
-                            <div className="p-2 text-xs" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}>
+                            <div className="p-2 text-xs" style={{ background: "var(--card-bg)", border: "1px solid hsl(var(--border))", borderRadius: 8 }}>
                               <p className="font-bold mb-1">{d?.name}</p>
                               <p>Return: <span className={d?.positive ? "text-green-400" : "text-red-400"}>{fmtPct(d?.y ?? 0)}</span></p>
                               <p>Max DD: <span className="text-red-400">-{fmtNum(d?.x ?? 0)}%</span></p>

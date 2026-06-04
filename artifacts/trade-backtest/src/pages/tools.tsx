@@ -18,14 +18,14 @@ const C = {
   sub:     "hsl(var(--muted-foreground))",
   muted:   "hsl(var(--muted-foreground))",
   border:  "var(--glass-border)",
-  surface: "hsl(var(--card))",
+  surface: "var(--card-bg)",
   pos:     "#4ade80",
   neg:     "#f87171",
   amber:   "#fbbf24",
-  blue:    "var(--accent-cyan)",
+  blue:    "#4DA3FF",
 };
 const CARD: React.CSSProperties = {
-  background: "hsl(var(--card))",
+  background: "var(--card-bg)",
   border: "1px solid var(--glass-border)",
   borderRadius: "14px",
   boxShadow: "var(--shadow-card)",
@@ -172,26 +172,26 @@ function ScreenerTab() {
             className="pl-7 h-8 text-xs" style={{ border: `1px solid ${C.border}` }} />
         </div>
         <select value={filterRsi} onChange={e => setFilterRsi(e.target.value)}
-          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "hsl(var(--card))", color: C.sub }}>
+          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "var(--card-bg)", color: C.sub }}>
           <option value="all">RSI: All</option>
           <option value="overbought">Overbought (≥70)</option>
           <option value="oversold">Oversold (≤30)</option>
         </select>
         <select value={filterMacd} onChange={e => setFilterMacd(e.target.value)}
-          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "hsl(var(--card))", color: C.sub }}>
+          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "var(--card-bg)", color: C.sub }}>
           <option value="all">MACD: All</option>
           <option value="bullish">Bullish</option>
           <option value="bearish">Bearish</option>
           <option value="neutral">Neutral</option>
         </select>
         <select value={filterTrend} onChange={e => setFilterTrend(e.target.value)}
-          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "hsl(var(--card))", color: C.sub }}>
+          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "var(--card-bg)", color: C.sub }}>
           <option value="all">Trend: All</option>
           <option value="bullish">Bullish</option>
           <option value="bearish">Bearish</option>
         </select>
         <select value={filterAssetType} onChange={e => setFilterAssetType(e.target.value)}
-          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "hsl(var(--card))", color: C.sub }}>
+          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "var(--card-bg)", color: C.sub }}>
           <option value="all">Type: All</option>
           <option value="crypto">Crypto</option>
           <option value="forex">Forex</option>
@@ -342,7 +342,7 @@ function HeatMapTab() {
           {periods.map(p => (
             <button key={p.key} onClick={() => setPeriod(p.key)}
               className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={period === p.key ? { background: "hsl(var(--card))", color: C.text, boxShadow: "var(--shadow-tab-active)" } : { color: C.muted }}>
+              style={period === p.key ? { background: "var(--card-bg)", color: C.text, boxShadow: "var(--shadow-tab-active)" } : { color: C.muted }}>
               {p.label}
             </button>
           ))}
@@ -440,7 +440,7 @@ function DepthTab() {
     <div>
       <div className="flex items-center gap-3 mb-5">
         <select value={symbol} onChange={e => setSymbol(e.target.value)}
-          className="h-9 text-sm px-3 rounded-xl font-medium" style={{ border: `1px solid ${C.border}`, background: "hsl(var(--card))", color: C.text }}>
+          className="h-9 text-sm px-3 rounded-xl font-medium" style={{ border: `1px solid ${C.border}`, background: "var(--card-bg)", color: C.text }}>
           {DEPTH_SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         {data && (
@@ -472,7 +472,7 @@ function DepthTab() {
               <YAxis tick={{ fontSize: 10, fill: C.muted }} tickLine={false} axisLine={false}
                 tickFormatter={v => v.toFixed(2)} domain={[0, maxTotal * 1.1]} />
               <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}
+                contentStyle={{ background: "var(--card-bg)", border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }}
                 formatter={(value: number, name: string) => [`${value.toFixed(4)}`, name === "bid" ? "Bid Depth" : "Ask Depth"]}
                 labelFormatter={v => `$${fmtPrice(Number(v))}`}
               />
@@ -526,7 +526,7 @@ function DepthTab() {
 type CorrData = { assets: { symbol: string; ticker: string; name: string }[]; matrix: number[][]; timeframe: string };
 
 function corrColor(v: number) {
-  if (v === 1) return { bg: "rgba(0,212,255,0.18)", text: C.blue };
+  if (v === 1) return { bg: "rgba(77,163,255,0.18)", text: C.blue };
   if (v > 0.7)  return { bg: "rgba(74,222,128,0.18)", text: C.pos };
   if (v > 0.3)  return { bg: "rgba(74,222,128,0.08)", text: C.pos };
   if (v > -0.3) return { bg: "var(--glass-bg)", text: C.sub };
@@ -549,7 +549,7 @@ function CorrelationTab() {
         {["7d","30d","90d"].map(t => (
           <button key={t} onClick={() => setTf(t)}
             className="px-3 py-1 rounded-lg text-xs font-medium transition-colors"
-            style={tf === t ? { background: "var(--accent-cyan)", color: "#050505" } : { background: C.surface, color: C.sub, border: `1px solid ${C.border}` }}>
+            style={tf === t ? { background: "#4DA3FF", color: "#050505" } : { background: C.surface, color: C.sub, border: `1px solid ${C.border}` }}>
             {t.toUpperCase()}
           </button>
         ))}
@@ -673,14 +673,14 @@ function CalendarTab() {
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
         <select value={filterImpact} onChange={e => setFilterImpact(e.target.value)}
-          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "hsl(var(--card))", color: C.sub }}>
+          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "var(--card-bg)", color: C.sub }}>
           <option value="all">All Impact</option>
           <option value="high">🔴 High</option>
           <option value="medium">🟡 Medium</option>
           <option value="low">🟢 Low</option>
         </select>
         <select value={filterCurrency} onChange={e => setFilterCurrency(e.target.value)}
-          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "hsl(var(--card))", color: C.sub }}>
+          className="h-8 text-xs px-2.5 rounded-lg" style={{ border: `1px solid ${C.border}`, background: "var(--card-bg)", color: C.sub }}>
           <option value="all">All Currencies</option>
           {currencies.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -855,11 +855,11 @@ function CalculatorTab() {
           <label className="block text-[11px] font-medium mb-1" style={{ color: C.sub }}>Direction</label>
           <div className="flex rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
             <button onClick={() => setSide("long")} className="flex-1 py-2 text-sm font-semibold transition-colors"
-              style={{ background: side === "long" ? "rgba(22,163,74,0.12)" : "hsl(var(--card))", color: side === "long" ? C.pos : C.muted, border: `1px solid ${C.border}` }}>
+              style={{ background: side === "long" ? "rgba(22,163,74,0.12)" : "var(--card-bg)", color: side === "long" ? C.pos : C.muted, border: `1px solid ${C.border}` }}>
               Long ↑
             </button>
             <button onClick={() => setSide("short")} className="flex-1 py-2 text-sm font-semibold transition-colors"
-              style={{ background: side === "short" ? "rgba(220,38,38,0.12)" : "hsl(var(--card))", color: side === "short" ? C.neg : C.muted, border: `1px solid ${C.border}` }}>
+              style={{ background: side === "short" ? "rgba(220,38,38,0.12)" : "var(--card-bg)", color: side === "short" ? C.neg : C.muted, border: `1px solid ${C.border}` }}>
               Short ↓
             </button>
           </div>
@@ -1107,7 +1107,7 @@ export default function ToolsPage() {
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap"
                 style={active ? {
-                  background: "hsl(var(--card))",
+                  background: "var(--card-bg)",
                   color: C.text,
                   boxShadow: "var(--shadow-tab-active)",
                   border: `1px solid ${C.border}`,

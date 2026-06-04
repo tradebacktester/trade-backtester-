@@ -312,7 +312,7 @@ export default function AdminPanel() {
   );
 
   return (
-    <div style={{ background: "hsl(var(--card))", borderRadius: "16px", padding: "4px 0 8px" }}>
+    <div style={{ background: "var(--card-bg)", borderRadius: "16px", padding: "4px 0 8px" }}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <span className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "var(--glass-bg)" }}>
@@ -336,7 +336,7 @@ export default function AdminPanel() {
           <button key={key} onClick={() => { setVisitedTabs(prev => new Set([...prev, key])); setTab(key); }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
             style={tab === key
-              ? { background: "var(--accent-cyan)", color: "#050505" }
+              ? { background: "#4DA3FF", color: "#050505" }
               : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
             <Icon style={{ height: "13px", width: "13px" }} />
             {label}
@@ -352,7 +352,7 @@ export default function AdminPanel() {
 
       {/* ── Users ── */}
       {visitedTabs.has("users") && (
-        <div className={tab !== "users" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+        <div className={tab !== "users" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
             <div className="flex items-center gap-2">
               <Users style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
@@ -428,7 +428,7 @@ export default function AdminPanel() {
           {policiesLoading ? (
             <div className="flex items-center justify-center py-12 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Loading policies…</div>
           ) : policies.map(policy => (
-            <div key={policy.slug} className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+            <div key={policy.slug} className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
               <button onClick={() => setExpandedPolicy(v => v === policy.slug ? null : policy.slug)}
                 className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-3">
@@ -461,7 +461,7 @@ export default function AdminPanel() {
                     )}
                     <button onClick={() => savePolicy(policy.slug, policy.title)} disabled={savingSlug === policy.slug}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
-                      style={{ background: "var(--accent-cyan)", color: "#050505", opacity: savingSlug === policy.slug ? 0.6 : 1 }}>
+                      style={{ background: "#4DA3FF", color: "#050505", opacity: savingSlug === policy.slug ? 0.6 : 1 }}>
                       <Save style={{ height: "11px", width: "11px" }} />
                       {savingSlug === policy.slug ? "Saving…" : "Save Changes"}
                     </button>
@@ -487,7 +487,7 @@ export default function AdminPanel() {
             </div>
             <button onClick={() => { setShowNewPlan(v => !v); setEditingPlanId(null); setEditDraft(null); }}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all"
-              style={showNewPlan ? { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" } : { background: "var(--accent-cyan)", color: "#050505" }}>
+              style={showNewPlan ? { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" } : { background: "#4DA3FF", color: "#050505" }}>
               {showNewPlan ? <><X style={{ height: "12px", width: "12px" }} />Cancel</> : <><Plus style={{ height: "12px", width: "12px" }} />New Plan</>}
             </button>
           </div>
@@ -513,7 +513,7 @@ export default function AdminPanel() {
                     <input type={type} value={val}
                       onChange={e => setNewPlan(p => ({ ...p, [field]: type === "number" ? parseInt(e.target.value) || 0 : e.target.value }))}
                       className="text-xs px-3 py-2 rounded-xl outline-none transition-colors"
-                      style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))", color: "hsl(var(--foreground))" }}
+                      style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)", color: "hsl(var(--foreground))" }}
                     />
                   </div>
                 ))}
@@ -548,7 +548,7 @@ export default function AdminPanel() {
 
             return (
               <div key={plan.id} className="rounded-2xl overflow-hidden"
-                style={{ border: `1px solid ${isEditing ? accent.border : "rgba(0,0,0,0.09)"}`, background: "hsl(var(--card))" }}>
+                style={{ border: `1px solid ${isEditing ? accent.border : "rgba(0,0,0,0.09)"}`, background: "var(--card-bg)" }}>
 
                 {/* Card header */}
                 <div className="flex items-center justify-between px-5 py-4"
@@ -695,7 +695,7 @@ export default function AdminPanel() {
                               <input type="number" value={(val as number) ?? 0}
                                 onChange={e => setEditDraft(d => d ? { ...d, features: { ...d.features, [key]: parseInt(e.target.value) || 0 } } : d)}
                                 className="text-[11px] px-2 py-1 rounded-lg w-16 text-right outline-none font-semibold"
-                                style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))", color: "hsl(var(--foreground))" }}
+                                style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)", color: "hsl(var(--foreground))" }}
                               />
                             )}
                           </div>
@@ -712,7 +712,7 @@ export default function AdminPanel() {
                         style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>Cancel</button>
                       <button onClick={savePlanEdit} disabled={savingPlan === editDraft.id}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
-                        style={{ background: "var(--accent-cyan)", color: "#050505", opacity: savingPlan === editDraft.id ? 0.6 : 1 }}>
+                        style={{ background: "#4DA3FF", color: "#050505", opacity: savingPlan === editDraft.id ? 0.6 : 1 }}>
                         <Save style={{ height: "11px", width: "11px" }} />
                         {savingPlan === editDraft.id ? "Saving…" : "Save Changes"}
                       </button>
@@ -739,7 +739,7 @@ export default function AdminPanel() {
               { label: "Admin Grants", value: adminGrantedSubs, icon: <Gift style={{ height: "13px", width: "13px" }} />, color: "hsl(265,89%,60%)", bg: "rgba(139,92,246,0.08)" },
             ].map(s => (
               <div key={s.label} className="rounded-2xl px-4 py-3 flex items-center gap-3"
-                style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+                style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
                 <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: s.bg, color: s.color }}>{s.icon}</span>
                 <div>
@@ -772,7 +772,7 @@ export default function AdminPanel() {
                 <input type="number" placeholder="e.g. 4" value={grantUserId}
                   onChange={e => setGrantUserId(e.target.value)}
                   className="text-xs px-3 py-2 rounded-xl outline-none"
-                  style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}
+                  style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -781,7 +781,7 @@ export default function AdminPanel() {
                 </label>
                 <select value={grantPlanId} onChange={e => setGrantPlanId(e.target.value)}
                   className="text-xs px-3 py-2 rounded-xl outline-none"
-                  style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+                  style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
                   <option value="">Select plan</option>
                   {plans.filter(p => !p.isDefault).map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -795,7 +795,7 @@ export default function AdminPanel() {
                 <input type="number" min="1" max="24" value={grantMonths}
                   onChange={e => setGrantMonths(e.target.value)}
                   className="text-xs px-3 py-2 rounded-xl outline-none"
-                  style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}
+                  style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}
                 />
               </div>
             </div>
@@ -821,7 +821,7 @@ export default function AdminPanel() {
           </div>
 
           {/* ── Subscriptions list ── */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
             <div className="flex items-center justify-between px-5 py-3.5"
               style={{ borderBottom: "1px solid var(--glass-border)" }}>
               <div className="flex items-center gap-2">
@@ -835,7 +835,7 @@ export default function AdminPanel() {
                     <button key={f} onClick={() => setSubsFilter(f)}
                       className="text-[10px] px-2.5 py-1 rounded-lg font-medium capitalize transition-all"
                       style={subsFilter === f
-                        ? { background: "var(--accent-cyan)", color: "#050505" }
+                        ? { background: "#4DA3FF", color: "#050505" }
                         : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>
                       {f}
                     </button>
@@ -929,7 +929,7 @@ export default function AdminPanel() {
 
       {/* ── Payments ── */}
       {visitedTabs.has("payments") && (
-        <div className={tab !== "payments" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+        <div className={tab !== "payments" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
             <div className="flex items-center gap-2">
               <CreditCard style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
