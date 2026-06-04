@@ -5,8 +5,8 @@ import { useBinancePrices } from "@/lib/use-binance-ws";
 import {
   TrendingUp, TrendingDown, DollarSign, Percent, Target, Shield,
   Clock, BarChart2, Zap, Activity, ArrowUpRight, Play,
-  Brain, CandlestickChart,
-  MessageCircle, Send, X, Bot,
+  Brain, CandlestickChart, Cpu, Globe, Bitcoin, Gauge,
+  MessageCircle, Send, X, Bot, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -61,8 +61,164 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 /* ── Panel ────────────────────────────────────────────────────────── */
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl p-4 sm:p-5 ${className}`} style={CARD}>
-      {children}
+    <div className={`rounded-2xl p-4 sm:p-5 relative overflow-hidden glass-shine ${className}`} style={CARD}>
+      <div className="pointer-events-none absolute inset-0 rounded-2xl"
+        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%)", zIndex: 0 }} />
+      <div className="relative z-[1]">{children}</div>
+    </div>
+  );
+}
+
+/* ── AI Market Pulse Hero ──────────────────────────────────────────── */
+function AiMarketPulse() {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  const SCORE = 72;
+  const RADIUS = 52;
+  const STROKE = 6;
+  const CIRCUM = 2 * Math.PI * RADIUS;
+  const ARC_PCT = 0.75;
+  const dashArray = CIRCUM * ARC_PCT;
+  const dashOffset = dashArray * (1 - SCORE / 100);
+  const rotation = -225;
+
+  const pulseItems = [
+    { icon: Bitcoin, label: "Crypto",   score: 72, col: "#4ade80",  tag: "Bullish" },
+    { icon: Globe,   label: "Forex",    score: 38, col: "#f87171",  tag: "Bearish" },
+    { icon: BarChart2, label: "Equities", score: 51, col: "#facc15", tag: "Neutral" },
+    { icon: Cpu,     label: "AI Signal", score: 80, col: "#818cf8", tag: "Strong" },
+  ];
+
+  return (
+    <div
+      className="relative rounded-3xl overflow-hidden p-5 sm:p-6"
+      style={{
+        background: "hsl(var(--card))",
+        border: "1px solid var(--glass-border)",
+        boxShadow: "var(--shadow-card)",
+      }}
+    >
+      {/* Ambient glow layers */}
+      <div className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(0,212,255,0.07) 0%, transparent 65%)" }} />
+      <div className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 50% 60% at 85% 20%, rgba(79,70,229,0.07) 0%, transparent 65%)" }} />
+      <div className="pointer-events-none absolute inset-0"
+        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)" }} />
+
+      <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5">
+        {/* Left — badge + copy */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold"
+              style={{ background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.25)", color: "var(--accent-cyan)" }}>
+              <span className="h-1.5 w-1.5 rounded-full live-pulse"
+                style={{ background: "var(--accent-cyan)", boxShadow: "0 0 6px var(--accent-cyan)" }} />
+              AI MARKET PULSE
+            </span>
+            <span className="hidden sm:block text-[10px] font-mono" style={{ color: "var(--nav-dim-color)" }}>
+              Updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-1" style={{ color: "hsl(var(--foreground))" }}>
+            Markets trending&nbsp;
+            <span style={{ color: "var(--accent-cyan)", textShadow: "0 0 20px rgba(0,212,255,0.3)" }}>bullish</span>
+          </h2>
+          <p className="text-xs sm:text-sm font-mono leading-relaxed mb-4"
+            style={{ color: "hsl(var(--muted-foreground))" }}>
+            Crypto momentum strong · USD weakening · Risk-on sentiment detected
+          </p>
+
+          {/* Pulse metrics row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {pulseItems.map(item => (
+              <div key={item.label}
+                className="rounded-xl px-3 py-2.5 flex flex-col gap-1.5 glass-shine"
+                style={{
+                  background: "var(--glass-bg)",
+                  border: "1px solid var(--glass-border)",
+                  boxShadow: "var(--shadow-2xs)",
+                }}>
+                <div className="flex items-center gap-1.5">
+                  <item.icon style={{ height: "11px", width: "11px", color: item.col }} />
+                  <span className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    {item.label}
+                  </span>
+                </div>
+                <div className="flex items-end justify-between">
+                  <span className="text-sm font-bold font-mono" style={{ color: item.col }}>
+                    {item.score}
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+                    style={{ color: item.col, background: `${item.col}15`, border: `1px solid ${item.col}30` }}>
+                    {item.tag}
+                  </span>
+                </div>
+                {/* Mini bar */}
+                <div className="h-0.5 rounded-full" style={{ background: "var(--glass-border)" }}>
+                  <div className="h-full rounded-full transition-all duration-[1.5s]"
+                    style={{ width: `${item.score}%`, background: item.col, boxShadow: `0 0 6px ${item.col}80` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right — SVG gauge */}
+        <div className="flex-shrink-0 flex flex-col items-center gap-2">
+          <div className="relative" style={{ width: 128, height: 128 }}>
+            {/* Glow behind gauge */}
+            <div className="absolute inset-0 rounded-full"
+              style={{ background: "radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%)" }} />
+
+            <svg width="128" height="128" viewBox="0 0 128 128" style={{ transform: `rotate(${rotation}deg)` }}>
+              {/* Track */}
+              <circle cx="64" cy="64" r={RADIUS} fill="none"
+                stroke="var(--glass-border)" strokeWidth={STROKE}
+                strokeLinecap="round"
+                strokeDasharray={`${dashArray} ${CIRCUM - dashArray}`}
+                strokeDashoffset={0}
+              />
+              {/* Value arc */}
+              <circle cx="64" cy="64" r={RADIUS} fill="none"
+                stroke="url(#gaugeGrad)" strokeWidth={STROKE}
+                strokeLinecap="round"
+                strokeDasharray={`${dashArray} ${CIRCUM - dashArray}`}
+                strokeDashoffset={dashOffset}
+                style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)" }}
+              />
+              <defs>
+                <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#4F46E5" />
+                  <stop offset="100%" stopColor="#00D4FF" />
+                </linearGradient>
+              </defs>
+            </svg>
+
+            {/* Center value */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-bold font-mono leading-none" style={{ color: "var(--accent-cyan)" }}>
+                {SCORE}
+              </span>
+              <span className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
+                BULLISH
+              </span>
+            </div>
+          </div>
+
+          {/* Confidence badge */}
+          <div className="flex items-center gap-1.5 text-[10px] font-mono px-3 py-1.5 rounded-full"
+            style={{ background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", color: "var(--accent-cyan)" }}>
+            <Sparkles style={{ height: "9px", width: "9px" }} />
+            82% Confidence
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -233,7 +389,7 @@ function DemoSummary() {
         <div
           key={it.label}
           className="rounded-xl px-3 py-2.5"
-          style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}
+          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
         >
           <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>
             {it.label}
@@ -401,34 +557,19 @@ function PaperTradingSection() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
-          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Balance</p>
-          <p className="text-sm font-mono font-bold" style={{ color: C.text }}>
-            ${balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-        </div>
-        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
-          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Total P&amp;L</p>
-          <p className="text-sm font-mono font-bold" style={{ color: totalPnl >= 0 ? C.positive : C.negative }}>
-            {totalPnl >= 0 ? "+" : ""}${Math.abs(totalPnl).toFixed(2)}
-          </p>
-          <p className="text-[10px] font-mono" style={{ color: pnlPct >= 0 ? C.positive : C.negative }}>
-            {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
-          </p>
-        </div>
-        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
-          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Trades</p>
-          <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{ptTrades.length}</p>
-          <p className="text-[10px] font-mono" style={{ color: C.muted }}>{wins}W · {losses}L</p>
-        </div>
-        <div className="rounded-xl px-3 py-2.5" style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}>
-          <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>Win Rate</p>
-          <p className="text-sm font-mono font-bold"
-            style={{ color: ptTrades.length > 0 ? (winRate >= 50 ? C.positive : C.negative) : C.text }}>
-            {ptTrades.length > 0 ? `${winRate.toFixed(0)}%` : "—"}
-          </p>
-          {avgWin > 0 && <p className="text-[10px] font-mono" style={{ color: C.muted }}>avg win ${avgWin.toFixed(0)}</p>}
-        </div>
+        {[
+          { label: "Balance", value: `$${balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, color: C.text, sub: null },
+          { label: "Total P&L", value: `${totalPnl >= 0 ? "+" : ""}$${Math.abs(totalPnl).toFixed(2)}`, color: totalPnl >= 0 ? C.positive : C.negative, sub: `${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%` },
+          { label: "Trades", value: `${ptTrades.length}`, color: C.text, sub: `${wins}W · ${losses}L` },
+          { label: "Win Rate", value: ptTrades.length > 0 ? `${winRate.toFixed(0)}%` : "—", color: ptTrades.length > 0 ? (winRate >= 50 ? C.positive : C.negative) : C.text, sub: avgWin > 0 ? `avg win $${avgWin.toFixed(0)}` : null },
+        ].map(stat => (
+          <div key={stat.label} className="rounded-xl px-3 py-2.5"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+            <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>{stat.label}</p>
+            <p className="text-sm font-mono font-bold" style={{ color: stat.color }}>{stat.value}</p>
+            {stat.sub && <p className="text-[10px] font-mono" style={{ color: stat.color === C.text ? C.muted : stat.color }}>{stat.sub}</p>}
+          </div>
+        ))}
       </div>
 
       {/* Trade history */}
@@ -597,17 +738,20 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
+    <div className="flex flex-col gap-4 pb-4 page-enter">
+
+      {/* AI Market Pulse Hero */}
+      <AiMarketPulse />
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 mt-1">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: C.text }}>Dashboard</h1>
           <p className="text-xs mt-0.5 font-mono" style={{ color: C.muted }}>
             Market overview &amp; performance summary
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild className="flex-shrink-0">
+        <Button variant="cyan" size="sm" asChild className="flex-shrink-0">
           <Link href="/backtests/new">
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Run Backtest
@@ -615,20 +759,22 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* AI Chat Panel — top of page, always visible */}
-      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.1)", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+      {/* AI Chat Panel */}
+      <div className="rounded-2xl overflow-hidden"
+        style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
         <div
           className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
-          style={{ background: chatOpen ? "#ffffff" : "#f7f7f7", borderBottom: chatOpen ? "1px solid rgba(0,0,0,0.07)" : "none" }}
+          style={{ borderBottom: chatOpen ? "1px solid var(--glass-border)" : "none" }}
           onClick={() => setChatOpen(v => !v)}
         >
-          <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#111" }}>
-            <Bot className="h-4 w-4 text-white" />
+          <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)" }}>
+            <Bot className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold leading-none mb-0.5" style={{ color: C.text }}>Trading AI</p>
             <p className="text-[10px] font-mono" style={{ color: C.muted }}>
-              {chatOpen ? "Powered by GPT-4o" : "Ready to chat · ask about strategies, indicators, risk"}
+              {chatOpen ? "Powered by LLM · Ask about strategies, indicators, risk" : "Ready to chat · ask about strategies, indicators, risk"}
             </p>
           </div>
           {!chatOpen && (
@@ -637,8 +783,8 @@ export default function Dashboard() {
                 <button
                   key={q}
                   onClick={e => { e.stopPropagation(); setChatInput(q); setChatOpen(true); }}
-                  className="hidden sm:block text-[10px] font-mono px-2 py-1 rounded-lg border transition-all hover:opacity-80"
-                  style={{ background: "#fff", border: `1px solid ${C.border}`, color: C.sub }}
+                  className="hidden sm:block text-[10px] font-mono px-2 py-1 rounded-lg hover:opacity-80"
+                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.sub }}
                 >{q}</button>
               ))}
             </div>
@@ -648,7 +794,7 @@ export default function Dashboard() {
             : <MessageCircle className="h-4 w-4 flex-shrink-0" style={{ color: C.muted }} />}
         </div>
         {chatOpen && (
-          <div style={{ background: "#ffffff" }}>
+          <div>
             <div className="overflow-y-auto px-4 py-3 flex flex-col gap-3" style={{ minHeight: 160, maxHeight: "45vh" }}>
               {messages.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-3">
@@ -658,8 +804,8 @@ export default function Dashboard() {
                   <div className="flex flex-wrap gap-1.5 justify-center">
                     {["What is RSI?", "Explain Bollinger Bands", "How to use stop loss?", "Best EMA settings?"].map(q => (
                       <button key={q} onClick={() => setChatInput(q)}
-                        className="text-[11px] font-mono px-3 py-1.5 rounded-xl transition-all hover:opacity-80"
-                        style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.sub }}
+                        className="text-[11px] font-mono px-3 py-1.5 rounded-xl hover:opacity-80"
+                        style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.sub }}
                       >{q}</button>
                     ))}
                   </div>
@@ -669,20 +815,25 @@ export default function Dashboard() {
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className="max-w-[80%] px-3 py-2 rounded-2xl text-xs font-mono leading-relaxed whitespace-pre-wrap"
                     style={m.role === "user"
-                      ? { background: "#111", color: "#fff", borderBottomRightRadius: 4 }
-                      : { background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderBottomLeftRadius: 4 }}
+                      ? { background: "var(--accent-cyan)", color: "#050505", borderBottomRightRadius: 4, fontWeight: 600 }
+                      : { background: "var(--glass-bg)", color: C.text, border: "1px solid var(--glass-border)", borderBottomLeftRadius: 4 }}
                   >{m.content}</div>
                 </div>
               ))}
               {isChatLoading && (
                 <div className="flex justify-start">
-                  <div className="px-3 py-2 rounded-2xl text-xs font-mono" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted }}>Thinking…</div>
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.muted }}>
+                    <span className="h-1 w-1 rounded-full live-pulse" style={{ background: "var(--accent-cyan)" }} />
+                    Thinking…
+                  </div>
                 </div>
               )}
               <div ref={chatEndRef} />
             </div>
-            <div className="px-4 pb-4 pt-2 border-t" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border" style={{ background: C.surface, borderColor: C.border }}>
+            <div className="px-4 pb-4 pt-2" style={{ borderTop: "1px solid var(--glass-border)" }}>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
                 <input
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
@@ -692,8 +843,8 @@ export default function Dashboard() {
                   style={{ color: C.text }}
                 />
                 <button onClick={() => void sendMessage()} disabled={!chatInput.trim() || isChatLoading}
-                  className="h-6 w-6 rounded-lg flex items-center justify-center transition-all disabled:opacity-30"
-                  style={{ background: "#111", color: "#fff" }}
+                  className="h-6 w-6 rounded-lg flex items-center justify-center disabled:opacity-30"
+                  style={{ background: "var(--accent-cyan)", color: "#050505" }}
                 ><Send className="h-3 w-3" /></button>
               </div>
             </div>
@@ -713,8 +864,8 @@ export default function Dashboard() {
             return (
               <div
                 key={w.symbol}
-                className="rounded-xl px-3 py-2 text-center"
-                style={{ background: "#f0f0f0", border: "1px solid rgba(0,0,0,0.07)" }}
+                className="rounded-xl px-3 py-2 text-center glass-shine"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
               >
                 <p className="text-[10px] font-mono mb-1" style={{ color: C.muted }}>{w.symbol}</p>
                 <p className="text-sm font-mono font-bold" style={{ color: C.text }}>{displayPrice}</p>

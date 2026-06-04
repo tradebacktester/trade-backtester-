@@ -251,7 +251,7 @@ function PublishModal({
 
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button type="submit" disabled={submitting} className="flex-1" style={{ background: "#6366f1", color: "#fff" }}>
+            <Button type="submit" disabled={submitting} className="flex-1" style={{ background: "var(--accent-indigo)", color: "#fff" }}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Publish
             </Button>
@@ -342,7 +342,7 @@ export default function MarketplacePage() {
           <Button
             onClick={() => setShowPublish(true)}
             className="flex items-center gap-2 self-start"
-            style={{ background: "#6366f1", color: "#fff" }}
+            style={{ background: "var(--accent-indigo)", color: "#fff" }}
           >
             <Sparkles className="h-4 w-4" />
             Publish Strategy
@@ -416,7 +416,7 @@ export default function MarketplacePage() {
             {listings.length === 0 ? "No strategies published yet. Be the first!" : "No results match your search."}
           </p>
           {listings.length === 0 && user && (
-            <Button onClick={() => setShowPublish(true)} size="sm" style={{ background: "#6366f1", color: "#fff" }}>
+            <Button onClick={() => setShowPublish(true)} size="sm" style={{ background: "var(--accent-indigo)", color: "#fff" }}>
               <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Publish First Strategy
             </Button>
           )}

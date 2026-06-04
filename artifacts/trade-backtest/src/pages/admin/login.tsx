@@ -41,19 +41,19 @@ export default function AdminLogin() {
     <div className="flex items-center justify-center min-h-[70vh]">
       <div
         className="w-full max-w-sm rounded-2xl"
-        style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.1)" }}
+        style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}
       >
-        <div className="px-8 pt-8 pb-6 flex flex-col items-center" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
-          <span className="h-12 w-12 rounded-2xl flex items-center justify-center mb-3" style={{ background: "#f0f0f0" }}>
-            <Shield style={{ height: "22px", width: "22px", color: "#111" }} />
+        <div className="px-8 pt-8 pb-6 flex flex-col items-center" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+          <span className="h-12 w-12 rounded-2xl flex items-center justify-center mb-3" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+            <Shield style={{ height: "22px", width: "22px", color: "hsl(var(--foreground))" }} />
           </span>
-          <h1 className="text-base font-semibold" style={{ color: "#111" }}>Admin Login</h1>
-          <p className="text-xs mt-1 text-center" style={{ color: "#888" }}>Restricted access — authorised personnel only</p>
+          <h1 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>Admin Login</h1>
+          <p className="text-xs mt-1 text-center" style={{ color: "hsl(var(--muted-foreground))" }}>Restricted access — authorised personnel only</p>
         </div>
 
         <form onSubmit={handleSubmit} className="px-8 py-6 flex flex-col gap-4">
           <div>
-            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "#666" }}>Admin ID</label>
+            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "hsl(var(--muted-foreground))" }}>Admin ID</label>
             <input
               type="text"
               placeholder="Enter your admin ID"
@@ -62,13 +62,13 @@ export default function AdminLogin() {
               required
               autoComplete="username"
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
-              onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
-              onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
+              style={{ border: "1px solid var(--glass-border)", background: "var(--glass-bg)", color: "hsl(var(--foreground))" }}
+              onFocus={e => (e.target.style.borderColor = "var(--accent-cyan-border)")}
+              onBlur={e => (e.target.style.borderColor = "var(--glass-border)")}
             />
           </div>
           <div>
-            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "#666" }}>Password</label>
+            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "hsl(var(--muted-foreground))" }}>Password</label>
             <div className="relative">
               <input
                 type={showPw ? "text" : "password"}
@@ -78,15 +78,15 @@ export default function AdminLogin() {
                 required
                 autoComplete="current-password"
                 className="w-full pl-3 pr-10 py-2.5 rounded-xl text-sm outline-none"
-                style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
-                onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
-                onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
+                style={{ border: "1px solid var(--glass-border)", background: "var(--glass-bg)", color: "hsl(var(--foreground))" }}
+                onFocus={e => (e.target.style.borderColor = "var(--accent-cyan-border)")}
+                onBlur={e => (e.target.style.borderColor = "var(--glass-border)")}
               />
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2"
-                style={{ color: "#aaa" }}
+                style={{ color: "hsl(var(--muted-foreground))" }}
               >
                 {showPw ? <EyeOff style={{ height: "13px", width: "13px" }} /> : <Eye style={{ height: "13px", width: "13px" }} />}
               </button>
@@ -94,7 +94,7 @@ export default function AdminLogin() {
           </div>
 
           {error && (
-            <div className="rounded-xl px-3 py-2.5 text-xs" style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>
+            <div className="rounded-xl px-3 py-2.5 text-xs" style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.25)" }}>
               {error}
             </div>
           )}
@@ -103,7 +103,7 @@ export default function AdminLogin() {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-            style={{ background: "#111", color: "#fff", opacity: loading ? 0.6 : 1 }}
+            style={{ background: "var(--accent-cyan)", color: "#050505", opacity: loading ? 0.6 : 1 }}
           >
             {loading ? "Verifying…" : "Login as Admin"}
           </button>

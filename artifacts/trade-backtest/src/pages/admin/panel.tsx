@@ -54,7 +54,7 @@ const SUBS_STAT_ICONS = {
 };
 
 const PLAN_ACCENT: Record<string, { color: string; bg: string; border: string }> = {
-  free:  { color: "#666",               bg: "rgba(0,0,0,0.05)",          border: "rgba(0,0,0,0.12)" },
+  free:  { color: "hsl(var(--muted-foreground))",               bg: "rgba(0,0,0,0.05)",          border: "rgba(0,0,0,0.12)" },
   pro:   { color: "hsl(265,89%,60%)",   bg: "rgba(139,92,246,0.08)",     border: "rgba(139,92,246,0.25)" },
   elite: { color: "hsl(38,100%,50%)",   bg: "rgba(245,158,11,0.08)",     border: "rgba(245,158,11,0.28)" },
 };
@@ -312,20 +312,20 @@ export default function AdminPanel() {
   );
 
   return (
-    <div style={{ background: "#fff", borderRadius: "16px", padding: "4px 0 8px" }}>
+    <div style={{ background: "hsl(var(--card))", borderRadius: "16px", padding: "4px 0 8px" }}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <span className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "#f0f0f0" }}>
-            <Shield style={{ height: "16px", width: "16px", color: "#111" }} />
+          <span className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "var(--glass-bg)" }}>
+            <Shield style={{ height: "16px", width: "16px", color: "hsl(var(--foreground))" }} />
           </span>
           <div>
-            <h1 className="text-base font-semibold" style={{ color: "#111" }}>Admin Panel</h1>
-            <p className="text-xs" style={{ color: "#888" }}>Manage users, policies, plans, and subscriptions</p>
+            <h1 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>Admin Panel</h1>
+            <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>Manage users, policies, plans, and subscriptions</p>
           </div>
         </div>
         <button onClick={handleLogout}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors"
-          style={{ border: "1px solid rgba(0,0,0,0.1)", color: "#666", background: "#f5f5f5" }}>
+          style={{ border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))", background: "var(--glass-bg)" }}>
           <LogOut style={{ height: "12px", width: "12px" }} /> Logout
         </button>
       </div>
@@ -336,8 +336,8 @@ export default function AdminPanel() {
           <button key={key} onClick={() => { setVisitedTabs(prev => new Set([...prev, key])); setTab(key); }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
             style={tab === key
-              ? { background: "#111", color: "#fff" }
-              : { background: "#f5f5f5", color: "#666", border: "1px solid rgba(0,0,0,0.08)" }}>
+              ? { background: "var(--accent-cyan)", color: "#050505" }
+              : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
             <Icon style={{ height: "13px", width: "13px" }} />
             {label}
             {key === "subscribers" && activeSubs > 0 && (
@@ -352,47 +352,47 @@ export default function AdminPanel() {
 
       {/* ── Users ── */}
       {visitedTabs.has("users") && (
-        <div className={tab !== "users" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
-          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+        <div className={tab !== "users" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
             <div className="flex items-center gap-2">
-              <Users style={{ height: "14px", width: "14px", color: "#666" }} />
-              <span className="text-sm font-semibold" style={{ color: "#111" }}>Registered Users</span>
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#f0f0f0", color: "#666" }}>{users.length}</span>
+              <Users style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+              <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Registered Users</span>
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>{users.length}</span>
             </div>
-            <button onClick={fetchUsers} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
+            <button onClick={fetchUsers} className="p-1.5 rounded-lg transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
               <RefreshCw style={{ height: "13px", width: "13px" }} />
             </button>
           </div>
           {usersLoading ? (
-            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>Loading users…</div>
+            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Loading users…</div>
           ) : usersError ? (
-            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#dc2626" }}>{usersError}</div>
+            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#f87171" }}>{usersError}</div>
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <Users style={{ height: "28px", width: "28px", color: "#ddd" }} />
-              <p className="text-sm" style={{ color: "#aaa" }}>No users have signed up yet</p>
+              <Users style={{ height: "28px", width: "28px", color: "hsl(var(--muted-foreground))" }} />
+              <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>No users have signed up yet</p>
             </div>
           ) : (
             <div>
               {users.map((user, i) => (
                 <div key={user.id} className="px-5 py-4"
-                  style={{ borderBottom: i < users.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", background: user.banned ? "#fef9f9" : "transparent" }}>
+                  style={{ borderBottom: i < users.length - 1 ? "1px solid var(--glass-border)" : "none", background: user.banned ? "rgba(220,38,38,0.05)" : "transparent" }}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="h-9 w-9 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-semibold"
-                        style={{ background: user.banned ? "#fee2e2" : "#f0f0f0", color: user.banned ? "#dc2626" : "#555" }}>
+                        style={{ background: user.banned ? "rgba(220,38,38,0.15)" : "var(--glass-bg)", color: user.banned ? "#f87171" : "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
                         {user.name.charAt(0).toUpperCase()}
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate" style={{ color: "#111" }}>{user.name}</span>
-                          {user.banned && <span className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: "#fee2e2", color: "#dc2626" }}>BANNED</span>}
+                          <span className="text-sm font-medium truncate" style={{ color: "hsl(var(--foreground))" }}>{user.name}</span>
+                          {user.banned && <span className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: "rgba(220,38,38,0.12)", color: "#f87171" }}>BANNED</span>}
                         </div>
-                        <p className="text-xs truncate" style={{ color: "#888" }}>{user.email}</p>
-                        <p className="text-[10px] mt-0.5" style={{ color: "#bbb" }}>
+                        <p className="text-xs truncate" style={{ color: "hsl(var(--muted-foreground))" }}>{user.email}</p>
+                        <p className="text-[10px] mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
                           Joined {new Date(user.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · ID: {user.id}
                         </p>
-                        {user.banned && user.bannedReason && <p className="text-[10px] mt-0.5" style={{ color: "#dc2626" }}>Reason: {user.bannedReason}</p>}
+                        {user.banned && user.bannedReason && <p className="text-[10px] mt-0.5" style={{ color: "#f87171" }}>Reason: {user.bannedReason}</p>}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -401,14 +401,14 @@ export default function AdminPanel() {
                           value={banReason[user.id] ?? ""}
                           onChange={e => setBanReason(r => ({ ...r, [user.id]: e.target.value }))}
                           className="text-[11px] px-2 py-1 rounded-lg w-40"
-                          style={{ border: "1px solid rgba(0,0,0,0.1)", background: "#f9f9f9", color: "#555" }}
+                          style={{ border: "1px solid var(--glass-border)", background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}
                         />
                       )}
                       <button onClick={() => toggleBan(user)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
                         style={user.banned
-                          ? { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0" }
-                          : { background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }}>
+                          ? { background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid #bbf7d0" }
+                          : { background: "rgba(220,38,38,0.12)", color: "#f87171", border: "1px solid #fecaca" }}>
                         {user.banned
                           ? <><UserCheck style={{ height: "11px", width: "11px" }} />Unban</>
                           : <><UserX style={{ height: "11px", width: "11px" }} />Ban</>}
@@ -426,42 +426,42 @@ export default function AdminPanel() {
       {visitedTabs.has("policies") && (
         <div className={tab !== "policies" ? "hidden" : "flex flex-col gap-3"}>
           {policiesLoading ? (
-            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>Loading policies…</div>
+            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Loading policies…</div>
           ) : policies.map(policy => (
-            <div key={policy.slug} className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
+            <div key={policy.slug} className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
               <button onClick={() => setExpandedPolicy(v => v === policy.slug ? null : policy.slug)}
                 className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-3">
-                  <FileText style={{ height: "14px", width: "14px", color: "#888" }} />
+                  <FileText style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#111" }}>{policy.title}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: "#bbb" }}>
+                    <p className="text-sm font-medium" style={{ color: "hsl(var(--foreground))" }}>{policy.title}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
                       Last updated {new Date(policy.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                   </div>
                 </div>
                 {expandedPolicy === policy.slug
-                  ? <ChevronUp style={{ height: "14px", width: "14px", color: "#aaa" }} />
-                  : <ChevronDown style={{ height: "14px", width: "14px", color: "#aaa" }} />}
+                  ? <ChevronUp style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+                  : <ChevronDown style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />}
               </button>
               {expandedPolicy === policy.slug && (
                 <div className="px-5 pb-5" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-                  <p className="text-[11px] font-medium mt-4 mb-2" style={{ color: "#666" }}>Policy Content</p>
+                  <p className="text-[11px] font-medium mt-4 mb-2" style={{ color: "hsl(var(--muted-foreground))" }}>Policy Content</p>
                   <textarea value={editingContent[policy.slug] ?? ""} onChange={e => setEditingContent(c => ({ ...c, [policy.slug]: e.target.value }))}
                     rows={8} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-y"
-                    style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#333", lineHeight: 1.6 }}
+                    style={{ border: "1px solid var(--glass-border)", background: "var(--glass-bg)", color: "hsl(var(--foreground))", lineHeight: 1.6 }}
                     onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
                     onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
                   />
                   <div className="flex items-center justify-end gap-2 mt-2">
                     {savedSlug === policy.slug && (
-                      <span className="flex items-center gap-1 text-xs" style={{ color: "#16a34a" }}>
+                      <span className="flex items-center gap-1 text-xs" style={{ color: "#4ade80" }}>
                         <CheckCircle style={{ height: "11px", width: "11px" }} />Saved
                       </span>
                     )}
                     <button onClick={() => savePolicy(policy.slug, policy.title)} disabled={savingSlug === policy.slug}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
-                      style={{ background: "#111", color: "#fff", opacity: savingSlug === policy.slug ? 0.6 : 1 }}>
+                      style={{ background: "var(--accent-cyan)", color: "#050505", opacity: savingSlug === policy.slug ? 0.6 : 1 }}>
                       <Save style={{ height: "11px", width: "11px" }} />
                       {savingSlug === policy.slug ? "Saving…" : "Save Changes"}
                     </button>
@@ -482,12 +482,12 @@ export default function AdminPanel() {
           {/* Header row */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold" style={{ color: "#111" }}>Subscription Plans</p>
-              <p className="text-xs mt-0.5" style={{ color: "#aaa" }}>{plans.length} plan{plans.length !== 1 ? "s" : ""} configured</p>
+              <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Subscription Plans</p>
+              <p className="text-xs mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>{plans.length} plan{plans.length !== 1 ? "s" : ""} configured</p>
             </div>
             <button onClick={() => { setShowNewPlan(v => !v); setEditingPlanId(null); setEditDraft(null); }}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all"
-              style={showNewPlan ? { background: "#f0f0f0", color: "#666" } : { background: "#111", color: "#fff" }}>
+              style={showNewPlan ? { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" } : { background: "var(--accent-cyan)", color: "#050505" }}>
               {showNewPlan ? <><X style={{ height: "12px", width: "12px" }} />Cancel</> : <><Plus style={{ height: "12px", width: "12px" }} />New Plan</>}
             </button>
           </div>
@@ -499,7 +499,7 @@ export default function AdminPanel() {
                 <span className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(139,92,246,0.1)" }}>
                   <Package style={{ height: "13px", width: "13px", color: "hsl(265,89%,60%)" }} />
                 </span>
-                <p className="text-sm font-semibold" style={{ color: "#111" }}>Create New Plan</p>
+                <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Create New Plan</p>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {([
@@ -509,24 +509,24 @@ export default function AdminPanel() {
                   ["Monthly Price (paise)", "priceMonthly", "number", newPlan.priceMonthly],
                 ] as [string, string, string, string | number][]).map(([label, field, type, val]) => (
                   <div key={field} className="flex flex-col gap-1.5">
-                    <label className="text-[11px] font-medium" style={{ color: "#666" }}>{label}</label>
+                    <label className="text-[11px] font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>{label}</label>
                     <input type={type} value={val}
                       onChange={e => setNewPlan(p => ({ ...p, [field]: type === "number" ? parseInt(e.target.value) || 0 : e.target.value }))}
                       className="text-xs px-3 py-2 rounded-xl outline-none transition-colors"
-                      style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff", color: "#111" }}
+                      style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))", color: "hsl(var(--foreground))" }}
                     />
                   </div>
                 ))}
               </div>
               {newPlan.priceMonthly > 0 && (
-                <p className="text-[11px] mb-4" style={{ color: "#888" }}>
+                <p className="text-[11px] mb-4" style={{ color: "hsl(var(--muted-foreground))" }}>
                   = ₹{(newPlan.priceMonthly / 100).toLocaleString("en-IN")}/month
                 </p>
               )}
               <div className="flex justify-end gap-2">
                 <button onClick={() => setShowNewPlan(false)}
                   className="px-4 py-2 rounded-xl text-xs font-medium"
-                  style={{ background: "#f5f5f5", color: "#666" }}>Cancel</button>
+                  style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>Cancel</button>
                 <button onClick={createPlan} disabled={!newPlan.name || !newPlan.slug || savingPlan === -1}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
                   style={{ background: "linear-gradient(135deg, hsl(265,89%,60%), hsl(285,89%,58%))", color: "#fff", opacity: !newPlan.name || !newPlan.slug ? 0.5 : 1 }}>
@@ -539,7 +539,7 @@ export default function AdminPanel() {
 
           {/* ── Plan cards ── */}
           {plansLoading ? (
-            <div className="flex items-center justify-center py-16 text-sm" style={{ color: "#aaa" }}>
+            <div className="flex items-center justify-center py-16 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>
               Loading plans…
             </div>
           ) : plans.map(plan => {
@@ -548,7 +548,7 @@ export default function AdminPanel() {
 
             return (
               <div key={plan.id} className="rounded-2xl overflow-hidden"
-                style={{ border: `1px solid ${isEditing ? accent.border : "rgba(0,0,0,0.09)"}`, background: "#fff" }}>
+                style={{ border: `1px solid ${isEditing ? accent.border : "rgba(0,0,0,0.09)"}`, background: "hsl(var(--card))" }}>
 
                 {/* Card header */}
                 <div className="flex items-center justify-between px-5 py-4"
@@ -564,19 +564,19 @@ export default function AdminPanel() {
                     </span>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold" style={{ color: "#111" }}>{plan.name}</p>
+                        <p className="text-sm font-bold" style={{ color: "hsl(var(--foreground))" }}>{plan.name}</p>
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
-                          style={{ background: "#f0f0f0", color: "#888" }}>{plan.slug}</span>
+                          style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>{plan.slug}</span>
                         {plan.isDefault && (
                           <span className="text-[9px] px-2 py-0.5 rounded-full font-medium"
-                            style={{ background: "#dcfce7", color: "#16a34a" }}>Default</span>
+                            style={{ background: "rgba(74,222,128,0.12)", color: "#4ade80" }}>Default</span>
                         )}
                         {!plan.isActive && (
                           <span className="text-[9px] px-2 py-0.5 rounded-full font-medium"
-                            style={{ background: "#fee2e2", color: "#dc2626" }}>Disabled</span>
+                            style={{ background: "rgba(220,38,38,0.12)", color: "#f87171" }}>Disabled</span>
                         )}
                       </div>
-                      <p className="text-[11px] mt-0.5" style={{ color: "#999" }}>
+                      <p className="text-[11px] mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
                         {plan.priceMonthly === 0 ? "Free" : `₹${(plan.priceMonthly / 100).toLocaleString("en-IN")}/mo`}
                         {" · "}{plan.description.slice(0, 50)}{plan.description.length > 50 ? "…" : ""}
                       </p>
@@ -591,8 +591,8 @@ export default function AdminPanel() {
                         disabled={savingPlan === plan.id}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium transition-all"
                         style={plan.isActive
-                          ? { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0" }
-                          : { background: "#f0f0f0", color: "#999", border: "1px solid rgba(0,0,0,0.08)" }}>
+                          ? { background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid #bbf7d0" }
+                          : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
                         {plan.isActive
                           ? <ToggleRight style={{ height: "12px", width: "12px" }} />
                           : <ToggleLeft style={{ height: "12px", width: "12px" }} />}
@@ -608,7 +608,7 @@ export default function AdminPanel() {
                       className="h-8 w-8 flex items-center justify-center rounded-xl transition-colors"
                       style={isEditing
                         ? { background: accent.bg, color: accent.color }
-                        : { background: "#f5f5f5", color: "#666" }}>
+                        : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>
                       <Edit2 style={{ height: "13px", width: "13px" }} />
                     </button>
                   </div>
@@ -625,7 +625,7 @@ export default function AdminPanel() {
                           className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                           style={enabled
                             ? { background: accent.bg, color: accent.color, border: `1px solid ${accent.border}` }
-                            : { background: "#f5f5f5", color: "#ccc", border: "1px solid transparent" }}>
+                            : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid transparent" }}>
                           {typeof val === "number" && val !== 0
                             ? `${val === -1 ? "∞" : val} ${label}`
                             : label}
@@ -640,18 +640,18 @@ export default function AdminPanel() {
                   <div className="px-5 pb-5 pt-4">
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-medium" style={{ color: "#666" }}>Plan Name</label>
+                        <label className="text-[11px] font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>Plan Name</label>
                         <input value={editDraft.name}
                           onChange={e => setEditDraft(d => d ? { ...d, name: e.target.value } : d)}
                           className="text-xs px-3 py-2 rounded-xl outline-none"
-                          style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
+                          style={{ border: "1px solid var(--glass-border)", background: "var(--glass-bg)" }}
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-medium" style={{ color: "#666" }}>
+                        <label className="text-[11px] font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>
                           Monthly Price (paise)
                           {editDraft.priceMonthly > 0 && (
-                            <span className="ml-1.5 font-normal" style={{ color: "#aaa" }}>
+                            <span className="ml-1.5 font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>
                               = ₹{(editDraft.priceMonthly / 100).toLocaleString("en-IN")}
                             </span>
                           )}
@@ -659,20 +659,20 @@ export default function AdminPanel() {
                         <input type="number" value={editDraft.priceMonthly}
                           onChange={e => setEditDraft(d => d ? { ...d, priceMonthly: parseInt(e.target.value) || 0 } : d)}
                           className="text-xs px-3 py-2 rounded-xl outline-none"
-                          style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
+                          style={{ border: "1px solid var(--glass-border)", background: "var(--glass-bg)" }}
                         />
                       </div>
                       <div className="col-span-2 flex flex-col gap-1.5">
-                        <label className="text-[11px] font-medium" style={{ color: "#666" }}>Description</label>
+                        <label className="text-[11px] font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>Description</label>
                         <input value={editDraft.description}
                           onChange={e => setEditDraft(d => d ? { ...d, description: e.target.value } : d)}
                           className="text-xs px-3 py-2 rounded-xl outline-none"
-                          style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa" }}
+                          style={{ border: "1px solid var(--glass-border)", background: "var(--glass-bg)" }}
                         />
                       </div>
                     </div>
 
-                    <p className="text-[11px] font-semibold mb-2.5" style={{ color: "#555" }}>Feature Flags</p>
+                    <p className="text-[11px] font-semibold mb-2.5" style={{ color: "hsl(var(--muted-foreground))" }}>Feature Flags</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                       {Object.entries(FEATURE_LABELS).map(([key, label]) => {
                         const ftype = FEATURE_TYPES[key];
@@ -680,39 +680,39 @@ export default function AdminPanel() {
                         return (
                           <div key={key}
                             className="flex items-center justify-between px-3 py-2.5 rounded-xl"
-                            style={{ background: "#fafafa", border: "1px solid rgba(0,0,0,0.07)" }}>
-                            <span className="text-[11px]" style={{ color: "#555" }}>{label}</span>
+                            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                            <span className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{label}</span>
                             {ftype === "boolean" ? (
                               <button
                                 onClick={() => setEditDraft(d => d ? { ...d, features: { ...d.features, [key]: !val } } : d)}
                                 className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all"
                                 style={val
-                                  ? { background: "#dcfce7", color: "#16a34a", border: "1px solid #bbf7d0" }
-                                  : { background: "#f0f0f0", color: "#999", border: "1px solid rgba(0,0,0,0.08)" }}>
+                                  ? { background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid #bbf7d0" }
+                                  : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
                                 {val ? <><Check style={{ height: "9px", width: "9px" }} />Yes</> : <><X style={{ height: "9px", width: "9px" }} />No</>}
                               </button>
                             ) : (
                               <input type="number" value={(val as number) ?? 0}
                                 onChange={e => setEditDraft(d => d ? { ...d, features: { ...d.features, [key]: parseInt(e.target.value) || 0 } } : d)}
                                 className="text-[11px] px-2 py-1 rounded-lg w-16 text-right outline-none font-semibold"
-                                style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff", color: "#111" }}
+                                style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))", color: "hsl(var(--foreground))" }}
                               />
                             )}
                           </div>
                         );
                       })}
                     </div>
-                    <p className="text-[10px] mb-4" style={{ color: "#bbb" }}>
+                    <p className="text-[10px] mb-4" style={{ color: "hsl(var(--muted-foreground))" }}>
                       For number fields: <span className="font-medium">-1</span> = Unlimited · <span className="font-medium">0</span> = Disabled
                     </p>
 
                     <div className="flex justify-end gap-2">
                       <button onClick={() => { setEditingPlanId(null); setEditDraft(null); }}
                         className="px-4 py-2 rounded-xl text-xs font-medium"
-                        style={{ background: "#f5f5f5", color: "#666" }}>Cancel</button>
+                        style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>Cancel</button>
                       <button onClick={savePlanEdit} disabled={savingPlan === editDraft.id}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
-                        style={{ background: "#111", color: "#fff", opacity: savingPlan === editDraft.id ? 0.6 : 1 }}>
+                        style={{ background: "var(--accent-cyan)", color: "#050505", opacity: savingPlan === editDraft.id ? 0.6 : 1 }}>
                         <Save style={{ height: "11px", width: "11px" }} />
                         {savingPlan === editDraft.id ? "Saving…" : "Save Changes"}
                       </button>
@@ -734,17 +734,17 @@ export default function AdminPanel() {
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Total", value: subs.length, icon: <Star style={{ height: "13px", width: "13px" }} />, color: "#666", bg: "#f5f5f5" },
-              { label: "Active", value: activeSubs, icon: <CheckCircle style={{ height: "13px", width: "13px" }} />, color: "#16a34a", bg: "#dcfce7" },
+              { label: "Total", value: subs.length, icon: <Star style={{ height: "13px", width: "13px" }} />, color: "hsl(var(--muted-foreground))", bg: "#f5f5f5" },
+              { label: "Active", value: activeSubs, icon: <CheckCircle style={{ height: "13px", width: "13px" }} />, color: "#4ade80", bg: "#dcfce7" },
               { label: "Admin Grants", value: adminGrantedSubs, icon: <Gift style={{ height: "13px", width: "13px" }} />, color: "hsl(265,89%,60%)", bg: "rgba(139,92,246,0.08)" },
             ].map(s => (
               <div key={s.label} className="rounded-2xl px-4 py-3 flex items-center gap-3"
-                style={{ border: "1px solid rgba(0,0,0,0.08)", background: "#fff" }}>
+                style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
                 <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: s.bg, color: s.color }}>{s.icon}</span>
                 <div>
-                  <p className="text-lg font-bold leading-none" style={{ color: "#111" }}>{s.value}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: "#aaa" }}>{s.label}</p>
+                  <p className="text-lg font-bold leading-none" style={{ color: "hsl(var(--foreground))" }}>{s.value}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>{s.label}</p>
                 </div>
               </div>
             ))}
@@ -759,29 +759,29 @@ export default function AdminPanel() {
                 <Gift style={{ height: "13px", width: "13px", color: "hsl(265,89%,60%)" }} />
               </span>
               <div>
-                <p className="text-sm font-semibold" style={{ color: "#111" }}>Grant Premium Access</p>
-                <p className="text-[11px]" style={{ color: "#aaa" }}>Assign a paid plan to any user without payment</p>
+                <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Grant Premium Access</p>
+                <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>Assign a paid plan to any user without payment</p>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "#666" }}>
+                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "hsl(var(--muted-foreground))" }}>
                   <Hash style={{ height: "10px", width: "10px" }} /> User ID
                 </label>
                 <input type="number" placeholder="e.g. 4" value={grantUserId}
                   onChange={e => setGrantUserId(e.target.value)}
                   className="text-xs px-3 py-2 rounded-xl outline-none"
-                  style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
+                  style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "#666" }}>
+                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "hsl(var(--muted-foreground))" }}>
                   <Package style={{ height: "10px", width: "10px" }} /> Plan
                 </label>
                 <select value={grantPlanId} onChange={e => setGrantPlanId(e.target.value)}
                   className="text-xs px-3 py-2 rounded-xl outline-none"
-                  style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}>
+                  style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
                   <option value="">Select plan</option>
                   {plans.filter(p => !p.isDefault).map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -789,13 +789,13 @@ export default function AdminPanel() {
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "#666" }}>
+                <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "hsl(var(--muted-foreground))" }}>
                   <Calendar style={{ height: "10px", width: "10px" }} /> Months
                 </label>
                 <input type="number" min="1" max="24" value={grantMonths}
                   onChange={e => setGrantMonths(e.target.value)}
                   className="text-xs px-3 py-2 rounded-xl outline-none"
-                  style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fff" }}
+                  style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}
                 />
               </div>
             </div>
@@ -813,7 +813,7 @@ export default function AdminPanel() {
                 {granting ? "Granting…" : "Grant Access"}
               </button>
               {grantSuccess && (
-                <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "#16a34a" }}>
+                <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "#4ade80" }}>
                   <CheckCircle style={{ height: "12px", width: "12px" }} /> Granted successfully
                 </span>
               )}
@@ -821,12 +821,12 @@ export default function AdminPanel() {
           </div>
 
           {/* ── Subscriptions list ── */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
             <div className="flex items-center justify-between px-5 py-3.5"
-              style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+              style={{ borderBottom: "1px solid var(--glass-border)" }}>
               <div className="flex items-center gap-2">
-                <Star style={{ height: "14px", width: "14px", color: "#888" }} />
-                <span className="text-sm font-semibold" style={{ color: "#111" }}>Subscriptions</span>
+                <Star style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+                <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Subscriptions</span>
               </div>
               <div className="flex items-center gap-2">
                 {/* Filter pills */}
@@ -835,26 +835,26 @@ export default function AdminPanel() {
                     <button key={f} onClick={() => setSubsFilter(f)}
                       className="text-[10px] px-2.5 py-1 rounded-lg font-medium capitalize transition-all"
                       style={subsFilter === f
-                        ? { background: "#111", color: "#fff" }
-                        : { background: "#f5f5f5", color: "#888" }}>
+                        ? { background: "var(--accent-cyan)", color: "#050505" }
+                        : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>
                       {f}
                     </button>
                   ))}
                 </div>
-                <button onClick={() => fetchSubs()} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
+                <button onClick={() => fetchSubs()} className="p-1.5 rounded-lg transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
                   <RefreshCw style={{ height: "13px", width: "13px" }} />
                 </button>
               </div>
             </div>
 
             {subsLoading ? (
-              <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>
+              <div className="flex items-center justify-center py-12 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>
                 Loading…
               </div>
             ) : filteredSubs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2">
-                <AlertCircle style={{ height: "26px", width: "26px", color: "#e5e7eb" }} />
-                <p className="text-sm" style={{ color: "#bbb" }}>
+                <AlertCircle style={{ height: "26px", width: "26px", color: "hsl(var(--muted-foreground))" }} />
+                <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>
                   {subsFilter === "all" ? "No subscriptions yet" : `No ${subsFilter} subscriptions`}
                 </p>
               </div>
@@ -874,14 +874,14 @@ export default function AdminPanel() {
                         </span>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-semibold" style={{ color: "#111" }}>
+                            <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>
                               {sub.userName ?? "Unknown"}
                             </p>
                             {/* Status pill */}
                             <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold"
                               style={sub.status === "active"
-                                ? { background: "#dcfce7", color: "#16a34a" }
-                                : { background: "#f0f0f0", color: "#999" }}>
+                                ? { background: "rgba(74,222,128,0.12)", color: "#4ade80" }
+                                : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>
                               {sub.status}
                             </span>
                             {/* Plan pill */}
@@ -896,13 +896,13 @@ export default function AdminPanel() {
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] mt-0.5 truncate" style={{ color: "#999" }}>
+                          <p className="text-[11px] mt-0.5 truncate" style={{ color: "hsl(var(--muted-foreground))" }}>
                             {sub.userEmail}
                           </p>
                           <div className="flex items-center gap-3 mt-0.5">
-                            <span className="text-[10px]" style={{ color: "#bbb" }}>ID: {sub.id}</span>
+                            <span className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>ID: {sub.id}</span>
                             {sub.currentPeriodEnd && (
-                              <span className="text-[10px] flex items-center gap-1" style={{ color: "#bbb" }}>
+                              <span className="text-[10px] flex items-center gap-1" style={{ color: "hsl(var(--muted-foreground))" }}>
                                 <Calendar style={{ height: "9px", width: "9px" }} />
                                 Expires {new Date(sub.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                               </span>
@@ -914,7 +914,7 @@ export default function AdminPanel() {
                       {sub.status === "active" && (
                         <button onClick={() => revokeSubscription(sub.id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium flex-shrink-0 ml-3 transition-colors"
-                          style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }}>
+                          style={{ background: "rgba(220,38,38,0.12)", color: "#f87171", border: "1px solid #fecaca" }}>
                           <Trash2 style={{ height: "10px", width: "10px" }} /> Revoke
                         </button>
                       )}
@@ -929,31 +929,31 @@ export default function AdminPanel() {
 
       {/* ── Payments ── */}
       {visitedTabs.has("payments") && (
-        <div className={tab !== "payments" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid rgba(0,0,0,0.09)", background: "#fff" }}>
-          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+        <div className={tab !== "payments" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}>
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
             <div className="flex items-center gap-2">
-              <CreditCard style={{ height: "14px", width: "14px", color: "#666" }} />
-              <span className="text-sm font-semibold" style={{ color: "#111" }}>All Payments</span>
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#f0f0f0", color: "#666" }}>{payments.length}</span>
+              <CreditCard style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+              <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>All Payments</span>
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>{payments.length}</span>
             </div>
-            <button onClick={fetchPayments} className="p-1.5 rounded-lg transition-colors" style={{ color: "#888" }}>
+            <button onClick={fetchPayments} className="p-1.5 rounded-lg transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
               <RefreshCw style={{ height: "13px", width: "13px" }} />
             </button>
           </div>
           {paymentsLoading ? (
-            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "#aaa" }}>Loading…</div>
+            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Loading…</div>
           ) : payments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <CreditCard style={{ height: "28px", width: "28px", color: "#ddd" }} />
-              <p className="text-sm" style={{ color: "#aaa" }}>No payments recorded yet</p>
+              <CreditCard style={{ height: "28px", width: "28px", color: "hsl(var(--muted-foreground))" }} />
+              <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>No payments recorded yet</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                  <tr style={{ borderBottom: "1px solid var(--glass-border)" }}>
                     {["User", "Plan", "Amount", "Order ID", "Status", "Date"].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 font-medium" style={{ color: "#888" }}>{h}</th>
+                      <th key={h} className="text-left px-4 py-2.5 font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -961,23 +961,23 @@ export default function AdminPanel() {
                   {payments.map((p, i) => (
                     <tr key={p.id} style={{ borderBottom: i < payments.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
                       <td className="px-4 py-3">
-                        <p className="font-medium" style={{ color: "#111" }}>{p.userName ?? "—"}</p>
-                        <p className="text-[10px]" style={{ color: "#bbb" }}>{p.userEmail}</p>
+                        <p className="font-medium" style={{ color: "hsl(var(--foreground))" }}>{p.userName ?? "—"}</p>
+                        <p className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>{p.userEmail}</p>
                       </td>
-                      <td className="px-4 py-3" style={{ color: "#555" }}>{p.planName ?? "—"}</td>
-                      <td className="px-4 py-3 font-semibold" style={{ color: "#111" }}>₹{(p.amount / 100).toLocaleString("en-IN")}</td>
-                      <td className="px-4 py-3 font-mono text-[10px]" style={{ color: "#888" }}>{p.razorpayOrderId.slice(0, 20)}…</td>
+                      <td className="px-4 py-3" style={{ color: "hsl(var(--muted-foreground))" }}>{p.planName ?? "—"}</td>
+                      <td className="px-4 py-3 font-semibold" style={{ color: "hsl(var(--foreground))" }}>₹{(p.amount / 100).toLocaleString("en-IN")}</td>
+                      <td className="px-4 py-3 font-mono text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>{p.razorpayOrderId.slice(0, 20)}…</td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-medium"
                           style={p.status === "captured"
-                            ? { background: "#dcfce7", color: "#16a34a" }
+                            ? { background: "rgba(74,222,128,0.12)", color: "#4ade80" }
                             : p.status === "pending"
-                              ? { background: "#fef9c3", color: "#ca8a04" }
-                              : { background: "#fee2e2", color: "#dc2626" }}>
+                              ? { background: "rgba(251,191,36,0.12)", color: "#fbbf24" }
+                              : { background: "rgba(220,38,38,0.12)", color: "#f87171" }}>
                           {p.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3" style={{ color: "#888" }}>
+                      <td className="px-4 py-3" style={{ color: "hsl(var(--muted-foreground))" }}>
                         {new Date(p.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                       </td>
                     </tr>

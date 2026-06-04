@@ -39,35 +39,35 @@ const PLANS_META: Record<string, {
   badge?: string;
 }> = {
   free: {
-    icon: <Shield className="h-5 w-5" style={{ color: "#777" }} />,
-    accent: "#555",
-    accentBg: "rgba(0,0,0,0.06)",
-    accentBorder: "rgba(0,0,0,0.12)",
-    gradient: "linear-gradient(135deg, #555 0%, #333 100%)",
-    cardBg: "#fff",
-    cardBorder: "rgba(0,0,0,0.09)",
+    icon: <Shield className="h-5 w-5" style={{ color: "hsl(var(--muted-foreground))" }} />,
+    accent: "hsl(var(--muted-foreground))",
+    accentBg: "var(--glass-bg)",
+    accentBorder: "var(--glass-border)",
+    gradient: "linear-gradient(135deg, hsl(var(--muted-foreground)) 0%, #444 100%)",
+    cardBg: "hsl(var(--card))",
+    cardBorder: "var(--glass-border)",
     shadow: "none",
   },
   pro: {
-    icon: <Zap className="h-5 w-5" style={{ color: "hsl(265,89%,62%)" }} />,
-    accent: "hsl(265,89%,60%)",
+    icon: <Zap className="h-5 w-5" style={{ color: "hsl(265,89%,70%)" }} />,
+    accent: "hsl(265,89%,70%)",
     accentBg: "rgba(139,92,246,0.1)",
     accentBorder: "rgba(139,92,246,0.28)",
     gradient: "linear-gradient(135deg, hsl(265,89%,60%) 0%, hsl(285,89%,58%) 100%)",
-    cardBg: "#fff",
-    cardBorder: "rgba(139,92,246,0.22)",
-    shadow: "0 0 0 1px rgba(139,92,246,0.22), 0 12px 40px rgba(139,92,246,0.14)",
+    cardBg: "hsl(var(--card))",
+    cardBorder: "rgba(139,92,246,0.3)",
+    shadow: "0 0 0 1px rgba(139,92,246,0.28), 0 12px 40px rgba(139,92,246,0.2)",
     badge: "Most Popular",
   },
   elite: {
-    icon: <Crown className="h-5 w-5" style={{ color: "hsl(38,100%,52%)" }} />,
-    accent: "hsl(38,100%,50%)",
+    icon: <Crown className="h-5 w-5" style={{ color: "hsl(38,100%,62%)" }} />,
+    accent: "hsl(38,100%,60%)",
     accentBg: "rgba(245,158,11,0.1)",
     accentBorder: "rgba(245,158,11,0.3)",
     gradient: "linear-gradient(135deg, hsl(38,100%,50%) 0%, hsl(20,100%,52%) 100%)",
-    cardBg: "#fff",
-    cardBorder: "rgba(245,158,11,0.25)",
-    shadow: "0 0 0 1px rgba(245,158,11,0.22), 0 12px 40px rgba(245,158,11,0.12)",
+    cardBg: "hsl(var(--card))",
+    cardBorder: "rgba(245,158,11,0.3)",
+    shadow: "0 0 0 1px rgba(245,158,11,0.25), 0 12px 40px rgba(245,158,11,0.18)",
   },
 };
 
@@ -149,19 +149,19 @@ function FeatureRow({
       className="grid items-center py-3"
       style={{
         gridTemplateColumns: "1fr repeat(3, minmax(80px,100px))",
-        borderBottom: "1px solid rgba(0,0,0,0.05)",
+        borderBottom: "1px solid var(--glass-border)",
       }}
     >
       <div className="flex items-center gap-2 pr-4">
-        <span style={{ color: "#aaa" }}>{icon}</span>
-        <span className="text-[12px]" style={{ color: "#555" }}>{label}</span>
+        <span style={{ color: "hsl(var(--muted-foreground))" }}>{icon}</span>
+        <span className="text-[12px]" style={{ color: "hsl(var(--foreground))" }}>{label}</span>
       </div>
       {values.map((val, i) => {
         const meta = PLANS_META[slugs[i]];
         if (val === null) {
           return (
             <div key={i} className="flex justify-center">
-              <X className="h-3.5 w-3.5" style={{ color: "#ddd" }} />
+              <X className="h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.4 }} />
             </div>
           );
         }
@@ -179,7 +179,7 @@ function FeatureRow({
         }
         return (
           <div key={i} className="flex justify-center">
-            <span className="text-[12px] font-semibold" style={{ color: "#222" }}>{val}</span>
+            <span className="text-[12px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{val}</span>
           </div>
         );
       })}
@@ -294,10 +294,10 @@ export default function PricingPage() {
           <Crown className="h-3 w-3" />
           Simple, transparent pricing
         </div>
-        <h1 className="text-[28px] font-bold tracking-tight mb-3" style={{ color: "#111" }}>
+        <h1 className="text-[28px] font-bold tracking-tight mb-3" style={{ color: "hsl(var(--foreground))" }}>
           Upgrade your trading edge
         </h1>
-        <p className="text-[14px] max-w-md mx-auto" style={{ color: "#888", lineHeight: 1.6 }}>
+        <p className="text-[14px] max-w-md mx-auto" style={{ color: "hsl(var(--muted-foreground))", lineHeight: 1.6 }}>
           Pick the plan that fits your workflow. All plans include access to the backtesting engine and live charts.
         </p>
       </div>
@@ -316,8 +316,8 @@ export default function PricingPage() {
               key={plan.id}
               className="relative flex flex-col rounded-2xl p-6"
               style={{
-                background: meta?.cardBg ?? "#fff",
-                border: `1px solid ${meta?.cardBorder ?? "rgba(0,0,0,0.09)"}`,
+                background: meta?.cardBg ?? "hsl(var(--card))",
+                border: `1px solid ${meta?.cardBorder ?? "var(--glass-border)"}`,
                 boxShadow: meta?.shadow ?? "none",
               }}
             >
@@ -342,22 +342,22 @@ export default function PricingPage() {
                   {meta?.icon}
                 </span>
                 <div>
-                  <p className="text-[15px] font-bold" style={{ color: "#111" }}>{plan.name}</p>
-                  <p className="text-[11px]" style={{ color: "#999" }}>{plan.description.split(",")[0]}</p>
+                  <p className="text-[15px] font-bold" style={{ color: "hsl(var(--foreground))" }}>{plan.name}</p>
+                  <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{plan.description.split(",")[0]}</p>
                 </div>
               </div>
 
               {/* Price */}
               <div className="mb-6">
                 {isFree ? (
-                  <p className="text-[32px] font-bold" style={{ color: "#111" }}>
+                  <p className="text-[32px] font-bold" style={{ color: "hsl(var(--foreground))" }}>
                     ₹0
-                    <span className="text-[13px] font-normal" style={{ color: "#aaa" }}>/mo</span>
+                    <span className="text-[13px] font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>/mo</span>
                   </p>
                 ) : (
-                  <p className="text-[32px] font-bold" style={{ color: "#111" }}>
+                  <p className="text-[32px] font-bold" style={{ color: "hsl(var(--foreground))" }}>
                     ₹{(plan.priceMonthly / 100).toLocaleString("en-IN")}
-                    <span className="text-[13px] font-normal" style={{ color: "#aaa" }}>/mo</span>
+                    <span className="text-[13px] font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>/mo</span>
                   </p>
                 )}
               </div>
@@ -376,21 +376,21 @@ export default function PricingPage() {
                         style={
                           enabled
                             ? { background: meta?.accentBg }
-                            : { background: "#f0f0f0" }
+                            : { background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }
                         }
                       >
                         {enabled
                           ? <Check className="h-2.5 w-2.5" style={{ color: meta?.accent }} />
-                          : <X className="h-2.5 w-2.5" style={{ color: "#ccc" }} />
+                          : <X className="h-2.5 w-2.5" style={{ color: "hsl(var(--muted-foreground))" }} />
                         }
                       </span>
                       <span
                         className="text-[12px]"
-                        style={{ color: enabled ? "#444" : "#ccc" }}
+                        style={{ color: enabled ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))", opacity: enabled ? 1 : 0.5 }}
                       >
                         {val === "yes" || val === null
                           ? label
-                          : <><span style={{ color: enabled ? "#111" : "#ccc", fontWeight: 600 }}>{val}</span> {label}</>
+                          : <><span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>{val}</span> {label}</>
                         }
                       </span>
                     </div>
@@ -405,10 +405,10 @@ export default function PricingPage() {
                 className="w-full py-2.5 rounded-xl text-[13px] font-semibold flex items-center justify-center gap-2 transition-opacity"
                 style={
                   isActive
-                    ? { background: "#f0f0f0", color: "#888", cursor: "default" }
+                    ? { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", cursor: "default", border: "1px solid var(--glass-border)" }
                     : isFree
-                      ? { background: "#f5f5f5", color: "#bbb", cursor: "default" }
-                      : { background: meta?.gradient, color: "#fff", boxShadow: `0 4px 16px ${meta?.accentBorder}` }
+                      ? { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", cursor: "default", border: "1px solid var(--glass-border)", opacity: 0.7 }
+                      : { background: meta?.gradient, color: "#fff", boxShadow: `0 4px 20px ${meta?.accentBorder}` }
                 }
               >
                 {isBusy ? (
@@ -432,18 +432,18 @@ export default function PricingPage() {
       <div className="overflow-x-auto -mx-1 px-1">
       <div
         className="rounded-2xl overflow-hidden min-w-[480px]"
-        style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+        style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--card))" }}
       >
         {/* Table header */}
         <div
           className="grid px-5 py-4"
           style={{
             gridTemplateColumns: "1fr repeat(3, minmax(80px,100px))",
-            background: "#fafafa",
-            borderBottom: "1px solid rgba(0,0,0,0.07)",
+            background: "var(--glass-bg)",
+            borderBottom: "1px solid var(--glass-border)",
           }}
         >
-          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#aaa" }}>
+          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>
             Feature
           </p>
           {plans.map(p => {
@@ -458,7 +458,7 @@ export default function PricingPage() {
                     className: "h-3.5 w-3.5",
                   })}
                 </span>
-                <span className="text-[11px] font-semibold" style={{ color: "#333" }}>{p.name}</span>
+                <span className="text-[11px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{p.name}</span>
               </div>
             );
           })}
@@ -478,7 +478,7 @@ export default function PricingPage() {
       </div>
 
       {/* ── Footer note ───────────────────────────────────────────────── */}
-      <p className="text-center text-[11px] mt-6" style={{ color: "#ccc" }}>
+      <p className="text-center text-[11px] mt-6" style={{ color: "hsl(var(--muted-foreground))" }}>
         Secure payments via Razorpay · All prices in INR · Cancel anytime
       </p>
     </div>

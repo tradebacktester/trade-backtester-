@@ -256,7 +256,7 @@ export default function PsychMatchPage() {
               Run at least one complete backtest with trades to generate your psychology profile.
             </p>
             <Link href="/backtests/new">
-              <Button size="sm" style={{ background: "#6366f1", color: "#fff" }}>Run a Backtest</Button>
+              <Button size="sm" style={{ background: "var(--accent-indigo)", color: "#fff" }}>Run a Backtest</Button>
             </Link>
           </CardContent>
         </Card>
@@ -293,7 +293,7 @@ export default function PsychMatchPage() {
               <AlertCircle className="h-4 w-4 flex-shrink-0" /> {error}
             </div>
           )}
-          <Button onClick={handleAnalyze} disabled={loading} className="px-8 py-3 text-base" style={{ background: "#a78bfa", color: "#fff" }}>
+          <Button onClick={handleAnalyze} disabled={loading} className="px-8 py-3 text-base" style={{ background: "var(--accent-indigo)", color: "#fff" }}>
             {loading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Analyzing your patterns…</> : <><Brain className="h-4 w-4 mr-2" />Discover My Strategy Match</>}
           </Button>
           <p className="text-xs" style={{ color: "hsl(220,14%,35%)" }}>Powered by Llama 3.3 70B · Your data stays private</p>

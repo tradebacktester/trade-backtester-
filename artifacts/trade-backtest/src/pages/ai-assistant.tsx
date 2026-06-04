@@ -38,35 +38,40 @@ interface ChatMsg {
 }
 
 /* ─────────────────────────────────────────────
-   COLOUR TOKENS  — blue accent system
+   COLOUR TOKENS  — premium cyan/indigo system
 ───────────────────────────────────────────── */
-const BLUE   = "#2563eb";
-const BLUE_L = "#3b82f6";
-const BLUE_BG = "rgba(37,99,235,0.07)";
-const BLUE_BD = "rgba(37,99,235,0.18)";
+const CYAN    = "var(--accent-cyan)";
+const CYAN_BG = "var(--accent-cyan-dim)";
+const CYAN_BD = "var(--accent-cyan-border)";
+const _INDIGO = "var(--accent-indigo)"; void _INDIGO;
+
+/* Legacy aliases for blue references */
+const BLUE    = CYAN;
+const BLUE_BG = CYAN_BG;
+const BLUE_BD = CYAN_BD;
 
 const C = {
-  bg:       "#ffffff",
-  surface:  "#f4f6fb",
-  surfaceB: "#eef1f8",
-  border:   "rgba(0,0,0,0.09)",
-  borderB:  BLUE_BD,
-  text:     "#0f1117",
-  sub:      "#4b5563",
-  muted:    "#9ca3af",
-  blue:     BLUE,
-  blueL:    BLUE_L,
-  blueBg:   BLUE_BG,
-  blueBd:   BLUE_BD,
-  pos:      "#16a34a",
-  neg:      "#dc2626",
-  amb:      "#d97706",
+  bg:       "hsl(var(--background))",
+  surface:  "hsl(var(--card))",
+  surfaceB: "var(--glass-bg)",
+  border:   "var(--glass-border)",
+  borderB:  CYAN_BD,
+  text:     "hsl(var(--foreground))",
+  sub:      "hsl(var(--muted-foreground))",
+  muted:    "hsl(var(--muted-foreground))",
+  blue:     CYAN,
+  blueL:    CYAN,
+  blueBg:   CYAN_BG,
+  blueBd:   CYAN_BD,
+  pos:      "#4ade80",
+  neg:      "#f87171",
+  amb:      "#facc15",
 };
 
 const CARD: React.CSSProperties = {
-  background: C.surface,
-  border:    `1px solid ${C.border}`,
-  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+  background: "hsl(var(--card))",
+  border:     "1px solid var(--glass-border)",
+  boxShadow:  "var(--shadow-card)",
 };
 
 /* ─────────────────────────────────────────────
@@ -212,8 +217,9 @@ function MarketCard({ card }: { card: MarketCard }) {
         </div>
       </div>
 
-      <div className="h-0.5 w-full rounded-full" style={{ background: "rgba(0,0,0,0.07)" }}>
-        <div className="h-full rounded-full" style={{ width: `${card.score}%`, background: color, opacity: 0.65 }} />
+      <div className="h-0.5 w-full rounded-full" style={{ background: "var(--glass-border)" }}>
+        <div className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${card.score}%`, background: color, boxShadow: `0 0 6px ${color}80` }} />
       </div>
 
       {open && (
@@ -304,7 +310,7 @@ function EconRow({ ev }: { ev: EconEvent }) {
               <div
                 key={l}
                 className="h-1.5 w-1.5 rounded-full"
-                style={{ background: levels.indexOf(ev.impact) >= i ? color : "rgba(0,0,0,0.1)" }}
+                style={{ background: levels.indexOf(ev.impact) >= i ? color : "var(--glass-border)" }}
               />
             ))}
           </div>
@@ -382,17 +388,24 @@ function ChatPanel() {
       {/* Intro / empty state */}
       {messages.length === 0 && (
         <div
-          className="rounded-2xl p-5 flex flex-col items-center gap-3 text-center"
-          style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}
+          className="rounded-2xl p-6 flex flex-col items-center gap-4 text-center relative overflow-hidden"
+          style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}
         >
-          <div
-            className="h-12 w-12 rounded-2xl flex items-center justify-center"
-            style={{ background: "#fff", border: `1px solid ${BLUE_BD}` }}
-          >
-            <Brain className="h-6 w-6" style={{ color: BLUE }} />
+          {/* Ambient glow */}
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,212,255,0.07) 0%, transparent 70%)" }} />
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 50%)" }} />
+          <div className="relative">
+            <div
+              className="h-14 w-14 rounded-2xl flex items-center justify-center pulse-glow"
+              style={{ background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.25)" }}
+            >
+              <Brain className="h-7 w-7" style={{ color: CYAN }} />
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: C.text }}>AI Trading Assistant</p>
+          <div className="relative">
+            <p className="text-sm font-bold" style={{ color: C.text }}>AI Trading Assistant</p>
             <p className="text-[12px] mt-1 max-w-xs mx-auto leading-relaxed" style={{ color: C.sub }}>
               Ask anything about trading strategies, technical analysis, risk management, or market concepts.
             </p>
@@ -429,20 +442,20 @@ function ChatPanel() {
               <div
                 className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                 style={msg.role === "user"
-                  ? { background: "#111" }
+                  ? { background: "var(--accent-cyan)", border: "1px solid rgba(0,212,255,0.4)" }
                   : { background: BLUE_BG, border: `1px solid ${BLUE_BD}` }
                 }
               >
                 {msg.role === "user"
-                  ? <User className="h-3.5 w-3.5" style={{ color: "#fff" }} />
-                  : <Bot className="h-3.5 w-3.5" style={{ color: BLUE }} />
+                  ? <User className="h-3.5 w-3.5" style={{ color: "#050505" }} />
+                  : <Bot className="h-3.5 w-3.5" style={{ color: CYAN }} />
                 }
               </div>
               <div
                 className="rounded-2xl px-4 py-3 max-w-[85%] text-[13px] leading-relaxed"
                 style={msg.role === "user"
-                  ? { background: "#111", color: "#fff" }
-                  : { background: C.surface, color: C.text, border: `1px solid ${C.border}` }
+                  ? { background: "var(--accent-cyan)", color: "#050505", fontWeight: 600, borderBottomRightRadius: 4 }
+                  : { background: C.surface, color: C.text, border: `1px solid ${C.border}`, borderBottomLeftRadius: 4 }
                 }
               >
                 {msg.content}
@@ -456,19 +469,14 @@ function ChatPanel() {
                 className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                 style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}
               >
-                <Bot className="h-3.5 w-3.5" style={{ color: BLUE }} />
+                <Bot className="h-3.5 w-3.5" style={{ color: CYAN }} />
               </div>
               <div
                 className="rounded-2xl px-4 py-3 flex items-center gap-1.5"
                 style={{ background: C.surface, border: `1px solid ${C.border}` }}
               >
-                {[0, 1, 2].map(i => (
-                  <span
-                    key={i}
-                    className="h-1.5 w-1.5 rounded-full animate-bounce"
-                    style={{ background: C.muted, animationDelay: `${i * 0.15}s` }}
-                  />
-                ))}
+                <span className="h-1.5 w-1.5 rounded-full live-pulse" style={{ background: CYAN }} />
+                <span className="text-[11px] font-mono" style={{ color: C.muted }}>Thinking…</span>
               </div>
             </div>
           )}
@@ -490,7 +498,7 @@ function ChatPanel() {
       {/* Input box */}
       <div
         className="rounded-2xl p-2 flex items-end gap-2"
-        style={{ background: "#fff", border: `1px solid ${C.border}`, boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}
+        style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}
       >
         <textarea
           value={input}
@@ -510,13 +518,13 @@ function ChatPanel() {
         <button
           onClick={() => sendMessage()}
           disabled={loading || !input.trim()}
-          className="h-9 w-9 flex items-center justify-center rounded-xl flex-shrink-0 transition-opacity"
+          className="h-9 w-9 flex items-center justify-center rounded-xl flex-shrink-0 disabled:opacity-30"
           style={{
-            background: input.trim() && !loading ? "#111" : "#e5e5e5",
-            opacity: loading ? 0.6 : 1,
+            background: "var(--accent-cyan)",
+            color: "#050505",
           }}
         >
-          <Send className="h-4 w-4" style={{ color: input.trim() && !loading ? "#fff" : "#aaa" }} />
+          <Send className="h-4 w-4" />
         </button>
       </div>
       <p className="text-[10px] text-center" style={{ color: C.muted }}>
@@ -633,12 +641,12 @@ function BiasPanel() {
           <button
             onClick={handleAnalyze}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all flex-shrink-0"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0 disabled:opacity-60"
             style={{
-              background: loading ? C.surfaceB : BLUE,
-              color: loading ? C.muted : "#fff",
-              border: `1px solid ${loading ? C.border : BLUE}`,
-              opacity: loading ? 0.7 : 1,
+              background: loading ? "var(--glass-bg)" : "var(--accent-cyan)",
+              color: loading ? "hsl(var(--muted-foreground))" : "#050505",
+              border: `1px solid ${loading ? "var(--glass-border)" : "rgba(0,212,255,0.4)"}`,
+              boxShadow: loading ? "none" : "0 0 20px rgba(0,212,255,0.25)",
             }}
           >
             {loading ? (
@@ -767,27 +775,31 @@ export default function AiAssistant() {
 
       {/* ── HEADER ──────────────────────────────────────────────── */}
       <div
-        className="rounded-2xl p-4"
-        style={{
-          background: `linear-gradient(135deg, ${BLUE_BG} 0%, #ffffff 60%)`,
-          border: `1px solid ${BLUE_BD}`,
-          boxShadow: "0 1px 6px rgba(37,99,235,0.08)",
-        }}
+        className="rounded-2xl p-5 relative overflow-hidden"
+        style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}
       >
-        <div className="flex items-center justify-between gap-3">
+        {/* Ambient glows */}
+        <div className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse 80% 100% at 0% 50%, rgba(0,212,255,0.08) 0%, transparent 60%)" }} />
+        <div className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(79,70,229,0.07) 0%, transparent 60%)" }} />
+        <div className="pointer-events-none absolute inset-0"
+          style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)" }} />
+
+        <div className="relative flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className="h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}
+              className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 pulse-glow"
+              style={{ background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.25)" }}
             >
-              <Brain className="h-6 w-6" style={{ color: BLUE }} />
+              <Brain className="h-6 w-6" style={{ color: CYAN }} />
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold tracking-tight" style={{ color: C.text }}>
                 AI Market Assistant
               </h1>
               <p className="text-[11px] font-mono mt-0.5" style={{ color: C.muted }}>
-                Market intelligence + AI chat
+                Live market intelligence · Powered by AI
               </p>
             </div>
           </div>
@@ -795,9 +807,9 @@ export default function AiAssistant() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <span
               className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full"
-              style={{ background: "rgba(22,163,74,0.09)", border: "1px solid rgba(22,163,74,0.22)", color: C.pos }}
+              style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.22)", color: "#4ade80" }}
             >
-              <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: C.pos }} />
+              <span className="h-1.5 w-1.5 rounded-full live-pulse" style={{ background: "#4ade80", boxShadow: "0 0 6px #4ade80" }} />
               Live
             </span>
             <button
@@ -806,8 +818,8 @@ export default function AiAssistant() {
                 setRefreshing(true);
                 setTimeout(() => setRefreshing(false), 1100);
               }}
-              className="h-9 w-9 flex items-center justify-center rounded-xl active:opacity-60"
-              style={{ background: C.surface, border: `1px solid ${C.border}` }}
+              className="h-9 w-9 flex items-center justify-center rounded-xl"
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
             >
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -820,8 +832,8 @@ export default function AiAssistant() {
 
       {/* ── TAB BAR ─────────────────────────────────────────────── */}
       <div
-        className="flex p-1 rounded-2xl gap-1 overflow-x-auto"
-        style={{ background: C.surface, border: `1px solid ${C.border}` }}
+        className="flex p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-none"
+        style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-inner-sm)" }}
       >
         {TABS.map(t => {
           const active = tab === t.id;
@@ -829,20 +841,19 @@ export default function AiAssistant() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-medium whitespace-nowrap min-w-0 px-2"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold whitespace-nowrap min-w-0 px-2"
               style={active ? {
-                background: "#ffffff",
-                color: t.id === "chat" ? BLUE : BLUE,
-                border: `1px solid ${BLUE_BD}`,
-                boxShadow: "0 1px 4px rgba(37,99,235,0.10)",
+                background: "hsl(var(--card))",
+                color: CYAN,
+                border: `1px solid ${CYAN_BD}`,
+                boxShadow: "var(--shadow-tab-active), 0 0 12px rgba(0,212,255,0.1)",
               } : {
                 color: C.muted,
                 border: "1px solid transparent",
-                transition: "color 0.15s",
               }}
             >
               <t.Icon className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>{t.label}</span>
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           );
         })}
@@ -853,33 +864,37 @@ export default function AiAssistant() {
       ══════════════════════════════════════════════ */}
       <div style={show("overview")}>
         <div
-          className="rounded-2xl p-4 sm:p-5"
-          style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
+          className="rounded-2xl p-4 sm:p-5 relative overflow-hidden"
+          style={{ background: "hsl(var(--card))", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}
         >
-          <SectionLabel>Overall Market Sentiment</SectionLabel>
-          <div className="flex items-center gap-4 mt-3">
-            <div
-              className="h-16 w-16 rounded-2xl flex flex-col items-center justify-center flex-shrink-0"
-              style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}
-            >
-              <span className="text-xl font-bold font-mono" style={{ color: overallColor }}>{overallScore}</span>
-              <span className="text-[9px] font-mono" style={{ color: C.muted }}>/100</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-base font-bold mb-1" style={{ color: overallColor }}>
-                {SENT[overallSent].label}
-              </p>
-              <p className="text-[12px] leading-relaxed" style={{ color: C.sub }}>
-                Markets showing a {SENT[overallSent].label.toLowerCase()} tone driven by crypto strength and commodity demand. USD strength creating headwinds for risk assets.
-              </p>
-              <div className="flex flex-wrap gap-1.5 mt-2.5">
-                {["Risk-On", "BTC Dominant", "USD Strong", "Gold Bid"].map(tag => (
-                  <span key={tag}
-                    className="text-[10px] font-mono px-2 py-0.5 rounded-full"
-                    style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}`, color: BLUE }}>
-                    {tag}
-                  </span>
-                ))}
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: "radial-gradient(ellipse 60% 80% at 0% 100%, rgba(0,212,255,0.06) 0%, transparent 60%)" }} />
+          <div className="relative">
+            <SectionLabel>Overall Market Sentiment</SectionLabel>
+            <div className="flex items-center gap-4 mt-3">
+              <div
+                className="h-16 w-16 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 flex-shrink-0"
+                style={{ background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", boxShadow: "0 0 16px rgba(0,212,255,0.1)" }}
+              >
+                <span className="text-xl font-bold font-mono" style={{ color: overallColor }}>{overallScore}</span>
+                <span className="text-[9px] font-mono" style={{ color: C.muted }}>/100</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold mb-1" style={{ color: overallColor }}>
+                  {SENT[overallSent].label}
+                </p>
+                <p className="text-[12px] leading-relaxed" style={{ color: C.sub }}>
+                  Markets showing a {SENT[overallSent].label.toLowerCase()} tone driven by crypto strength and commodity demand. USD strength creating headwinds for risk assets.
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  {["Risk-On", "BTC Dominant", "USD Strong", "Gold Bid"].map(tag => (
+                    <span key={tag}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                      style={{ background: "var(--accent-cyan-dim)", border: "1px solid var(--accent-cyan-border)", color: "var(--accent-cyan)" }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
