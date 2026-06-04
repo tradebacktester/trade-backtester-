@@ -239,7 +239,7 @@ router.post("/community/:id/like", async (req, res): Promise<void> => {
     .where(and(eq(communityPostsTable.id, id), eq(communityPostsTable.isDeleted, false)));
   if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
-  const { action } = req.body as { action?: "like" | "unlike" };
+  const action = (req.body as { action?: "like" | "unlike" } | undefined)?.action;
   const newLikes = action === "unlike" ? Math.max(0, post.likes - 1) : post.likes + 1;
 
   const [updated] = await db.update(communityPostsTable)

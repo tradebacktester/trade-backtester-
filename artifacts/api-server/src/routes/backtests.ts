@@ -213,6 +213,17 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  if (new Date(parsed.data.startDate) > today) {
+    res.status(400).json({ error: "startDate cannot be in the future" });
+    return;
+  }
+  if (new Date(parsed.data.endDate) > today) {
+    res.status(400).json({ error: "endDate cannot be in the future" });
+    return;
+  }
+
   const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, parsed.data.strategyId));
   if (!strategy) {
     res.status(404).json({ error: "Strategy not found" });

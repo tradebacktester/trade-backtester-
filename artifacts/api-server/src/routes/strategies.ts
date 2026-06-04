@@ -14,6 +14,14 @@ import {
 
 const router: IRouter = Router();
 
+function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, "")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+\s*=/gi, "")
+    .trim();
+}
+
 function extractUserId(req: Request): number | null {
   try {
     const auth = req.headers["authorization"];
@@ -59,7 +67,7 @@ router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
   }
   const [row] = await db.insert(strategiesTable).values({
     userId,
-    name: parsed.data.name,
+    name: stripHtml(parsed.data.name),
     description: parsed.data.description ?? null,
     type: parsed.data.type,
     symbol: parsed.data.symbol,
@@ -105,7 +113,7 @@ router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => 
     return;
   }
   const updateData: Partial<typeof strategiesTable.$inferInsert> = {};
-  if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
+  if (parsed.data.name !== undefined) updateData.name = stripHtml(parsed.data.name);
   if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
   if (parsed.data.type !== undefined) updateData.type = parsed.data.type;
   if (parsed.data.symbol !== undefined) updateData.symbol = parsed.data.symbol;

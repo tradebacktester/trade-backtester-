@@ -308,6 +308,9 @@ function runStrategy(
     const period = Number(parameters.period ?? 14);
     const oversold = Number(parameters.oversold ?? 30);
     const overbought = Number(parameters.overbought ?? 70);
+    if (oversold >= overbought) {
+      throw new Error(`Invalid RSI parameters: oversold (${oversold}) must be less than overbought (${overbought})`);
+    }
     const rsiValues = rsi(closes, period);
     let inTrade = false, entryIdx = -1;
     for (let i = 1; i < bars.length; i++) {
@@ -347,6 +350,9 @@ function runStrategy(
   } else if (strategyType === "bollinger_bands") {
     const period = Number(parameters.period ?? 20);
     const stdDev = Number(parameters.stdDev ?? 2);
+    if (stdDev < 0.1) {
+      throw new Error(`Invalid Bollinger Bands parameters: stdDev (${stdDev}) must be at least 0.1`);
+    }
     const mid = sma(closes, period);
     const upper = closes.map((_, i) => {
       if (i < period - 1) return null;
