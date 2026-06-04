@@ -29,7 +29,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run dev & pnpm --filter @workspace/trade-backtest run dev"
+args = "bash scripts/start.sh"
 waitForPort = 5000
 
 [agent]
@@ -44,10 +44,6 @@ timeoutMs = 20000
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 24593
-externalPort = 3001
 
 [nix]
 channel = "stable-25_05"
