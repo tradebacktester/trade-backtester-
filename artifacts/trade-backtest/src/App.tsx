@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -53,10 +53,10 @@ const queryClient = new QueryClient({
 function AdminPanelGuard() {
   const { adminToken } = useAuth();
   const [, setLocation] = useLocation();
-  if (!adminToken) {
-    setLocation("/admin");
-    return null;
-  }
+  useEffect(() => {
+    if (!adminToken) setLocation("/admin");
+  }, [adminToken]);
+  if (!adminToken) return null;
   return <AdminPanel />;
 }
 

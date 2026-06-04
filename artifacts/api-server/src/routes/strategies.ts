@@ -39,6 +39,13 @@ function validateStrategyParams(type: StrategyType, params: Record<string, unkno
   if (missing.length > 0) {
     return `Missing required parameters for ${type}: ${missing.join(", ")}`;
   }
+  if (type === "sma_crossover" || type === "ema_crossover") {
+    const fast = Number(params["fastPeriod"]);
+    const slow = Number(params["slowPeriod"]);
+    if (!isNaN(fast) && !isNaN(slow) && fast >= slow) {
+      return `fastPeriod (${fast}) must be less than slowPeriod (${slow})`;
+    }
+  }
   return null;
 }
 
@@ -97,7 +104,7 @@ router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
   const [row] = await db.insert(strategiesTable).values({
     userId,
     name: stripHtml(parsed.data.name),
-    description: parsed.data.description ?? null,
+    description: parsed.data.description != null ? stripHtml(parsed.data.description) : null,
     type: parsed.data.type,
     symbol: parsed.data.symbol,
     timeframe: parsed.data.timeframe,
@@ -143,7 +150,7 @@ router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => 
   }
   const updateData: Partial<typeof strategiesTable.$inferInsert> = {};
   if (parsed.data.name !== undefined) updateData.name = stripHtml(parsed.data.name);
-  if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+  if (parsed.data.description !== undefined) updateData.description = parsed.data.description != null ? stripHtml(parsed.data.description) : null;
   if (parsed.data.type !== undefined) updateData.type = parsed.data.type;
   if (parsed.data.symbol !== undefined) updateData.symbol = parsed.data.symbol;
   if (parsed.data.timeframe !== undefined) updateData.timeframe = parsed.data.timeframe;

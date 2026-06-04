@@ -350,4 +350,22 @@ router.patch("/admin/community/reports/:id", async (req, res): Promise<void> => 
   res.json({ id: updated.id, status: updated.status });
 });
 
+// POST /admin/community/posts/:id/anonymize — M-007: overwrite spoofed authorName
+router.post("/admin/community/posts/:id/anonymize", async (req, res): Promise<void> => {
+  const token = req.headers["x-admin-token"] as string | undefined;
+  if (!token || !verifyAdminToken(token)) {
+    res.status(401).json({ error: "Unauthorized" }); return;
+  }
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [updated] = await db.update(communityPostsTable)
+    .set({ authorName: "Anonymous" })
+    .where(eq(communityPostsTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Post not found" }); return; }
+
+  res.json({ id: updated.id, authorName: updated.authorName, message: "Author name anonymized." });
+});
+
 export default router;

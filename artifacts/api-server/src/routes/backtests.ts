@@ -208,6 +208,11 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  if (parsed.data.initialCapital > 10_000_000) {
+    res.status(400).json({ error: "initialCapital cannot exceed $10,000,000" });
+    return;
+  }
+
   if (new Date(parsed.data.startDate) >= new Date(parsed.data.endDate)) {
     res.status(400).json({ error: "startDate must be before endDate" });
     return;
@@ -347,9 +352,15 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       rawCurve = [{ date: parsed.data.startDate, value: parsed.data.initialCapital, drawdown: 0 }, ...rawCurve];
     }
 
-    // Sample equity curve to ≤500 points, store benchmark value
+    // Sample equity curve to ≤500 points, always including the final bar (L-001)
     const equitySample = rawCurve.length > 500
-      ? rawCurve.filter((_, i) => i % Math.ceil(rawCurve.length / 500) === 0)
+      ? (() => {
+          const step = Math.ceil(rawCurve.length / 500);
+          const sampled = rawCurve.filter((_, i) => i % step === 0);
+          const last = rawCurve[rawCurve.length - 1]!;
+          if (sampled[sampled.length - 1]!.date !== last.date) sampled.push(last);
+          return sampled;
+        })()
       : rawCurve;
     if (equitySample.length > 0) {
       await db.insert(equityCurveTable).values(
@@ -362,8 +373,10 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       );
     }
 
+    const completionStatus = result.totalTrades === 0 ? "no_trades" : "complete";
+
     const [updated] = await db.update(backtestsTable).set({
-      status: "complete",
+      status: completionStatus,
       finalCapital: String(result.finalCapital),
       totalReturn: String(result.totalReturn),
       annualizedReturn: String(result.annualizedReturn),
@@ -513,6 +526,8 @@ router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> 
   const baseParams = strategy.parameters as Record<string, unknown>;
   const results: Array<{ p1: number; p2: number; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number }> = [];
 
+  const p1Truncated = param1Values.length > 8;
+  const p2Truncated = param2Values.length > 8;
   const p1Vals: number[] = param1Values.slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
   const p2Vals: number[] = param2Values.slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
 
@@ -532,7 +547,10 @@ router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> 
     }
   }
 
-  res.json({ param1Name, param1Values: p1Vals, param2Name, param2Values: p2Vals, results });
+  const truncationWarning = (p1Truncated || p2Truncated)
+    ? `Parameter values were truncated to 8 per dimension (received: ${param1Name}=${param1Values.length}, ${param2Name}=${param2Values.length})`
+    : undefined;
+  res.json({ param1Name, param1Values: p1Vals, param2Name, param2Values: p2Vals, results, warning: truncationWarning });
 });
 
 function computeYearlyReturnsFromTrades(

@@ -7,6 +7,18 @@ interface AuthModalProps {
   onClose: () => void;
 }
 
+function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
+  if (pw.length === 0) return { score: 0, label: "", color: "#e5e7eb" };
+  if (pw.length < 6) return { score: 1, label: "Too short", color: "#ef4444" };
+  const hasUpper = /[A-Z]/.test(pw);
+  const hasDigit = /[0-9]/.test(pw);
+  const hasSymbol = /[^a-zA-Z0-9]/.test(pw);
+  const variety = [true, hasUpper, hasDigit, hasSymbol].filter(Boolean).length;
+  if (pw.length >= 12 && variety >= 3) return { score: 4, label: "Strong", color: "#22c55e" };
+  if (pw.length >= 8 && variety >= 2) return { score: 3, label: "Good", color: "#eab308" };
+  return { score: 2, label: "Weak", color: "#f97316" };
+}
+
 export function AuthModal({ open, onClose }: AuthModalProps) {
   const { setUser } = useAuth();
   const [tab, setTab] = useState<"signin" | "signup">("signin");
@@ -17,6 +29,8 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
+
+  const pwStrength = getPasswordStrength(password);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,7 +88,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           {(["signin", "signup"] as const).map(t => (
             <button
               key={t}
-              onClick={() => { setTab(t); setError(""); }}
+              onClick={() => { setTab(t); setError(""); setPassword(""); }}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150"
               style={tab === t ? {
                 background: "#fff",
@@ -145,6 +159,25 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                 onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
               />
             </div>
+            {tab === "signup" && password.length > 0 && (
+              <div className="mt-2">
+                <div className="flex gap-1 mb-1">
+                  {[1, 2, 3, 4].map(i => (
+                    <div
+                      key={i}
+                      className="h-1 flex-1 rounded-full transition-colors duration-200"
+                      style={{ background: pwStrength.score >= i ? pwStrength.color : "#e5e7eb" }}
+                    />
+                  ))}
+                </div>
+                <span className="text-[10px] font-medium" style={{ color: pwStrength.color }}>
+                  {pwStrength.label}
+                </span>
+              </div>
+            )}
+            {tab === "signup" && password.length === 0 && (
+              <p className="text-[10px] mt-1.5" style={{ color: "#aaa" }}>Must be at least 6 characters</p>
+            )}
           </div>
 
           {error && (

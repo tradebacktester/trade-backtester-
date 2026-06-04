@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
-import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable } from "@workspace/db";
+import { eq, and, desc, gt, lt, count as drizzleCount } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
 
 const ADMIN_ID = process.env.ADMIN_ID ?? "";
@@ -55,13 +55,23 @@ async function ensurePolicies() {
 
 const router: IRouter = Router();
 
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+async function checkAdminRateLimit(ip: string): Promise<boolean> {
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60_000);
+  const [{ cnt }] = await db
+    .select({ cnt: drizzleCount(adminAttemptsTable.id) })
+    .from(adminAttemptsTable)
+    .where(and(eq(adminAttemptsTable.ip, ip), gt(adminAttemptsTable.createdAt, fifteenMinutesAgo)));
+  if (cnt >= 10) return false;
+  await db.insert(adminAttemptsTable).values({ ip });
+  const oneHourAgo = new Date(Date.now() - 60 * 60_000);
+  await db.delete(adminAttemptsTable).where(lt(adminAttemptsTable.createdAt, oneHourAgo));
+  return true;
+}
 
 router.post("/admin/login", async (req, res): Promise<void> => {
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
-  const now = Date.now();
-  const attempt = loginAttempts.get(ip);
-  if (attempt && now < attempt.resetAt && attempt.count >= 10) {
+
+  if (!await checkAdminRateLimit(ip)) {
     res.status(429).json({ error: "Too many login attempts. Try again later." });
     return;
   }
@@ -76,17 +86,11 @@ router.post("/admin/login", async (req, res): Promise<void> => {
   const pwMatch = ADMIN_PASSWORD.length > 0 && timingSafeEqual(Buffer.from(String(password).padEnd(ADMIN_PASSWORD.length)), Buffer.from(ADMIN_PASSWORD.padEnd(String(password).length).slice(0, String(password).padEnd(ADMIN_PASSWORD.length).length)));
 
   if (!idMatch || !pwMatch || String(id) !== ADMIN_ID || String(password) !== ADMIN_PASSWORD) {
-    const rec = loginAttempts.get(ip);
-    if (!rec || now >= rec.resetAt) {
-      loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
-    } else {
-      rec.count++;
-    }
     res.status(401).json({ error: "Invalid admin credentials" });
     return;
   }
 
-  loginAttempts.delete(ip);
+  await db.delete(adminAttemptsTable).where(eq(adminAttemptsTable.ip, ip));
   res.json({ token: makeAdminToken() });
 });
 
