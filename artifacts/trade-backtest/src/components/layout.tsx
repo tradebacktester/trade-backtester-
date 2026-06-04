@@ -5,8 +5,10 @@ import {
   BarChart2, Settings, Zap, Brain,
   MoreHorizontal, X, ChevronRight, BookOpen,
   Shield, LogIn, LogOut, User, Users, Crown, CreditCard, Wrench, Store,
+  Sun, Moon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { AuthModal } from "@/components/auth-modal";
 
 const DESKTOP_ITEMS = [
@@ -52,17 +54,6 @@ const MOBILE_MORE = [
   { title: "Admin",          url: "/admin",        icon: Shield },
 ] as const;
 
-const T = {
-  navBg:     "rgba(255,255,255,0.96)",
-  navBorder: "rgba(0,0,0,0.08)",
-  mobileBg:  "rgba(255,255,255,0.99)",
-  dim:       "#888888",
-  active:    "#111111",
-  activeBg:  "rgba(0,0,0,0.06)",
-  activeBdr: "rgba(0,0,0,0.12)",
-  sheetBg:   "#ffffff",
-};
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -70,6 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   const { user, signout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -97,53 +89,53 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── DESKTOP TOP NAV ──────────────────────────────────────── */}
       <header
-        className="tt-desktop-nav fixed top-0 inset-x-0 z-50 hidden md:flex items-center h-[52px]"
-        style={{
-          background: T.navBg,
-          borderBottom: `1px solid ${T.navBorder}`,
-          boxShadow: "var(--shadow-nav)",
-        }}
+        className="tt-desktop-nav glass-nav fixed top-0 inset-x-0 z-50 hidden md:flex items-center h-[56px]"
       >
         {/* Logo */}
         <Link href="/dashboard">
           <span className="flex items-center gap-2 px-5 cursor-pointer select-none group">
-            <img src="/logo.png" className="h-7 w-7 rounded-xl object-cover" alt="Trade Lab logo" />
-            <span className="text-sm font-semibold tracking-tight" style={{ color: "#111" }}>
+            <div className="h-7 w-7 rounded-xl overflow-hidden flex-shrink-0" style={{
+              boxShadow: isDark ? "0 0 0 1px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.4)" : "0 0 0 1px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.1)",
+            }}>
+              <img src="/logo.png" className="h-full w-full object-cover" alt="Trade Lab" />
+            </div>
+            <span className="text-[13.5px] font-semibold tracking-tight" style={{ color: "var(--nav-active-color)" }}>
               Trade Lab
             </span>
           </span>
         </Link>
 
-        <div className="w-px h-4 mx-2 flex-shrink-0" style={{ background: T.navBorder }} />
+        <div className="w-px h-4 mx-2 flex-shrink-0" style={{ background: "var(--nav-border)" }} />
 
         {/* Nav items */}
         <nav className="flex-1 flex items-center justify-center gap-0.5 px-3">
           {DESKTOP_ITEMS.map((item) => {
             const active = isActive(item.url);
+            const isHome = 'home' in item && item.home;
             return (
               <Link key={item.title} href={item.url}>
                 <span
                   className="flex items-center gap-1.5 cursor-pointer select-none"
-                  style={('home' in item && item.home) ? {
+                  style={isHome ? {
                     padding: "5px 14px",
                     borderRadius: "10px",
                     fontSize: "13px",
                     fontWeight: 600,
-                    background: active ? T.activeBg : "#f5f5f5",
-                    color: active ? T.active : T.dim,
-                    border: `1px solid ${active ? T.activeBdr : "rgba(0,0,0,0.08)"}`,
+                    background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                    color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                    border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
                     boxShadow: active ? "var(--shadow-tab-active)" : "var(--shadow-2xs)",
-                    transition: "box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease",
+                    transition: "box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease",
                   } : {
                     padding: "5px 10px",
-                    borderRadius: "8px",
+                    borderRadius: "9px",
                     fontSize: "13px",
                     fontWeight: 500,
-                    border: `1px solid ${active ? T.activeBdr : "transparent"}`,
-                    background: active ? T.activeBg : "transparent",
-                    color: active ? T.active : T.dim,
+                    border: `1px solid ${active ? "var(--nav-active-border)" : "transparent"}`,
+                    background: active ? "var(--nav-active-bg)" : "transparent",
+                    color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
                     boxShadow: active ? "var(--shadow-tab-active)" : "none",
-                    transition: "box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease",
+                    transition: "box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease",
                   }}
                 >
                   <item.icon style={{ height: "13px", width: "13px", flexShrink: 0 }} />
@@ -154,23 +146,66 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Right — sign in + more dropdown + status */}
-        <div className="flex items-center gap-2 pr-4 flex-shrink-0">
+        {/* Right controls */}
+        <div className="flex items-center gap-1.5 pr-4 flex-shrink-0">
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "32px",
+              height: "32px",
+              borderRadius: "9px",
+              border: `1px solid var(--nav-border)`,
+              background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+              color: "var(--nav-dim-color)",
+              cursor: "pointer",
+              transition: "background 0.18s ease, border-color 0.18s ease, color 0.18s ease",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
+              (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+              (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
+            }}
+          >
+            {isDark
+              ? <Sun style={{ height: "13px", width: "13px" }} />
+              : <Moon style={{ height: "13px", width: "13px" }} />
+            }
+          </button>
 
           {/* Sign In / User */}
           {user ? (
             <div className="flex items-center gap-1">
               <span
                 className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1.5 rounded-lg"
-                style={{ color: "#555" }}
+                style={{ color: "var(--nav-dim-color)" }}
               >
                 <User style={{ height: "12px", width: "12px" }} />
                 {user.name.split(" ")[0]}
               </span>
               <button
                 onClick={signout}
-                className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-lg transition-colors"
-                style={{ color: "#888", border: "1px solid rgba(0,0,0,0.08)" }}
+                className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-lg"
+                style={{
+                  color: "var(--nav-dim-color)",
+                  border: "1px solid var(--nav-border)",
+                  background: "transparent",
+                  transition: "background 0.18s ease, color 0.18s ease",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.background = "transparent";
+                }}
                 title="Sign out"
               >
                 <LogOut style={{ height: "11px", width: "11px" }} />
@@ -179,15 +214,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-1.5 cursor-pointer select-none transition-colors duration-150"
+              className="flex items-center gap-1.5 cursor-pointer select-none"
               style={{
-                padding: "5px 12px",
-                borderRadius: "8px",
+                padding: "5px 13px",
+                borderRadius: "9px",
                 fontSize: "13px",
                 fontWeight: 500,
-                border: "1px solid rgba(0,0,0,0.12)",
-                background: "#f5f5f5",
-                color: "#444",
+                border: "1px solid var(--nav-border)",
+                background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.04)",
+                color: "var(--nav-dim-color)",
+                transition: "background 0.18s ease, color 0.18s ease, border-color 0.18s ease",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
+                (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.11)" : "rgba(0,0,0,0.07)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
+                (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.04)";
               }}
             >
               <LogIn style={{ height: "12px", width: "12px" }} />
@@ -199,15 +243,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="relative" ref={moreRef}>
             <button
               onClick={() => setMoreOpen(v => !v)}
-              className="flex items-center gap-1.5 cursor-pointer select-none transition-colors duration-150"
+              className="flex items-center gap-1.5 cursor-pointer select-none"
               style={{
                 padding: "5px 10px",
-                borderRadius: "8px",
+                borderRadius: "9px",
                 fontSize: "13px",
                 fontWeight: 500,
-                border: `1px solid ${moreOpen || moreActive ? T.activeBdr : "transparent"}`,
-                background: moreOpen || moreActive ? T.activeBg : "transparent",
-                color: moreOpen || moreActive ? T.active : T.dim,
+                border: `1px solid ${moreOpen || moreActive ? "var(--nav-active-border)" : "transparent"}`,
+                background: moreOpen || moreActive ? "var(--nav-active-bg)" : "transparent",
+                color: moreOpen || moreActive ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                transition: "background 0.18s ease, border-color 0.18s ease, color 0.18s ease",
               }}
             >
               <MoreHorizontal style={{ height: "13px", width: "13px" }} />
@@ -216,29 +261,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {moreOpen && (
               <div
-                className="absolute right-0 top-[calc(100%+6px)] w-44 rounded-2xl p-1.5 flex flex-col gap-0.5"
-                style={{
-                  background: "#fff",
-                  border: "1px solid rgba(0,0,0,0.09)",
-                  boxShadow: "var(--shadow-dropdown)",
-                  zIndex: 200,
-                }}
+                className="glass-panel absolute right-0 top-[calc(100%+8px)] w-48 rounded-2xl p-1.5 flex flex-col gap-0.5 scale-in"
+                style={{ zIndex: 200 }}
               >
                 {DESKTOP_MORE.map(item => {
                   const active = isActive(item.url);
                   return (
                     <Link key={item.title} href={item.url} onClick={() => setMoreOpen(false)}>
                       <span
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm cursor-pointer transition-colors duration-150"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] cursor-pointer"
                         style={{
-                          background: active ? T.activeBg : "transparent",
-                          color: active ? T.active : "#555",
+                          background: active ? "var(--nav-active-bg)" : "transparent",
+                          color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                          transition: "background 0.15s ease, color 0.15s ease",
                         }}
                         onMouseEnter={e => {
-                          if (!active) (e.currentTarget as HTMLElement).style.background = "#f5f5f5";
+                          if (!active) {
+                            (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+                            (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
+                          }
                         }}
                         onMouseLeave={e => {
-                          if (!active) (e.currentTarget as HTMLElement).style.background = "";
+                          if (!active) {
+                            (e.currentTarget as HTMLElement).style.background = "transparent";
+                            (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
+                          }
                         }}
                       >
                         <item.icon style={{ height: "14px", width: "14px", flexShrink: 0 }} />
@@ -252,8 +299,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          <span className="flex items-center gap-1.5 text-[11px] font-mono" style={{ color: "#aaa" }}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#16a34a" }} />
+          {/* Live indicator */}
+          <span className="flex items-center gap-1.5 text-[11px] font-mono" style={{ color: "var(--nav-dim-color)" }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.6)" }} />
             LIVE
           </span>
         </div>
@@ -268,15 +316,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── MOBILE BOTTOM NAV ────────────────────────────────────── */}
       <nav
-        className="tt-bottom-nav fixed bottom-0 inset-x-0 z-50 flex md:hidden"
+        className="tt-bottom-nav glass-nav fixed bottom-0 inset-x-0 z-50 flex md:hidden"
         style={{
-          background: T.mobileBg,
-          borderTop: `1px solid ${T.navBorder}`,
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
-          boxShadow: "0 -1px 0 rgba(0,0,0,0.05), 0 -4px 16px rgba(0,0,0,0.06)",
+          borderTop: `1px solid var(--nav-border)`,
+          borderBottom: "none",
+          boxShadow: isDark
+            ? "0 -1px 0 rgba(255,255,255,0.04), 0 -4px 20px rgba(0,0,0,0.5)"
+            : "0 -1px 0 rgba(0,0,0,0.05), 0 -4px 20px rgba(0,0,0,0.06)",
         }}
       >
-        <div className="flex items-end w-full" style={{ height: "64px" }}>
+        <div className="flex items-end w-full" style={{ height: "68px" }}>
           {MOBILE_MAIN.map((item) => {
             const isHome = 'home' in item && item.home === true;
             const active = item.url ? isActive(item.url) : mobileMoreActive;
@@ -290,19 +340,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     style={{ WebkitTapHighlightColor: "transparent" }}
                   >
                     <span
-                      className="flex flex-col items-center justify-center gap-[3px] transition-colors duration-150 active:opacity-60"
+                      className="flex flex-col items-center justify-center gap-[3px] transition-all duration-150 active:opacity-60"
                       style={{
-                        width: "56px",
-                        height: "48px",
-                        borderRadius: "16px",
+                        width: "58px",
+                        height: "50px",
+                        borderRadius: "17px",
                         marginBottom: "2px",
-                        background: active ? T.activeBg : "#f5f5f5",
-                        border: `1px solid ${active ? T.activeBdr : "rgba(0,0,0,0.08)"}`,
+                        background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                        border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+                        boxShadow: active ? "var(--shadow-tab-active)" : "none",
                       }}
                     >
-                      <item.icon style={{ height: "18px", width: "18px", color: active ? "#111" : "#888" }} />
-                      <span className="text-[9px] font-medium tracking-wide"
-                        style={{ color: active ? "#111" : "#888" }}>
+                      <item.icon style={{ height: "18px", width: "18px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
+                      <span className="text-[9px] font-semibold tracking-wide"
+                        style={{ color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }}>
                         {item.title}
                       </span>
                     </span>
@@ -320,10 +371,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   style={{ WebkitTapHighlightColor: "transparent", paddingBottom: "8px" }}
                 >
                   <span className="flex items-center justify-center w-8 h-5 rounded-lg"
-                    style={active ? { background: T.activeBg } : {}}>
-                    <item.icon style={{ height: "15px", width: "15px", color: active ? "#111" : T.dim }} />
+                    style={active ? { background: "var(--nav-active-bg)" } : {}}>
+                    <item.icon style={{ height: "15px", width: "15px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
                   </span>
-                  <span className="text-[9px] font-medium" style={{ color: active ? "#111" : T.dim }}>More</span>
+                  <span className="text-[9px] font-medium" style={{ color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }}>More</span>
                 </button>
               );
             }
@@ -335,11 +386,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   style={{ WebkitTapHighlightColor: "transparent", paddingBottom: "8px" }}
                 >
                   <span className="flex items-center justify-center w-8 h-5 rounded-lg"
-                    style={active ? { background: T.activeBg } : {}}>
-                    <item.icon style={{ height: "15px", width: "15px", color: active ? "#111" : T.dim }} />
+                    style={active ? { background: "var(--nav-active-bg)" } : {}}>
+                    <item.icon style={{ height: "15px", width: "15px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
                   </span>
                   <span className="text-[9px] font-medium tracking-wide w-full text-center truncate px-0.5"
-                    style={{ color: active ? "#111" : T.dim }}>
+                    style={{ color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }}>
                     {item.title}
                   </span>
                 </span>
@@ -353,58 +404,90 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {sheetOpen && (
         <>
           <div
-            className="fixed inset-0 z-[60] md:hidden"
-            style={{ background: "rgba(0,0,0,0.25)" }}
+            className="fixed inset-0 z-[60] md:hidden fade-in"
+            style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
             onClick={() => setSheetOpen(false)}
           />
           <div
             className="tt-slide-up fixed inset-x-0 z-[61] md:hidden"
             style={{
               bottom: 0,
-              borderRadius: "20px 20px 0 0",
-              background: T.sheetBg,
-              borderTop: "1px solid rgba(0,0,0,0.08)",
-              borderLeft: "1px solid rgba(0,0,0,0.08)",
-              borderRight: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: "24px 24px 0 0",
+              background: "var(--sheet-bg)",
+              backdropFilter: "blur(28px) saturate(180%)",
+              WebkitBackdropFilter: "blur(28px) saturate(180%)",
+              borderTop: "1px solid var(--nav-border)",
+              borderLeft: "1px solid var(--nav-border)",
+              borderRight: "1px solid var(--nav-border)",
               boxShadow: "var(--shadow-sheet)",
               paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
             }}
           >
             <div className="flex justify-center pt-3 pb-1">
-              <div className="h-1 w-8 rounded-full" style={{ background: "rgba(0,0,0,0.12)" }} />
+              <div className="h-1 w-8 rounded-full" style={{ background: "var(--nav-border)" }} />
             </div>
 
             <div className="flex items-center justify-between px-5 py-3">
-              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#aaa" }}>More</p>
-              <button
-                onClick={() => setSheetOpen(false)}
-                className="h-7 w-7 flex items-center justify-center rounded-full active:opacity-60"
-                style={{ background: "#f0f0f0", color: "#666" }}
-              >
-                <X style={{ height: "13px", width: "13px" }} />
-              </button>
+              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "var(--nav-dim-color)" }}>More</p>
+              <div className="flex items-center gap-2">
+                {/* Theme toggle in sheet */}
+                <button
+                  onClick={toggleTheme}
+                  className="h-8 w-8 flex items-center justify-center rounded-full active:opacity-60"
+                  style={{
+                    background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+                    color: "var(--nav-dim-color)",
+                    border: "1px solid var(--nav-border)",
+                  }}
+                >
+                  {isDark ? <Sun style={{ height: "13px", width: "13px" }} /> : <Moon style={{ height: "13px", width: "13px" }} />}
+                </button>
+                <button
+                  onClick={() => setSheetOpen(false)}
+                  className="h-8 w-8 flex items-center justify-center rounded-full active:opacity-60"
+                  style={{
+                    background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+                    color: "var(--nav-dim-color)",
+                    border: "1px solid var(--nav-border)",
+                  }}
+                >
+                  <X style={{ height: "13px", width: "13px" }} />
+                </button>
+              </div>
             </div>
 
-            {/* Sign in row in sheet */}
+            {/* User row */}
             <div className="px-4 mb-2">
               {user ? (
                 <div
                   className="flex items-center justify-between px-4 py-3 rounded-2xl"
-                  style={{ background: "#f7f7f7", border: "1px solid rgba(0,0,0,0.07)" }}
+                  style={{
+                    background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                    border: "1px solid var(--nav-border)",
+                  }}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold" style={{ background: "#e0e0e0", color: "#555" }}>
+                    <span className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      style={{
+                        background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+                        color: "var(--nav-active-color)",
+                        border: "1px solid var(--nav-border)",
+                      }}>
                       {user.name.charAt(0).toUpperCase()}
                     </span>
                     <div>
-                      <p className="text-[13px] font-medium" style={{ color: "#111" }}>{user.name}</p>
-                      <p className="text-[10px]" style={{ color: "#aaa" }}>{user.email}</p>
+                      <p className="text-[13px] font-semibold" style={{ color: "var(--nav-active-color)" }}>{user.name}</p>
+                      <p className="text-[10px]" style={{ color: "var(--nav-dim-color)" }}>{user.email}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => { signout(); setSheetOpen(false); }}
                     className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl"
-                    style={{ background: "#f0f0f0", color: "#666", border: "1px solid rgba(0,0,0,0.08)" }}
+                    style={{
+                      background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+                      color: "var(--nav-dim-color)",
+                      border: "1px solid var(--nav-border)",
+                    }}
                   >
                     <LogOut style={{ height: "11px", width: "11px" }} />
                     Sign Out
@@ -413,11 +496,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
               ) : (
                 <button
                   onClick={() => { setShowAuthModal(true); setSheetOpen(false); }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl"
-                  style={{ background: "#111", color: "#fff" }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl"
+                  style={{
+                    background: "hsl(var(--primary))",
+                    color: "hsl(var(--primary-foreground))",
+                    boxShadow: "var(--shadow-btn)",
+                    border: "none",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                  }}
                 >
                   <LogIn style={{ height: "14px", width: "14px" }} />
-                  <span className="text-[14px] font-medium">Sign In / Create Account</span>
+                  Sign In / Create Account
                 </button>
               )}
             </div>
@@ -428,25 +518,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 return (
                   <Link key={item.title} href={item.url} onClick={() => setSheetOpen(false)}>
                     <span
-                      className="flex items-center gap-3.5 px-4 py-3 rounded-2xl cursor-pointer transition-colors duration-150 active:opacity-70"
-                      style={active ? {
-                        background: T.activeBg,
-                        border: `1px solid ${T.activeBdr}`,
-                        color: T.active,
-                      } : {
-                        background: "#f7f7f7",
-                        border: "1px solid rgba(0,0,0,0.07)",
-                        color: "#555",
+                      className="flex items-center gap-3.5 px-4 py-3 rounded-2xl cursor-pointer active:opacity-70"
+                      style={{
+                        background: active
+                          ? "var(--nav-active-bg)"
+                          : (isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)"),
+                        border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+                        color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                        transition: "background 0.15s ease, color 0.15s ease",
                       }}
                     >
                       <span
                         className="h-9 w-9 flex-shrink-0 rounded-xl flex items-center justify-center"
-                        style={{ background: active ? T.activeBg : "#efefef" }}
+                        style={{
+                          background: active
+                            ? "var(--nav-active-bg)"
+                            : (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"),
+                          border: "1px solid var(--nav-border)",
+                        }}
                       >
-                        <item.icon style={{ height: "17px", width: "17px", color: active ? "#111" : "#666" }} />
+                        <item.icon style={{ height: "16px", width: "16px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
                       </span>
                       <span className="text-[15px] font-medium">{item.title}</span>
-                      {active && <ChevronRight style={{ height: "14px", width: "14px", marginLeft: "auto", color: "#999" }} />}
+                      {active && <ChevronRight style={{ height: "14px", width: "14px", marginLeft: "auto" }} />}
                     </span>
                   </Link>
                 );
@@ -456,7 +550,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      {/* Auth Modal */}
       <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );

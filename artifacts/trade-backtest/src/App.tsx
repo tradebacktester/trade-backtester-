@@ -8,6 +8,7 @@ import { Layout } from "@/components/layout";
 import { SettingsProvider } from "@/lib/settings-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { SubscriptionProvider } from "@/lib/subscription-context";
+import { ThemeProvider } from "@/lib/theme-context";
 import { PolicyPopup } from "@/components/policy-popup";
 
 // Pages (eager)
@@ -38,7 +39,6 @@ import MarketplacePage from "@/pages/marketplace";
 import MarketplaceDetailPage from "@/pages/marketplace-detail";
 import PsychMatchPage from "@/pages/psych-match";
 
-// Heavy page — lazy-loaded for code splitting
 const ChartPage = lazy(() => import("@/pages/chart"));
 
 const queryClient = new QueryClient({
@@ -117,23 +117,25 @@ function Router() {
 
 function App() {
   return (
-    <AuthProvider>
-      <SubscriptionProvider>
-        <SettingsProvider>
-          <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <Layout>
-                  <Router />
-                </Layout>
-                <PolicyPopup />
-              </WouterRouter>
-              <Toaster />
-            </TooltipProvider>
-          </QueryClientProvider>
-        </SettingsProvider>
-      </SubscriptionProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SubscriptionProvider>
+          <SettingsProvider>
+            <QueryClientProvider client={queryClient}>
+              <TooltipProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <Layout>
+                    <Router />
+                  </Layout>
+                  <PolicyPopup />
+                </WouterRouter>
+                <Toaster />
+              </TooltipProvider>
+            </QueryClientProvider>
+          </SettingsProvider>
+        </SubscriptionProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

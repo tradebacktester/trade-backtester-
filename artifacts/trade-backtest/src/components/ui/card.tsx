@@ -1,18 +1,23 @@
 import * as React from "react"
-
 import { cn } from "@/lib/utils"
 
 const Card = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLDivElement> & { glass?: boolean }
+>(({ className, glass = false, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-xl border bg-card text-card-foreground transition-[box-shadow,border-color] duration-[220ms] ease-out",
+      "rounded-2xl border text-card-foreground",
+      "transition-[box-shadow,border-color,transform] duration-[220ms] ease-out",
+      glass
+        ? "backdrop-blur-[20px] saturate-150"
+        : "bg-card",
       className
     )}
     style={{
+      background: glass ? "var(--glass-bg)" : undefined,
+      borderColor: glass ? "var(--glass-border)" : "hsl(var(--card-border))",
       boxShadow: "var(--shadow-card)",
       ...(props.style),
     }}

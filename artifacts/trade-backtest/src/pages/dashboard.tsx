@@ -20,23 +20,23 @@ function fmtNum(v: number | null | undefined, d = 2) {
   return v.toFixed(d);
 }
 
-/* ── Design tokens — dark theme ──────────────────────────────────── */
+/* ── Design tokens — theme-adaptive via CSS variables ────────────── */
 const C = {
-  text:        "hsl(220,14%,88%)",
-  sub:         "hsl(220,14%,60%)",
-  muted:       "hsl(220,14%,40%)",
-  border:      "rgba(255,255,255,0.06)",
-  surface:     "hsl(222,20%,13%)",
-  surfaceHov:  "rgba(255,255,255,0.04)",
+  text:        "hsl(var(--foreground))",
+  sub:         "hsl(var(--muted-foreground))",
+  muted:       "hsl(var(--muted-foreground))",
+  border:      "hsl(var(--border))",
+  surface:     "hsl(var(--card))",
+  surfaceHov:  "var(--glass-bg)",
   positive:    "#22c55e",
   negative:    "#ef4444",
   amber:       "#f59e0b",
 };
 
 const CARD: React.CSSProperties = {
-  background:  "hsl(222,20%,13%)",
-  border:      "1px solid rgba(255,255,255,0.06)",
-  boxShadow:   "0 1px 4px rgba(0,0,0,0.3)",
+  background:  "hsl(var(--card))",
+  border:      "1px solid hsl(var(--border))",
+  boxShadow:   "var(--shadow-card)",
 };
 
 /* ── Skeleton ─────────────────────────────────────────────────────── */
@@ -44,7 +44,7 @@ function Skel({ className = "" }: { className?: string }) {
   return (
     <div
       className={`rounded-lg animate-pulse ${className}`}
-      style={{ background: "rgba(255,255,255,0.06)" }}
+      style={{ background: "hsl(var(--muted))" }}
     />
   );
 }
@@ -84,7 +84,7 @@ function StatCard({
       )}
       <span
         className="h-8 w-8 flex items-center justify-center rounded-xl flex-shrink-0"
-        style={{ background: "#efefef", border: "1px solid rgba(0,0,0,0.08)" }}
+        style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}
       >
         <Icon className="h-[14px] w-[14px]" style={{ color: accent ?? "#888" }} />
       </span>
@@ -131,7 +131,7 @@ function WatchRow({ item, last, livePrice }: {
   return (
     <div
       className="flex items-center justify-between py-2.5"
-      style={last ? {} : { borderBottom: "1px solid rgba(0,0,0,0.07)" }}
+      style={last ? {} : { borderBottom: "1px solid hsl(var(--border))" }}
     >
       <div>
         <p className="text-sm font-mono font-semibold" style={{ color: C.text }}>{item.symbol}</p>
@@ -177,7 +177,7 @@ function SessionRow({ s, status, last }: { s: Session; status: "open" | "closed"
   return (
     <div
       className="flex items-center justify-between py-2.5"
-      style={last ? {} : { borderBottom: "1px solid rgba(0,0,0,0.07)" }}
+      style={last ? {} : { borderBottom: "1px solid hsl(var(--border))" }}
     >
       <div className="flex items-center gap-2.5">
         <span

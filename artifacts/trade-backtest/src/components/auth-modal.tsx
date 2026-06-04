@@ -8,7 +8,7 @@ interface AuthModalProps {
 }
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
-  if (pw.length === 0) return { score: 0, label: "", color: "#e5e7eb" };
+  if (pw.length === 0) return { score: 0, label: "", color: "hsl(var(--border))" };
   if (pw.length < 6) return { score: 1, label: "Too short", color: "#ef4444" };
   const hasUpper = /[A-Z]/.test(pw);
   const hasDigit = /[0-9]/.test(pw);
@@ -58,43 +58,64 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
     }
   }
 
+  const inputStyle = {
+    border: "1px solid hsl(var(--border))",
+    background: "hsl(var(--input))",
+    color: "hsl(var(--foreground))",
+  };
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.35)" }}>
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+    >
       <div
-        className="relative w-full max-w-sm mx-4 rounded-2xl"
-        style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}
+        className="relative w-full max-w-sm mx-4 rounded-2xl scale-in"
+        style={{
+          background: "var(--glass-bg-strong)",
+          backdropFilter: "blur(32px) saturate(180%)",
+          WebkitBackdropFilter: "blur(32px) saturate(180%)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "var(--shadow-modal)",
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+        <div
+          className="flex items-center justify-between px-6 pt-5 pb-4"
+          style={{ borderBottom: "1px solid hsl(var(--border))" }}
+        >
           <div>
-            <h2 className="text-base font-semibold" style={{ color: "#111" }}>
+            <h2 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>
               {tab === "signin" ? "Sign In" : "Create Account"}
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: "#888" }}>
+            <p className="text-xs mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
               {tab === "signin" ? "Welcome back to Trade Lab" : "Join Trade Lab today"}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            style={{ color: "#888" }}
+            className="h-7 w-7 flex items-center justify-center rounded-full transition-colors"
+            style={{ color: "hsl(var(--muted-foreground))", background: "hsl(var(--muted))" }}
           >
             <X style={{ height: "14px", width: "14px" }} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex mx-6 mt-4 rounded-xl p-1" style={{ background: "#f5f5f5" }}>
+        <div
+          className="flex mx-6 mt-4 rounded-xl p-1"
+          style={{ background: "hsl(var(--muted))" }}
+        >
           {(["signin", "signup"] as const).map(t => (
             <button
               key={t}
               onClick={() => { setTab(t); setError(""); setPassword(""); }}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150"
               style={tab === t ? {
-                background: "#fff",
-                color: "#111",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-              } : { color: "#888" }}
+                background: "hsl(var(--card))",
+                color: "hsl(var(--foreground))",
+                boxShadow: "var(--shadow-xs)",
+              } : { color: "hsl(var(--muted-foreground))" }}
             >
               {t === "signin" ? <LogIn style={{ height: "11px", width: "11px" }} /> : <UserPlus style={{ height: "11px", width: "11px" }} />}
               {t === "signin" ? "Sign In" : "Sign Up"}
@@ -106,9 +127,11 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
         <form onSubmit={handleSubmit} className="px-6 pt-4 pb-6 flex flex-col gap-3">
           {tab === "signup" && (
             <div>
-              <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "#666" }}>Full Name</label>
+              <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "hsl(var(--muted-foreground))" }}>
+                Full Name
+              </label>
               <div className="relative">
-                <User style={{ height: "13px", width: "13px", position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
+                <User style={{ height: "13px", width: "13px", position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "hsl(var(--muted-foreground))" }} />
                 <input
                   type="text"
                   placeholder="Your name"
@@ -116,18 +139,20 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                   onChange={e => setName(e.target.value)}
                   required
                   autoComplete="name"
-                  className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
-                  style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
-                  onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
+                  className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-[border-color,box-shadow]"
+                  style={inputStyle}
+                  onFocus={e => (e.target.style.borderColor = "hsl(var(--ring))")}
+                  onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")}
                 />
               </div>
             </div>
           )}
           <div>
-            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "#666" }}>Email Address</label>
+            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "hsl(var(--muted-foreground))" }}>
+              Email Address
+            </label>
             <div className="relative">
-              <Mail style={{ height: "13px", width: "13px", position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
+              <Mail style={{ height: "13px", width: "13px", position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "hsl(var(--muted-foreground))" }} />
               <input
                 type="email"
                 placeholder="you@example.com"
@@ -135,17 +160,19 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                 onChange={e => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
-                style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
-                onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
-                onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
+                className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-[border-color,box-shadow]"
+                style={inputStyle}
+                onFocus={e => (e.target.style.borderColor = "hsl(var(--ring))")}
+                onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")}
               />
             </div>
           </div>
           <div>
-            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "#666" }}>Password</label>
+            <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "hsl(var(--muted-foreground))" }}>
+              Password
+            </label>
             <div className="relative">
-              <Lock style={{ height: "13px", width: "13px", position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
+              <Lock style={{ height: "13px", width: "13px", position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "hsl(var(--muted-foreground))" }} />
               <input
                 type="password"
                 placeholder={tab === "signup" ? "At least 6 characters" : "Your password"}
@@ -153,10 +180,10 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                 onChange={e => setPassword(e.target.value)}
                 required
                 autoComplete={tab === "signup" ? "new-password" : "current-password"}
-                className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
-                style={{ border: "1px solid rgba(0,0,0,0.12)", background: "#fafafa", color: "#111" }}
-                onFocus={e => (e.target.style.borderColor = "rgba(0,0,0,0.3)")}
-                onBlur={e => (e.target.style.borderColor = "rgba(0,0,0,0.12)")}
+                className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none transition-[border-color,box-shadow]"
+                style={inputStyle}
+                onFocus={e => (e.target.style.borderColor = "hsl(var(--ring))")}
+                onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")}
               />
             </div>
             {tab === "signup" && password.length > 0 && (
@@ -166,7 +193,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                     <div
                       key={i}
                       className="h-1 flex-1 rounded-full transition-colors duration-200"
-                      style={{ background: pwStrength.score >= i ? pwStrength.color : "#e5e7eb" }}
+                      style={{ background: pwStrength.score >= i ? pwStrength.color : "hsl(var(--border))" }}
                     />
                   ))}
                 </div>
@@ -176,12 +203,21 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
               </div>
             )}
             {tab === "signup" && password.length === 0 && (
-              <p className="text-[10px] mt-1.5" style={{ color: "#aaa" }}>Must be at least 6 characters</p>
+              <p className="text-[10px] mt-1.5" style={{ color: "hsl(var(--muted-foreground))" }}>
+                Must be at least 6 characters
+              </p>
             )}
           </div>
 
           {error && (
-            <div className="rounded-xl px-3 py-2.5 text-xs" style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>
+            <div
+              className="rounded-xl px-3 py-2.5 text-xs"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                color: "#ef4444",
+                border: "1px solid rgba(239,68,68,0.2)",
+              }}
+            >
               {error}
             </div>
           )}
@@ -190,7 +226,12 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity duration-150"
-            style={{ background: "#111", color: "#fff", opacity: loading ? 0.6 : 1 }}
+            style={{
+              background: "hsl(var(--primary))",
+              color: "hsl(var(--primary-foreground))",
+              opacity: loading ? 0.6 : 1,
+              boxShadow: "var(--shadow-btn)",
+            }}
           >
             {loading ? "Please wait…" : tab === "signin" ? "Sign In" : "Create Account"}
           </button>
