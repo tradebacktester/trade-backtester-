@@ -17,17 +17,17 @@ function StatCard({ label, value, icon: Icon, color, sub }: {
 }) {
   return (
     <div className="p-4 rounded-2xl border flex flex-col gap-2" style={{
-      background: "rgba(255,255,255,0.02)",
-      borderColor: "rgba(255,255,255,0.08)",
+      background: "var(--glass-bg)",
+      borderColor: "var(--glass-border)",
     }}>
       <div className="flex items-center gap-2">
         <span className="h-7 w-7 rounded-xl flex items-center justify-center" style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
           <Icon style={{ height: "13px", width: "13px", color }} />
         </span>
-        <span className="text-[11px] uppercase tracking-widest font-mono" style={{ color: "hsl(220,14%,40%)" }}>{label}</span>
+        <span className="text-[11px] uppercase tracking-widest font-mono text-muted-foreground">{label}</span>
       </div>
-      <div className="text-[22px] font-bold tracking-tight" style={{ color: "hsl(220,14%,92%)" }}>{value}</div>
-      {sub && <div className="text-[11px]" style={{ color: "hsl(220,14%,40%)" }}>{sub}</div>}
+      <div className="text-[22px] font-bold tracking-tight text-foreground">{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
     </div>
   );
 }
@@ -37,19 +37,19 @@ function Achievement({ icon: Icon, label, desc, unlocked, color }: {
 }) {
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl border transition-all" style={{
-      background: unlocked ? `${color}08` : "rgba(255,255,255,0.02)",
-      borderColor: unlocked ? `${color}25` : "rgba(255,255,255,0.06)",
+      background: unlocked ? `${color}08` : "var(--glass-bg)",
+      borderColor: unlocked ? `${color}25` : "var(--glass-border)",
       opacity: unlocked ? 1 : 0.45,
     }}>
       <span className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{
-        background: unlocked ? `${color}18` : "rgba(255,255,255,0.05)",
-        border: `1px solid ${unlocked ? `${color}30` : "rgba(255,255,255,0.08)"}`,
+        background: unlocked ? `${color}18` : "var(--glass-bg)",
+        border: `1px solid ${unlocked ? `${color}30` : "var(--glass-border)"}`,
       }}>
-        <Icon style={{ height: "16px", width: "16px", color: unlocked ? color : "hsl(220,14%,35%)" }} />
+        <Icon style={{ height: "16px", width: "16px", color: unlocked ? color : "hsl(var(--muted-foreground))" }} />
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-semibold" style={{ color: unlocked ? "hsl(220,14%,88%)" : "hsl(220,14%,45%)" }}>{label}</div>
-        <div className="text-[11px]" style={{ color: "hsl(220,14%,38%)" }}>{desc}</div>
+        <div className="text-[13px] font-semibold" style={{ color: unlocked ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}>{label}</div>
+        <div className="text-[11px] text-muted-foreground">{desc}</div>
       </div>
       {unlocked && <CheckCircle style={{ height: "14px", width: "14px", color, flexShrink: 0 }} />}
     </div>
@@ -107,6 +107,7 @@ export default function ProfilePage() {
   return (
     <motion.div
       className="space-y-6 max-w-4xl mx-auto"
+      style={{ isolation: "isolate" }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
@@ -125,23 +126,23 @@ export default function ProfilePage() {
           {user.name.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight mb-0.5" style={{ color: "hsl(220,14%,92%)" }}>
+          <h1 className="text-2xl font-bold tracking-tight mb-0.5 text-foreground">
             {user.name}
           </h1>
-          <div className="flex items-center gap-1.5 text-sm" style={{ color: "hsl(220,14%,50%)" }}>
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Mail style={{ height: "12px", width: "12px" }} />
             {user.email}
           </div>
-          <div className="flex items-center gap-1.5 text-sm mt-0.5" style={{ color: "hsl(220,14%,40%)" }}>
+          <div className="flex items-center gap-1.5 text-sm mt-0.5 text-muted-foreground">
             <Calendar style={{ height: "12px", width: "12px" }} />
             Member since {joinDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/settings">
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium transition-all" style={{
-              border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)",
-              color: "hsl(220,14%,55%)", cursor: "pointer",
+            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium transition-all text-muted-foreground" style={{
+              border: "1px solid var(--glass-border)", background: "var(--glass-bg)",
+              cursor: "pointer",
             }}>
               <Settings style={{ height: "12px", width: "12px" }} />
               Settings
@@ -163,7 +164,7 @@ export default function ProfilePage() {
 
       {/* Trading Statistics */}
       <div>
-        <h2 className="text-[11px] font-mono uppercase tracking-widest mb-3" style={{ color: "hsl(220,14%,38%)" }}>Trading Statistics</h2>
+        <h2 className="text-[11px] font-mono uppercase tracking-widest mb-3 text-muted-foreground">Trading Statistics</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <StatCard label="Backtests" value={totalBacktests} icon={BarChart2} color="#6366f1" sub="total runs" />
           <StatCard label="Strategies" value={totalStrategies} icon={Target} color="#0ea5e9" sub="created" />
@@ -219,7 +220,7 @@ export default function ProfilePage() {
 
       {/* Achievements */}
       <div>
-        <h2 className="text-[11px] font-mono uppercase tracking-widest mb-3" style={{ color: "hsl(220,14%,38%)" }}>Achievements</h2>
+        <h2 className="text-[11px] font-mono uppercase tracking-widest mb-3 text-muted-foreground">Achievements</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <Achievement icon={Zap} label="First Backtest" desc="Run your first strategy backtest" unlocked={totalBacktests >= 1} color="#6366f1" />
           <Achievement icon={Target} label="Strategist" desc="Create 5 trading strategies" unlocked={totalStrategies >= 5} color="#0ea5e9" />
@@ -234,7 +235,7 @@ export default function ProfilePage() {
 
       {/* Account Links */}
       <div>
-        <h2 className="text-[11px] font-mono uppercase tracking-widest mb-3" style={{ color: "hsl(220,14%,38%)" }}>Account</h2>
+        <h2 className="text-[11px] font-mono uppercase tracking-widest mb-3 text-muted-foreground">Account</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: "Subscription & Plans", desc: "Manage your plan", icon: CreditCard, href: "/pricing", color: "#6366f1" },
@@ -243,15 +244,15 @@ export default function ProfilePage() {
           ].map(item => (
             <Link key={item.href} href={item.href}>
               <div className="p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.01]" style={{
-                background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)",
+                background: "var(--glass-bg)", borderColor: "var(--glass-border)",
               }}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: `${item.color}15`, border: `1px solid ${item.color}25` }}>
                     <item.icon style={{ height: "13px", width: "13px", color: item.color }} />
                   </span>
                 </div>
-                <div className="text-[13px] font-semibold mb-0.5" style={{ color: "hsl(220,14%,85%)" }}>{item.label}</div>
-                <div className="text-[11px]" style={{ color: "hsl(220,14%,40%)" }}>{item.desc}</div>
+                <div className="text-[13px] font-semibold mb-0.5 text-foreground">{item.label}</div>
+                <div className="text-[11px] text-muted-foreground">{item.desc}</div>
               </div>
             </Link>
           ))}

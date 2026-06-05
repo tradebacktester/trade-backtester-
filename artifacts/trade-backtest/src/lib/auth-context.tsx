@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 
+// Set immediately at module load — before any React Query fires on first render
+setAuthTokenGetter(() => localStorage.getItem("tt_token"));
+
 export interface AuthUser {
   id: number;
   email: string;

@@ -35,8 +35,6 @@ import ToolsPage from "@/pages/tools";
 import AiBuilder from "@/pages/strategies/ai-builder";
 import StressTestPage from "@/pages/stress-test";
 import StrategyDnaPage from "@/pages/strategy-dna";
-import MarketplacePage from "@/pages/marketplace";
-import MarketplaceDetailPage from "@/pages/marketplace-detail";
 import PsychMatchPage from "@/pages/psych-match";
 import AnalyticsPage from "@/pages/analytics";
 import ProfilePage from "@/pages/profile";
@@ -102,8 +100,6 @@ function Router() {
       <Route path="/stress-test" component={StressTestPage} />
       <Route path="/strategy-dna" component={StrategyDnaPage} />
       <Route path="/community" component={CommunityPage} />
-      <Route path="/marketplace" component={MarketplacePage} />
-      <Route path="/marketplace/:id" component={MarketplaceDetailPage} />
       <Route path="/psych-match" component={PsychMatchPage} />
       <Route path="/analytics" component={AnalyticsPage} />
 

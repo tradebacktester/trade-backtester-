@@ -641,7 +641,7 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" style={{ isolation: "isolate" }}>
 
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-end gap-4">

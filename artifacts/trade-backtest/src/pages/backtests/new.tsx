@@ -266,7 +266,7 @@ export default function NewBacktest() {
   const totalCostEstimate = (commissionVal * 2 + slippageVal * 2).toFixed(3);
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-2xl mx-auto" style={{ isolation: "isolate" }}>
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href="/backtests">

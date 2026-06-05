@@ -169,18 +169,23 @@ export default function AnalyticsPage() {
       <div className="flex items-center gap-3">
         <Link href="/dashboard">
           <button className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors hover:bg-white/8"
-            style={{ border: "1px solid rgba(255,255,255,0.09)", color: C.muted }}>
+            style={{ border: "1px solid var(--glass-border)", color: C.muted }}>
             <ArrowLeft className="h-4 w-4" />
           </button>
         </Link>
-        <div className="flex items-center gap-2">
-          <BarChart2 className="h-5 w-5" style={{ color: C.blue }} />
+        <div className="flex items-center gap-3 flex-1 px-4 py-2.5 rounded-2xl"
+          style={{
+            background: "color-mix(in srgb, var(--background) 85%, transparent)",
+            border: "1px solid var(--glass-border)",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+          }}>
+          <BarChart2 className="h-5 w-5 flex-shrink-0" style={{ color: C.blue }} />
           <h1 className="text-xl font-bold" style={{ color: C.text }}>Trade Analytics</h1>
+          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium ml-1"
+            style={{ background: `${C.blue}18`, color: C.blue, border: `1px solid ${C.blue}28` }}>
+            AI-powered
+          </span>
         </div>
-        <span className="text-[11px] px-2 py-0.5 rounded-full font-medium"
-          style={{ background: `${C.blue}18`, color: C.blue, border: `1px solid ${C.blue}28` }}>
-          AI-powered
-        </span>
       </div>
 
       <p className="text-sm" style={{ color: C.muted }}>

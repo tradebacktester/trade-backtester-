@@ -41,7 +41,6 @@ const NAV_SECTIONS = [
   {
     label: "Marketplace",
     items: [
-      { title: "Strategy Market", url: "/marketplace",  icon: Store },
       { title: "Community",       url: "/community",    icon: Users },
     ],
   },

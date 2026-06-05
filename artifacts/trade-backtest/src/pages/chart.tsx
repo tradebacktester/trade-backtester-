@@ -1866,34 +1866,45 @@ export default function ChartPage() {
         </div>
       )}
 
-      {/* ── Alert panel ────────────────────────────────────────────── */}
+      {/* ── Alert panel (floating overlay) ─────────────────────────── */}
       {showAlertPanel && (
-        <div className="rounded-xl p-3 border" style={{ background: "hsl(222,28%,10%)", borderColor: "rgba(245,158,11,0.25)" }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(38,100%,55%)" }}>Price Alerts</span>
-            <button onClick={() => setShowAlertPanel(false)} className="h-5 w-5 flex items-center justify-center" style={{ color: "hsl(220,14%,40%)" }}><X className="h-3 w-3" /></button>
+        <div className="fixed z-[9990] top-[72px] right-4 w-72 rounded-2xl p-4 border shadow-2xl"
+          style={{ background: "hsl(222,28%,10%)", borderColor: "rgba(245,158,11,0.3)", boxShadow: "0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,158,11,0.1) inset" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Bell className="h-3.5 w-3.5" style={{ color: "hsl(38,100%,55%)" }} />
+              <span className="text-[11px] font-mono uppercase tracking-widest font-bold" style={{ color: "hsl(38,100%,60%)" }}>Price Alerts</span>
+            </div>
+            <button onClick={() => setShowAlertPanel(false)} className="h-6 w-6 flex items-center justify-center rounded-lg transition-colors hover:bg-white/10" style={{ color: "hsl(220,14%,45%)" }}><X className="h-3 w-3" /></button>
           </div>
-          <div className="flex gap-2 mb-2">
+          <div className="flex gap-2 mb-3">
             <input type="number" value={alertInput} onChange={e => setAlertInput(e.target.value)}
-              placeholder={currentBar ? fmt(currentBar.close) : "Price"}
+              placeholder={currentBar ? `e.g. ${fmt(currentBar.close)}` : "Enter price…"}
               onKeyDown={e => { if (e.key === "Enter" && alertInput) { const price = Number(alertInput); if (price > 0) { const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) }; const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); } } }}
-              className="flex-1 text-xs font-mono px-2.5 py-1.5 rounded-lg outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }} />
+              className="flex-1 text-xs font-mono px-2.5 py-2 rounded-xl outline-none" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(220,14%,85%)" }} />
             <button onClick={() => {
               const price = Number(alertInput);
               if (price > 0) { const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) }; const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); }
-            }} className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }}>+ Add</button>
+            }} className="px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all hover:opacity-90" style={{ background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.35)", color: "hsl(38,100%,65%)" }}>+ Add</button>
           </div>
-          <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
-            {priceAlerts.length === 0 && <p className="text-[10px] font-mono text-center py-2" style={{ color: "hsl(220,14%,35%)" }}>No alerts set — enter a price above</p>}
+          <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+            {priceAlerts.length === 0 && (
+              <p className="text-[11px] font-mono text-center py-4" style={{ color: "hsl(220,14%,38%)" }}>
+                No alerts yet — enter a price above and press Add
+              </p>
+            )}
             {priceAlerts.map(a => (
-              <div key={a.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: a.triggered ? "rgba(239,68,68,0.06)" : "rgba(245,158,11,0.05)", border: `1px solid ${a.triggered ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.15)"}` }}>
+              <div key={a.id} className="flex items-center gap-2 px-2.5 py-2 rounded-xl" style={{ background: a.triggered ? "rgba(239,68,68,0.07)" : "rgba(245,158,11,0.06)", border: `1px solid ${a.triggered ? "rgba(239,68,68,0.22)" : "rgba(245,158,11,0.18)"}` }}>
                 <Bell className="h-3 w-3 flex-shrink-0" style={{ color: a.triggered ? "hsl(0,85%,62%)" : "hsl(38,100%,55%)" }} />
-                <span className="flex-1 text-[11px] font-mono font-bold" style={{ color: a.triggered ? "hsl(0,85%,62%)" : "hsl(38,100%,65%)" }}>{fmt(a.price)}</span>
-                {a.triggered && <span className="text-[9px] font-mono px-1 rounded" style={{ background: "rgba(239,68,68,0.15)", color: "hsl(0,85%,62%)" }}>TRIGGERED</span>}
-                <button onClick={() => { const updated = priceAlerts.filter(x => x.id !== a.id); setPriceAlerts(updated); saveAlerts(updated); }} className="h-4 w-4 flex items-center justify-center" style={{ color: "hsl(220,14%,40%)" }}><X className="h-2.5 w-2.5" /></button>
+                <span className="flex-1 text-[12px] font-mono font-bold" style={{ color: a.triggered ? "hsl(0,85%,62%)" : "hsl(38,100%,68%)" }}>{fmt(a.price)}</span>
+                {a.triggered && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(239,68,68,0.15)", color: "hsl(0,85%,65%)" }}>HIT</span>}
+                <button onClick={() => { const updated = priceAlerts.filter(x => x.id !== a.id); setPriceAlerts(updated); saveAlerts(updated); }} className="h-5 w-5 flex items-center justify-center rounded-lg transition-colors hover:bg-red-500/20" style={{ color: "hsl(220,14%,42%)" }}><X className="h-2.5 w-2.5" /></button>
               </div>
             ))}
           </div>
+          <p className="text-[9px] font-mono mt-2.5 text-center" style={{ color: "hsl(220,14%,32%)" }}>
+            Alerts trigger when the live price crosses your target
+          </p>
         </div>
       )}
 
