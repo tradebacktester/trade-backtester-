@@ -231,31 +231,33 @@ function StatCard({
   accent?: string; isLoading?: boolean;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl p-4 flex flex-col gap-3" style={CARD}>
-      {accent && (
+    <div className="specular-card relative overflow-hidden rounded-2xl p-5 flex flex-col gap-5"
+      style={{ ...CARD, transition: "box-shadow 0.30s cubic-bezier(0.34,1.56,0.64,1), border-color 0.22s ease, transform 0.30s cubic-bezier(0.34,1.56,0.64,1)" }}>
+      {/* Top edge specular gradient */}
+      <div
+        className="absolute top-0 left-[15%] right-[15%] h-px pointer-events-none"
+        style={{ background: `linear-gradient(90deg, transparent, ${accent ?? "rgba(255,255,255,0.09)"} 50%, transparent)` }}
+      />
+      {/* Label row + icon */}
+      <div className="flex items-center justify-between gap-2">
+        <p className="apple-label">{label}</p>
         <div
-          className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: `linear-gradient(90deg,transparent,${accent}60,transparent)` }}
-        />
-      )}
-      <span
-        className="h-8 w-8 flex items-center justify-center rounded-xl flex-shrink-0"
-        style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}
-      >
-        <Icon className="h-[14px] w-[14px]" style={{ color: accent ?? "#888" }} />
-      </span>
-      <div>
-        <p className="text-[10px] uppercase tracking-wider mb-1.5 font-mono" style={{ color: C.muted }}>
-          {label}
-        </p>
-        {isLoading
-          ? <Skel className="h-6 w-16" />
-          : <p className="text-[20px] font-bold font-mono leading-none"
-              style={{ color: accent ?? C.text }}>
-              {value}
-            </p>
-        }
+          className="h-[22px] w-[22px] flex items-center justify-center rounded-lg flex-shrink-0"
+          style={{
+            background: accent ? `${accent}12` : "rgba(255,255,255,0.04)",
+            border: `1px solid ${accent ? `${accent}22` : "rgba(255,255,255,0.07)"}`,
+          }}
+        >
+          <Icon className="h-[10px] w-[10px]" style={{ color: accent ?? "rgba(255,255,255,0.32)" }} />
+        </div>
       </div>
+      {/* Apple display number */}
+      {isLoading
+        ? <Skel className="h-9 w-20" />
+        : <p className="apple-num" style={{ color: accent ?? "hsl(var(--foreground))" }}>
+            {value}
+          </p>
+      }
     </div>
   );
 }

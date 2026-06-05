@@ -122,7 +122,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             }}>
               <img src="/logo.png" className="h-full w-full object-cover" alt="Trade Lab" />
             </div>
-            <span className="text-[13.5px] font-bold tracking-tight" style={{ color: "var(--nav-active-color)" }}>
+            <span className="text-[13.5px] font-bold" style={{ color: "var(--nav-active-color)", letterSpacing: "-0.022em" }}>
               Trade Lab
             </span>
           </span>
@@ -144,11 +144,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     borderRadius: "10px",
                     fontSize: "13px",
                     fontWeight: active ? 600 : 500,
+                    letterSpacing: active ? "-0.01em" : "0em",
                     border: `1px solid ${active ? "var(--nav-active-border)" : (isHome ? "var(--nav-border)" : "transparent")}`,
                     background: active ? "var(--nav-active-bg)" : (isHome ? (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)") : "transparent"),
                     color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                    boxShadow: active ? "var(--shadow-tab-active)" : (isHome ? "var(--shadow-2xs)" : "none"),
-                    transition: "all 0.18s cubic-bezier(0.34,1.2,0.64,1)",
+                    boxShadow: active
+                      ? `var(--shadow-tab-active), 0 0 0 1px rgba(255,255,255,0.04), 0 0 18px rgba(255,255,255,0.04)`
+                      : (isHome ? "var(--shadow-2xs)" : "none"),
+                    transition: "all 0.24s cubic-bezier(0.34, 1.56, 0.64, 1)",
                   }}
                 >
                   <item.icon style={{ height: "13px", width: "13px", flexShrink: 0 }} />
