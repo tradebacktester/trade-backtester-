@@ -147,7 +147,7 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
                   <button key={r} onClick={() => setReason(r)}
                     className="text-left px-3 py-2 rounded-xl text-[12px] transition-all"
                     style={reason === r
-                      ? { background: "#4DA3FF", color: "#050505", fontWeight: 600 }
+                      ? { background: "#FFFFFF", color: "#050505", fontWeight: 600 }
                       : { background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)" }}>
                     {r}
                   </button>
@@ -343,7 +343,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
         <button onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
           style={imagePreview
-            ? { background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }
+            ? { background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }
             : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
           <Upload style={{ height: 11, width: 11 }} />
           {imagePreview ? "Change" : "Gallery"}
@@ -360,7 +360,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
 
         <button onClick={submit} disabled={sending || overLimit || !content.trim()}
           className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-40"
-          style={{ background: "#4DA3FF", color: "#050505" }}>
+          style={{ background: "#FFFFFF", color: "#050505" }}>
           <Send style={{ height: 12, width: 12 }} />
           {sending ? "Posting…" : "Post"}
         </button>
@@ -433,7 +433,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
         {(["pending", "all", "resolved", "dismissed"] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
             className="px-3 py-1 rounded-lg text-[11px] font-medium capitalize transition-all"
-            style={filter === f ? { background: "#4DA3FF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}>
+            style={filter === f ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}>
             {f}
           </button>
         ))}
@@ -563,11 +563,11 @@ export default function CommunityPage() {
 
       {/* Header */}
       <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 70% 80% at 0% 100%, rgba(77,163,255,0.06) 0%, transparent 60%)" }} />
+        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 70% 80% at 0% 100%, rgba(255,255,255,0.03) 0%, transparent 60%)" }} />
         <div className="relative flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <MessageSquare style={{ height: 18, width: 18, color: "#4DA3FF" }} />
+              <MessageSquare style={{ height: 18, width: 18, color: "#FFFFFF" }} />
               <h1 className="text-[20px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>Community</h1>
             </div>
             <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>Share trading ideas, insights, and chart setups with fellow traders.</p>
@@ -598,7 +598,7 @@ export default function CommunityPage() {
               <button onClick={() => setShowAdminPanel(v => !v)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium"
                 style={showAdminPanel
-                  ? { background: "#4DA3FF", color: "#050505", border: "1px solid rgba(77,163,255,0.4)" }
+                  ? { background: "#FFFFFF", color: "#050505", border: "1px solid rgba(255,255,255,0.18)" }
                   : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
                 <Shield style={{ height: 12, width: 12 }} />Admin
               </button>
@@ -679,7 +679,7 @@ export default function CommunityPage() {
               ].map((g, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
                   <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
-                    style={{ background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
+                    style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
                   {g}
                 </li>
               ))}
@@ -713,7 +713,7 @@ export default function CommunityPage() {
             <div className="flex flex-wrap gap-1.5">
               {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#RiskManagement", "#Crypto"].map(tag => (
                 <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer"
-                  style={{ background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }}>
+                  style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>
                   {tag}
                 </span>
               ))}

@@ -104,9 +104,9 @@ function AiMarketPulse() {
     >
       {/* Ambient glow layers */}
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(77,163,255,0.07) 0%, transparent 65%)" }} />
+        style={{ background: "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(255,255,255,0.025) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 50% 60% at 85% 20%, rgba(79,70,229,0.07) 0%, transparent 65%)" }} />
+        style={{ background: "radial-gradient(ellipse 50% 60% at 85% 20%, rgba(139,92,246,0.04) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
         style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)" }} />
 
@@ -115,9 +115,9 @@ function AiMarketPulse() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-3">
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold"
-              style={{ background: "rgba(77,163,255,0.1)", border: "1px solid rgba(77,163,255,0.25)", color: "#4DA3FF" }}>
+              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", color: "#FFFFFF" }}>
               <span className="h-1.5 w-1.5 rounded-full live-pulse"
-                style={{ background: "#4DA3FF", boxShadow: "0 0 6px #4DA3FF" }} />
+                style={{ background: "#FFFFFF", boxShadow: "0 0 6px rgba(255,255,255,0.5)" }} />
               AI MARKET PULSE
             </span>
             <span className="hidden sm:block text-[10px] font-mono" style={{ color: "var(--nav-dim-color)" }}>
@@ -127,7 +127,7 @@ function AiMarketPulse() {
 
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-1" style={{ color: "hsl(var(--foreground))" }}>
             Markets trending&nbsp;
-            <span style={{ color: "#4DA3FF", textShadow: "0 0 20px rgba(77,163,255,0.3)" }}>bullish</span>
+            <span style={{ color: "#22C55E", textShadow: "0 0 20px rgba(34,197,94,0.3)" }}>bullish</span>
           </h2>
           <p className="text-xs sm:text-sm font-mono leading-relaxed mb-4"
             style={{ color: "hsl(var(--muted-foreground))" }}>
@@ -174,7 +174,7 @@ function AiMarketPulse() {
           <div className="relative" style={{ width: 128, height: 128 }}>
             {/* Glow behind gauge */}
             <div className="absolute inset-0 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(77,163,255,0.08) 0%, transparent 70%)" }} />
+              style={{ background: "radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%)" }} />
 
             <svg width="128" height="128" viewBox="0 0 128 128" style={{ transform: `rotate(${rotation}deg)` }}>
               {/* Track */}
@@ -194,15 +194,15 @@ function AiMarketPulse() {
               />
               <defs>
                 <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#4F46E5" />
-                  <stop offset="100%" stopColor="#4DA3FF" />
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0.95)" />
                 </linearGradient>
               </defs>
             </svg>
 
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold font-mono leading-none" style={{ color: "#4DA3FF" }}>
+              <span className="text-2xl font-bold font-mono leading-none" style={{ color: "#FFFFFF" }}>
                 {SCORE}
               </span>
               <span className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
@@ -213,7 +213,7 @@ function AiMarketPulse() {
 
           {/* Confidence badge */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono px-3 py-1.5 rounded-full"
-            style={{ background: "rgba(77,163,255,0.08)", border: "1px solid rgba(77,163,255,0.2)", color: "#4DA3FF" }}>
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }}>
             <Sparkles style={{ height: "9px", width: "9px" }} />
             82% Confidence
           </div>
@@ -768,8 +768,8 @@ export default function Dashboard() {
           onClick={() => setChatOpen(v => !v)}
         >
           <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(77,163,255,0.12)", border: "1px solid rgba(77,163,255,0.25)" }}>
-            <Bot className="h-4 w-4" style={{ color: "#4DA3FF" }} />
+            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)" }}>
+            <Bot className="h-4 w-4" style={{ color: "rgba(255,255,255,0.8)" }} />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold leading-none mb-0.5" style={{ color: C.text }}>Trading AI</p>
@@ -815,7 +815,7 @@ export default function Dashboard() {
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className="max-w-[80%] px-3 py-2 rounded-2xl text-xs font-mono leading-relaxed whitespace-pre-wrap"
                     style={m.role === "user"
-                      ? { background: "#4DA3FF", color: "#050505", borderBottomRightRadius: 4, fontWeight: 600 }
+                      ? { background: "rgba(255,255,255,0.10)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.16)", borderBottomRightRadius: 4, fontWeight: 600 }
                       : { background: "var(--glass-bg)", color: C.text, border: "1px solid var(--glass-border)", borderBottomLeftRadius: 4 }}
                   >{m.content}</div>
                 </div>
@@ -824,7 +824,7 @@ export default function Dashboard() {
                 <div className="flex justify-start">
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono"
                     style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.muted }}>
-                    <span className="h-1 w-1 rounded-full live-pulse" style={{ background: "#4DA3FF" }} />
+                    <span className="h-1 w-1 rounded-full live-pulse" style={{ background: "rgba(255,255,255,0.7)" }} />
                     Thinking…
                   </div>
                 </div>
@@ -844,7 +844,7 @@ export default function Dashboard() {
                 />
                 <button onClick={() => void sendMessage()} disabled={!chatInput.trim() || isChatLoading}
                   className="h-6 w-6 rounded-lg flex items-center justify-center disabled:opacity-30"
-                  style={{ background: "#4DA3FF", color: "#050505" }}
+                  style={{ background: "rgba(255,255,255,0.12)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.18)" }}
                 ><Send className="h-3 w-3" /></button>
               </div>
             </div>

@@ -46,10 +46,10 @@ const buttonVariants = cva(
           " active:scale-[0.98]",
         cyan:
           "rounded-xl font-bold text-white" +
-          " [background:linear-gradient(135deg,#4DA3FF_0%,#2E8FFF_100%)]" +
-          " [border:1px_solid_rgba(77,163,255,0.40)]" +
-          " [box-shadow:0_0_20px_rgba(77,163,255,0.25),var(--shadow-btn)]" +
-          " hover:[box-shadow:0_0_32px_rgba(77,163,255,0.45),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
+          " [background:rgba(255,255,255,0.09)]" +
+          " [border:1px_solid_rgba(255,255,255,0.16)]" +
+          " [box-shadow:var(--shadow-btn)]" +
+          " hover:[background:rgba(255,255,255,0.14)] hover:[box-shadow:var(--shadow-btn-hover),0_0_40px_rgba(255,255,255,0.06)] hover:-translate-y-px hover:scale-[1.02]" +
           " active:scale-[0.97]",
         link: "text-primary underline-offset-4 hover:underline font-medium",
       },

@@ -336,7 +336,7 @@ export default function AdminPanel() {
           <button key={key} onClick={() => { setVisitedTabs(prev => new Set([...prev, key])); setTab(key); }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
             style={tab === key
-              ? { background: "#4DA3FF", color: "#050505" }
+              ? { background: "#FFFFFF", color: "#050505" }
               : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
             <Icon style={{ height: "13px", width: "13px" }} />
             {label}
@@ -461,7 +461,7 @@ export default function AdminPanel() {
                     )}
                     <button onClick={() => savePolicy(policy.slug, policy.title)} disabled={savingSlug === policy.slug}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
-                      style={{ background: "#4DA3FF", color: "#050505", opacity: savingSlug === policy.slug ? 0.6 : 1 }}>
+                      style={{ background: "#FFFFFF", color: "#050505", opacity: savingSlug === policy.slug ? 0.6 : 1 }}>
                       <Save style={{ height: "11px", width: "11px" }} />
                       {savingSlug === policy.slug ? "Saving…" : "Save Changes"}
                     </button>
@@ -487,7 +487,7 @@ export default function AdminPanel() {
             </div>
             <button onClick={() => { setShowNewPlan(v => !v); setEditingPlanId(null); setEditDraft(null); }}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all"
-              style={showNewPlan ? { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" } : { background: "#4DA3FF", color: "#050505" }}>
+              style={showNewPlan ? { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" } : { background: "#FFFFFF", color: "#050505" }}>
               {showNewPlan ? <><X style={{ height: "12px", width: "12px" }} />Cancel</> : <><Plus style={{ height: "12px", width: "12px" }} />New Plan</>}
             </button>
           </div>
@@ -712,7 +712,7 @@ export default function AdminPanel() {
                         style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>Cancel</button>
                       <button onClick={savePlanEdit} disabled={savingPlan === editDraft.id}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-opacity"
-                        style={{ background: "#4DA3FF", color: "#050505", opacity: savingPlan === editDraft.id ? 0.6 : 1 }}>
+                        style={{ background: "#FFFFFF", color: "#050505", opacity: savingPlan === editDraft.id ? 0.6 : 1 }}>
                         <Save style={{ height: "11px", width: "11px" }} />
                         {savingPlan === editDraft.id ? "Saving…" : "Save Changes"}
                       </button>
@@ -835,7 +835,7 @@ export default function AdminPanel() {
                     <button key={f} onClick={() => setSubsFilter(f)}
                       className="text-[10px] px-2.5 py-1 rounded-lg font-medium capitalize transition-all"
                       style={subsFilter === f
-                        ? { background: "#4DA3FF", color: "#050505" }
+                        ? { background: "#FFFFFF", color: "#050505" }
                         : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>
                       {f}
                     </button>

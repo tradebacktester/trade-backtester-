@@ -70,7 +70,7 @@ export default function ProfilePage() {
         <button
           onClick={() => setShowAuthModal(true)}
           className="px-6 py-2.5 rounded-xl text-[13px] font-semibold"
-          style={{ background: "#4DA3FF", color: "#050505" }}
+          style={{ background: "#FFFFFF", color: "#050505" }}
         >
           Sign In
         </button>

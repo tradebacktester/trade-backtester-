@@ -36,9 +36,9 @@ interface EconEvent {
 }
 interface ChatMsg { role: "user" | "assistant"; content: string; }
 
-const BLUE = "#4DA3FF";
-const BLUE_BG = "var(--accent-cyan-dim)";
-const BLUE_BD = "var(--accent-cyan-border)";
+const BLUE = "#FFFFFF";
+const BLUE_BG = "var(--glass-bg)";
+const BLUE_BD = "var(--glass-border)";
 
 const SENT: Record<Sentiment, { color: string; label: string; Icon: React.ElementType }> = {
   bullish: { color: "#4ade80", label: "Bullish", Icon: TrendingUp },
@@ -47,7 +47,7 @@ const SENT: Record<Sentiment, { color: string; label: string; Icon: React.Elemen
 };
 
 const ICT_CATEGORIES: { id: IctCategory; label: string; color: string }[] = [
-  { id: "all",         label: "All Concepts",    color: "#4DA3FF" },
+  { id: "all",         label: "All Concepts",    color: "#D4D4D8" },
   { id: "structure",   label: "Market Structure", color: "#a855f7" },
   { id: "liquidity",   label: "Liquidity",        color: "#f59e0b" },
   { id: "smart_money", label: "Smart Money",      color: "#10b981" },
@@ -529,7 +529,7 @@ function IctTab() {
 
       {/* Learn more note */}
       <div className="flex items-start gap-2.5 rounded-xl px-4 py-3"
-        style={{ background: "rgba(77,163,255,0.06)", border: "1px solid rgba(77,163,255,0.15)" }}>
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
         <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: BLUE }} />
         <p className="text-[12px] leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
           ICT (Inner Circle Trader) concepts were popularized by Michael J. Huddleston. These concepts describe how institutional order flow creates liquidity, imbalances, and structure in the market. All levels shown are AI-generated examples for education.
@@ -576,9 +576,9 @@ function ChatPanel() {
         <Card>
           <div className="p-6 flex flex-col items-center gap-4 text-center relative overflow-hidden">
             <div className="pointer-events-none absolute inset-0"
-              style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(77,163,255,0.07) 0%, transparent 70%)" }} />
+              style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)" }} />
             <div className="relative h-14 w-14 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(77,163,255,0.1)", border: "1px solid rgba(77,163,255,0.25)" }}>
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)" }}>
               <Brain className="h-7 w-7" style={{ color: BLUE }} />
             </div>
             <div className="relative">
@@ -612,7 +612,7 @@ function ChatPanel() {
             <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
               <div className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                 style={msg.role === "user"
-                  ? { background: BLUE, border: "1px solid rgba(77,163,255,0.4)" }
+                  ? { background: BLUE, border: "1px solid rgba(255,255,255,0.18)" }
                   : { background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}>
                 {msg.role === "user"
                   ? <User className="h-3.5 w-3.5" style={{ color: "#050505" }} />
@@ -739,7 +739,7 @@ function BiasPanel() {
           </div>
           <button onClick={handleAnalyze} disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold flex-shrink-0 disabled:opacity-60 transition-all"
-            style={{ background: loading ? "var(--glass-bg)" : BLUE, color: loading ? "hsl(var(--muted-foreground))" : "#050505", border: `1px solid ${loading ? "var(--glass-border)" : "rgba(77,163,255,0.4)"}`, boxShadow: loading ? "none" : "0 0 20px rgba(77,163,255,0.2)" }}>
+            style={{ background: loading ? "var(--glass-bg)" : BLUE, color: loading ? "hsl(var(--muted-foreground))" : "#050505", border: `1px solid ${loading ? "var(--glass-border)" : "rgba(255,255,255,0.18)"}`, boxShadow: loading ? "none" : "0 0 20px rgba(255,255,255,0.08)" }}>
             {loading ? <><RefreshCw className="h-4 w-4 animate-spin" />Analyzing…</> : <><Shield className="h-4 w-4" />{report ? "Re-analyze" : "Analyze My Trading"}</>}
           </button>
         </div>
@@ -861,13 +861,27 @@ export default function AiAssistant() {
       {/* Header */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
         style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 100% at 0% 50%, rgba(77,163,255,0.07) 0%, transparent 60%)" }} />
+        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 100% at 0% 50%, rgba(255,255,255,0.03) 0%, transparent 60%)" }} />
         <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(79,70,229,0.06) 0%, transparent 60%)" }} />
         <div className="relative flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(77,163,255,0.1)", border: "1px solid rgba(77,163,255,0.25)" }}>
-              <Brain className="h-6 w-6" style={{ color: BLUE }} />
+          <div className="flex items-center gap-3.5 min-w-0">
+            {/* Animated AI Orb */}
+            <div className="relative flex-shrink-0" style={{ width: 52, height: 52 }}>
+              {/* Pulsing outer glow ring */}
+              <div className="absolute inset-0 rounded-full orb-pulse"
+                style={{ border: "1px solid rgba(255,255,255,0.08)" }} />
+              {/* Subtle rotating accent */}
+              <div className="absolute inset-[-1px] rounded-full spin-slow"
+                style={{ background: "conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.05) 25%, transparent 50%)" }} />
+              {/* Core sphere */}
+              <div className="absolute inset-[3px] rounded-full flex items-center justify-center"
+                style={{
+                  background: "radial-gradient(circle at 38% 32%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 55%, transparent 100%)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 0 20px rgba(255,255,255,0.04)",
+                }}>
+                <Brain className="h-5 w-5 breathe" style={{ color: "rgba(255,255,255,0.80)" }} />
+              </div>
             </div>
             <div className="min-w-0">
               <h1 className="text-[20px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>AI Market Assistant</h1>
@@ -911,12 +925,12 @@ export default function AiAssistant() {
       <div style={show("overview")}>
         <Card>
           <div className="p-5 relative overflow-hidden">
-            <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 80% at 0% 100%, rgba(77,163,255,0.05) 0%, transparent 60%)" }} />
+            <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 80% at 0% 100%, rgba(255,255,255,0.03) 0%, transparent 60%)" }} />
             <div className="relative">
               <SectionLabel>Overall Market Sentiment</SectionLabel>
               <div className="flex items-center gap-4 mt-3">
                 <div className="h-16 w-16 rounded-2xl flex flex-col items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(77,163,255,0.08)", border: "1px solid rgba(77,163,255,0.2)" }}>
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   <span className="text-xl font-bold font-mono" style={{ color: overallColor }}>{overallScore}</span>
                   <span className="text-[9px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>/100</span>
                 </div>

@@ -22,7 +22,7 @@ const C = {
   pos:     "#4ade80",
   neg:     "#f87171",
   amber:   "#fbbf24",
-  blue:    "#4DA3FF",
+  blue:    "#FFFFFF",
 };
 const CARD: React.CSSProperties = {
   background: "var(--card-bg)",
@@ -526,7 +526,7 @@ function DepthTab() {
 type CorrData = { assets: { symbol: string; ticker: string; name: string }[]; matrix: number[][]; timeframe: string };
 
 function corrColor(v: number) {
-  if (v === 1) return { bg: "rgba(77,163,255,0.18)", text: C.blue };
+  if (v === 1) return { bg: "rgba(255,255,255,0.09)", text: C.blue };
   if (v > 0.7)  return { bg: "rgba(74,222,128,0.18)", text: C.pos };
   if (v > 0.3)  return { bg: "rgba(74,222,128,0.08)", text: C.pos };
   if (v > -0.3) return { bg: "var(--glass-bg)", text: C.sub };
@@ -549,7 +549,7 @@ function CorrelationTab() {
         {["7d","30d","90d"].map(t => (
           <button key={t} onClick={() => setTf(t)}
             className="px-3 py-1 rounded-lg text-xs font-medium transition-colors"
-            style={tf === t ? { background: "#4DA3FF", color: "#050505" } : { background: C.surface, color: C.sub, border: `1px solid ${C.border}` }}>
+            style={tf === t ? { background: "#FFFFFF", color: "#050505" } : { background: C.surface, color: C.sub, border: `1px solid ${C.border}` }}>
             {t.toUpperCase()}
           </button>
         ))}

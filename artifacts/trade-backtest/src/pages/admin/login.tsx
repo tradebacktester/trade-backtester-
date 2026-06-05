@@ -103,7 +103,7 @@ export default function AdminLogin() {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-            style={{ background: "#4DA3FF", color: "#050505", opacity: loading ? 0.6 : 1 }}
+            style={{ background: "#FFFFFF", color: "#050505", opacity: loading ? 0.6 : 1 }}
           >
             {loading ? "Verifying…" : "Login as Admin"}
           </button>

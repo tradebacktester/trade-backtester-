@@ -101,7 +101,7 @@ function Step({ n, label, active, done }: { n: number; label: string; active: bo
         style={done
           ? { background: "#22c55e", color: "#fff" }
           : active
-            ? { background: "#4DA3FF", color: "#050505", boxShadow: "0 0 12px rgba(77,163,255,0.35)" }
+            ? { background: "#FFFFFF", color: "#050505", boxShadow: "0 0 12px rgba(255,255,255,0.16)" }
             : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
         {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : n}
       </div>
@@ -283,7 +283,7 @@ export default function NewBacktest() {
             <span className="text-[13px] font-bold" style={{ color: "hsl(var(--foreground))" }}>Strategy</span>
             {selectedStrategy && (
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(77,163,255,0.1)", color: "#4DA3FF", border: "1px solid rgba(77,163,255,0.2)" }}>
+                style={{ background: "rgba(255,255,255,0.05)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.08)" }}>
                 {selectedStrategy.name}
               </span>
             )}
@@ -299,7 +299,7 @@ export default function NewBacktest() {
               <button key={t.id} type="button" onClick={() => setStrategyTab(t.id)}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all"
                 style={strategyTab === t.id
-                  ? { background: "var(--card-bg)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }
+                  ? { background: "var(--card-bg)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }
                   : { color: "hsl(var(--muted-foreground))" }}>
                 <t.icon className="h-3 w-3" />{t.label}
               </button>
@@ -351,9 +351,9 @@ export default function NewBacktest() {
         {strategyTab === "ai" && (
           <div className="p-5 space-y-4">
             <div className="flex items-start gap-3 p-3 rounded-xl"
-              style={{ background: "rgba(77,163,255,0.06)", border: "1px solid rgba(77,163,255,0.15)" }}>
-              <Cpu className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#4DA3FF" }} />
-              <p className="text-[12px] leading-relaxed" style={{ color: "#4DA3FF" }}>
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <Cpu className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "#FFFFFF" }} />
+              <p className="text-[12px] leading-relaxed" style={{ color: "#FFFFFF" }}>
                 Describe your trading idea in plain English. AI selects the best strategy type and tunes its parameters automatically.
               </p>
             </div>
@@ -366,29 +366,29 @@ export default function NewBacktest() {
             <button type="button" disabled={!aiPrompt.trim() || aiLoading || !user}
               onClick={handleAiDescribe}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold transition-all disabled:opacity-40"
-              style={{ background: "#4DA3FF", color: "#050505", boxShadow: aiLoading ? "none" : "0 0 20px rgba(77,163,255,0.3)" }}>
+              style={{ background: "#FFFFFF", color: "#050505", boxShadow: aiLoading ? "none" : "0 0 20px rgba(255,255,255,0.14)" }}>
               {aiLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Generating strategy…</> : <><Sparkles className="h-4 w-4" />Generate Strategy with AI</>}
             </button>
 
             {!user && (
               <p className="text-[11px] text-center" style={{ color: "hsl(var(--muted-foreground))" }}>
-                <button onClick={() => setShowAuthModal(true)} className="underline" style={{ color: "#4DA3FF" }}>Sign in</button> to use AI strategy generation
+                <button onClick={() => setShowAuthModal(true)} className="underline" style={{ color: "#FFFFFF" }}>Sign in</button> to use AI strategy generation
               </p>
             )}
 
             {aiResult && (
-              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(77,163,255,0.3)", background: "rgba(77,163,255,0.04)" }}>
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.02)" }}>
                 <div className="px-4 pt-4 pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[15px] font-bold" style={{ color: "hsl(var(--foreground))" }}>{aiResult.name}</p>
                       <div className="flex items-center gap-2 mt-1.5">
                         <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full"
-                          style={{ background: "rgba(77,163,255,0.12)", color: "#4DA3FF", border: "1px solid rgba(77,163,255,0.25)" }}>{aiResult.type}</span>
+                          style={{ background: "rgba(255,255,255,0.06)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.12)" }}>{aiResult.type}</span>
                         <span className="text-[11px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{aiResult.symbol} · {aiResult.timeframe}</span>
                       </div>
                     </div>
-                    <Cpu className="h-5 w-5 flex-shrink-0 mt-1" style={{ color: "#4DA3FF" }} />
+                    <Cpu className="h-5 w-5 flex-shrink-0 mt-1" style={{ color: "#FFFFFF" }} />
                   </div>
                   {aiResult.reasoning && (
                     <p className="text-[12px] leading-relaxed mt-3" style={{ color: "hsl(var(--muted-foreground))" }}>{aiResult.reasoning}</p>
@@ -408,7 +408,7 @@ export default function NewBacktest() {
                 <div className="px-4 pb-4">
                   <button type="button" disabled={createStrategy.isPending} onClick={handleUseAiStrategy}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold transition-all disabled:opacity-40"
-                    style={{ background: "#4DA3FF", color: "#050505" }}>
+                    style={{ background: "#FFFFFF", color: "#050505" }}>
                     <Play className="h-3.5 w-3.5" />Use This Strategy
                   </button>
                 </div>
@@ -433,7 +433,7 @@ export default function NewBacktest() {
                 <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Use Quick Create to build one in seconds.</p>
                 <button type="button" onClick={() => setStrategyTab("quick")}
                   className="mt-3 px-4 py-2 rounded-xl text-[12px] font-medium"
-                  style={{ background: "#4DA3FF", color: "#050505" }}>
+                  style={{ background: "#FFFFFF", color: "#050505" }}>
                   Quick Create
                 </button>
               </div>
@@ -446,8 +446,8 @@ export default function NewBacktest() {
                     <button key={s.id} type="button" onClick={() => form.setValue("strategyId", s.id)}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
                       style={{
-                        background: isSelected ? "rgba(77,163,255,0.07)" : "var(--glass-bg)",
-                        border: `1px solid ${isSelected ? "rgba(77,163,255,0.3)" : "var(--glass-border)"}`,
+                        background: isSelected ? "rgba(255,255,255,0.03)" : "var(--glass-bg)",
+                        border: `1px solid ${isSelected ? "rgba(255,255,255,0.14)" : "var(--glass-border)"}`,
                       }}>
                       <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ background: typeDef ? `${typeDef.color}15` : "var(--glass-bg)", border: `1px solid ${typeDef ? `${typeDef.color}20` : "var(--glass-border)"}` }}>
@@ -457,7 +457,7 @@ export default function NewBacktest() {
                         <p className="text-[13px] font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>{s.name}</p>
                         <p className="text-[11px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{s.symbol} · {s.timeframe}</p>
                       </div>
-                      {isSelected && <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "#4DA3FF" }} />}
+                      {isSelected && <CheckCircle2 className="h-4 w-4 flex-shrink-0" style={{ color: "#FFFFFF" }} />}
                     </button>
                   );
                 })}
@@ -571,7 +571,7 @@ export default function NewBacktest() {
               {/* Advanced toggle */}
               <button type="button" onClick={() => setShowAdvanced(v => !v)}
                 className="flex items-center gap-2 text-[12px] font-medium transition-colors w-full py-1"
-                style={{ color: showAdvanced ? "#4DA3FF" : "hsl(var(--muted-foreground))" }}>
+                style={{ color: showAdvanced ? "#FFFFFF" : "hsl(var(--muted-foreground))" }}>
                 {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 {showAdvanced ? "Hide" : "Show"} Advanced — Commission, Slippage &amp; Position Sizing
               </button>
@@ -579,7 +579,7 @@ export default function NewBacktest() {
               {showAdvanced && (
                 <div className="rounded-xl p-4 space-y-4" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
                   <div className="flex items-start gap-2.5 text-[11px] rounded-xl px-3 py-2.5"
-                    style={{ background: "rgba(77,163,255,0.06)", border: "1px solid rgba(77,163,255,0.15)", color: "#4DA3FF" }}>
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#FFFFFF" }}>
                     <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
                     Commission and slippage applied each entry &amp; exit. Est. round-trip cost: <strong className="font-mono ml-1">~{totalCostEstimate}%</strong>
                   </div>
@@ -640,10 +640,10 @@ export default function NewBacktest() {
                 <button type="submit" disabled={createBacktest.isPending || !selectedStrategyId}
                   className="relative w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-[15px] font-bold tracking-tight transition-all overflow-hidden disabled:opacity-40"
                   style={{
-                    background: createBacktest.isPending || !selectedStrategyId ? "var(--glass-bg)" : "#4DA3FF",
+                    background: createBacktest.isPending || !selectedStrategyId ? "var(--glass-bg)" : "#FFFFFF",
                     color: createBacktest.isPending || !selectedStrategyId ? "hsl(var(--muted-foreground))" : "#050505",
-                    border: `1px solid ${createBacktest.isPending || !selectedStrategyId ? "var(--glass-border)" : "rgba(77,163,255,0.5)"}`,
-                    boxShadow: createBacktest.isPending || !selectedStrategyId ? "none" : "0 0 30px rgba(77,163,255,0.35), 0 2px 12px rgba(77,163,255,0.2)",
+                    border: `1px solid ${createBacktest.isPending || !selectedStrategyId ? "var(--glass-border)" : "rgba(255,255,255,0.22)"}`,
+                    boxShadow: createBacktest.isPending || !selectedStrategyId ? "none" : "0 0 30px rgba(255,255,255,0.16), 0 2px 12px rgba(255,255,255,0.08)",
                   }}>
                   {createBacktest.isPending
                     ? <><Loader2 className="h-5 w-5 animate-spin" />Running simulation…</>

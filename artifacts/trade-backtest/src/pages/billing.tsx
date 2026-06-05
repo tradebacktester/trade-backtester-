@@ -58,7 +58,7 @@ export default function BillingPage() {
         <CreditCard className="h-10 w-10" style={{ color: "hsl(var(--muted-foreground))" }} />
         <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Sign in to manage your billing</p>
         <button onClick={() => navigate("/dashboard")} className="text-sm px-4 py-2 rounded-xl"
-          style={{ background: "#4DA3FF", color: "#050505" }}>Go to Dashboard</button>
+          style={{ background: "#FFFFFF", color: "#050505" }}>Go to Dashboard</button>
       </div>
     );
   }
@@ -67,8 +67,8 @@ export default function BillingPage() {
     <div className="max-w-2xl mx-auto px-4 py-10">
       <div className="flex items-center gap-3 mb-8">
         <span className="h-9 w-9 rounded-xl flex items-center justify-center"
-          style={{ background: "rgba(77,163,255,0.1)", border: "1px solid rgba(77,163,255,0.2)" }}>
-          <CreditCard style={{ height: "16px", width: "16px", color: "#4DA3FF" }} />
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <CreditCard style={{ height: "16px", width: "16px", color: "#FFFFFF" }} />
         </span>
         <div>
           <h1 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>Billing & Subscription</h1>
