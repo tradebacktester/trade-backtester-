@@ -103,7 +103,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     return location.startsWith(url);
   };
 
-  const allMoreItems = NAV_SECTIONS.flatMap(s => s.items);
+  const allMoreItems = NAV_SECTIONS.flatMap(s => s.items as readonly { url: string }[]);
   const moreActive = allMoreItems.some(i => isActive(i.url));
   const mobileMoreActive = allMoreItems.some(i => isActive(i.url));
 

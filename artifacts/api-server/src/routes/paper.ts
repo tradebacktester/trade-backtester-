@@ -11,7 +11,7 @@ function extractUserId(req: Request): number | null {
     const auth = req.headers.authorization;
     const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
     if (!token) return null;
-    const payload = verifyJwt(token, process.env.JWT_SECRET);
+    const payload = verifyJwt(token, process.env.JWT_SECRET!);
     return typeof payload?.id === "number" ? payload.id : null;
   } catch {
     return null;

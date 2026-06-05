@@ -9,6 +9,8 @@ import {
   useListStrategies,
   getListBacktestsQueryKey,
   getListStrategiesQueryKey,
+  type StrategyInputType,
+  type StrategyInputTimeframe,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -155,10 +157,10 @@ export default function NewBacktest() {
         data: {
           name: `${typeDef.name} (${symbol})`,
           description: typeDef.description,
-          type: typeDef.type,
+          type: typeDef.type as StrategyInputType,
           symbol,
-          timeframe: "1d",
-          parameters: typeDef.params as Record<string, number>,
+          timeframe: "1d" as StrategyInputTimeframe,
+          parameters: typeDef.params as Record<string, unknown>,
         },
       },
       {
@@ -204,10 +206,10 @@ export default function NewBacktest() {
         data: {
           name: aiResult.name,
           description: `AI-generated: ${aiPrompt.slice(0, 120)}`,
-          type: aiResult.type,
+          type: aiResult.type as StrategyInputType,
           symbol: aiResult.symbol,
-          timeframe: aiResult.timeframe || "1d",
-          parameters: aiResult.parameters as Record<string, number>,
+          timeframe: (aiResult.timeframe || "1d") as StrategyInputTimeframe,
+          parameters: aiResult.parameters as Record<string, unknown>,
         },
       },
       {

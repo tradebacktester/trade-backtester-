@@ -419,7 +419,7 @@ function runStrategy(
       const basic = (highs[i] + lows[i]) / 2;
       const upper = basic + multiplier * a;
       const lower = basic - multiplier * a;
-      const wasBull = isBull;
+      const wasBull: boolean = isBull;
       if (closes[i] > upper) { isBull = true; prevST = lower; }
       else if (closes[i] < lower) { isBull = false; prevST = upper; }
       else { isBull = wasBull; prevST = isBull ? Math.max(lower, prevST) : Math.min(upper, prevST); }
