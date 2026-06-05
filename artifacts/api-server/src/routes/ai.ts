@@ -824,4 +824,62 @@ Respond with a JSON object containing these exact fields:
   }
 });
 
+/* ─── Position Analysis ───────────────────────────────────────────────────── */
+router.post("/ai/analyze-position", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait a moment." });
+    return;
+  }
+
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI not configured." }); return; }
+
+  const { side, entry, stopLoss, takeProfit, symbol, riskPct, rewardPct, rrRatio } = req.body as {
+    side: string; entry: number; stopLoss: number; takeProfit: number;
+    symbol: string; riskPct: string; rewardPct: string; rrRatio: string;
+  };
+
+  if (!side || !entry || !stopLoss || !takeProfit) {
+    res.status(400).json({ error: "side, entry, stopLoss, takeProfit are required" });
+    return;
+  }
+
+  const direction  = side === "long" ? "LONG" : "SHORT";
+  const stopDist   = Math.abs(entry - stopLoss);
+  const stopDistPct = ((stopDist / entry) * 100).toFixed(2);
+
+  const prompt = `Analyze this ${direction} trade setup on ${symbol}:
+Entry: $${entry}
+Stop Loss: $${stopLoss} (${stopDistPct}% away)
+Take Profit: $${takeProfit}
+Risk: ${riskPct}% | Reward: ${rewardPct}% | R:R = 1:${rrRatio}
+
+Give a concise analysis as exactly 4 bullet points (each starting with •), covering:
+1. R:R quality (poor/fair/good/excellent and why)
+2. Stop loss placement (too tight/reasonable/wide for typical ${symbol} volatility)
+3. Take profit assessment (conservative/realistic/aggressive)
+4. Overall verdict (1 sentence: should the trader take this setup?)
+
+Keep each bullet under 18 words. No preamble, just the 4 bullets.`;
+
+  try {
+    const client = groqClient();
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: "You are a concise, experienced trading coach. Give direct, practical feedback on trade setups." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 280,
+      temperature: 0.4,
+    });
+    const analysis = completion.choices[0]?.message?.content ?? "Unable to analyze position.";
+    res.json({ analysis });
+  } catch (err) {
+    logger.error(err, "ai/analyze-position error");
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+  }
+});
+
 export default router;

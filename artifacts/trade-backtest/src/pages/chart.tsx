@@ -42,9 +42,11 @@ import {
   RotateCcw, MousePointer2, Minus, GitCommit, Hash, Eraser,
   BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
   Flame, Bell, BellOff, ArrowLeftRight, BookOpen, List,
-  CalendarClock, GitBranch, Type, Triangle,
+  CalendarClock, GitBranch, Type, Triangle, Sparkles,
   Sun, Moon, Keyboard, Crosshair,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { PositionOverlay } from "@/components/position-overlay";
 import {
   calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic,
   calcIchimoku, calcSupertrend, calcParabolicSAR,
@@ -54,10 +56,11 @@ import {
   loadIndicators, persistIndicators,
   loadLayouts, saveLayouts,
   loadAlerts, saveAlerts,
+  loadPositions, savePositions,
   type DrawnObject, type DrawTool, type DrawStart, type OhlcState,
   type KlineBar, type Position, type SimTrade,
   type IndicatorConfig, type SerializableDrawing, type IndicatorId,
-  type ChartLayout, type PriceAlert,
+  type ChartLayout, type PriceAlert, type PositionTool,
 } from "@/lib/chart-utils";
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -311,6 +314,11 @@ export default function ChartPage() {
   const [textInput, setTextInput] = useState<{ x: number; y: number; price: number; time: Time } | null>(null);
   const [textValue, setTextValue] = useState("");
 
+  // Position drawing tools
+  const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
+  const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
+  const { token } = useAuth();
+
   // Chart type
   const [chartType, setChartType] = useState<ChartType>("candlestick");
 
@@ -519,6 +527,8 @@ export default function ChartPage() {
     { id: "pitchfork",        icon: <GitBranch className="h-3.5 w-3.5" />,                     label: "Pitchfork", key: "P" },
     { id: "text",             icon: <Type className="h-3.5 w-3.5" />,                          label: "Text",      key: "X" },
     { id: "eraser",           icon: <Eraser className="h-3.5 w-3.5" />,                        label: "Erase",     key: "E" },
+    { id: "long_pos",  icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="9" x2="13" y2="9" stroke="hsl(0,85%,62%)" strokeWidth="1.1"/><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="5" x2="13" y2="5" stroke="hsl(150,90%,55%)" strokeWidth="1.1"/></svg>, label: "Long",      key: "L" },
+    { id: "short_pos", icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="5" x2="13" y2="5" stroke="hsl(0,85%,62%)" strokeWidth="1.1"/><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="9" x2="13" y2="9" stroke="hsl(150,90%,55%)" strokeWidth="1.1"/></svg>, label: "Short",     key: "J" },
   ];
 
   // ── Coord helpers ──────────────────────────────────────────────────
@@ -566,6 +576,25 @@ export default function ChartPage() {
     const { x, y, price, time } = getChartCoords(e);
     if (price === null || time === null) return;
     if (activeTool === "eraser") { eraseLastDrawing(); return; }
+
+    if (activeTool === "long_pos" || activeTool === "short_pos") {
+      const isLong = activeTool === "long_pos";
+      const newPos: PositionTool = {
+        id: Date.now(),
+        side: isLong ? "long" : "short",
+        entry: price,
+        stopLoss:   isLong ? price * 0.98  : price * 1.02,
+        takeProfit: isLong ? price * 1.04  : price * 0.96,
+        accountSize: 10000,
+        riskPct: 1,
+        symbol,
+        createdAt: Date.now(),
+      };
+      setPositionTools(prev => [...prev, newPos]);
+      setSelectedPosId(newPos.id);
+      setActiveTool("cursor");
+      return;
+    }
 
     if (activeTool === "hline") {
       const priceLine = candleSeriesRef.current!.createPriceLine({
@@ -700,7 +729,7 @@ export default function ChartPage() {
       }
       return;
     }
-  }, [activeTool, drawColor, drawStart, drawStart2, eraseLastDrawing, getChartCoords]);
+  }, [activeTool, drawColor, drawStart, drawStart2, eraseLastDrawing, getChartCoords, symbol]);
 
   const handleTextSubmit = useCallback(() => {
     if (!textInput || !textValue.trim() || !candleSeriesRef.current) return;
@@ -796,6 +825,21 @@ export default function ChartPage() {
     applyMarkers();
   }, [position, equity, chartLeverage, applyMarkers, symbol]);
 
+  // ── Position drawing tool handlers ─────────────────────────────────
+  useEffect(() => { savePositions(positionTools); }, [positionTools]);
+
+  const handlePosUpdate = useCallback((id: number, entry: number, sl: number, tp: number) => {
+    setPositionTools(prev => prev.map(p => p.id === id ? { ...p, entry, stopLoss: sl, takeProfit: tp } : p));
+  }, []);
+
+  const handlePosDelete = useCallback((id: number) => {
+    setPositionTools(prev => prev.filter(p => p.id !== id));
+  }, []);
+
+  const handlePosSizing = useCallback((id: number, accountSize: number, riskPct: number) => {
+    setPositionTools(prev => prev.map(p => p.id === id ? { ...p, accountSize, riskPct } : p));
+  }, []);
+
   // ── Replay helpers ─────────────────────────────────────────────────
   const enterReplay = useCallback(() => {
     setIsPlaying(false); setReplayIndex(MIN_CANDLES); setReplayMode(true);
@@ -852,6 +896,8 @@ export default function ChartPage() {
       if (e.key === "p") setActiveTool("pitchfork");
       if (e.key === "x") setActiveTool("text");
       if (e.key === "m" || e.key === "M") setMagnetMode(v => !v);
+      if (e.key === "l") setActiveTool("long_pos");
+      if (e.key === "j") setActiveTool("short_pos");
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) setShowShortcuts(v => !v);
       if (e.key === "Escape" && !drawStart && !drawStart2 && !textInput) { setActiveTool("cursor"); setShowShortcuts(false); if (replayMode) exitReplay(); }
     };
@@ -1839,6 +1885,8 @@ export default function ChartPage() {
                 { key: "P", label: "Pitchfork" },
                 { key: "X", label: "Text annotation" },
                 { key: "E", label: "Eraser" },
+                { key: "L", label: "Long position tool" },
+                { key: "J", label: "Short position tool" },
                 { key: "Esc", label: "Select / deselect tool" },
                 { section: "Chart Controls" },
                 { key: "M", label: "Toggle magnet mode" },
@@ -2081,6 +2129,20 @@ export default function ChartPage() {
 
             <div ref={chartContainerRef} className="absolute inset-0" />
 
+            {/* Position drawing tool overlay */}
+            <PositionOverlay
+              positions={positionTools.filter(p => p.symbol === symbol)}
+              candleSeries={candleSeriesRef.current}
+              chart={chartRef.current}
+              container={chartContainerRef.current}
+              selectedId={selectedPosId}
+              onSelect={setSelectedPosId}
+              onUpdate={handlePosUpdate}
+              onDelete={handlePosDelete}
+              onUpdateSizing={handlePosSizing}
+              token={token}
+            />
+
             {/* VPVR overlay */}
             {showVPVR && vpvrBuckets.length > 0 && (
               <div className="absolute top-0 right-0 bottom-0 pointer-events-none" style={{ width: "80px", zIndex: 8, padding: "4px 0" }}>
@@ -2196,6 +2258,8 @@ export default function ChartPage() {
                   {activeTool === "parallel_channel" && (!drawStart ? "Click start of top line" : !drawStart2 ? "Click end of top line" : "Click to set channel width")}
                   {activeTool === "pitchfork" && (!drawStart ? "Click first point (pivot)" : !drawStart2 ? "Click second point" : "Click third point")}
                   {activeTool === "eraser" && "Click to erase last drawing · Esc to cancel"}
+                  {activeTool === "long_pos" && "Click chart to place Long position · drag handles to adjust · Esc to cancel"}
+                  {activeTool === "short_pos" && "Click chart to place Short position · drag handles to adjust · Esc to cancel"}
                 </span>
               </div>
             )}
@@ -2206,14 +2270,20 @@ export default function ChartPage() {
             <div className="flex items-center gap-1 px-2 py-1.5 rounded-2xl overflow-x-auto scrollbar-none"
               style={{ background: "rgba(10,12,18,0.97)", border: "1px solid rgba(255,255,255,0.09)", flexShrink: 0 }}>
               {DRAW_TOOLS.map(tool => {
-                const breakBefore: DrawTool[] = ["hline", "rectangle", "text", "eraser"];
+                const breakBefore: DrawTool[] = ["hline", "rectangle", "text", "eraser", "long_pos"];
                 return (
                   <Fragment key={tool.id}>
                     {breakBefore.includes(tool.id) && <div className="w-px h-5 bg-white/10 mx-0.5 flex-shrink-0" />}
                     <button onClick={() => setActiveTool(tool.id)} title={`${tool.label} [${tool.key}]`}
                       className="h-8 w-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
                       style={activeTool === tool.id
-                        ? { background: tool.id === "eraser" ? "rgba(239,68,68,0.2)" : "rgba(0,229,255,0.15)", color: tool.id === "eraser" ? "hsl(0,85%,65%)" : "hsl(190,90%,65%)", border: `1px solid ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.3)"}`, boxShadow: `0 0 12px ${tool.id === "eraser" ? "rgba(239,68,68,0.3)" : "rgba(0,229,255,0.25)"}` }
+                        ? tool.id === "eraser"
+                          ? { background: "rgba(239,68,68,0.2)", color: "hsl(0,85%,65%)", border: "1px solid rgba(239,68,68,0.3)", boxShadow: "0 0 12px rgba(239,68,68,0.3)" }
+                          : tool.id === "long_pos"
+                          ? { background: "rgba(52,211,153,0.15)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.35)", boxShadow: "0 0 12px rgba(52,211,153,0.25)" }
+                          : tool.id === "short_pos"
+                          ? { background: "rgba(239,68,68,0.15)", color: "hsl(0,85%,65%)", border: "1px solid rgba(239,68,68,0.3)", boxShadow: "0 0 12px rgba(239,68,68,0.25)" }
+                          : { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.3)", boxShadow: "0 0 12px rgba(0,229,255,0.25)" }
                         : { color: "hsl(220,14%,50%)", border: "1px solid transparent" }}>
                       {tool.icon}
                     </button>

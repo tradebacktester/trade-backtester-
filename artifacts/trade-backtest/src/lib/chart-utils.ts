@@ -2,7 +2,7 @@ import type { IPriceLine, ISeriesApi, Time } from "lightweight-charts";
 
 // ── Draw types ────────────────────────────────────────────────────
 
-export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser" | "doodle" | "parallel_channel" | "text" | "pitchfork" | "arrow";
+export type DrawTool = "cursor" | "hline" | "trendline" | "fibonacci" | "rectangle" | "ray" | "eraser" | "doodle" | "parallel_channel" | "text" | "pitchfork" | "arrow" | "long_pos" | "short_pos";
 
 export type DrawnObject =
   | { kind: "hline";            priceLine: IPriceLine; id: number; price: number; color: string }
@@ -686,4 +686,31 @@ export function calcVolumeProfile(bars: KlineBar[], buckets = 24): { price: numb
     volume: vol,
     pct: maxVol > 0 ? (vol / maxVol) * 100 : 0,
   }));
+}
+
+// ── Position drawing tool ──────────────────────────────────────────
+
+export interface PositionTool {
+  id: number;
+  side: "long" | "short";
+  entry: number;
+  stopLoss: number;
+  takeProfit: number;
+  accountSize: number;
+  riskPct: number;
+  symbol: string;
+  createdAt: number;
+}
+
+const POSITIONS_KEY = "chart_positions_v1";
+
+export function loadPositions(): PositionTool[] {
+  try {
+    const raw = localStorage.getItem(POSITIONS_KEY);
+    return raw ? (JSON.parse(raw) as PositionTool[]) : [];
+  } catch { return []; }
+}
+
+export function savePositions(positions: PositionTool[]): void {
+  try { localStorage.setItem(POSITIONS_KEY, JSON.stringify(positions)); } catch { /* ignore */ }
 }
