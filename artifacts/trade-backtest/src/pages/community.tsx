@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Heart, Flag, Trash2, Send, ImageIcon, X,
-  AlertTriangle, CheckCircle, Users,
-  MessageSquare, RefreshCw, Shield, Upload, Camera,
+  Heart, Flag, Trash2, Send, X, AlertTriangle, CheckCircle,
+  Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-
-// ── Types ────────────────────────────────────────────────────────────────────
 
 interface Post {
   id: number;
@@ -30,8 +27,6 @@ interface Report {
   createdAt: string;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
   if (diff < 60) return "just now";
@@ -44,18 +39,12 @@ function initials(name: string): string {
   return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
 
-const AVATAR_COLORS = [
-  "#111827", "#1e40af", "#065f46", "#7c3aed",
-  "#b45309", "#be123c", "#0e7490", "#4d7c0f",
-];
-
+const AVATAR_PALETTE = ["#1e3a5f", "#1e4d3a", "#4a1e5f", "#5f3a1e", "#1e1e5f", "#5f1e3a", "#1e5f5f", "#3a5f1e"];
 function avatarColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]!;
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]!;
 }
-
-// ── API ──────────────────────────────────────────────────────────────────────
 
 async function apiFetch(path: string, opts?: RequestInit) {
   const token = localStorage.getItem("tt_token");
@@ -72,7 +61,16 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return data;
 }
 
-// ── Report Modal ─────────────────────────────────────────────────────────────
+function Avatar({ name, size = 9 }: { name: string; size?: number }) {
+  return (
+    <div
+      className={`h-${size} w-${size} rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0`}
+      style={{ background: avatarColor(name), minWidth: size * 4, minHeight: size * 4, width: size * 4, height: size * 4, fontSize: size * 1.3 }}
+    >
+      {initials(name)}
+    </div>
+  );
+}
 
 function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth();
@@ -93,7 +91,7 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
 
   async function submit() {
     if (!reporterName.trim()) { setError("Please enter your name."); return; }
-    if (!reason.trim()) { setError("Please select or enter a reason."); return; }
+    if (!reason.trim()) { setError("Please select a reason."); return; }
     setSending(true); setError("");
     try {
       await apiFetch(`/api/community/${post.id}/report`, {
@@ -101,61 +99,55 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
         body: JSON.stringify({ reporterName: reporterName.trim(), reason: reason.trim() }),
       });
       setDone(true);
-      setTimeout(() => { onDone(); onClose(); }, 2000);
+      setTimeout(() => { onDone(); onClose(); }, 1800);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to submit report.");
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.35)" }} onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}
-          style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}
+        style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--glass-border)" }}>
           <div className="flex items-center gap-2">
-            <Flag style={{ height: 15, width: 15, color: "#f87171" }} />
+            <Flag style={{ height: 14, width: 14, color: "#f87171" }} />
             <span className="text-[14px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Report Post</span>
           </div>
-          <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-full transition-colors"
-            style={{ background: "var(--glass-bg)" }}>
-            <X style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
+          <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-full"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+            <X style={{ height: 12, width: 12, color: "hsl(var(--muted-foreground))" }} />
           </button>
         </div>
 
         {done ? (
-          <div className="px-5 py-8 flex flex-col items-center gap-3 text-center">
+          <div className="px-5 py-10 flex flex-col items-center gap-3 text-center">
             <CheckCircle style={{ height: 36, width: 36, color: "#4ade80" }} />
             <p className="text-[14px] font-medium" style={{ color: "hsl(var(--foreground))" }}>Report submitted</p>
-            <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Our admin will review it shortly.</p>
+            <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Our team will review it shortly.</p>
           </div>
         ) : (
           <div className="px-5 py-4 flex flex-col gap-3">
-            <div className="rounded-xl p-3 text-[12px] font-mono"
-              style={{ background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)", maxHeight: 60, overflow: "hidden" }}>
-              {post.content.slice(0, 120)}{post.content.length > 120 ? "…" : ""}
+            <div className="rounded-xl px-3 py-2.5 text-[12px] font-mono" style={{ background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)", maxHeight: 56, overflow: "hidden" }}>
+              {post.content.slice(0, 100)}{post.content.length > 100 ? "…" : ""}
             </div>
 
             <div>
-              <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>Your name</label>
-              <input
-                value={reporterName}
-                onChange={e => setReporterName(e.target.value)}
-                placeholder="Display name"
-                className="mt-1 w-full px-3 py-2 rounded-xl text-[13px] outline-none transition-colors"
-                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
-              />
+              <label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>Your name</label>
+              <input value={reporterName} onChange={e => setReporterName(e.target.value)} placeholder="Display name"
+                className="mt-1.5 w-full px-3 py-2 rounded-xl text-[13px] outline-none transition-colors"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }} />
             </div>
 
             <div>
-              <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>Reason</label>
-              <div className="mt-1 flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>Reason</label>
+              <div className="mt-1.5 flex flex-col gap-1">
                 {REASONS.map(r => (
                   <button key={r} onClick={() => setReason(r)}
-                    className="text-left px-3 py-2 rounded-xl text-[13px] transition-all"
+                    className="text-left px-3 py-2 rounded-xl text-[12px] transition-all"
                     style={reason === r
-                      ? { background: "#4DA3FF", color: "#050505" }
+                      ? { background: "#4DA3FF", color: "#050505", fontWeight: 600 }
                       : { background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)" }}>
                     {r}
                   </button>
@@ -163,11 +155,11 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
               </div>
             </div>
 
-            {error && <p className="text-[12px] text-red-500">{error}</p>}
+            {error && <p className="text-[12px]" style={{ color: "#f87171" }}>{error}</p>}
 
             <button onClick={submit} disabled={sending}
-              className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-50"
-              style={{ background: "rgba(220,38,38,0.85)", color: "#fff", border: "1px solid rgba(220,38,38,0.5)" }}>
+              className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-50 mt-1"
+              style={{ background: "rgba(220,38,38,0.9)", color: "#fff", border: "1px solid rgba(220,38,38,0.4)" }}>
               {sending ? "Submitting…" : "Submit Report"}
             </button>
           </div>
@@ -177,73 +169,51 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
   );
 }
 
-// ── Post Card ─────────────────────────────────────────────────────────────────
-
 function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
-  post: Post;
-  adminToken: string | null;
-  onDelete: (id: number) => void;
-  onReport: (post: Post) => void;
-  likedIds: Set<number>;
-  onLike: (id: number, liked: boolean) => void;
+  post: Post; adminToken: string | null; onDelete: (id: number) => void;
+  onReport: (post: Post) => void; likedIds: Set<number>; onLike: (id: number, liked: boolean) => void;
 }) {
   const liked = likedIds.has(post.id);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <article className="rounded-2xl overflow-hidden"
-      style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-
-      {/* Header */}
+    <article className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0"
-          style={{ background: avatarColor(post.authorName) }}>
-          {initials(post.authorName)}
-        </div>
+        <Avatar name={post.authorName} size={9} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{post.authorName}</span>
             <span className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{timeAgo(post.createdAt)}</span>
           </div>
         </div>
       </div>
 
-      {/* Content */}
       <div className="px-4 pb-3">
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: "hsl(var(--foreground))" }}>{post.content}</p>
       </div>
 
-      {/* Image */}
       {post.imageUrl && (
         <div className="px-4 pb-3">
-          <img
-            src={post.imageUrl}
-            alt="Post image"
-            className="rounded-xl w-full object-cover"
-            style={{ maxHeight: 320, border: "1px solid rgba(0,0,0,0.06)" }}
-            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
+          <img src={post.imageUrl} alt="Post image" className="rounded-xl w-full object-cover"
+            style={{ maxHeight: 300, border: "1px solid var(--glass-border)" }}
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 px-3 pb-3 pt-2.5 mt-1" style={{ borderTop: "1px solid var(--glass-border)" }}>
-        <button
-          onClick={() => onLike(post.id, liked)}
+      <div className="flex items-center gap-1 px-3 pb-3 pt-2" style={{ borderTop: "1px solid var(--glass-border)" }}>
+        <button onClick={() => onLike(post.id, liked)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all"
           style={liked
-            ? { background: "rgba(239,68,68,0.12)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }
-            : { background: "transparent", color: "hsl(var(--muted-foreground))" }}>
-          <Heart style={{ height: 13, width: 13, fill: liked ? "#f87171" : "none" }} />
+            ? { background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }
+            : { color: "hsl(var(--muted-foreground))" }}>
+          <Heart style={{ height: 12, width: 12, fill: liked ? "#f87171" : "none" }} />
           {post.likes > 0 ? post.likes : "Like"}
         </button>
 
-        <button
-          onClick={() => onReport(post)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all ml-auto"
-          style={{ color: "hsl(var(--muted-foreground))" }}
-          title="Report this post">
-          <Flag style={{ height: 12, width: 12 }} />
+        <button onClick={() => onReport(post)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] ml-auto transition-all"
+          style={{ color: "hsl(var(--muted-foreground))" }}>
+          <Flag style={{ height: 11, width: 11 }} />
           Report
         </button>
 
@@ -251,20 +221,20 @@ function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
           confirmDelete ? (
             <div className="flex items-center gap-1">
               <button onClick={() => onDelete(post.id)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all"
-                style={{ background: "rgba(220,38,38,0.12)", color: "#f87171", border: "1px solid rgba(220,38,38,0.3)" }}>
-                <Trash2 style={{ height: 11, width: 11 }} /> Confirm
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold"
+                style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.25)" }}>
+                <Trash2 style={{ height: 10, width: 10 }} /> Confirm
               </button>
-              <button onClick={() => setConfirmDelete(false)} className="px-2 py-1.5 text-[11px] rounded-xl" style={{ color: "hsl(var(--muted-foreground))" }}>
+              <button onClick={() => setConfirmDelete(false)} className="px-2 py-1.5 text-[11px] rounded-xl"
+                style={{ color: "hsl(var(--muted-foreground))" }}>
                 Cancel
               </button>
             </div>
           ) : (
             <button onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
-              style={{ color: "#f87171" }}
-              title="Admin: delete post">
-              <Shield style={{ height: 12, width: 12 }} /> Delete
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px]"
+              style={{ color: "#f87171" }}>
+              <Shield style={{ height: 11, width: 11 }} />Delete
             </button>
           )
         )}
@@ -272,8 +242,6 @@ function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
     </article>
   );
 }
-
-// ── Create Post Form ──────────────────────────────────────────────────────────
 
 function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const { user } = useAuth();
@@ -286,35 +254,22 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (user?.name) setDisplayName(user.name);
-  }, [user?.name]);
+  useEffect(() => { if (user?.name) setDisplayName(user.name); }, [user?.name]);
 
   function autoResize() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 700 * 1024) {
-      setError("Image must be under 700 KB (required to fit within the upload limit).");
-      return;
-    }
+    if (file.size > 700 * 1024) { setError("Image must be under 700 KB."); return; }
     const reader = new FileReader();
-    reader.onload = ev => {
-      setImagePreview(ev.target?.result as string);
-      setError("");
-    };
+    reader.onload = ev => { setImagePreview(ev.target?.result as string); setError(""); };
     reader.readAsDataURL(file);
-  }
-
-  function clearImage() {
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function submit() {
@@ -324,69 +279,51 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
     try {
       const post = await apiFetch("/api/community", {
         method: "POST",
-        body: JSON.stringify({
-          content: content.trim(),
-          imageUrl: imagePreview ?? undefined,
-        }),
+        body: JSON.stringify({ content: content.trim(), imageUrl: imagePreview ?? undefined }),
       }) as Post;
       onCreated(post);
-      setContent(""); clearImage();
+      setContent(""); setImagePreview(null);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to post.");
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   }
 
   const charCount = content.length;
   const overLimit = charCount > 1200;
 
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-
-      <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--glass-border)" }}>
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0"
-            style={{ background: avatarColor(displayName || "?") }}>
-            {displayName ? initials(displayName) : "?"}
-          </div>
-          <div className="flex-1">
-            {!user ? (
-              <input
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                placeholder="Your display name…"
-                className="w-full text-[13px] font-medium outline-none bg-transparent"
-                style={{ color: "hsl(var(--foreground))" }}
-              />
-            ) : (
-              <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{user.name}</span>
-            )}
-          </div>
+    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+        <Avatar name={displayName || "?"} size={9} />
+        <div className="flex-1 min-w-0">
+          {!user ? (
+            <input value={displayName} onChange={e => setDisplayName(e.target.value)}
+              placeholder="Your display name…"
+              className="w-full text-[13px] font-medium outline-none bg-transparent"
+              style={{ color: "hsl(var(--foreground))" }} />
+          ) : (
+            <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{user.name}</span>
+          )}
         </div>
       </div>
 
       <div className="px-4 pt-3">
-        <textarea
-          ref={textareaRef}
-          value={content}
+        <textarea ref={textareaRef} value={content}
           onChange={e => { setContent(e.target.value); autoResize(); }}
-          placeholder="Share a trading idea, insight, or quote…"
+          placeholder="Share a trading idea, insight, or chart pattern…"
           className="w-full resize-none outline-none text-[13px] leading-relaxed bg-transparent"
-          style={{ color: "hsl(var(--foreground))", minHeight: 80, maxHeight: 300 }}
-          rows={3}
-        />
+          style={{ color: "hsl(var(--foreground))", minHeight: 80 }}
+          rows={3} />
       </div>
 
       {imagePreview && (
         <div className="px-4 pb-3 relative">
           <img src={imagePreview} alt="preview" className="rounded-xl w-full object-cover"
-            style={{ maxHeight: 200, border: "1px solid var(--glass-border)" }} />
-          <button onClick={clearImage}
+            style={{ maxHeight: 180, border: "1px solid var(--glass-border)" }} />
+          <button onClick={() => { setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
             className="absolute top-2 right-6 h-6 w-6 flex items-center justify-center rounded-full"
-            style={{ background: "rgba(0,0,0,0.55)" }}>
+            style={{ background: "rgba(0,0,0,0.6)" }}>
             <X style={{ height: 11, width: 11, color: "#fff" }} />
           </button>
         </div>
@@ -394,39 +331,34 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
 
       {error && (
         <div className="mx-4 mb-2 px-3 py-2 rounded-xl text-[12px] flex items-center gap-2"
-          style={{ background: "rgba(220,38,38,0.08)", color: "#f87171", border: "1px solid rgba(220,38,38,0.2)" }}>
-          <AlertTriangle style={{ height: 12, width: 12, flexShrink: 0 }} />
-          {error}
+          style={{ background: "rgba(220,38,38,0.07)", color: "#f87171", border: "1px solid rgba(220,38,38,0.18)" }}>
+          <AlertTriangle style={{ height: 11, width: 11, flexShrink: 0 }} />{error}
         </div>
       )}
 
-      {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
 
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-black/5">
+      <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: "1px solid var(--glass-border)" }}>
         <button onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
           style={imagePreview
-            ? { background: "rgba(77,163,255,0.1)", color: "#4DA3FF" }
+            ? { background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }
             : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
-          <Upload style={{ height: 12, width: 12 }} />
+          <Upload style={{ height: 11, width: 11 }} />
           {imagePreview ? "Change" : "Gallery"}
         </button>
         <button onClick={() => cameraInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
           style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
-          <Camera style={{ height: 12, width: 12 }} />
-          Camera
+          <Camera style={{ height: 11, width: 11 }} />Camera
         </button>
 
-        <span className="text-[11px] ml-auto" style={{ color: overLimit ? "#f87171" : "hsl(var(--muted-foreground))" }}>
+        <span className="text-[11px] ml-auto font-mono" style={{ color: overLimit ? "#f87171" : "hsl(var(--muted-foreground))" }}>
           {charCount}/1200
         </span>
 
-        <button
-          onClick={submit}
-          disabled={sending || overLimit || !content.trim()}
+        <button onClick={submit} disabled={sending || overLimit || !content.trim()}
           className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-40"
           style={{ background: "#4DA3FF", color: "#050505" }}>
           <Send style={{ height: 12, width: 12 }} />
@@ -436,8 +368,6 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
     </div>
   );
 }
-
-// ── Admin Reports Panel ───────────────────────────────────────────────────────
 
 function AdminReportsPanel({ adminToken }: { adminToken: string }) {
   const [reports, setReports] = useState<Report[]>([]);
@@ -451,9 +381,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
         headers: { "x-admin-token": adminToken, "Content-Type": "application/json" },
       }) as Report[];
       setReports(data);
-    } catch { /* ignore */ } finally {
-      setLoading(false);
-    }
+    } catch { /* ignore */ } finally { setLoading(false); }
   }
 
   useEffect(() => { load(); }, []);
@@ -483,22 +411,21 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
   const pendingCount = reports.filter(r => r.status === "pending").length;
 
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-
+    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--glass-border)" }}>
         <div className="flex items-center gap-2">
-          <Shield style={{ height: 14, width: 14, color: "hsl(var(--muted-foreground))" }} />
+          <Shield style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
           <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Reports</span>
           {pendingCount > 0 && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.25)" }}>
-              {pendingCount} pending
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.22)" }}>
+              {pendingCount}
             </span>
           )}
         </div>
-        <button onClick={load} className="h-7 w-7 flex items-center justify-center rounded-full transition-colors"
-          style={{ background: "var(--glass-bg)" }}>
-          <RefreshCw style={{ height: 12, width: 12, color: "hsl(var(--muted-foreground))" }} />
+        <button onClick={load} className="h-7 w-7 flex items-center justify-center rounded-full"
+          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+          <RefreshCw style={{ height: 11, width: 11, color: "hsl(var(--muted-foreground))" }} />
         </button>
       </div>
 
@@ -506,61 +433,57 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
         {(["pending", "all", "resolved", "dismissed"] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
             className="px-3 py-1 rounded-lg text-[11px] font-medium capitalize transition-all"
-            style={filter === f
-              ? { background: "#4DA3FF", color: "#050505" }
-              : { color: "hsl(var(--muted-foreground))" }}>
+            style={filter === f ? { background: "#4DA3FF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}>
             {f}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="px-4 py-8 text-center text-[12px]" style={{ color: "#bbb" }}>Loading…</div>
+        <div className="px-4 py-8 text-center text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="px-4 py-8 text-center text-[12px]" style={{ color: "#bbb" }}>No {filter === "all" ? "" : filter} reports.</div>
+        <div className="px-4 py-8 text-center text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>No {filter === "all" ? "" : filter} reports.</div>
       ) : (
-        <div className="divide-y divide-black/5">
+        <div className="divide-y" style={{ borderColor: "var(--glass-border)" }}>
           {filtered.map(r => (
             <div key={r.id} className="px-4 py-3 flex flex-col gap-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
                     <span className="text-[11px] font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>by {r.postAuthor}</span>
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
                       r.status === "pending" ? "bg-amber-500/10 text-amber-400" :
-                      r.status === "resolved" ? "bg-green-500/10 text-green-400" :
-                      "bg-white/5 text-white/40"
-                    }`}>{r.status}</span>
-                    {r.postDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">post deleted</span>}
+                      r.status === "resolved" ? "bg-green-500/10 text-green-400" : "bg-white/5 text-white/30"}`}>
+                      {r.status}
+                    </span>
+                    {r.postDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">deleted</span>}
                   </div>
-                  <p className="text-[12px] rounded-lg px-2.5 py-2" style={{ background: "var(--glass-bg)", color: "hsl(var(--foreground))", fontFamily: "monospace", border: "1px solid var(--glass-border)" }}>
-                    {r.postContent.slice(0, 100)}{r.postContent.length > 100 ? "…" : ""}
+                  <p className="text-[11px] rounded-lg px-2.5 py-1.5 font-mono" style={{ background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)" }}>
+                    {r.postContent.slice(0, 90)}{r.postContent.length > 90 ? "…" : ""}
                   </p>
                   <p className="text-[11px] mt-1.5" style={{ color: "hsl(var(--muted-foreground))" }}>
                     Reported by <strong>{r.reporterName}</strong>: {r.reason}
                   </p>
-                  <p className="text-[10px] mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>{timeAgo(r.createdAt)}</p>
                 </div>
               </div>
-
               <div className="flex items-center gap-1.5 flex-wrap">
                 {!r.postDeleted && (
                   <button onClick={() => deletePost(r.postId)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
-                    style={{ background: "rgba(220,38,38,0.08)", color: "#f87171", border: "1px solid rgba(220,38,38,0.22)" }}>
-                    <Trash2 style={{ height: 10, width: 10 }} /> Delete Post
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium"
+                    style={{ background: "rgba(220,38,38,0.07)", color: "#f87171", border: "1px solid rgba(220,38,38,0.2)" }}>
+                    <Trash2 style={{ height: 9, width: 9 }} />Delete Post
                   </button>
                 )}
                 {r.status === "pending" && (
                   <>
                     <button onClick={() => updateStatus(r.id, "resolved")}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
-                      style={{ background: "rgba(74,222,128,0.08)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.22)" }}>
-                      <CheckCircle style={{ height: 10, width: 10 }} /> Resolve
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium"
+                      style={{ background: "rgba(74,222,128,0.07)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.2)" }}>
+                      <CheckCircle style={{ height: 9, width: 9 }} />Resolve
                     </button>
                     <button onClick={() => updateStatus(r.id, "dismissed")}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all"
-                      style={{ color: "#aaa" }}>
+                      className="px-2.5 py-1 rounded-lg text-[11px]"
+                      style={{ color: "hsl(var(--muted-foreground))" }}>
                       Dismiss
                     </button>
                   </>
@@ -574,10 +497,8 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
 export default function CommunityPage() {
-  const { user, adminToken } = useAuth();
+  const { adminToken } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -595,11 +516,8 @@ export default function CommunityPage() {
     try {
       const data = await apiFetch("/api/community") as Post[];
       setPosts(data);
-    } catch {
-      setError("Could not load posts. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Could not load posts. Please try again."); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
@@ -641,67 +559,67 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6" style={{ isolation: "isolate" }}>
+    <div className="flex flex-col gap-5 pb-10" style={{ isolation: "isolate" }}>
 
-      {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <MessageSquare style={{ height: 20, width: 20, color: "#4DA3FF" }} />
-            <h1 className="text-[22px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>Community</h1>
-          </div>
-          <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>Share trading ideas, insights, and quotes with fellow traders.</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Stats */}
-          <div className="flex items-center gap-4 px-4 py-2 rounded-xl"
-            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-            {[
-              { icon: MessageSquare, value: stats.posts, label: "Posts" },
-              { icon: Users, value: stats.members, label: "Members" },
-              { icon: Heart, value: stats.likes, label: "Likes" },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-1.5 text-center">
-                <s.icon style={{ height: 12, width: 12, color: "hsl(var(--muted-foreground))" }} />
-                <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{s.value}</span>
-                <span className="text-[11px] hidden sm:inline" style={{ color: "hsl(var(--muted-foreground))" }}>{s.label}</span>
-              </div>
-            ))}
+      {/* Header */}
+      <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 70% 80% at 0% 100%, rgba(77,163,255,0.06) 0%, transparent 60%)" }} />
+        <div className="relative flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <MessageSquare style={{ height: 18, width: 18, color: "#4DA3FF" }} />
+              <h1 className="text-[20px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>Community</h1>
+            </div>
+            <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>Share trading ideas, insights, and chart setups with fellow traders.</p>
           </div>
 
-          <button onClick={fetchPosts}
-            className="h-9 w-9 flex items-center justify-center rounded-xl transition-colors"
-            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-            <RefreshCw style={{ height: 14, width: 14, color: "hsl(var(--muted-foreground))" }} />
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Stats pills */}
+            <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+              {[
+                { icon: MessageSquare, val: stats.posts, label: "Posts" },
+                { icon: Users, val: stats.members, label: "Members" },
+                { icon: Heart, val: stats.likes, label: "Likes" },
+              ].map(s => (
+                <div key={s.label} className="flex items-center gap-1.5">
+                  <s.icon style={{ height: 11, width: 11, color: "hsl(var(--muted-foreground))" }} />
+                  <span className="text-[12px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{s.val}</span>
+                  <span className="text-[10px] hidden sm:inline" style={{ color: "hsl(var(--muted-foreground))" }}>{s.label}</span>
+                </div>
+              ))}
+            </div>
 
-          {adminToken && (
-            <button onClick={() => setShowAdminPanel(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium transition-all"
-              style={showAdminPanel
-                ? { background: "#4DA3FF", color: "#050505", border: "1px solid rgba(77,163,255,0.4)" }
-                : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
-              <Shield style={{ height: 13, width: 13 }} />
-              Admin
+            <button onClick={fetchPosts} className="h-9 w-9 flex items-center justify-center rounded-xl transition-colors"
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+              <RefreshCw style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
             </button>
-          )}
+
+            {adminToken && (
+              <button onClick={() => setShowAdminPanel(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium"
+                style={showAdminPanel
+                  ? { background: "#4DA3FF", color: "#050505", border: "1px solid rgba(77,163,255,0.4)" }
+                  : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+                <Shield style={{ height: 12, width: 12 }} />Admin
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Disclaimer */}
       <div className="rounded-xl px-4 py-3 flex items-start gap-3"
-        style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.22)" }}>
-        <AlertTriangle style={{ height: 14, width: 14, color: "#f59e0b", flexShrink: 0, marginTop: 1 }} />
+        style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
+        <AlertTriangle style={{ height: 13, width: 13, color: "#f59e0b", flexShrink: 0, marginTop: 2 }} />
         <p className="text-[12px] leading-relaxed" style={{ color: "#fbbf24" }}>
-          <strong>Disclaimer:</strong> All content posted here is for educational and informational purposes only.
-          Nothing on this page constitutes financial advice. Trading involves significant risk of loss. Past performance is not indicative of future results.
+          All content is for <strong>educational purposes only</strong> — not financial advice. Trading involves significant risk of loss.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* Left: Feed */}
+        {/* Feed */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} />
 
@@ -712,54 +630,44 @@ export default function CommunityPage() {
                   style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-9 w-9 rounded-full" style={{ background: "var(--glass-border)" }} />
-                    <div className="flex-1">
-                      <div className="h-3 rounded w-28 mb-1.5" style={{ background: "var(--glass-border)" }} />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 rounded w-24" style={{ background: "var(--glass-border)" }} />
                       <div className="h-2.5 rounded w-16" style={{ background: "var(--glass-bg)" }} />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <div className="h-3 rounded w-full" style={{ background: "var(--glass-bg)" }} />
                     <div className="h-3 rounded w-4/5" style={{ background: "var(--glass-bg)" }} />
-                    <div className="h-3 rounded w-3/5" style={{ background: "var(--glass-bg)" }} />
                   </div>
                 </div>
               ))}
             </div>
           ) : error ? (
-            <div className="rounded-2xl p-8 text-center"
-              style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+            <div className="rounded-2xl p-10 text-center" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
               <AlertTriangle style={{ height: 28, width: 28, color: "#f59e0b", margin: "0 auto 12px" }} />
-              <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>{error}</p>
-              <button onClick={fetchPosts} className="mt-3 px-4 py-2 rounded-xl text-[12px] font-medium"
+              <p className="text-[13px] mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>{error}</p>
+              <button onClick={fetchPosts} className="px-4 py-2 rounded-xl text-[12px] font-medium"
                 style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}>Retry</button>
             </div>
           ) : posts.length === 0 ? (
-            <div className="rounded-2xl p-12 text-center"
-              style={{ border: "1px dashed var(--glass-border)", background: "var(--card-bg)" }}>
-              <MessageSquare style={{ height: 36, width: 36, color: "hsl(var(--muted-foreground))", margin: "0 auto 12px" }} />
-              <p className="text-[15px] font-medium mb-1" style={{ color: "hsl(var(--foreground))" }}>No posts yet</p>
-              <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>Be the first to share a trading idea!</p>
+            <div className="rounded-2xl p-14 text-center" style={{ border: "1px dashed var(--glass-border)", background: "var(--card-bg)" }}>
+              <MessageSquare style={{ height: 32, width: 32, color: "hsl(var(--muted-foreground))", margin: "0 auto 12px" }} />
+              <p className="text-[15px] font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>No posts yet</p>
+              <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Be the first to share a trading idea!</p>
             </div>
           ) : (
             posts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                adminToken={adminToken}
-                onDelete={handleAdminDelete}
-                onReport={setReportingPost}
-                likedIds={likedIds}
-                onLike={handleLike}
-              />
+              <PostCard key={post.id} post={post} adminToken={adminToken} onDelete={handleAdminDelete}
+                onReport={setReportingPost} likedIds={likedIds} onLike={handleLike} />
             ))
           )}
         </div>
 
-        {/* Right: Sidebar */}
+        {/* Sidebar */}
         <div className="flex flex-col gap-4">
           {/* Guidelines */}
-          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-            <p className="text-[12px] font-semibold uppercase tracking-wider mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Community Guidelines</p>
+          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+            <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Community Guidelines</p>
             <ul className="flex flex-col gap-2">
               {[
                 "Be respectful and constructive",
@@ -769,7 +677,7 @@ export default function CommunityPage() {
                 "Only post relevant trading content",
                 "Report posts that violate rules",
               ].map((g, i) => (
-                <li key={i} className="flex items-start gap-2 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
+                <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
                   <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
                     style={{ background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
                   {g}
@@ -780,37 +688,31 @@ export default function CommunityPage() {
 
           {/* Top contributors */}
           {posts.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-              <p className="text-[12px] font-semibold uppercase tracking-wider mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Top Contributors</p>
-              <div className="flex flex-col gap-2">
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Top Contributors</p>
+              <div className="flex flex-col gap-2.5">
                 {(() => {
                   const map: Record<string, number> = {};
                   posts.forEach(p => { map[p.authorName] = (map[p.authorName] ?? 0) + 1; });
-                  return Object.entries(map)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([name, count], i) => (
-                      <div key={name} className="flex items-center gap-2.5">
-                        <span className="text-[11px] font-mono w-4 text-right flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }}>{i + 1}</span>
-                        <div className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                          style={{ background: avatarColor(name) }}>
-                          {initials(name)}
-                        </div>
-                        <span className="text-[12px] font-medium flex-1 truncate" style={{ color: "hsl(var(--foreground))" }}>{name}</span>
-                        <span className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{count} post{count !== 1 ? "s" : ""}</span>
-                      </div>
-                    ));
+                  return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count], i) => (
+                    <div key={name} className="flex items-center gap-2.5">
+                      <span className="text-[10px] font-mono w-4 text-right flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }}>{i + 1}</span>
+                      <Avatar name={name} size={7} />
+                      <span className="text-[12px] font-medium flex-1 truncate" style={{ color: "hsl(var(--foreground))" }}>{name}</span>
+                      <span className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{count}p</span>
+                    </div>
+                  ));
                 })()}
               </div>
             </div>
           )}
 
-          {/* Trending topics / tags placeholder */}
-          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-            <p className="text-[12px] font-semibold uppercase tracking-wider mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
+          {/* Trending topics */}
+          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+            <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
             <div className="flex flex-wrap gap-1.5">
-              {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#Risk Management", "#Crypto"].map(tag => (
-                <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors"
+              {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#RiskManagement", "#Crypto"].map(tag => (
+                <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer"
                   style={{ background: "var(--accent-cyan-dim)", color: "#4DA3FF", border: "1px solid var(--accent-cyan-border)" }}>
                   {tag}
                 </span>
@@ -818,20 +720,12 @@ export default function CommunityPage() {
             </div>
           </div>
 
-          {/* Admin reports panel */}
-          {adminToken && showAdminPanel && (
-            <AdminReportsPanel adminToken={adminToken} />
-          )}
+          {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
         </div>
       </div>
 
-      {/* Report modal */}
       {reportingPost && (
-        <ReportModal
-          post={reportingPost}
-          onClose={() => setReportingPost(null)}
-          onDone={() => setReportingPost(null)}
-        />
+        <ReportModal post={reportingPost} onClose={() => setReportingPost(null)} onDone={() => setReportingPost(null)} />
       )}
     </div>
   );
