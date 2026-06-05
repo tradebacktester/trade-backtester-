@@ -573,6 +573,7 @@ export default function BacktestBuilder() {
   const stepLabels = ["Choose Strategy", "Configure Logic", "Run Settings"];
 
   return (
+    <>
     <motion.div
       className="space-y-6 max-w-7xl mx-auto"
       initial={{ opacity: 0, y: 20 }}
@@ -998,5 +999,6 @@ export default function BacktestBuilder() {
       )}
     </motion.div>
     <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
+    </>
   );
 }
