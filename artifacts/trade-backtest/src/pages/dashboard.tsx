@@ -52,18 +52,16 @@ function Skel({ className = "" }: { className?: string }) {
 /* ── Section label ────────────────────────────────────────────────── */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-mono uppercase tracking-widest mb-3" style={{ color: C.muted }}>
-      {children}
-    </p>
+    <p className="apple-label mb-3">{children}</p>
   );
 }
 
 /* ── Panel ────────────────────────────────────────────────────────── */
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl p-4 sm:p-5 relative overflow-hidden glass-shine ${className}`} style={CARD}>
+    <div className={`specular-card rounded-2xl p-4 sm:p-5 relative overflow-hidden glass-shine ${className}`} style={CARD}>
       <div className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%)", zIndex: 0 }} />
+        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)", zIndex: 0 }} />
       <div className="relative z-[1]">{children}</div>
     </div>
   );
@@ -78,8 +76,8 @@ function AiMarketPulse() {
   }, []);
 
   const SCORE = 72;
-  const RADIUS = 52;
-  const STROKE = 6;
+  const RADIUS = 64;
+  const STROKE = 5.5;
   const CIRCUM = 2 * Math.PI * RADIUS;
   const ARC_PCT = 0.75;
   const dashArray = CIRCUM * ARC_PCT;
@@ -95,20 +93,20 @@ function AiMarketPulse() {
 
   return (
     <div
-      className="relative rounded-3xl overflow-hidden p-5 sm:p-6"
+      className="specular-card relative rounded-3xl overflow-hidden p-5 sm:p-6"
       style={{
         background: "var(--card-bg)",
         border: "1px solid var(--glass-border)",
-        boxShadow: "var(--shadow-card)",
+        boxShadow: "var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.07)",
       }}
     >
       {/* Ambient glow layers */}
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(255,255,255,0.025) 0%, transparent 65%)" }} />
+        style={{ background: "radial-gradient(ellipse 70% 70% at 0% 50%, rgba(255,255,255,0.030) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 50% 60% at 85% 20%, rgba(139,92,246,0.04) 0%, transparent 65%)" }} />
+        style={{ background: "radial-gradient(ellipse 50% 60% at 90% 10%, rgba(139,92,246,0.045) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)" }} />
+        style={{ background: "linear-gradient(160deg, rgba(255,255,255,0.025) 0%, transparent 45%)" }} />
 
       <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5">
         {/* Left — badge + copy */}
@@ -125,11 +123,11 @@ function AiMarketPulse() {
             </span>
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-1" style={{ color: "hsl(var(--foreground))" }}>
+          <h2 className="text-2xl sm:text-[30px] font-bold mb-1" style={{ color: "hsl(var(--foreground))", letterSpacing: "-0.030em" }}>
             Markets trending&nbsp;
-            <span style={{ color: "#22C55E", textShadow: "0 0 20px rgba(34,197,94,0.3)" }}>bullish</span>
+            <span style={{ color: "#22C55E", textShadow: "0 0 28px rgba(34,197,94,0.35)" }}>bullish</span>
           </h2>
-          <p className="text-xs sm:text-sm font-mono leading-relaxed mb-4"
+          <p className="text-[11px] sm:text-xs font-mono leading-relaxed mb-4"
             style={{ color: "hsl(var(--muted-foreground))" }}>
             Crypto momentum strong · USD weakening · Risk-on sentiment detected
           </p>
@@ -170,50 +168,48 @@ function AiMarketPulse() {
         </div>
 
         {/* Right — SVG gauge */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-2">
-          <div className="relative" style={{ width: 128, height: 128 }}>
-            {/* Glow behind gauge */}
+        <div className="flex-shrink-0 flex flex-col items-center gap-2.5">
+          <div className="relative" style={{ width: 156, height: 156 }}>
+            {/* Ambient glow behind gauge */}
             <div className="absolute inset-0 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%)" }} />
+              style={{ background: "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 50%, transparent 72%)" }} />
 
-            <svg width="128" height="128" viewBox="0 0 128 128" style={{ transform: `rotate(${rotation}deg)` }}>
+            <svg width="156" height="156" viewBox="0 0 156 156" style={{ transform: `rotate(${rotation}deg)` }}>
               {/* Track */}
-              <circle cx="64" cy="64" r={RADIUS} fill="none"
-                stroke="var(--glass-border)" strokeWidth={STROKE}
+              <circle cx="78" cy="78" r={RADIUS} fill="none"
+                stroke="rgba(255,255,255,0.06)" strokeWidth={STROKE}
                 strokeLinecap="round"
                 strokeDasharray={`${dashArray} ${CIRCUM - dashArray}`}
                 strokeDashoffset={0}
               />
               {/* Value arc */}
-              <circle cx="64" cy="64" r={RADIUS} fill="none"
+              <circle cx="78" cy="78" r={RADIUS} fill="none"
                 stroke="url(#gaugeGrad)" strokeWidth={STROKE}
                 strokeLinecap="round"
                 strokeDasharray={`${dashArray} ${CIRCUM - dashArray}`}
                 strokeDashoffset={dashOffset}
-                style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)" }}
+                style={{ transition: "stroke-dashoffset 1.4s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
               />
               <defs>
                 <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
-                  <stop offset="100%" stopColor="rgba(255,255,255,0.95)" />
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,1.0)" />
                 </linearGradient>
               </defs>
             </svg>
 
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold font-mono leading-none" style={{ color: "#FFFFFF" }}>
+              <span className="font-bold font-mono leading-none tabular" style={{ fontSize: "34px", color: "#FFFFFF", letterSpacing: "-0.030em" }}>
                 {SCORE}
               </span>
-              <span className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
-                BULLISH
-              </span>
+              <span className="apple-label mt-1">BULLISH</span>
             </div>
           </div>
 
           {/* Confidence badge */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono px-3 py-1.5 rounded-full"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }}>
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.75)" }}>
             <Sparkles style={{ height: "9px", width: "9px" }} />
             82% Confidence
           </div>
@@ -748,8 +744,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mt-1">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: C.text }}>Dashboard</h1>
-          <p className="text-xs mt-0.5 font-mono" style={{ color: C.muted }}>
+          <h1 className="text-3xl sm:text-[36px] font-bold" style={{ color: C.text, letterSpacing: "-0.032em" }}>Dashboard</h1>
+          <p className="text-[10px] mt-1 font-mono" style={{ color: C.muted, letterSpacing: "0.02em" }}>
             Market overview &amp; performance summary
           </p>
         </div>
