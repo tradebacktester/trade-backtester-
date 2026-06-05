@@ -189,7 +189,12 @@ export default function SettingsPage() {
         show("Notification permission denied", "error");
         return;
       }
-      new Notification("Trade Lab Alerts", { body: "Price alerts are now active ✓" });
+      try {
+        new Notification("Trade Lab Alerts", { body: "Price alerts are now active ✓" });
+      } catch {
+        // Some environments (Replit preview, service-worker-only contexts) block
+        // the Notification constructor even after permission is granted — ignore.
+      }
     }
     save("priceAlerts", on, on ? "Price alerts enabled" : "Price alerts disabled");
   }

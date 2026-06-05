@@ -107,10 +107,10 @@ export default function ProfilePage() {
   return (
     <motion.div
       className="space-y-6 max-w-4xl mx-auto"
-      style={{ isolation: "isolate" }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      style={{ isolation: "isolate", willChange: "transform" }}
+      initial={{ y: 16 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
     >
       {/* Profile Header Card */}
       <div className="p-6 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center gap-5" style={{
