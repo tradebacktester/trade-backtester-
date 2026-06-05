@@ -1,6 +1,6 @@
 ---
-name: Mobile backdrop-filter GPU corruption
-description: Android Chrome renders horizontal artifact lines and ghost/duplicate sections when backdrop-filter + GPU compositing layers are stacked — the fix and pattern to prevent recurrence.
+name: Mobile Android Chrome rendering corruption — confirmed root causes and fixes
+description: Android Chrome renders horizontal artifact lines and ghost/duplicate sections — 5 confirmed root causes identified via full diagnostic, all fixed.
 ---
 
 # Mobile backdrop-filter GPU Corruption
