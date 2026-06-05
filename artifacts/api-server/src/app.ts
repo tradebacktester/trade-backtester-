@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import compression from "compression";
 import pinoHttp from "pino-http";
 import path from "path";
 import fs from "fs";
@@ -8,6 +9,9 @@ import { logger } from "./lib/logger";
 import { createRateLimit } from "./lib/rate-limit";
 
 const app: Express = express();
+
+// Gzip all responses — critical for mobile (3 MB JS → ~650 KB over the wire)
+app.use(compression());
 
 app.use(
   pinoHttp({
@@ -47,8 +51,19 @@ app.use("/api", router);
 // Serve the pre-built Vite frontend for all non-API routes (SPA fallback)
 const frontendDist = process.env["FRONTEND_DIST"] ?? path.resolve("dist/public");
 if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
+  // Hashed assets (index-abc123.js) can be cached long-term; index.html must never be cached
+  app.use(
+    express.static(frontendDist, {
+      setHeaders(res, filePath) {
+        if (filePath.endsWith(".html")) {
+          res.setHeader("Cache-Control", "no-store");
+        }
+      },
+    }),
+  );
+  // SPA fallback — always send fresh index.html for unknown routes
   app.get(/.*/, (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     res.sendFile(path.join(frontendDist, "index.html"));
   });
   logger.info({ frontendDist }, "Serving frontend static files");
