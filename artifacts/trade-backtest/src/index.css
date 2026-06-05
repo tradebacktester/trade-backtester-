@@ -384,10 +384,11 @@ body {
 .tt-chart-page { overflow: hidden; }
 @media (max-width: 767px) {
   .tt-chart-page {
-    /* Previously subtracted dock height from 100dvh. The dock is now in-flow,
-       so .tt-main is already sized to exclude it — 100% fills the remaining space. */
     height: 100%;
     min-height: 0;
+    /* Reserve space so the drawing toolbar is never hidden behind the fixed dock.
+       Dock height (~54px) + bottom offset (16px) + breathing room = 80px. */
+    padding-bottom: 80px;
   }
 }
 @media (min-width: 768px) {
