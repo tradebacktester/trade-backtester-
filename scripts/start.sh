@@ -6,6 +6,10 @@ WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fuser -k 5000/tcp 2>/dev/null || true
 fuser -k 8080/tcp 2>/dev/null || true
 
+# Ensure DB schema is up to date
+echo "[start.sh] Syncing database schema..."
+pnpm --filter @workspace/db run push 2>&1 || echo "[start.sh] DB push warning (non-fatal)"
+
 # Pre-build the API server synchronously so it is ready before Vite starts
 echo "[start.sh] Building API server..."
 pnpm --filter @workspace/api-server run build
