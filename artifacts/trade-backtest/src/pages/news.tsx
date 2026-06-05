@@ -83,8 +83,8 @@ function EventCard({ event }: { event: CalendarEvent }) {
 
   return (
     <div
-      className="neon-hover-subtle flex items-stretch gap-0 rounded-xl border border-white/[0.07] overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.03)" }}
+      className="neon-hover-subtle flex items-stretch gap-0 rounded-xl border border-border/40 overflow-hidden"
+      style={{ background: "var(--glass-bg)" }}
     >
       {/* Impact stripe */}
       <div
@@ -179,9 +179,9 @@ function DateHeader({ dateStr }: { dateStr: string }) {
       <div
         className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
         style={{
-          background: diff === 0 ? "hsl(var(--primary) / 0.15)" : "rgba(255,255,255,0.05)",
+          background: diff === 0 ? "hsl(var(--primary) / 0.15)" : "var(--glass-bg)",
           color: diff === 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-          border: diff === 0 ? "1px solid hsl(var(--primary) / 0.25)" : "1px solid rgba(255,255,255,0.07)",
+          border: diff === 0 ? "1px solid hsl(var(--primary) / 0.25)" : "1px solid var(--glass-border)",
         }}
       >
         {format(d, "d")}
@@ -364,7 +364,7 @@ export default function NewsPage() {
                       color: "hsl(var(--primary))",
                     } : {
                       background: "transparent",
-                      borderColor: "rgba(255,255,255,0.08)",
+                      borderColor: "var(--glass-border)",
                       color: "hsl(var(--muted-foreground))",
                     }}
                   >
@@ -387,7 +387,7 @@ export default function NewsPage() {
                       color: "hsl(var(--primary))",
                     } : {
                       background: "transparent",
-                      borderColor: "rgba(255,255,255,0.08)",
+                      borderColor: "var(--glass-border)",
                       color: "hsl(var(--muted-foreground))",
                     }}
                   >

@@ -72,9 +72,9 @@ const TYPE_COLORS: Record<string, string> = {
 
 function MetricPill({ label, value, color }: { label: string; value: string | null; color?: string }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-      <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>{label}</span>
-      <span className="text-[13px] font-semibold" style={{ color: value !== null ? (color ?? "hsl(220,14%,80%)") : "hsl(220,14%,35%)" }}>
+    <div className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+      <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(var(--muted-foreground))" }}>{label}</span>
+      <span className="text-[13px] font-semibold" style={{ color: value !== null ? (color ?? "hsl(var(--foreground))") : "hsl(var(--muted-foreground))", opacity: value !== null ? 1 : 0.5 }}>
         {value ?? "—"}
       </span>
     </div>
@@ -97,7 +97,7 @@ function ListingCard({ listing, token, onVote, onAuthRequired }: {
   return (
     <Card
       className="cursor-pointer group transition-all duration-200 hover:scale-[1.01]"
-      style={{ background: "hsl(222,20%,10%)", border: "1px solid rgba(255,255,255,0.07)" }}
+      style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}
       onClick={() => navigate(`/marketplace/${listing.id}`)}
     >
       <CardContent className="p-5 space-y-4">
@@ -108,25 +108,25 @@ function ListingCard({ listing, token, onVote, onAuthRequired }: {
                 style={{ background: `${color}20`, color, border: `1px solid ${color}40` }}>
                 {label}
               </span>
-              <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>{listing.symbol}</span>
-              <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>{listing.timeframe}</span>
+              <span className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{listing.symbol}</span>
+              <span className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.7 }}>{listing.timeframe}</span>
             </div>
-            <h3 className="text-[15px] font-semibold truncate" style={{ color: "hsl(220,14%,88%)" }}>{listing.title}</h3>
-            <p className="text-[12px] mt-1 line-clamp-2" style={{ color: "hsl(220,14%,50%)" }}>{listing.description}</p>
+            <h3 className="text-[15px] font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>{listing.title}</h3>
+            <p className="text-[12px] mt-1 line-clamp-2" style={{ color: "hsl(var(--muted-foreground))" }}>{listing.description}</p>
           </div>
           <button
             onClick={e => { e.stopPropagation(); if (token) onVote(listing.id, listing.voted); else onAuthRequired(); }}
             className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all flex-shrink-0"
             style={{
-              background: listing.voted ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
-              border: `1px solid ${listing.voted ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.07)"}`,
+              background: listing.voted ? "rgba(99,102,241,0.15)" : "var(--glass-bg)",
+              border: `1px solid ${listing.voted ? "rgba(99,102,241,0.4)" : "var(--glass-border)"}`,
               cursor: "pointer",
               opacity: token ? 1 : 0.55,
             }}
             title={token ? (listing.voted ? "Remove vote" : "Upvote") : "Sign in to vote"}
           >
-            <ThumbsUp className="h-3.5 w-3.5" style={{ color: listing.voted ? "#818cf8" : "hsl(220,14%,50%)" }} />
-            <span className="text-[11px] font-semibold" style={{ color: listing.voted ? "#818cf8" : "hsl(220,14%,55%)" }}>{listing.votes}</span>
+            <ThumbsUp className="h-3.5 w-3.5" style={{ color: listing.voted ? "#818cf8" : "hsl(var(--muted-foreground))" }} />
+            <span className="text-[11px] font-semibold" style={{ color: listing.voted ? "#818cf8" : "hsl(var(--muted-foreground))" }}>{listing.votes}</span>
           </button>
         </div>
 
@@ -140,11 +140,11 @@ function ListingCard({ listing, token, onVote, onAuthRequired }: {
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-[11px]" style={{ color: "hsl(220,14%,38%)" }}>
-            by <span style={{ color: "hsl(220,14%,55%)" }}>{listing.authorName}</span>
+          <span className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.8 }}>
+            by <span style={{ color: "hsl(var(--muted-foreground))" }}>{listing.authorName}</span>
             {" · "}{new Date(listing.createdAt).toLocaleDateString()}
           </span>
-          <span className="flex items-center gap-1 text-[11px] group-hover:text-indigo-400 transition-colors" style={{ color: "hsl(220,14%,40%)" }}>
+          <span className="flex items-center gap-1 text-[11px] group-hover:text-indigo-400 transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
             View strategy <ChevronRight className="h-3 w-3" />
           </span>
         </div>
@@ -203,23 +203,23 @@ function PublishModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
-      <div className="w-full max-w-lg rounded-2xl p-6 space-y-5" style={{ background: "hsl(222,20%,10%)", border: "1px solid rgba(255,255,255,0.1)" }}>
+      <div className="w-full max-w-lg rounded-2xl p-6 space-y-5" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold" style={{ color: "hsl(220,14%,88%)" }}>Publish Strategy</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/5">
-            <X className="h-4 w-4" style={{ color: "hsl(220,14%,50%)" }} />
+          <h2 className="text-lg font-semibold" style={{ color: "hsl(var(--foreground))" }}>Publish Strategy</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5">
+            <X className="h-4 w-4" style={{ color: "hsl(var(--muted-foreground))" }} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(220,14%,45%)" }}>Choose Strategy</label>
+            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(var(--muted-foreground))" }}>Choose Strategy</label>
             <select
               value={selectedStrategy ?? ""}
               onChange={e => setSelectedStrategy(Number(e.target.value))}
               required
               className="w-full px-3 py-2 rounded-xl text-sm"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }}
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
             >
               <option value="">Select a strategy…</option>
               {strategies.map(s => (
@@ -229,31 +229,29 @@ function PublishModal({
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(220,14%,45%)" }}>Your Display Name</label>
+            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(var(--muted-foreground))" }}>Your Display Name</label>
             <Input
               value={authorName}
               onChange={e => setAuthorName(e.target.value)}
               placeholder="e.g. CryptoTrader99"
               required
               minLength={2}
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }}
             />
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(220,14%,45%)" }}>Listing Title</label>
+            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(var(--muted-foreground))" }}>Listing Title</label>
             <Input
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g. RSI Reversal on BTC — High Win Rate"
               required
               minLength={5}
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }}
             />
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(220,14%,45%)" }}>Strategy Description</label>
+            <label className="text-[11px] font-mono uppercase tracking-widest mb-2 block" style={{ color: "hsl(var(--muted-foreground))" }}>Strategy Description</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -261,10 +259,9 @@ function PublishModal({
               required
               minLength={20}
               rows={4}
-              className="w-full px-3 py-2 rounded-xl text-sm resize-none"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }}
+              className="w-full px-3 py-2 rounded-xl text-sm resize-none border border-input bg-background text-foreground"
             />
-            <p className="text-[10px] mt-1" style={{ color: "hsl(220,14%,35%)" }}>
+            <p className="text-[10px] mt-1" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.7 }}>
               Share the logic, not the code. Others will verify results via their own backtests.
             </p>
           </div>
@@ -352,9 +349,9 @@ export default function MarketplacePage() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <Store className="h-5 w-5" style={{ color: "#6366f1" }} />
-            <h1 className="text-xl font-bold" style={{ color: "hsl(220,14%,88%)" }}>Strategy Marketplace</h1>
+            <h1 className="text-xl font-bold" style={{ color: "hsl(var(--foreground))" }}>Strategy Marketplace</h1>
           </div>
-          <p className="text-sm" style={{ color: "hsl(220,14%,50%)" }}>
+          <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>
             Discover strategies rated by real backtest results — not hype.
           </p>
         </div>
@@ -382,11 +379,11 @@ export default function MarketplacePage() {
           { icon: Users, label: "Avg Backtests", value: listings.length > 0 ? Math.round(listings.reduce((a, b) => a + b.totalBacktests, 0) / listings.length).toString() : "0" },
           { icon: Award, label: "Most Voted", value: listings.length > 0 ? listings[0]?.votes.toString() ?? "0" : "0" },
         ].map(({ icon: Icon, label, value }) => (
-          <div key={label} className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl" style={{ background: "hsl(222,20%,10%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div key={label} className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
             <Icon className="h-3.5 w-3.5" style={{ color: "#6366f1" }} />
             <div>
-              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>{label}</p>
-              <p className="text-sm font-semibold" style={{ color: "hsl(220,14%,85%)" }}>{value}</p>
+              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(var(--muted-foreground))" }}>{label}</p>
+              <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>{value}</p>
             </div>
           </div>
         ))}
@@ -395,20 +392,18 @@ export default function MarketplacePage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "hsl(220,14%,45%)" }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
           <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by title, description, symbol…"
             className="pl-9"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,80%)" }}
           />
         </div>
         <select
           value={filterType}
           onChange={e => setFilterType(e.target.value)}
-          className="px-3 py-2 rounded-xl text-sm"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,65%)" }}
+          className="px-3 py-2 rounded-xl text-sm border border-input bg-background text-foreground"
         >
           <option value="">All Types</option>
           {allTypes.map(t => <option key={t} value={t}>{TYPE_LABELS[t] ?? t}</option>)}
@@ -416,8 +411,7 @@ export default function MarketplacePage() {
         <select
           value={filterSymbol}
           onChange={e => setFilterSymbol(e.target.value)}
-          className="px-3 py-2 rounded-xl text-sm"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,65%)" }}
+          className="px-3 py-2 rounded-xl text-sm border border-input bg-background text-foreground"
         >
           <option value="">All Symbols</option>
           {allSymbols.map(s => <option key={s} value={s}>{s}</option>)}
@@ -431,8 +425,8 @@ export default function MarketplacePage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <Store className="h-12 w-12" style={{ color: "hsl(220,14%,25%)" }} />
-          <p className="text-base font-medium" style={{ color: "hsl(220,14%,50%)" }}>
+          <Store className="h-12 w-12 text-muted-foreground opacity-30" />
+          <p className="text-base font-medium text-muted-foreground">
             {listings.length === 0 ? "No strategies published yet. Be the first!" : "No results match your search."}
           </p>
           {listings.length === 0 && user && (

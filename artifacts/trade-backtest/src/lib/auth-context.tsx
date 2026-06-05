@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 export interface AuthUser {
   id: number;
@@ -28,6 +29,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [adminToken, setAdminTokenState] = useState<string | null>(() =>
     localStorage.getItem("tt_admin_token") || null
   );
+
+  useEffect(() => {
+    setAuthTokenGetter(() => localStorage.getItem("tt_token"));
+    return () => setAuthTokenGetter(null);
+  }, []);
 
   function setUser(u: AuthUser | null, tok?: string | null) {
     setUserState(u);

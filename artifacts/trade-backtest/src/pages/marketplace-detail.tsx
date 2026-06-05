@@ -56,22 +56,22 @@ function StatCard({ icon: Icon, label, value, color, sub }: {
   sub?: string;
 }) {
   return (
-    <div className="p-4 rounded-2xl space-y-1" style={{ background: "hsl(222,20%,11%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+    <div className="p-4 rounded-2xl space-y-1" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
       <div className="flex items-center gap-2 mb-2">
         <Icon className="h-3.5 w-3.5" style={{ color: color ?? "#6366f1" }} />
-        <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>{label}</span>
+        <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(var(--muted-foreground))" }}>{label}</span>
       </div>
-      <p className="text-2xl font-bold" style={{ color: color ?? "hsl(220,14%,88%)" }}>{value}</p>
-      {sub && <p className="text-[11px]" style={{ color: "hsl(220,14%,40%)" }}>{sub}</p>}
+      <p className="text-2xl font-bold" style={{ color: color ?? "hsl(var(--foreground))" }}>{value}</p>
+      {sub && <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{sub}</p>}
     </div>
   );
 }
 
 function ParamRow({ label, value }: { label: string; value: unknown }) {
   return (
-    <div className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-      <span className="text-sm capitalize" style={{ color: "hsl(220,14%,55%)" }}>{label.replace(/_/g, " ")}</span>
-      <span className="text-sm font-mono font-medium" style={{ color: "hsl(220,14%,80%)" }}>{String(value)}</span>
+    <div className="flex items-center justify-between py-2 border-b border-border/40">
+      <span className="text-sm capitalize text-muted-foreground">{label.replace(/_/g, " ")}</span>
+      <span className="text-sm font-mono font-medium">{String(value)}</span>
     </div>
   );
 }
@@ -151,8 +151,8 @@ export default function MarketplaceDetailPage() {
   if (!listing) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-3">
-        <AlertCircle className="h-10 w-10" style={{ color: "hsl(220,14%,35%)" }} />
-        <p style={{ color: "hsl(220,14%,55%)" }}>Listing not found.</p>
+        <AlertCircle className="h-10 w-10 text-muted-foreground opacity-40" />
+        <p className="text-muted-foreground">Listing not found.</p>
         <Link href="/marketplace"><Button variant="outline">Back to Marketplace</Button></Link>
       </div>
     );
@@ -165,13 +165,13 @@ export default function MarketplaceDetailPage() {
     <div className="space-y-6 max-w-3xl mx-auto">
       {/* Back */}
       <Link href="/marketplace">
-        <button className="flex items-center gap-1.5 text-sm transition-colors hover:opacity-80" style={{ color: "hsl(220,14%,50%)" }}>
+        <button className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:opacity-80">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Marketplace
         </button>
       </Link>
 
       {/* Header card */}
-      <Card style={{ background: "hsl(222,20%,10%)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <Card style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
         <CardContent className="p-6 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
@@ -180,39 +180,39 @@ export default function MarketplaceDetailPage() {
                   style={{ background: `${color}20`, color, border: `1px solid ${color}40` }}>
                   {typeLabel}
                 </span>
-                <span className="text-[11px] font-mono px-2 py-1 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", color: "hsl(220,14%,55%)" }}>
+                <span className="text-[11px] font-mono px-2 py-1 rounded-lg text-muted-foreground" style={{ background: "var(--glass-bg)" }}>
                   {listing.symbol}
                 </span>
-                <span className="text-[11px] font-mono px-2 py-1 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", color: "hsl(220,14%,45%)" }}>
+                <span className="text-[11px] font-mono px-2 py-1 rounded-lg text-muted-foreground" style={{ background: "var(--glass-bg)" }}>
                   {listing.timeframe}
                 </span>
               </div>
-              <h1 className="text-xl font-bold mb-2" style={{ color: "hsl(220,14%,90%)" }}>{listing.title}</h1>
-              <p className="text-sm leading-relaxed" style={{ color: "hsl(220,14%,55%)" }}>{listing.description}</p>
+              <h1 className="text-xl font-bold mb-2">{listing.title}</h1>
+              <p className="text-sm leading-relaxed text-muted-foreground">{listing.description}</p>
             </div>
             <button
               onClick={handleVote}
               disabled={!token || voting || listing.userId === user?.id}
               className="flex flex-col items-center gap-1 px-4 py-3 rounded-2xl transition-all flex-shrink-0"
               style={{
-                background: listing.voted ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${listing.voted ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.08)"}`,
+                background: listing.voted ? "rgba(99,102,241,0.15)" : "var(--glass-bg)",
+                border: `1px solid ${listing.voted ? "rgba(99,102,241,0.4)" : "var(--glass-border)"}`,
                 cursor: token && listing.userId !== user?.id ? "pointer" : "not-allowed",
                 opacity: token && listing.userId !== user?.id ? 1 : 0.5,
               }}
               title={!token ? "Sign in to vote" : listing.userId === user?.id ? "Cannot vote on own listing" : listing.voted ? "Remove vote" : "Upvote"}
             >
               {voting ? <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#818cf8" }} /> : (
-                <ThumbsUp className="h-4 w-4" style={{ color: listing.voted ? "#818cf8" : "hsl(220,14%,50%)" }} />
+                <ThumbsUp className="h-4 w-4 text-muted-foreground" style={{ color: listing.voted ? "#818cf8" : undefined }} />
               )}
-              <span className="text-sm font-semibold" style={{ color: listing.voted ? "#818cf8" : "hsl(220,14%,55%)" }}>{listing.votes}</span>
-              <span className="text-[9px] font-mono uppercase" style={{ color: "hsl(220,14%,40%)" }}>votes</span>
+              <span className="text-sm font-semibold" style={{ color: listing.voted ? "#818cf8" : undefined }}>{listing.votes}</span>
+              <span className="text-[9px] font-mono uppercase text-muted-foreground">votes</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-4 text-[12px]" style={{ color: "hsl(220,14%,40%)" }}>
+          <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" /> by <span style={{ color: "hsl(220,14%,60%)" }}>{listing.authorName}</span>
+              <Users className="h-3.5 w-3.5" /> by <span className="text-foreground/70">{listing.authorName}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" /> {new Date(listing.createdAt).toLocaleDateString()}
@@ -245,7 +245,7 @@ export default function MarketplaceDetailPage() {
 
       {/* Aggregated stats */}
       <div>
-        <p className="text-[11px] font-mono uppercase tracking-widest mb-3" style={{ color: "hsl(220,14%,38%)" }}>
+        <p className="text-[11px] font-mono uppercase tracking-widest mb-3 text-muted-foreground">
           Aggregated Backtest Results
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -279,20 +279,20 @@ export default function MarketplaceDetailPage() {
           />
         </div>
         {listing.totalBacktests === 0 && (
-          <p className="text-sm mt-3 text-center" style={{ color: "hsl(220,14%,40%)" }}>
+          <p className="text-sm mt-3 text-center text-muted-foreground">
             No backtests recorded yet. Clone and run your own to contribute stats!
           </p>
         )}
       </div>
 
       {/* Strategy parameters */}
-      <Card style={{ background: "hsl(222,20%,10%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+      <Card style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium" style={{ color: "hsl(220,14%,65%)" }}>Strategy Parameters</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Strategy Parameters</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           {Object.keys(listing.parameters).length === 0 ? (
-            <p className="text-sm" style={{ color: "hsl(220,14%,40%)" }}>No parameters defined.</p>
+            <p className="text-sm text-muted-foreground">No parameters defined.</p>
           ) : (
             Object.entries(listing.parameters).map(([k, v]) => <ParamRow key={k} label={k} value={v} />)
           )}

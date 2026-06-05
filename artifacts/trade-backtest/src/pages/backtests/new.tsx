@@ -319,7 +319,7 @@ export default function NewBacktest() {
 
         {/* Quick Create tab */}
         {strategyTab === "quick" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[420px] overflow-y-auto pr-0.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[420px] overflow-y-auto pr-0.5 rounded-xl" style={{ isolation: "isolate", WebkitTransform: "translateZ(0)", transform: "translateZ(0)" }}>
             {STRATEGY_TYPES.map((typeDef) => {
               const Icon = typeDef.icon;
               const isCreating = creatingStrategyType === typeDef.type;

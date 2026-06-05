@@ -429,7 +429,10 @@ export default function PricingPage() {
       </div>
 
       {/* ── Feature comparison table ──────────────────────────────────── */}
-      <div className="overflow-x-auto -mx-1 px-1">
+      <p className="text-center text-[11px] mb-2 sm:hidden" style={{ color: "hsl(var(--muted-foreground))" }}>
+        ← Scroll to compare plans →
+      </p>
+      <div className="overflow-x-auto -mx-4 px-4 pb-1">
       <div
         className="rounded-2xl overflow-hidden min-w-[480px]"
         style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}
