@@ -68,4 +68,5 @@ channel = "stable-25_05"
 ADMIN_ID = "7302782010"
 NODE_ENV = "development"
 ADMIN_PASSWORD = "adivasutrade"
+PORT = "5000"
 
