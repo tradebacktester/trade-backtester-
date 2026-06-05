@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Play, TrendingUp, Activity, BarChart3, Zap, Target, Layers, ChevronDown, ChevronUp, Info, Sparkles, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { AuthModal } from "@/components/auth-modal";
 import { format, subYears } from "date-fns";
 
 const formSchema = z.object({
@@ -105,6 +106,7 @@ export default function NewBacktest() {
     parameters: Record<string, number>; reasoning: string;
   } | null>(null);
   const { user, token } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies();
   const createBacktest = useCreateBacktest();
@@ -145,6 +147,7 @@ export default function NewBacktest() {
   }, [form, strategies]);
 
   function handleQuickCreate(typeDef: typeof STRATEGY_TYPES[number]) {
+    if (!user) { setShowAuthModal(true); return; }
     const symbol = form.getValues("symbol") || "AAPL";
     setCreatingStrategyType(typeDef.type);
     createStrategy.mutate(
@@ -195,6 +198,7 @@ export default function NewBacktest() {
 
   function handleUseAiStrategy() {
     if (!aiResult) return;
+    if (!user) { setShowAuthModal(true); return; }
     createStrategy.mutate(
       {
         data: {
@@ -668,6 +672,7 @@ export default function NewBacktest() {
           </Form>
         </CardContent>
       </Card>
+    <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }

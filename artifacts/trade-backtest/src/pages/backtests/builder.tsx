@@ -4,17 +4,23 @@ import { Link, useLocation } from "wouter";
 import { useCreateStrategy, useCreateBacktest, getListStrategiesQueryKey, getListBacktestsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
+import { AuthModal } from "@/components/auth-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ArrowLeft, ArrowRight, Play, Save, TrendingUp, Activity, BarChart3,
-  Zap, Target, GripVertical, Plus, X, ChevronRight, Cpu, Check
+  Zap, Target, GripVertical, Plus, X, ChevronRight, Cpu, Check,
+  Triangle, Crosshair, Waves, BarChart2, Flame, RefreshCw, Sun, GitMerge, Star,
 } from "lucide-react";
 import { format, subYears } from "date-fns";
 
-type StrategyType = "sma_crossover" | "ema_crossover" | "rsi" | "macd" | "bollinger_bands";
+type StrategyType =
+  | "sma_crossover" | "ema_crossover" | "rsi" | "macd" | "bollinger_bands"
+  | "super_trend" | "breakout" | "vwap" | "macd_rsi" | "donchian_breakout"
+  | "bollinger_reversal" | "orb" | "trend_following" | "golden_cross" | "turtle_trading";
 type ConditionZone = "entry" | "exit";
 
 interface ConditionCard {
@@ -163,6 +169,239 @@ const STRATEGY_DEFS: StrategyDef[] = [
     ],
     logicSummary: (p) => `SMA(${p.period}) ± ${p.stdDev}σ bands — buy bounce, sell at upper`,
   },
+  {
+    type: "super_trend",
+    name: "SuperTrend",
+    shortName: "ST",
+    Icon: Triangle,
+    color: "#f97316",
+    gradientFrom: "#f97316",
+    gradientTo: "#ef4444",
+    description: "ATR-based dynamic support/resistance trend filter",
+    longDesc: "SuperTrend uses Average True Range to plot dynamic support and resistance levels. When price closes above the SuperTrend line, go long; below it, exit. Excellent for trending markets.",
+    defaultParams: { period: 10, multiplier: 3 },
+    paramConfig: [
+      { key: "period", label: "ATR Period", min: 5, max: 30, step: 1 },
+      { key: "multiplier", label: "ATR Multiplier", min: 1, max: 6, step: 0.5 },
+    ],
+    entryConditions: (p) => [
+      { label: `Price closes ABOVE SuperTrend(${p.period}, ${p.multiplier}x ATR)`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `Price closes BELOW SuperTrend line`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `ATR(${p.period}) × ${p.multiplier} SuperTrend band flip`,
+  },
+  {
+    type: "breakout",
+    name: "Price Breakout",
+    shortName: "BRK",
+    Icon: Crosshair,
+    color: "#0ea5e9",
+    gradientFrom: "#0ea5e9",
+    gradientTo: "#6366f1",
+    description: "Enter on decisive breaks above recent highs",
+    longDesc: "Buy when price breaks above the highest high of the lookback period by a configurable threshold. Exit when price drops below the period low. Captures explosive breakout moves.",
+    defaultParams: { period: 20, threshold: 2 },
+    paramConfig: [
+      { key: "period", label: "Lookback Period", min: 5, max: 60, step: 1 },
+      { key: "threshold", label: "Threshold (%)", min: 0.5, max: 10, step: 0.5 },
+    ],
+    entryConditions: (p) => [
+      { label: `Close breaks ${p.threshold}% above ${p.period}-bar high`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `Close drops below ${p.period}-bar low`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `${p.period}-bar high breakout with ${p.threshold}% buffer`,
+  },
+  {
+    type: "vwap",
+    name: "VWAP Deviation",
+    shortName: "VWAP",
+    Icon: Waves,
+    color: "#14b8a6",
+    gradientFrom: "#14b8a6",
+    gradientTo: "#0ea5e9",
+    description: "Mean-revert from VWAP extremes",
+    longDesc: "Volume Weighted Average Price anchors intraday fair value. Buy when price dips significantly below VWAP and rebounds. Sell when price extends too far above VWAP. Ideal for mean-reversion setups.",
+    defaultParams: { threshold: 2 },
+    paramConfig: [
+      { key: "threshold", label: "Deviation Threshold (%)", min: 0.5, max: 8, step: 0.5 },
+    ],
+    entryConditions: (_p) => [
+      { label: `Price falls ${_p.threshold}% below VWAP then recovers`, color: "#22c55e" },
+    ],
+    exitConditions: (_p) => [
+      { label: `Price rises ${_p.threshold}% above VWAP`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `VWAP ± ${p.threshold}% deviation mean-reversion`,
+  },
+  {
+    type: "macd_rsi",
+    name: "MACD + RSI Combo",
+    shortName: "M+R",
+    Icon: GitMerge,
+    color: "#a855f7",
+    gradientFrom: "#a855f7",
+    gradientTo: "#ec4899",
+    description: "Dual-filter: MACD momentum + RSI confirmation",
+    longDesc: "Combines MACD crossover signal with RSI confirmation. Only enters when MACD crosses bullish AND RSI is in a favorable zone. Reduces false signals significantly compared to using either alone.",
+    defaultParams: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, rsiPeriod: 14, oversold: 40, overbought: 60 },
+    paramConfig: [
+      { key: "fastPeriod", label: "MACD Fast EMA", min: 3, max: 20, step: 1 },
+      { key: "slowPeriod", label: "MACD Slow EMA", min: 10, max: 60, step: 1 },
+      { key: "signalPeriod", label: "MACD Signal", min: 3, max: 20, step: 1 },
+      { key: "rsiPeriod", label: "RSI Period", min: 5, max: 30, step: 1 },
+      { key: "oversold", label: "RSI Oversold", min: 20, max: 50, step: 1 },
+      { key: "overbought", label: "RSI Overbought", min: 50, max: 80, step: 1 },
+    ],
+    entryConditions: (p) => [
+      { label: `MACD(${p.fastPeriod},${p.slowPeriod}) bullish cross`, color: "#22c55e" },
+      { label: `RSI(${p.rsiPeriod}) rising above ${p.oversold}`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `MACD bearish cross OR RSI above ${p.overbought}`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `MACD(${p.fastPeriod},${p.slowPeriod},${p.signalPeriod}) + RSI(${p.rsiPeriod}) dual filter`,
+  },
+  {
+    type: "donchian_breakout",
+    name: "Donchian Breakout",
+    shortName: "DCH",
+    Icon: BarChart2,
+    color: "#f59e0b",
+    gradientFrom: "#f59e0b",
+    gradientTo: "#f97316",
+    description: "Channel breakout from N-period highs and lows",
+    longDesc: "Donchian Channels plot the highest high and lowest low over N periods. Enter long on new channel highs, exit on new channel lows. A pure price-action breakout system with no indicator lag.",
+    defaultParams: { period: 20 },
+    paramConfig: [
+      { key: "period", label: "Channel Period", min: 5, max: 100, step: 1 },
+    ],
+    entryConditions: (p) => [
+      { label: `Price breaks ABOVE ${p.period}-period Donchian high`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `Price breaks BELOW ${p.period}-period Donchian low`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `${p.period}-period Donchian channel breakout`,
+  },
+  {
+    type: "bollinger_reversal",
+    name: "Bollinger Reversal",
+    shortName: "BBR",
+    Icon: RefreshCw,
+    color: "#06b6d4",
+    gradientFrom: "#06b6d4",
+    gradientTo: "#0ea5e9",
+    description: "Strong reversal signals at Bollinger Band extremes",
+    longDesc: "Pure mean-reversion approach using Bollinger Bands. Unlike the standard BB strategy, this waits for price to actually pierce the band and then reverse — requiring stronger confirmation before entry.",
+    defaultParams: { period: 20, stdDev: 2.5 },
+    paramConfig: [
+      { key: "period", label: "BB Period", min: 5, max: 50, step: 1 },
+      { key: "stdDev", label: "Std Deviation", min: 1.5, max: 4, step: 0.5 },
+    ],
+    entryConditions: (p) => [
+      { label: `Price pierces BELOW lower band (${p.stdDev}σ) then reverses`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `Price pierces ABOVE upper band (${p.stdDev}σ)`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `BB(${p.period}, ${p.stdDev}σ) piercing reversal`,
+  },
+  {
+    type: "orb",
+    name: "Opening Range Breakout",
+    shortName: "ORB",
+    Icon: Sun,
+    color: "#eab308",
+    gradientFrom: "#eab308",
+    gradientTo: "#f97316",
+    description: "Trade breakouts from the early session range",
+    longDesc: "Defines the Opening Range as the high/low of the first N minutes. Enter when price breaks above (long) or below (short) that range. A classic intraday momentum strategy used by professionals.",
+    defaultParams: { rangeMinutes: 30, multiplier: 1 },
+    paramConfig: [
+      { key: "rangeMinutes", label: "Range Minutes", min: 5, max: 120, step: 5 },
+      { key: "multiplier", label: "ATR Target Multiplier", min: 0.5, max: 3, step: 0.5 },
+    ],
+    entryConditions: (p) => [
+      { label: `Price breaks above ${p.rangeMinutes}-min opening range high`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `ATR-based target (${p.multiplier}x) or range low hit`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `${p.rangeMinutes}-min ORB with ${p.multiplier}x ATR target`,
+  },
+  {
+    type: "trend_following",
+    name: "Trend Following",
+    shortName: "TRF",
+    Icon: Flame,
+    color: "#22c55e",
+    gradientFrom: "#22c55e",
+    gradientTo: "#14b8a6",
+    description: "Triple EMA trend filter with momentum confirmation",
+    longDesc: "Uses two EMAs to confirm trend direction. Enter when the fast EMA is above the slow EMA and price is rising. Rides the trend until the EMAs cross back. Best in strongly trending markets.",
+    defaultParams: { fastPeriod: 10, slowPeriod: 50 },
+    paramConfig: [
+      { key: "fastPeriod", label: "Fast EMA", min: 3, max: 30, step: 1 },
+      { key: "slowPeriod", label: "Slow EMA", min: 20, max: 200, step: 5 },
+    ],
+    entryConditions: (p) => [
+      { label: `EMA(${p.fastPeriod}) > EMA(${p.slowPeriod}) — uptrend confirmed`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `EMA(${p.fastPeriod}) crosses BELOW EMA(${p.slowPeriod})`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `EMA(${p.fastPeriod}) / EMA(${p.slowPeriod}) trend alignment`,
+  },
+  {
+    type: "golden_cross",
+    name: "Golden Cross",
+    shortName: "GC",
+    Icon: Star,
+    color: "#fbbf24",
+    gradientFrom: "#fbbf24",
+    gradientTo: "#f59e0b",
+    description: "Classic 50/200 MA bull signal",
+    longDesc: "The most well-known long-term trend signal. A Golden Cross occurs when the 50-period MA crosses above the 200-period MA, signaling a long-term bullish shift. Death cross is the bearish opposite.",
+    defaultParams: { fastPeriod: 50, slowPeriod: 200 },
+    paramConfig: [
+      { key: "fastPeriod", label: "Fast MA Period", min: 20, max: 100, step: 5 },
+      { key: "slowPeriod", label: "Slow MA Period", min: 100, max: 400, step: 10 },
+    ],
+    entryConditions: (p) => [
+      { label: `MA(${p.fastPeriod}) crosses ABOVE MA(${p.slowPeriod}) — Golden Cross`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `MA(${p.fastPeriod}) crosses BELOW MA(${p.slowPeriod}) — Death Cross`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `Golden Cross MA(${p.fastPeriod})/MA(${p.slowPeriod})`,
+  },
+  {
+    type: "turtle_trading",
+    name: "Turtle Trading",
+    shortName: "TRT",
+    Icon: Activity,
+    color: "#10b981",
+    gradientFrom: "#10b981",
+    gradientTo: "#059669",
+    description: "Richard Dennis's legendary trend system",
+    longDesc: "The Turtle Trading system uses two Donchian channels: a longer entry channel and a shorter exit channel. Enter on 20-day breakouts, exit on 10-day reversals. Risk is managed via ATR position sizing.",
+    defaultParams: { entryPeriod: 20, exitPeriod: 10 },
+    paramConfig: [
+      { key: "entryPeriod", label: "Entry Period", min: 10, max: 60, step: 5 },
+      { key: "exitPeriod", label: "Exit Period", min: 5, max: 30, step: 5 },
+    ],
+    entryConditions: (p) => [
+      { label: `Price breaks ${p.entryPeriod}-day high (System 1)`, color: "#22c55e" },
+    ],
+    exitConditions: (p) => [
+      { label: `Price breaks ${p.exitPeriod}-day low`, color: "#ef4444" },
+    ],
+    logicSummary: (p) => `Turtle ${p.entryPeriod}-day entry / ${p.exitPeriod}-day exit`,
+  },
 ];
 
 const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
@@ -203,10 +442,12 @@ export default function BacktestBuilder() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
   const createStrategy = useCreateStrategy();
   const createBacktest = useCreateBacktest();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedType, setSelectedType] = useState<StrategyType>("sma_crossover");
   const [params, setParams] = useState<Record<string, number>>(STRATEGY_DEFS[0].defaultParams);
   const [name, setName] = useState("");
@@ -268,6 +509,10 @@ export default function BacktestBuilder() {
   }
 
   async function handleSaveAndRun() {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!name.trim()) {
       toast({ title: "Name required", description: "Please enter a strategy name.", variant: "destructive" });
       return;
@@ -301,6 +546,10 @@ export default function BacktestBuilder() {
   }
 
   async function handleSaveOnly() {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!name.trim()) {
       toast({ title: "Name required", description: "Please enter a strategy name.", variant: "destructive" });
       return;
@@ -748,5 +997,6 @@ export default function BacktestBuilder() {
         </div>
       )}
     </motion.div>
+    <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
   );
 }

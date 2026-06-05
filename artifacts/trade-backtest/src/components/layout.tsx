@@ -5,7 +5,8 @@ import {
   BarChart2, Settings, Zap, Brain,
   MoreHorizontal, X, ChevronRight, BookOpen,
   Shield, LogIn, LogOut, User, Users, Crown, CreditCard, Wrench, Store,
-  Sun, Moon,
+  Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
+  UserCircle, ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -13,47 +14,67 @@ import { AuthModal } from "@/components/auth-modal";
 
 const DESKTOP_ITEMS = [
   { title: "Charts",    url: "/chart",      icon: CandlestickChart },
-  { title: "Demo",      url: "/demo",       icon: Zap },
+  { title: "Backtests", url: "/backtests",  icon: BookOpen },
   { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
   { title: "Community", url: "/community",  icon: Users },
   { title: "AI",        url: "/ai",         icon: Brain },
 ] as const;
 
-/* Mobile dock — 5 main items only */
 const DOCK_ITEMS = [
   { title: "Charts",    url: "/chart",      icon: CandlestickChart },
+  { title: "Backtests", url: "/backtests",  icon: BookOpen },
   { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
-  { title: "Community", url: "/community",  icon: Users },
   { title: "AI",        url: "/ai",         icon: Brain },
   { title: "More",      url: null,          icon: MoreHorizontal },
 ] as const;
 
-const DESKTOP_MORE = [
-  { title: "Marketplace",    url: "/marketplace",  icon: Store },
-  { title: "Psych Match",    url: "/psych-match",  icon: Brain },
-  { title: "Tools",          url: "/tools",        icon: Wrench },
-  { title: "Stress Test",    url: "/stress-test",  icon: Zap },
-  { title: "Strategy DNA",   url: "/strategy-dna", icon: BarChart2 },
-  { title: "Analytics",      url: "/analytics",    icon: BarChart2 },
-  { title: "Pricing",        url: "/pricing",      icon: Crown },
-  { title: "Billing",        url: "/billing",      icon: CreditCard },
-  { title: "Settings",       url: "/settings",     icon: Settings },
-  { title: "Admin",          url: "/admin",        icon: Shield },
+const NAV_SECTIONS = [
+  {
+    label: "Trading",
+    items: [
+      { title: "Charts",          url: "/chart",             icon: CandlestickChart },
+      { title: "Backtests",       url: "/backtests",         icon: BookOpen },
+      { title: "Strategy Builder",url: "/backtests/builder", icon: Target },
+      { title: "Batch Backtest",  url: "/backtests/batch",   icon: Activity },
+    ],
+  },
+  {
+    label: "Marketplace",
+    items: [
+      { title: "Strategy Market", url: "/marketplace",  icon: Store },
+      { title: "Community",       url: "/community",    icon: Users },
+    ],
+  },
+  {
+    label: "AI Tools",
+    items: [
+      { title: "AI Assistant",    url: "/ai",           icon: Bot },
+      { title: "Strategy DNA",    url: "/strategy-dna", icon: Dna },
+      { title: "Psych Match",     url: "/psych-match",  icon: Brain },
+      { title: "Stress Test",     url: "/stress-test",  icon: FlaskConical },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { title: "Analytics",       url: "/analytics",    icon: BarChart2 },
+      { title: "Tools",           url: "/tools",        icon: Wrench },
+      { title: "News",            url: "/news",         icon: Newspaper },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { title: "Profile",         url: "/profile",      icon: UserCircle },
+      { title: "Pricing",         url: "/pricing",      icon: Crown },
+      { title: "Billing",         url: "/billing",      icon: CreditCard },
+      { title: "Settings",        url: "/settings",     icon: Settings },
+      { title: "Admin",           url: "/admin",        icon: Shield },
+    ],
+  },
 ] as const;
 
-const MOBILE_MORE = [
-  { title: "Marketplace",    url: "/marketplace",  icon: Store },
-  { title: "Psych Match",    url: "/psych-match",  icon: Brain },
-  { title: "Tools",          url: "/tools",        icon: Wrench },
-  { title: "Stress Test",    url: "/stress-test",  icon: Zap },
-  { title: "Strategy DNA",   url: "/strategy-dna", icon: BarChart2 },
-  { title: "Backtests",      url: "/backtests",    icon: BookOpen },
-  { title: "Analytics",      url: "/analytics",    icon: BarChart2 },
-  { title: "Pricing",        url: "/pricing",      icon: Crown },
-  { title: "Billing",        url: "/billing",      icon: CreditCard },
-  { title: "Settings",       url: "/settings",     icon: Settings },
-  { title: "Admin",          url: "/admin",        icon: Shield },
-] as const;
+const MOBILE_SECTIONS = NAV_SECTIONS;
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -81,8 +102,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     if (url === "/dashboard") return location === "/" || location === "/dashboard";
     return location.startsWith(url);
   };
-  const moreActive = DESKTOP_MORE.some(i => isActive(i.url));
-  const mobileMoreActive = MOBILE_MORE.some(i => isActive(i.url));
+
+  const allMoreItems = NAV_SECTIONS.flatMap(s => s.items);
+  const moreActive = allMoreItems.some(i => isActive(i.url));
+  const mobileMoreActive = allMoreItems.some(i => isActive(i.url));
 
   return (
     <div className="tt-root">
@@ -165,20 +188,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {/* User / Sign In */}
           {user ? (
-            <div className="flex items-center gap-1">
-              <span className="flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-lg"
-                style={{ color: "var(--nav-dim-color)" }}>
-                <User style={{ height: "12px", width: "12px" }} />
-                {user.name.split(" ")[0]}
-              </span>
-              <button onClick={signout}
-                className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-lg"
-                style={{ color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)", background: "transparent" }}
-                title="Sign out"
-              >
-                <LogOut style={{ height: "11px", width: "11px" }} />
-              </button>
-            </div>
+            <Link href="/profile">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg cursor-pointer" style={{
+                border: "1px solid var(--nav-border)",
+                background: isActive("/profile") ? "var(--nav-active-bg)" : "transparent",
+                color: isActive("/profile") ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+              }}>
+                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{
+                  background: "linear-gradient(135deg, #6366f1, #a855f7)",
+                  color: "white",
+                }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-[12px] font-medium">{user.name.split(" ")[0]}</span>
+              </div>
+            </Link>
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
@@ -197,7 +221,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           )}
 
-          {/* More dropdown */}
+          {/* Sectioned More dropdown */}
           <div className="relative" ref={moreRef}>
             <button
               onClick={() => setMoreOpen(v => !v)}
@@ -216,38 +240,46 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
 
             {moreOpen && (
-              <div className="glass-panel absolute right-0 top-[calc(100%+8px)] w-48 rounded-2xl p-1.5 flex flex-col gap-0.5 scale-in"
-                style={{ zIndex: 200 }}>
-                {DESKTOP_MORE.map(item => {
-                  const active = isActive(item.url);
-                  return (
-                    <Link key={item.title} href={item.url} onClick={() => setMoreOpen(false)}>
-                      <span
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] cursor-pointer"
-                        style={{
-                          background: active ? "var(--nav-active-bg)" : "transparent",
-                          color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                        }}
-                        onMouseEnter={e => {
-                          if (!active) {
-                            (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
-                            (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          if (!active) {
-                            (e.currentTarget as HTMLElement).style.background = "transparent";
-                            (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
-                          }
-                        }}
-                      >
-                        <item.icon style={{ height: "14px", width: "14px", flexShrink: 0 }} />
-                        {item.title}
-                        {active && <ChevronRight style={{ height: "11px", width: "11px", marginLeft: "auto" }} />}
-                      </span>
-                    </Link>
-                  );
-                })}
+              <div
+                className="glass-panel absolute right-0 top-[calc(100%+8px)] rounded-2xl p-2 flex gap-3 scale-in"
+                style={{ zIndex: 200, minWidth: "580px" }}
+              >
+                {NAV_SECTIONS.map(section => (
+                  <div key={section.label} className="flex-1 min-w-0">
+                    <div className="text-[9px] font-mono uppercase tracking-widest px-2 py-1.5 mb-0.5" style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
+                      {section.label}
+                    </div>
+                    {section.items.map(item => {
+                      const active = isActive(item.url);
+                      return (
+                        <Link key={item.title} href={item.url} onClick={() => setMoreOpen(false)}>
+                          <span
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-xl text-[12px] cursor-pointer"
+                            style={{
+                              background: active ? "var(--nav-active-bg)" : "transparent",
+                              color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                            }}
+                            onMouseEnter={e => {
+                              if (!active) {
+                                (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+                                (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
+                              }
+                            }}
+                            onMouseLeave={e => {
+                              if (!active) {
+                                (e.currentTarget as HTMLElement).style.background = "transparent";
+                                (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
+                              }
+                            }}
+                          >
+                            <item.icon style={{ height: "12px", width: "12px", flexShrink: 0 }} />
+                            {item.title}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -355,25 +387,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* User row */}
             <div className="px-4 mb-3">
               {user ? (
-                <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
-                  style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: "1px solid var(--nav-border)" }}>
-                  <div className="flex items-center gap-3">
-                    <span className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", color: "var(--nav-active-color)", border: "1px solid var(--nav-active-border)" }}>
-                      {user.name.charAt(0).toUpperCase()}
-                    </span>
-                    <div>
-                      <p className="text-[13px] font-semibold" style={{ color: "var(--nav-active-color)" }}>{user.name}</p>
-                      <p className="text-[10px]" style={{ color: "var(--nav-dim-color)" }}>{user.email}</p>
+                <Link href="/profile" onClick={() => setSheetOpen(false)}>
+                  <div className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer"
+                    style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: "1px solid var(--nav-border)" }}>
+                    <div className="flex items-center gap-3">
+                      <span className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)", color: "white" }}>
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
+                      <div>
+                        <p className="text-[13px] font-semibold" style={{ color: "var(--nav-active-color)" }}>{user.name}</p>
+                        <p className="text-[10px]" style={{ color: "var(--nav-dim-color)" }}>{user.email}</p>
+                      </div>
                     </div>
+                    <button onClick={(e) => { e.preventDefault(); signout(); setSheetOpen(false); }}
+                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl"
+                      style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)" }}>
+                      <LogOut style={{ height: "11px", width: "11px" }} />
+                      Sign Out
+                    </button>
                   </div>
-                  <button onClick={() => { signout(); setSheetOpen(false); }}
-                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl"
-                    style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)" }}>
-                    <LogOut style={{ height: "11px", width: "11px" }} />
-                    Sign Out
-                  </button>
-                </div>
+                </Link>
               ) : (
                 <button
                   onClick={() => { setShowAuthModal(true); setSheetOpen(false); }}
@@ -392,33 +426,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            {/* Items */}
-            <div className="px-4 flex flex-col gap-1.5 overflow-y-auto" style={{ maxHeight: "calc(60dvh - 8px)", paddingBottom: "4px" }}>
-              {MOBILE_MORE.map(item => {
-                const active = isActive(item.url);
-                return (
-                  <Link key={item.title} href={item.url} onClick={() => setSheetOpen(false)}>
-                    <span
-                      className="flex items-center gap-3.5 px-4 py-3 rounded-2xl cursor-pointer active:opacity-70"
-                      style={{
-                        background: active
-                          ? "var(--nav-active-bg)"
-                          : (isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.025)"),
-                        border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
-                        color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                        boxShadow: "none",
-                      }}
-                    >
-                      <span className="h-9 w-9 flex-shrink-0 rounded-xl flex items-center justify-center"
-                        style={{ background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"), border: "1px solid var(--nav-border)" }}>
-                        <item.icon style={{ height: "16px", width: "16px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
-                      </span>
-                      <span className="text-[15px] font-medium">{item.title}</span>
-                      {active && <ChevronRight style={{ height: "14px", width: "14px", marginLeft: "auto" }} />}
-                    </span>
-                  </Link>
-                );
-              })}
+            {/* Sectioned items */}
+            <div className="px-4 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "calc(65dvh - 8px)", paddingBottom: "4px" }}>
+              {MOBILE_SECTIONS.map(section => (
+                <div key={section.label}>
+                  <div className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1.5" style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
+                    {section.label}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {section.items.map(item => {
+                      const active = isActive(item.url);
+                      return (
+                        <Link key={item.title} href={item.url} onClick={() => setSheetOpen(false)}>
+                          <span
+                            className="flex items-center gap-3.5 px-4 py-2.5 rounded-2xl cursor-pointer active:opacity-70"
+                            style={{
+                              background: active
+                                ? "var(--nav-active-bg)"
+                                : (isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.02)"),
+                              border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+                              color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                            }}
+                          >
+                            <span className="h-7 w-7 flex-shrink-0 rounded-lg flex items-center justify-center"
+                              style={{ background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"), border: "1px solid var(--nav-border)" }}>
+                              <item.icon style={{ height: "13px", width: "13px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
+                            </span>
+                            <span className="text-[14px] font-medium">{item.title}</span>
+                            {active && <ChevronRight style={{ height: "12px", width: "12px", marginLeft: "auto" }} />}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </>

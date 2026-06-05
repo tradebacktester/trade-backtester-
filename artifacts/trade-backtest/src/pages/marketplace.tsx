@@ -40,6 +40,16 @@ const TYPE_LABELS: Record<string, string> = {
   rsi: "RSI",
   macd: "MACD",
   bollinger_bands: "Bollinger Bands",
+  super_trend: "SuperTrend",
+  breakout: "Breakout",
+  vwap: "VWAP",
+  macd_rsi: "MACD + RSI",
+  donchian_breakout: "Donchian",
+  bollinger_reversal: "BB Reversal",
+  orb: "ORB",
+  trend_following: "Trend Following",
+  golden_cross: "Golden Cross",
+  turtle_trading: "Turtle Trading",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -48,6 +58,16 @@ const TYPE_COLORS: Record<string, string> = {
   rsi: "#f59e0b",
   macd: "#06b6d4",
   bollinger_bands: "#10b981",
+  super_trend: "#f97316",
+  breakout: "#0ea5e9",
+  vwap: "#14b8a6",
+  macd_rsi: "#a855f7",
+  donchian_breakout: "#f59e0b",
+  bollinger_reversal: "#06b6d4",
+  orb: "#eab308",
+  trend_following: "#22c55e",
+  golden_cross: "#fbbf24",
+  turtle_trading: "#10b981",
 };
 
 function MetricPill({ label, value, color }: { label: string; value: string | null; color?: string }) {

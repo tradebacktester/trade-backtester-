@@ -39,6 +39,7 @@ import MarketplacePage from "@/pages/marketplace";
 import MarketplaceDetailPage from "@/pages/marketplace-detail";
 import PsychMatchPage from "@/pages/psych-match";
 import AnalyticsPage from "@/pages/analytics";
+import ProfilePage from "@/pages/profile";
 
 const ChartPage = lazy(() => import("@/pages/chart"));
 
@@ -106,6 +107,7 @@ function Router() {
       <Route path="/psych-match" component={PsychMatchPage} />
       <Route path="/analytics" component={AnalyticsPage} />
 
+      <Route path="/profile" component={ProfilePage} />
       <Route path="/pricing" component={PricingPage} />
       <Route path="/billing" component={BillingPage} />
 
