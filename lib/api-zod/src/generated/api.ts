@@ -47,9 +47,9 @@ export const ListStrategiesResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands', 'super_trend', 'breakout', 'vwap', 'macd_rsi', 'donchian_breakout', 'bollinger_reversal', 'orb', 'trend_following', 'golden_cross', 'turtle_trading']),
   "symbol": zod.string(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
+  "timeframe": zod.enum(['1m', '5m', '15m', '1h', '4h', '1d', '1w']),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -64,11 +64,11 @@ export const ListStrategiesResponse = zod.array(ListStrategiesResponseItem)
 
 
 export const CreateStrategyBody = zod.object({
-  "name": zod.string().min(1).max(200),
-  "description": zod.string().max(1000).optional(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
+  "name": zod.string().min(1),
+  "description": zod.string().optional(),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands', 'super_trend', 'breakout', 'vwap', 'macd_rsi', 'donchian_breakout', 'bollinger_reversal', 'orb', 'trend_following', 'golden_cross', 'turtle_trading']),
   "symbol": zod.string().min(1),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
+  "timeframe": zod.enum(['1m', '5m', '15m', '1h', '4h', '1d', '1w']),
   "parameters": zod.record(zod.string(), zod.unknown())
 })
 
@@ -84,9 +84,9 @@ export const GetStrategyResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands', 'super_trend', 'breakout', 'vwap', 'macd_rsi', 'donchian_breakout', 'bollinger_reversal', 'orb', 'trend_following', 'golden_cross', 'turtle_trading']),
   "symbol": zod.string(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
+  "timeframe": zod.enum(['1m', '5m', '15m', '1h', '4h', '1d', '1w']),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -103,11 +103,11 @@ export const UpdateStrategyParams = zod.object({
 
 
 export const UpdateStrategyBody = zod.object({
-  "name": zod.string().min(1).max(200).optional(),
-  "description": zod.string().max(1000).optional(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']).optional(),
+  "name": zod.string().min(1).optional(),
+  "description": zod.string().optional(),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands', 'super_trend', 'breakout', 'vwap', 'macd_rsi', 'donchian_breakout', 'bollinger_reversal', 'orb', 'trend_following', 'golden_cross', 'turtle_trading']).optional(),
   "symbol": zod.string().optional(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']).optional(),
+  "timeframe": zod.enum(['1m', '5m', '15m', '1h', '4h', '1d', '1w']).optional(),
   "parameters": zod.record(zod.string(), zod.unknown()).optional()
 })
 
@@ -115,9 +115,9 @@ export const UpdateStrategyResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "description": zod.string().nullish(),
-  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands']),
+  "type": zod.enum(['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands', 'super_trend', 'breakout', 'vwap', 'macd_rsi', 'donchian_breakout', 'bollinger_reversal', 'orb', 'trend_following', 'golden_cross', 'turtle_trading']),
   "symbol": zod.string(),
-  "timeframe": zod.enum(['1d', '1h', '4h', '1w']),
+  "timeframe": zod.enum(['1m', '5m', '15m', '1h', '4h', '1d', '1w']),
   "parameters": zod.record(zod.string(), zod.unknown()),
   "createdAt": zod.string()
 })
@@ -154,9 +154,7 @@ export const GetStrategyPerformanceResponse = zod.object({
  * @summary List all backtests
  */
 export const ListBacktestsQueryParams = zod.object({
-  "strategyId": zod.coerce.number().optional(),
-  "limit": zod.coerce.number().min(1).max(500).optional(),
-  "offset": zod.coerce.number().min(0).optional(),
+  "strategyId": zod.coerce.number().optional()
 })
 
 export const ListBacktestsResponseItem = zod.object({
@@ -201,13 +199,11 @@ export const createBacktestBodySlippageMax = 5;
 
 
 
-const ISO_DATE = zod.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format");
-
 export const CreateBacktestBody = zod.object({
   "strategyId": zod.number(),
   "symbol": zod.string().min(1),
-  "startDate": ISO_DATE,
-  "endDate": ISO_DATE,
+  "startDate": zod.string(),
+  "endDate": zod.string(),
   "initialCapital": zod.number().min(1),
   "commission": zod.number().min(createBacktestBodyCommissionMin).max(createBacktestBodyCommissionMax).optional().describe('Commission per trade as percentage (e.g. 0.1 for 0.1%)'),
   "slippage": zod.number().min(createBacktestBodySlippageMin).max(createBacktestBodySlippageMax).optional().describe('Slippage per trade as percentage (e.g. 0.05 for 0.05%)')

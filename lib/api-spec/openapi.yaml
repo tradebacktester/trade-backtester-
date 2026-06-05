@@ -416,12 +416,12 @@ components:
           type: ["string", "null"]
         type:
           type: string
-          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands]
+          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands, super_trend, breakout, vwap, macd_rsi, donchian_breakout, bollinger_reversal, orb, trend_following, golden_cross, turtle_trading]
         symbol:
           type: string
         timeframe:
           type: string
-          enum: [1d, 1h, 4h, 1w]
+          enum: [1m, 5m, 15m, 1h, 4h, 1d, 1w]
         parameters:
           type: object
           additionalProperties: true
@@ -439,13 +439,13 @@ components:
           type: string
         type:
           type: string
-          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands]
+          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands, super_trend, breakout, vwap, macd_rsi, donchian_breakout, bollinger_reversal, orb, trend_following, golden_cross, turtle_trading]
         symbol:
           type: string
           minLength: 1
         timeframe:
           type: string
-          enum: [1d, 1h, 4h, 1w]
+          enum: [1m, 5m, 15m, 1h, 4h, 1d, 1w]
         parameters:
           type: object
           additionalProperties: true
@@ -460,12 +460,12 @@ components:
           type: string
         type:
           type: string
-          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands]
+          enum: [sma_crossover, ema_crossover, rsi, macd, bollinger_bands, super_trend, breakout, vwap, macd_rsi, donchian_breakout, bollinger_reversal, orb, trend_following, golden_cross, turtle_trading]
         symbol:
           type: string
         timeframe:
           type: string
-          enum: [1d, 1h, 4h, 1w]
+          enum: [1m, 5m, 15m, 1h, 4h, 1d, 1w]
         parameters:
           type: object
           additionalProperties: true

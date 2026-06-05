@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Dna, AlertTriangle, TrendingUp, Shield, Target, Zap, BarChart2, Star } from "lucide-react";
+import { Loader2, Dna, AlertTriangle, TrendingUp, Shield, Target, Zap, BarChart2, Star, Brain, ChevronRight, CheckCircle2, XCircle, Lightbulb } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,20 +95,37 @@ function getPearson(
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+type NarrativeResult = {
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  bestMarkets: string[];
+  worstMarkets: string[];
+  improvementTip: string;
+};
+
 export default function StrategyDnaPage() {
-  const token = typeof window !== "undefined" ? localStorage.getItem("tt_token") : null;
+  const { token } = useAuth();
   const isLoggedIn = Boolean(token);
   const [data, setData] = useState<DnaResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [narrative, setNarrative] = useState<NarrativeResult | null>(null);
+  const [narrativeLoading, setNarrativeLoading] = useState(false);
+  const [narrativeError, setNarrativeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNarrative(null);
+    setNarrativeError(null);
+  }, [selectedIdx]);
 
   const handleAnalyze = useCallback(async () => {
     setIsLoading(true); setError(null); setData(null); setSelectedIdx(null);
     try {
-      const token = localStorage.getItem("tt_token") ?? "";
+      const t = token ?? "";
       const resp = await fetch("/api/strategies/dna", {
-        headers: { "Authorization": `Bearer ${token}` },
+        headers: { "Authorization": `Bearer ${t}` },
       });
       if (!resp.ok) throw new Error((await resp.json()).error ?? "Request failed");
       const result: DnaResponse = await resp.json();
@@ -116,7 +134,35 @@ export default function StrategyDnaPage() {
     } catch (e: any) {
       setError(e.message || "Failed to generate DNA comparison");
     } finally { setIsLoading(false); }
-  }, []);
+  }, [token]);
+
+  const handleGetNarrative = useCallback(async (s: StratEntry) => {
+    if (!token) return;
+    setNarrativeLoading(true);
+    setNarrativeError(null);
+    setNarrative(null);
+    try {
+      const resp = await fetch("/api/ai/dna-narrative", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          strategyName: s.name,
+          strategyType: s.type,
+          dna: s.dna,
+          grade: s.grade,
+          overallScore: s.overallScore,
+          metrics: {},
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error ?? "AI analysis failed");
+      setNarrative(data as NarrativeResult);
+    } catch (e: any) {
+      setNarrativeError(e.message || "Failed to generate AI analysis");
+    } finally {
+      setNarrativeLoading(false);
+    }
+  }, [token]);
 
   const selected = selectedIdx != null && data ? data.strategies[selectedIdx] : null;
   const duplicatePairs = data?.correlations.filter((c) => c.isDuplicate) ?? [];
@@ -337,6 +383,128 @@ export default function StrategyDnaPage() {
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* ── AI Behavioral Analysis ── */}
+                  <Card className="border-border">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Brain className="h-4 w-4 text-primary" />
+                          <CardTitle className="text-base">AI Behavioral Analysis</CardTitle>
+                        </div>
+                        {!narrative && !narrativeLoading && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs"
+                            onClick={() => handleGetNarrative(selected!)}
+                            disabled={narrativeLoading}
+                          >
+                            <Brain className="h-3.5 w-3.5" />
+                            Analyze DNA
+                          </Button>
+                        )}
+                      </div>
+                      <CardDescription>AI-powered behavioral narrative and market fit analysis</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {!narrative && !narrativeLoading && !narrativeError && (
+                        <div className="py-6 text-center border border-dashed rounded-xl">
+                          <Brain className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                          <p className="text-xs text-muted-foreground">Click "Analyze DNA" to get AI insights about this strategy's behavior</p>
+                        </div>
+                      )}
+
+                      {narrativeLoading && (
+                        <div className="flex flex-col items-center justify-center py-8 gap-3">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <p className="text-xs text-muted-foreground">Analyzing behavioral DNA…</p>
+                        </div>
+                      )}
+
+                      {narrativeError && (
+                        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5">
+                          <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-destructive">{narrativeError}</p>
+                        </div>
+                      )}
+
+                      {narrative && !narrativeLoading && (
+                        <div className="space-y-4">
+                          {/* Summary */}
+                          <div className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-3">
+                            <p className="text-xs text-muted-foreground leading-relaxed">{narrative.summary}</p>
+                          </div>
+
+                          {/* Strengths + Weaknesses */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] font-mono uppercase tracking-wider font-semibold text-green-500">Strengths</p>
+                              {(narrative.strengths ?? []).map((s, i) => (
+                                <div key={i} className="flex items-start gap-1.5">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+                                  <span className="text-xs text-muted-foreground">{s}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] font-mono uppercase tracking-wider font-semibold text-red-400">Weaknesses</p>
+                              {(narrative.weaknesses ?? []).map((w, i) => (
+                                <div key={i} className="flex items-start gap-1.5">
+                                  <XCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                                  <span className="text-xs text-muted-foreground">{w}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Best / Worst Markets */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="rounded-xl border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
+                              <p className="text-[10px] font-mono uppercase tracking-wider font-semibold text-blue-400">Best In</p>
+                              {(narrative.bestMarkets ?? []).map((m, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                  <ChevronRight className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                  <span className="text-xs text-muted-foreground">{m}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="rounded-xl border border-border bg-muted/20 px-3 py-2.5 space-y-1.5">
+                              <p className="text-[10px] font-mono uppercase tracking-wider font-semibold text-orange-400">Avoid In</p>
+                              {(narrative.worstMarkets ?? []).map((m, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                  <ChevronRight className="h-3 w-3 text-orange-400 flex-shrink-0" />
+                                  <span className="text-xs text-muted-foreground">{m}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Improvement Tip */}
+                          {narrative.improvementTip && (
+                            <div className="flex items-start gap-2.5 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-3 py-2.5">
+                              <Lightbulb className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-[10px] font-mono uppercase tracking-wider font-semibold text-yellow-400 mb-0.5">Improvement Tip</p>
+                                <p className="text-xs text-muted-foreground">{narrative.improvementTip}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1.5 text-xs text-muted-foreground"
+                            onClick={() => handleGetNarrative(selected!)}
+                            disabled={narrativeLoading}
+                          >
+                            <Brain className="h-3 w-3" />
+                            Regenerate Analysis
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </>
               ) : (
                 <div className="py-12 text-center text-muted-foreground border border-dashed rounded-xl">

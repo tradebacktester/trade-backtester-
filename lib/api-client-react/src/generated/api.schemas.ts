@@ -32,15 +32,28 @@ export const StrategyType = {
   rsi: 'rsi',
   macd: 'macd',
   bollinger_bands: 'bollinger_bands',
+  super_trend: 'super_trend',
+  breakout: 'breakout',
+  vwap: 'vwap',
+  macd_rsi: 'macd_rsi',
+  donchian_breakout: 'donchian_breakout',
+  bollinger_reversal: 'bollinger_reversal',
+  orb: 'orb',
+  trend_following: 'trend_following',
+  golden_cross: 'golden_cross',
+  turtle_trading: 'turtle_trading',
 } as const;
 
 export type StrategyTimeframe = typeof StrategyTimeframe[keyof typeof StrategyTimeframe];
 
 
 export const StrategyTimeframe = {
-  '1d': '1d',
+  '1m': '1m',
+  '5m': '5m',
+  '15m': '15m',
   '1h': '1h',
   '4h': '4h',
+  '1d': '1d',
   '1w': '1w',
 } as const;
 
@@ -67,15 +80,28 @@ export const StrategyInputType = {
   rsi: 'rsi',
   macd: 'macd',
   bollinger_bands: 'bollinger_bands',
+  super_trend: 'super_trend',
+  breakout: 'breakout',
+  vwap: 'vwap',
+  macd_rsi: 'macd_rsi',
+  donchian_breakout: 'donchian_breakout',
+  bollinger_reversal: 'bollinger_reversal',
+  orb: 'orb',
+  trend_following: 'trend_following',
+  golden_cross: 'golden_cross',
+  turtle_trading: 'turtle_trading',
 } as const;
 
 export type StrategyInputTimeframe = typeof StrategyInputTimeframe[keyof typeof StrategyInputTimeframe];
 
 
 export const StrategyInputTimeframe = {
-  '1d': '1d',
+  '1m': '1m',
+  '5m': '5m',
+  '15m': '15m',
   '1h': '1h',
   '4h': '4h',
+  '1d': '1d',
   '1w': '1w',
 } as const;
 
@@ -101,15 +127,28 @@ export const StrategyUpdateType = {
   rsi: 'rsi',
   macd: 'macd',
   bollinger_bands: 'bollinger_bands',
+  super_trend: 'super_trend',
+  breakout: 'breakout',
+  vwap: 'vwap',
+  macd_rsi: 'macd_rsi',
+  donchian_breakout: 'donchian_breakout',
+  bollinger_reversal: 'bollinger_reversal',
+  orb: 'orb',
+  trend_following: 'trend_following',
+  golden_cross: 'golden_cross',
+  turtle_trading: 'turtle_trading',
 } as const;
 
 export type StrategyUpdateTimeframe = typeof StrategyUpdateTimeframe[keyof typeof StrategyUpdateTimeframe];
 
 
 export const StrategyUpdateTimeframe = {
-  '1d': '1d',
+  '1m': '1m',
+  '5m': '5m',
+  '15m': '15m',
   '1h': '1h',
   '4h': '4h',
+  '1d': '1d',
   '1w': '1w',
 } as const;
 

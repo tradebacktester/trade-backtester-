@@ -747,4 +747,81 @@ In 2-3 sentences explain: (1) why this trade ${trade.pnl >= 0 ? "succeeded" : "f
   }
 });
 
+/* ─── Strategy DNA Narrative ───────────────────────────────────────────────── */
+router.post("/ai/dna-narrative", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Too many requests. Please wait a moment." });
+    return;
+  }
+
+  const { strategyName, strategyType, dna, grade, overallScore, metrics } = req.body as {
+    strategyName: string;
+    strategyType: string;
+    dna: { momentum: number; meanReversion: number; riskControl: number; consistency: number; adaptability: number; profitability: number };
+    grade: string;
+    overallScore: number;
+    metrics: { totalReturn?: number; sharpeRatio?: number; maxDrawdown?: number; winRate?: number; profitFactor?: number; totalTrades?: number };
+  };
+
+  if (!strategyName || !dna) {
+    res.status(400).json({ error: "strategyName and dna are required" });
+    return;
+  }
+
+  const typeFmt = (strategyType ?? "").replace(/_/g, " ");
+  const m = metrics ?? {};
+
+  const userPrompt = `Analyze this trading strategy's behavioral DNA profile and provide a concise, structured assessment.
+
+Strategy: "${strategyName}" (${typeFmt})
+Overall Grade: ${grade} (${overallScore}/100)
+
+DNA Dimensions (0-100):
+- Momentum: ${dna.momentum}
+- Mean Reversion: ${dna.meanReversion}
+- Risk Control: ${dna.riskControl}
+- Consistency: ${dna.consistency}
+- Adaptability: ${dna.adaptability}
+- Profitability: ${dna.profitability}
+
+Backtest Metrics:
+- Total Return: ${m.totalReturn != null ? m.totalReturn.toFixed(2) + "%" : "N/A"}
+- Sharpe Ratio: ${m.sharpeRatio != null ? m.sharpeRatio.toFixed(2) : "N/A"}
+- Max Drawdown: ${m.maxDrawdown != null ? m.maxDrawdown.toFixed(2) + "%" : "N/A"}
+- Win Rate: ${m.winRate != null ? m.winRate.toFixed(1) + "%" : "N/A"}
+- Profit Factor: ${m.profitFactor != null ? m.profitFactor.toFixed(2) : "N/A"}
+- Total Trades: ${m.totalTrades ?? "N/A"}
+
+Respond with a JSON object containing these exact fields:
+{
+  "summary": "2-3 sentence behavioral narrative explaining this strategy's personality and trading style",
+  "strengths": ["strength 1", "strength 2", "strength 3"],
+  "weaknesses": ["weakness 1", "weakness 2"],
+  "bestMarkets": ["market condition 1", "market condition 2"],
+  "worstMarkets": ["market condition 1"],
+  "improvementTip": "One specific, actionable tip to improve this strategy's weakest dimension"
+}`;
+
+  try {
+    const client = groqClient();
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: "You are an expert quantitative trading analyst. Analyze strategy behavioral DNA profiles and return concise, actionable insights as JSON." },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 500,
+      temperature: 0.5,
+      response_format: { type: "json_object" },
+    });
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw);
+    res.json(parsed);
+  } catch (err) {
+    logger.error(err, "ai/dna-narrative error");
+    res.status(500).json({ error: "AI analysis failed. Please try again." });
+  }
+});
+
 export default router;

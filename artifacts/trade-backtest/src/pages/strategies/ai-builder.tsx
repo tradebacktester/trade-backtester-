@@ -114,6 +114,8 @@ export default function AiBuilder() {
           name: result.name,
           description: `AI-generated from: "${description}"`,
           type: result.type,
+          symbol: result.symbol,
+          timeframe: result.timeframe,
           parameters: result.parameters,
         }),
       });

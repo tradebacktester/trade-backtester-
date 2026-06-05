@@ -173,8 +173,8 @@ router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const limit = query.data.limit ?? 100;
-  const offset = query.data.offset ?? 0;
+  const limit = typeof req.query["limit"] === "string" ? parseInt(req.query["limit"], 10) || 100 : 100;
+  const offset = typeof req.query["offset"] === "string" ? parseInt(req.query["offset"], 10) || 0 : 0;
 
   let rows: typeof backtestsTable.$inferSelect[];
   if (query.data.strategyId != null) {
