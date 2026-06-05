@@ -21,9 +21,7 @@ const DialogOverlay = React.forwardRef<
       className
     )}
     style={{
-      background: "rgba(0,0,0,0.55)",
-      backdropFilter: "blur(6px)",
-      WebkitBackdropFilter: "blur(6px)",
+      background: "rgba(0,0,0,0.65)",
     }}
     {...props}
   />
@@ -52,8 +50,6 @@ const DialogContent = React.forwardRef<
       )}
       style={{
         background: "var(--glass-bg-strong)",
-        backdropFilter: "blur(32px) saturate(180%)",
-        WebkitBackdropFilter: "blur(32px) saturate(180%)",
         borderColor: "var(--glass-border)",
       }}
       {...props}

@@ -22,3 +22,4 @@
 - [Paper trade timestamps](paper-trade-timestamps.md) — lightweight-charts bar.time is Unix SECONDS; must multiply by 1000 before passing to new Date() or saving as ms-bigint to DB; both long+short close paths in chart.tsx affected.
 - [Equity curve minimum points](equity-curve-min-points.md) — engine returns only 1 point for 0-trade backtests; fix: append endDate entry if last entry < endDate, prepend startDate entry if curve has exactly 1 point.
 - [setAuthTokenGetter timing](auth-token-getter-timing.md) — must call setAuthTokenGetter() at module level in auth-context.tsx, NOT inside useEffect; useEffect runs after children mount so queries fire before the getter is registered, causing 401s on first load.
+- [Mobile backdrop-filter GPU corruption](mobile-backdrop-filter.md) — Android Chrome artifacts/ghost lines caused by backdrop-filter + compositing layers; disable all backdrop-filter on ≤767px with solid bg fallbacks.

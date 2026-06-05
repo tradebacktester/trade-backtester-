@@ -341,7 +341,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <>
           <div
             className="fixed inset-0 z-[60] md:hidden fade-in"
-            style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+            style={{ background: "rgba(0,0,0,0.6)" }}
             onClick={() => setSheetOpen(false)}
           />
           <div
@@ -350,8 +350,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               bottom: 0,
               borderRadius: "28px 28px 0 0",
               background: "var(--sheet-bg)",
-              backdropFilter: "blur(40px) saturate(200%)",
-              WebkitBackdropFilter: "blur(40px) saturate(200%)",
               borderTop: "1px solid var(--nav-border)",
               borderLeft: "1px solid var(--nav-border)",
               borderRight: "1px solid var(--nav-border)",

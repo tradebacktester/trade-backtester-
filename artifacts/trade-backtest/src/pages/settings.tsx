@@ -220,7 +220,6 @@ export default function SettingsPage() {
                   : "rgba(34,197,94,0.15)",
               border: `1px solid ${toast.type === "error" ? "rgba(239,68,68,0.3)" : toast.type === "info" ? "rgba(59,130,246,0.3)" : "rgba(34,197,94,0.3)"}`,
               color: toast.type === "error" ? "hsl(0,85%,65%)" : toast.type === "info" ? "hsl(217,91%,70%)" : "hsl(150,80%,60%)",
-              backdropFilter: "blur(16px)",
             }}
           >
             {toast.type === "error" ? <AlertCircle className="h-4 w-4" /> : <Check className="h-4 w-4" />}

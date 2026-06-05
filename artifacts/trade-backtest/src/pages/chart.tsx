@@ -1564,7 +1564,7 @@ export default function ChartPage() {
 
       {/* ── Paper Trading Account Setup Modal ─────────────────────────── */}
       {accountModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(8px)" }}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.88)" }}>
           <div className="w-full max-w-md rounded-2xl border overflow-y-auto" style={{ background: "hsl(222,22%,10%)", borderColor: "rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)", maxHeight: "90dvh" }}>
             <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: "linear-gradient(135deg, hsl(150,75%,22%), hsl(150,75%,15%))", border: "1px solid rgba(52,211,153,0.3)" }}>
@@ -1609,7 +1609,7 @@ export default function ChartPage() {
       )}
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="rounded-xl px-3 sm:px-4 py-2.5 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)", backdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", zIndex: 60 }}>
+      <div className="rounded-xl px-3 sm:px-4 py-2.5 border" style={{ background: "rgba(10,12,20,0.95)", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", zIndex: 60 }}>
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-lg sm:text-xl font-bold tracking-tight flex-shrink-0" style={{ background: "linear-gradient(135deg, hsl(190,90%,65%), hsl(210,80%,75%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Live Chart</h1>
@@ -1818,7 +1818,7 @@ export default function ChartPage() {
 
       {/* ── Keyboard Shortcuts Panel ────────────────────────────────── */}
       {showShortcuts && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }} onClick={() => setShowShortcuts(false)}>
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.80)" }} onClick={() => setShowShortcuts(false)}>
           <div className="rounded-2xl border overflow-hidden w-full max-w-lg" style={{ background: "hsl(222,22%,10%)", borderColor: "rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }} onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <div className="flex items-center gap-2">
@@ -2204,7 +2204,7 @@ export default function ChartPage() {
           {/* ── Drawing toolbar ─────────────────────────────────────── */}
           {!replayMode && (
             <div className="flex items-center gap-1 px-2 py-1.5 rounded-2xl overflow-x-auto scrollbar-none"
-              style={{ background: "rgba(10,12,18,0.88)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.09)", flexShrink: 0 }}>
+              style={{ background: "rgba(10,12,18,0.97)", border: "1px solid rgba(255,255,255,0.09)", flexShrink: 0 }}>
               {DRAW_TOOLS.map(tool => {
                 const breakBefore: DrawTool[] = ["hline", "rectangle", "text", "eraser"];
                 return (

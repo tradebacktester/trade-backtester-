@@ -563,9 +563,8 @@ function DemoChart({ symbol, livePrice, openPositions, interval = "1m", indicato
       <div
         className="flex items-center gap-1 px-2 py-1.5 overflow-x-auto"
         style={{
-          background: "rgba(8,10,16,0.92)",
+          background: "rgba(8,10,16,0.98)",
           borderTop: "1px solid rgba(255,255,255,0.07)",
-          backdropFilter: "blur(12px)",
           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
       >

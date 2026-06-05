@@ -67,14 +67,12 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+      style={{ background: "rgba(0,0,0,0.65)" }}
     >
       <div
         className="relative w-full max-w-sm mx-4 rounded-2xl scale-in"
         style={{
           background: "var(--glass-bg-strong)",
-          backdropFilter: "blur(32px) saturate(180%)",
-          WebkitBackdropFilter: "blur(32px) saturate(180%)",
           border: "1px solid var(--glass-border)",
           boxShadow: "var(--shadow-modal)",
         }}
