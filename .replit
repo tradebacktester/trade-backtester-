@@ -67,6 +67,6 @@ channel = "stable-25_05"
 [userenv.shared]
 ADMIN_ID = "7302782010"
 NODE_ENV = "development"
-ADMIN_PASSWORD = "adivasutrade"
 PORT = "5000"
+JWT_SECRET = "fe5c29482289b22238500b1cd8d3bdeee7b3a0eca472da5073c867b41c3525ab38dcc8602b83405ebc463bae74eb1d230f9b549ff05b391a89fdb2ee7c32d66f"
 
