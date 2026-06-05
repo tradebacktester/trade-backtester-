@@ -43,7 +43,7 @@ import {
   BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
   Flame, Bell, BellOff, ArrowLeftRight, BookOpen, List,
   CalendarClock, GitBranch, Type, Triangle, Sparkles,
-  Sun, Moon, Keyboard, Crosshair,
+  Sun, Moon, Keyboard, Crosshair, Maximize2, Minimize2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PositionOverlay } from "@/components/position-overlay";
@@ -318,6 +318,10 @@ export default function ChartPage() {
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
   const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
   const { token } = useAuth();
+
+  // Fullscreen
+  const chartPageRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Chart type
   const [chartType, setChartType] = useState<ChartType>("candlestick");
@@ -824,6 +828,22 @@ export default function ChartPage() {
     markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
     applyMarkers();
   }, [position, equity, chartLeverage, applyMarkers, symbol]);
+
+  // ── Fullscreen ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (!document.fullscreenElement) {
+      try { await chartPageRef.current?.requestFullscreen(); }
+      catch { setIsFullscreen(v => !v); }
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
 
   // ── Position drawing tool handlers ─────────────────────────────────
   useEffect(() => { savePositions(positionTools); }, [positionTools]);
@@ -1606,7 +1626,18 @@ export default function ChartPage() {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="tt-chart-page flex flex-col gap-2" style={{ maxWidth: "100%" }}>
+    <div
+      ref={chartPageRef}
+      className="tt-chart-page flex flex-col gap-2"
+      style={{
+        maxWidth: "100%",
+        ...(isFullscreen ? { background: "hsl(222,22%,9%)" } : {}),
+        ...(isFullscreen && !document.fullscreenElement ? {
+          position: "fixed", inset: 0, zIndex: 9999,
+          padding: "8px", overflowY: "auto",
+        } : {}),
+      }}
+    >
 
       {/* ── Paper Trading Account Setup Modal ─────────────────────────── */}
       {accountModalOpen && (
@@ -1667,7 +1698,16 @@ export default function ChartPage() {
               </div>
             )}
           </div>
-          <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>{isSim ? `${displayCategory} · Sim` : "Binance · Live"}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>{isSim ? `${displayCategory} · Sim` : "Binance · Live"}</span>
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+              className="h-7 w-7 flex items-center justify-center rounded-lg transition-all hover:bg-white/10 flex-shrink-0"
+              style={isFullscreen ? { color: "hsl(190,90%,65%)", background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.25)" } : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-1 flex-wrap" style={{ rowGap: "4px" }}>
@@ -2115,7 +2155,7 @@ export default function ChartPage() {
 
           {/* Main chart */}
           <div className="relative rounded-xl overflow-hidden"
-            style={{ flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto", height: (hasSubChart || showMultiTf) ? "min(320px, 42vh)" : "clamp(420px, calc(100vh - 260px), 700px)", minHeight: (hasSubChart || showMultiTf) ? "200px" : "380px", border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)", boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+            style={{ flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto", height: (hasSubChart || showMultiTf) ? (isFullscreen ? "min(46dvh, 46dvh)" : "min(320px, 42vh)") : (isFullscreen ? "clamp(500px, calc(100dvh - 210px), 100dvh)" : "clamp(420px, calc(100vh - 260px), 700px)"), minHeight: (hasSubChart || showMultiTf) ? "200px" : "380px", border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)", boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
             {isLoading && <div className="absolute inset-0 z-10 p-4"><Skeleton className="w-full h-full" /></div>}
             {error && !isLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
