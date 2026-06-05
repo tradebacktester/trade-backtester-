@@ -22,14 +22,27 @@ function stripHtml(text: string): string {
     .trim();
 }
 
-type StrategyType = "sma_crossover" | "ema_crossover" | "rsi" | "macd" | "bollinger_bands";
+type StrategyType =
+  | "sma_crossover" | "ema_crossover" | "rsi" | "macd" | "bollinger_bands"
+  | "super_trend" | "breakout" | "vwap" | "macd_rsi" | "donchian_breakout"
+  | "bollinger_reversal" | "orb" | "trend_following" | "golden_cross" | "turtle_trading";
 
 const REQUIRED_PARAMS: Record<StrategyType, string[]> = {
-  sma_crossover:    ["fastPeriod", "slowPeriod"],
-  ema_crossover:    ["fastPeriod", "slowPeriod"],
-  rsi:              ["period", "oversold", "overbought"],
-  macd:             ["fastPeriod", "slowPeriod", "signalPeriod"],
-  bollinger_bands:  ["period", "stdDev"],
+  sma_crossover:     ["fastPeriod", "slowPeriod"],
+  ema_crossover:     ["fastPeriod", "slowPeriod"],
+  rsi:               ["period", "oversold", "overbought"],
+  macd:              ["fastPeriod", "slowPeriod", "signalPeriod"],
+  bollinger_bands:   ["period", "stdDev"],
+  super_trend:       ["period", "multiplier"],
+  breakout:          ["entryPeriod", "exitPeriod"],
+  vwap:              ["rsiPeriod", "oversold"],
+  macd_rsi:          ["fastPeriod", "slowPeriod", "signalPeriod", "rsiPeriod", "rsiOverbought"],
+  donchian_breakout: ["entryPeriod", "exitPeriod"],
+  bollinger_reversal:["period", "stdDev"],
+  orb:               ["rangePeriod", "holdDays"],
+  trend_following:   ["fastEma", "slowEma", "rsiPeriod"],
+  golden_cross:      ["fastPeriod", "slowPeriod"],
+  turtle_trading:    ["entryPeriod", "exitPeriod"],
 };
 
 function validateStrategyParams(type: StrategyType, params: Record<string, unknown>): string | null {

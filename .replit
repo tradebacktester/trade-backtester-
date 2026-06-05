@@ -68,3 +68,4 @@ NODE_ENV = "development"
 ADMIN_PASSWORD = "adivasutrade"
 
 [userenv.development]
+GROQ_API_KEY = "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"

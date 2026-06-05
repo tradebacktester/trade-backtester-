@@ -124,6 +124,35 @@ function rsi(prices: number[], period: number): (number | null)[] {
   return result;
 }
 
+function atr(bars: OHLCVBar[], period: number): (number | null)[] {
+  const result: (number | null)[] = new Array(bars.length).fill(null);
+  if (bars.length < 2) return result;
+  const tr: number[] = [bars[0].high - bars[0].low];
+  for (let i = 1; i < bars.length; i++) {
+    const hl = bars[i].high - bars[i].low;
+    const hc = Math.abs(bars[i].high - bars[i - 1].close);
+    const lc = Math.abs(bars[i].low  - bars[i - 1].close);
+    tr.push(Math.max(hl, hc, lc));
+  }
+  let avg = tr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  result[period - 1] = avg;
+  for (let i = period; i < bars.length; i++) { avg = (avg * (period - 1) + tr[i]) / period; result[i] = avg; }
+  return result;
+}
+
+function donchianHigh(highs: number[], period: number): (number | null)[] {
+  return highs.map((_, i) => i < period - 1 ? null : Math.max(...highs.slice(i - period + 1, i + 1)));
+}
+
+function donchianLow(lows: number[], period: number): (number | null)[] {
+  return lows.map((_, i) => i < period - 1 ? null : Math.min(...lows.slice(i - period + 1, i + 1)));
+}
+
+function vwapCalc(bars: OHLCVBar[]): number[] {
+  let cumPV = 0, cumVol = 0;
+  return bars.map(b => { const tp = (b.high + b.low + b.close) / 3; cumPV += tp * b.volume; cumVol += b.volume; return cumVol > 0 ? cumPV / cumVol : tp; });
+}
+
 const BARS_PER_DAY: Record<string, number> = {
   "1m": 1440, "5m": 288, "15m": 96, "30m": 48, "1h": 24, "2h": 12, "4h": 6, "1d": 1,
 };
@@ -377,6 +406,141 @@ function runStrategy(
     }
     if (inTrade && entryIdx >= 0 && entryIdx < bars.length)
       signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "super_trend") {
+    const period = Number(parameters.period ?? 10);
+    const multiplier = Number(parameters.multiplier ?? 3);
+    const atrVals = atr(bars, period);
+    const highs = bars.map(b => b.high);
+    const lows  = bars.map(b => b.low);
+    let prevST = 0, isBull = false, inTrade = false, entryIdx = -1;
+    for (let i = period; i < bars.length; i++) {
+      const a = atrVals[i];
+      if (a == null) continue;
+      const basic = (highs[i] + lows[i]) / 2;
+      const upper = basic + multiplier * a;
+      const lower = basic - multiplier * a;
+      const wasBull = isBull;
+      if (closes[i] > upper) { isBull = true; prevST = lower; }
+      else if (closes[i] < lower) { isBull = false; prevST = upper; }
+      else { isBull = wasBull; prevST = isBull ? Math.max(lower, prevST) : Math.min(upper, prevST); }
+      if (!wasBull && isBull && !inTrade && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
+      if (wasBull && !isBull && inTrade) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "breakout" || strategyType === "donchian_breakout" || strategyType === "turtle_trading") {
+    const entryP = Number(parameters.entryPeriod ?? parameters.period ?? 20);
+    const exitP  = Number(parameters.exitPeriod  ?? Math.max(5, Math.round(entryP / 2)));
+    const highs = bars.map(b => b.high);
+    const lows  = bars.map(b => b.low);
+    const dhigh = donchianHigh(highs, entryP);
+    const dlow  = donchianLow(lows, exitP);
+    let inTrade = false, entryIdx = -1;
+    for (let i = entryP; i < bars.length; i++) {
+      const dh = dhigh[i - 1];
+      const dl = dlow[i];
+      if (dh == null || dl == null) continue;
+      if (!inTrade && closes[i] > dh && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
+      else if (inTrade && closes[i] < dl) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "vwap") {
+    const rsiPeriod = Number(parameters.rsiPeriod ?? 14);
+    const oversold  = Number(parameters.oversold  ?? 40);
+    const vwapLine  = vwapCalc(bars);
+    const rsiVals   = rsi(closes, rsiPeriod);
+    let inTrade = false, entryIdx = -1;
+    for (let i = 1; i < bars.length; i++) {
+      const rv = rsiVals[i];
+      if (rv == null) continue;
+      if (!inTrade && closes[i - 1] <= vwapLine[i - 1] && closes[i] > vwapLine[i] && rv < oversold + 20 && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
+      else if (inTrade && closes[i] < vwapLine[i] * 0.99) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "macd_rsi") {
+    const fastP   = Number(parameters.fastPeriod   ?? 12);
+    const slowP   = Number(parameters.slowPeriod   ?? 26);
+    const signalP = Number(parameters.signalPeriod ?? 9);
+    const rsiP    = Number(parameters.rsiPeriod    ?? 14);
+    const rsiOB   = Number(parameters.rsiOverbought ?? 70);
+    const fastEmaV = ema(closes, fastP);
+    const slowEmaV = ema(closes, slowP);
+    const macdLine = closes.map((_, i) => { const f = fastEmaV[i], s = slowEmaV[i]; return f != null && s != null ? f - s : null; });
+    const validMacd = macdLine.filter((v): v is number => v != null);
+    const signalLine: (number | null)[] = new Array(closes.length).fill(null);
+    const sigEma2 = ema(validMacd, signalP);
+    let vi = 0; for (let i = 0; i < macdLine.length; i++) { if (macdLine[i] != null) signalLine[i] = sigEma2[vi++] ?? null; }
+    const rsiVals = rsi(closes, rsiP);
+    let inTrade = false, entryIdx = -1;
+    for (let i = 1; i < bars.length; i++) {
+      const m = macdLine[i], mp = macdLine[i - 1], s = signalLine[i], sp = signalLine[i - 1], rv = rsiVals[i];
+      if (m == null || mp == null || s == null || sp == null || rv == null) continue;
+      if (!inTrade && mp <= sp && m > s && rv < rsiOB && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
+      else if (inTrade && mp >= sp && m < s) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "bollinger_reversal") {
+    const period = Number(parameters.period ?? 20);
+    const stdDev = Number(parameters.stdDev ?? 2);
+    const mid = sma(closes, period);
+    const lower = closes.map((_, i) => {
+      if (i < period - 1) return null;
+      const slice = closes.slice(i - period + 1, i + 1);
+      const mean = slice.reduce((a, b) => a + b, 0) / period;
+      const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / period;
+      return (mid[i] ?? 0) - stdDev * Math.sqrt(variance);
+    });
+    let inTrade = false, entryIdx = -1;
+    for (let i = 1; i < bars.length; i++) {
+      const lo = lower[i], m = mid[i];
+      if (lo == null || m == null) continue;
+      if (!inTrade && closes[i] <= lo && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
+      else if (inTrade && closes[i] >= m) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "orb") {
+    const rangePeriod = Number(parameters.rangePeriod ?? 5);
+    const holdDays    = Number(parameters.holdDays    ?? 10);
+    const highs = bars.map(b => b.high);
+    const lows  = bars.map(b => b.low);
+    let inTrade = false, entryIdx = -1, holdCount = 0;
+    for (let i = rangePeriod; i < bars.length; i++) {
+      const rHigh = Math.max(...highs.slice(i - rangePeriod, i));
+      const rLow  = Math.min(...lows.slice(i - rangePeriod, i));
+      if (!inTrade && closes[i] > rHigh && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; holdCount = 0; }
+      if (inTrade) {
+        holdCount++;
+        if (holdCount >= holdDays || closes[i] < rLow) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+      }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "trend_following") {
+    const fastEmaP  = Number(parameters.fastEma   ?? 50);
+    const slowEmaP  = Number(parameters.slowEma   ?? 200);
+    const rsiPeriod = Number(parameters.rsiPeriod ?? 14);
+    const fastE = ema(closes, fastEmaP);
+    const slowE = ema(closes, slowEmaP);
+    const rsiVals = rsi(closes, rsiPeriod);
+    let inTrade = false, entryIdx = -1;
+    for (let i = 1; i < bars.length; i++) {
+      const fe = fastE[i], fep = fastE[i - 1], se = slowE[i], sep = slowE[i - 1], rv = rsiVals[i];
+      if (fe == null || fep == null || se == null || sep == null || rv == null) continue;
+      if (!inTrade && fep <= sep && fe > se && rv > 50 && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
+      else if (inTrade && fep >= sep && fe < se) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
+  } else if (strategyType === "golden_cross") {
+    const fastP = Number(parameters.fastPeriod ?? 50);
+    const slowP = Number(parameters.slowPeriod ?? 200);
+    const fast2 = sma(closes, fastP);
+    const slow2 = sma(closes, slowP);
+    let inTrade = false, entryIdx = -1;
+    for (let i = 1; i < bars.length; i++) {
+      const f = fast2[i], fp = fast2[i - 1], s = slow2[i], sp = slow2[i - 1];
+      if (f == null || fp == null || s == null || sp == null) continue;
+      if (!inTrade && fp <= sp && f > s && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
+      else if (inTrade && fp >= sp && f < s) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
+    }
+    if (inTrade && entryIdx >= 0) signals.push({ entries: [entryIdx], exits: [bars.length - 1], direction: "long" });
   }
 
   return signals;

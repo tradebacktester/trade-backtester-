@@ -305,13 +305,23 @@ router.post("/ai/build-strategy", requireAuth, async (req, res) => {
   const systemPrompt = `You are a trading strategy parser. Convert natural language strategy descriptions into structured JSON. Respond with ONLY valid JSON — no markdown, no code fences, no explanation outside the JSON.
 
 Available strategy types and their valid parameters:
-- "sma_crossover": { "shortPeriod": integer 5–50, "longPeriod": integer 20–200 }
-- "ema_crossover": { "shortPeriod": integer 5–50, "longPeriod": integer 20–200 }
-- "rsi": { "period": integer 7–21, "overbought": integer 60–80, "oversold": integer 20–40 }
-- "macd": { "fastPeriod": integer 8–15, "slowPeriod": integer 20–30, "signalPeriod": integer 7–12 }
-- "bollinger_bands": { "period": integer 10–30, "stdDev": number 1.5–3.0 }
+- "sma_crossover":     { "fastPeriod": integer 5–50, "slowPeriod": integer 20–200 }
+- "ema_crossover":     { "fastPeriod": integer 5–50, "slowPeriod": integer 20–200 }
+- "rsi":               { "period": integer 7–21, "overbought": integer 60–80, "oversold": integer 20–40 }
+- "macd":              { "fastPeriod": integer 8–15, "slowPeriod": integer 20–30, "signalPeriod": integer 7–12 }
+- "bollinger_bands":   { "period": integer 10–30, "stdDev": number 1.5–3.0 }
+- "super_trend":       { "period": integer 7–20, "multiplier": number 2.0–5.0 }
+- "breakout":          { "entryPeriod": integer 10–50, "exitPeriod": integer 5–25 }
+- "vwap":              { "rsiPeriod": integer 7–21, "oversold": integer 30–55 }
+- "macd_rsi":          { "fastPeriod": integer 8–15, "slowPeriod": integer 20–30, "signalPeriod": integer 7–12, "rsiPeriod": integer 7–21, "rsiOverbought": integer 60–80 }
+- "donchian_breakout": { "entryPeriod": integer 10–55, "exitPeriod": integer 5–25 }
+- "bollinger_reversal":{ "period": integer 10–30, "stdDev": number 1.5–3.0 }
+- "orb":               { "rangePeriod": integer 3–15, "holdDays": integer 5–30 }
+- "trend_following":   { "fastEma": integer 20–100, "slowEma": integer 100–300, "rsiPeriod": integer 7–21 }
+- "golden_cross":      { "fastPeriod": integer 30–75, "slowPeriod": integer 150–250 }
+- "turtle_trading":    { "entryPeriod": integer 10–55, "exitPeriod": integer 5–25 }
 
-Available symbols: BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT, ADAUSDT, LINKUSDT, AVAXUSDT
+Available symbols: BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT, ADAUSDT, LINKUSDT, AVAXUSDT, AAPL, MSFT, TSLA, NVDA, SPY
 
 Response shape (use exactly these keys):
 {

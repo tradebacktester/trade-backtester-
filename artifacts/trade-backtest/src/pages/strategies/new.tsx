@@ -3,11 +3,21 @@ import { Link, useLocation } from "wouter";
 import { ArrowLeft, Save, CheckCircle, Sparkles } from "lucide-react";
 
 const STRATEGY_TYPES = [
-  { value: "sma_crossover",   label: "SMA Crossover",          desc: "Fast/slow SMA crossover signals" },
-  { value: "ema_crossover",   label: "EMA Crossover",          desc: "Fast/slow EMA crossover signals" },
-  { value: "rsi",             label: "RSI Mean Reversion",     desc: "Oversold/overbought RSI entries" },
-  { value: "macd",            label: "MACD Trend",             desc: "MACD histogram trend following" },
-  { value: "bollinger_bands", label: "Bollinger Bands",        desc: "Breakout on band expansion" },
+  { value: "sma_crossover",     label: "SMA Crossover",              desc: "Fast/slow SMA crossover signals" },
+  { value: "ema_crossover",     label: "EMA Crossover",              desc: "Fast/slow EMA crossover signals" },
+  { value: "rsi",               label: "RSI Mean Reversion",         desc: "Oversold/overbought RSI entries" },
+  { value: "macd",              label: "MACD Trend",                 desc: "MACD histogram trend following" },
+  { value: "bollinger_bands",   label: "Bollinger Bands",            desc: "Band expansion breakout entries" },
+  { value: "super_trend",       label: "Super Trend",                desc: "ATR-based dynamic trend channel" },
+  { value: "breakout",          label: "Breakout Strategy",          desc: "N-bar high breakout momentum" },
+  { value: "vwap",              label: "VWAP Strategy",              desc: "Price cross above/below VWAP" },
+  { value: "macd_rsi",          label: "MACD + RSI Combo",           desc: "MACD crossover + RSI filter" },
+  { value: "donchian_breakout", label: "Donchian Channel Breakout",  desc: "Donchian high/low channel entries" },
+  { value: "bollinger_reversal",label: "Bollinger Band Reversal",    desc: "Mean reversion from lower band" },
+  { value: "orb",               label: "Opening Range Breakout",     desc: "N-bar range breakout momentum" },
+  { value: "trend_following",   label: "Trend Following Bundle",     desc: "EMA 50/200 + RSI multi-signal" },
+  { value: "golden_cross",      label: "Golden Cross Strategy",      desc: "50/200 SMA golden cross long" },
+  { value: "turtle_trading",    label: "Turtle Trading System",      desc: "20-day Donchian breakout entry" },
 ];
 
 const SYMBOLS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "SPX500", "EUR/USD", "GBP/USD"];
@@ -23,12 +33,22 @@ const TIMEFRAMES = [
 ];
 
 const DEFAULT_PARAMS: Record<string, Record<string, number>> = {
-  sma_crossover:   { fastPeriod: 10, slowPeriod: 50 },
-  ema_crossover:   { fastPeriod: 9,  slowPeriod: 21 },
-  rsi:             { period: 14, oversold: 30, overbought: 70 },
-  macd:            { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
-  bollinger_bands: { period: 20, stdDev: 2 },
-  ict_ob:          { lookback: 20, minSize: 3, confirmCandles: 2 },
+  sma_crossover:     { fastPeriod: 10, slowPeriod: 50 },
+  ema_crossover:     { fastPeriod: 9,  slowPeriod: 21 },
+  rsi:               { period: 14, oversold: 30, overbought: 70 },
+  macd:              { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
+  bollinger_bands:   { period: 20, stdDev: 2 },
+  ict_ob:            { lookback: 20, minSize: 3, confirmCandles: 2 },
+  super_trend:       { period: 10, multiplier: 3 },
+  breakout:          { entryPeriod: 20, exitPeriod: 10 },
+  vwap:              { rsiPeriod: 14, oversold: 40 },
+  macd_rsi:          { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, rsiPeriod: 14, rsiOverbought: 70 },
+  donchian_breakout: { entryPeriod: 20, exitPeriod: 10 },
+  bollinger_reversal:{ period: 20, stdDev: 2 },
+  orb:               { rangePeriod: 5, holdDays: 10 },
+  trend_following:   { fastEma: 50, slowEma: 200, rsiPeriod: 14 },
+  golden_cross:      { fastPeriod: 50, slowPeriod: 200 },
+  turtle_trading:    { entryPeriod: 20, exitPeriod: 10 },
 };
 
 const LS_KEY = "tt_local_strategies";
