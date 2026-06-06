@@ -46,6 +46,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PositionOverlay } from "@/components/position-overlay";
+import { DrawingLayer, type DrawingLayerHandle } from "@/components/drawing-layer";
+import { DrawingToolbar } from "@/components/drawing-toolbar";
 import {
   calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic,
   calcIchimoku, calcSupertrend, calcParabolicSAR,
@@ -288,6 +290,10 @@ export default function ChartPage() {
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
   const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
   const { token } = useAuth();
+
+  // Fabric drawing tools
+  const [activeTool, setActiveTool] = useState<string>("cursor");
+  const [drawingHandle, setDrawingHandle] = useState<DrawingLayerHandle | null>(null);
 
   // Fullscreen
   const chartPageRef = useRef<HTMLDivElement>(null);
@@ -1765,6 +1771,21 @@ export default function ChartPage() {
             )}
 
             <div ref={chartContainerRef} className="absolute inset-0" />
+
+            {/* ── Drawing tools overlay ──────────────────────────── */}
+            <DrawingToolbar
+              activeTool={activeTool}
+              onToolChange={setActiveTool}
+              layerHandle={drawingHandle}
+            />
+            <DrawingLayer
+              chartRef={chartRef}
+              seriesRef={candleSeriesRef}
+              containerRef={chartContainerRef}
+              activeTool={activeTool}
+              symbol={symbol}
+              onHandleReady={setDrawingHandle}
+            />
 
             {/* Position drawing tool overlay */}
             <PositionOverlay
