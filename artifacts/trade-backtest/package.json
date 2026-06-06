@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@vercel/speed-insights": "^2.0.0",
     "lightweight-charts": "^5.2.0"
   }
 }
