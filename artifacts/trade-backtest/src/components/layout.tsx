@@ -6,7 +6,7 @@ import {
   MoreHorizontal, X, ChevronRight, BookOpen,
   Shield, LogIn, LogOut, User, Users, Crown, CreditCard, Wrench, Store,
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
-  UserCircle, ChevronDown,
+  UserCircle, ChevronDown, Calculator,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -14,15 +14,15 @@ import { AuthModal } from "@/components/auth-modal";
 
 const DESKTOP_ITEMS = [
   { title: "Charts",    url: "/chart",      icon: CandlestickChart },
-  { title: "Backtests", url: "/backtests",  icon: BookOpen },
-  { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
   { title: "Community", url: "/community",  icon: Users },
+  { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
+  { title: "Backtests", url: "/backtests",  icon: BookOpen },
   { title: "AI",        url: "/ai",         icon: Brain },
 ] as const;
 
 const DOCK_ITEMS = [
   { title: "Charts",    url: "/chart",      icon: CandlestickChart },
-  { title: "Backtests", url: "/backtests",  icon: BookOpen },
+  { title: "Community", url: "/community",  icon: Users },
   { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
   { title: "AI",        url: "/ai",         icon: Brain },
   { title: "More",      url: null,          icon: MoreHorizontal },
@@ -42,6 +42,7 @@ const NAV_SECTIONS = [
     label: "Marketplace",
     items: [
       { title: "Community",       url: "/community",    icon: Users },
+      { title: "Marketplace",     url: "/marketplace",  icon: Store },
     ],
   },
   {
@@ -57,6 +58,7 @@ const NAV_SECTIONS = [
     label: "Tools",
     items: [
       { title: "Analytics",       url: "/analytics",    icon: BarChart2 },
+      { title: "Calculator",      url: "/calculator",   icon: Calculator },
       { title: "Tools",           url: "/tools",        icon: Wrench },
       { title: "News",            url: "/news",         icon: Newspaper },
     ],
