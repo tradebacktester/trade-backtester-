@@ -1783,7 +1783,9 @@ export default function ChartPage() {
               seriesRef={candleSeriesRef}
               containerRef={chartContainerRef}
               activeTool={activeTool}
+              onToolChange={setActiveTool}
               symbol={symbol}
+              interval={interval}
               onHandleReady={setDrawingHandle}
             />
 
