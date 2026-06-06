@@ -47,3 +47,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# .replit is git-tracked and contains [userenv.shared] which is committed.
+# NEVER put secrets, API keys, passwords, or tokens in [userenv.shared].
+# Use the Replit Secrets store (padlock icon) for all sensitive values.
+# Run `bash scripts/check-replit-secrets.sh` (or install as .git/hooks/pre-commit)
+# to scan .replit for accidental secret exposure before committing.
