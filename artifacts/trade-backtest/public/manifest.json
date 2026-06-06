@@ -13,8 +13,23 @@
   "theme_color": "#8B0000",
   "orientation": "any",
   "prefer_related_applications": false,
-  "related_applications": [],
-  "iarc_rating_id": "",
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://trade-lab.vercel.app/manifest.json",
+      "id": "trade-lab"
+    },
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=app.tradelab",
+      "id": "app.tradelab"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/app/trade-lab/id0000000000"
+    }
+  ],
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
   "categories": ["finance", "productivity", "utilities", "business"],
 
   "icons": [
@@ -131,17 +146,21 @@
     "new_note_url": "/journal"
   },
 
-  "scope_extensions": [],
+  "scope_extensions": [
+    { "origin": "https://trade-lab.vercel.app" },
+    { "origin": "https://trade-lab.up.railway.app" }
+  ],
 
   "widgets": [
     {
       "name": "Market Overview",
       "short_name": "Markets",
-      "description": "Live crypto and forex market snapshot",
+      "description": "Live crypto and forex market snapshot — BTC, ETH, XRP and more",
       "tag": "market-overview",
       "ms_ac_template": "widgets/market-overview.json",
       "data": "/api/klines?widget=true",
       "type": "application/json",
+      "update": 300,
       "screenshots": [
         {
           "src": "/opengraph.jpg",
@@ -150,7 +169,50 @@
         }
       ],
       "icons": [
-        { "src": "/icon-192.png", "sizes": "192x192" }
+        { "src": "/icon-192.png", "sizes": "192x192" },
+        { "src": "/icon-512.png", "sizes": "512x512" }
+      ]
+    },
+    {
+      "name": "Backtest Summary",
+      "short_name": "Backtests",
+      "description": "Your latest backtest results — returns, win rate, and Sharpe ratio at a glance",
+      "tag": "backtest-summary",
+      "ms_ac_template": "widgets/backtest-summary.json",
+      "data": "/api/backtests/summary?widget=true",
+      "type": "application/json",
+      "update": 600,
+      "screenshots": [
+        {
+          "src": "/opengraph.jpg",
+          "sizes": "1200x630",
+          "label": "Backtest Summary Widget"
+        }
+      ],
+      "icons": [
+        { "src": "/icon-192.png", "sizes": "192x192" },
+        { "src": "/icon-512.png", "sizes": "512x512" }
+      ]
+    },
+    {
+      "name": "AI Market Pulse",
+      "short_name": "AI Pulse",
+      "description": "Daily AI-generated market sentiment and trading signal",
+      "tag": "ai-pulse",
+      "ms_ac_template": "widgets/ai-pulse.json",
+      "data": "/api/ai/pulse?widget=true",
+      "type": "application/json",
+      "update": 3600,
+      "screenshots": [
+        {
+          "src": "/opengraph.jpg",
+          "sizes": "1200x630",
+          "label": "AI Market Pulse Widget"
+        }
+      ],
+      "icons": [
+        { "src": "/icon-192.png", "sizes": "192x192" },
+        { "src": "/icon-512.png", "sizes": "512x512" }
       ]
     }
   ]
