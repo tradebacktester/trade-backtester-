@@ -72,6 +72,4 @@ channel = "stable-25_05"
 NODE_ENV = "development"
 PORT = "5000"
 ADMIN_ID = "7302782010"
-ADMIN_PASSWORD = "adivasutrade"
-GROQ_API_KEY = "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"
 
