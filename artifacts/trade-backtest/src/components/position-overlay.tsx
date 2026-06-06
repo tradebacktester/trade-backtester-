@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { X, Loader2, Sparkles, Lock } from "lucide-react";
+import { X, Loader2, Sparkles, Lock, Trash2 } from "lucide-react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { PositionTool } from "@/lib/chart-utils";
 
@@ -432,17 +432,32 @@ export function PositionOverlay({
                   }}>
                     {isLong ? "▲ Long Position" : "▼ Short Position"}
                   </span>
-                  <button
-                    onClick={() => { onDelete(pos.id); onSelect(null); }}
-                    title="Delete position"
-                    style={{
-                      padding: "4px", borderRadius: "6px", cursor: "pointer",
-                      background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
-                      color: "hsl(0,78%,60%)", display: "flex", alignItems: "center",
-                    }}
-                  >
-                    <X style={{ width: 12, height: 12 }} />
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    {/* Collapse panel — keeps position on chart */}
+                    <button
+                      onClick={() => onSelect(null)}
+                      title="Close panel (position stays on chart)"
+                      style={{
+                        padding: "4px", borderRadius: "6px", cursor: "pointer",
+                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                        color: "hsl(220,14%,55%)", display: "flex", alignItems: "center",
+                      }}
+                    >
+                      <X style={{ width: 12, height: 12 }} />
+                    </button>
+                    {/* Delete position permanently */}
+                    <button
+                      onClick={() => { onDelete(pos.id); onSelect(null); }}
+                      title="Delete position"
+                      style={{
+                        padding: "4px", borderRadius: "6px", cursor: "pointer",
+                        background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.22)",
+                        color: "hsl(0,78%,60%)", display: "flex", alignItems: "center",
+                      }}
+                    >
+                      <Trash2 style={{ width: 12, height: 12 }} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Price rows */}
