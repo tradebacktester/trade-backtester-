@@ -8,8 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
+import { API } from "@/lib/api-config";
 
-const API = "/api";
 
 type Backtest = {
   id: number;

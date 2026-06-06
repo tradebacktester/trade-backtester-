@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useSubscription, type SubscriptionPlan } from "@/lib/subscription-context";
 import { AuthModal } from "@/components/auth-modal";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE } from "@/lib/api-config";
 
 declare global {
   interface Window {
@@ -198,7 +199,7 @@ export default function PricingPage() {
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    fetch("/api/subscription/plans")
+    fetch(`${API_BASE}/api/subscription/plans`)
       .then(r => r.json())
       .then(data => { setPlans(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -215,7 +216,7 @@ export default function PricingPage() {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const orderRes = await fetch("/api/subscription/create-order", {
+      const orderRes = await fetch(`${API_BASE}/api/subscription/create-order`, {
         method: "POST",
         headers,
         body: JSON.stringify({ planId: plan.id }),
@@ -247,7 +248,7 @@ export default function PricingPage() {
         prefill: { name: user.name, email: user.email },
         theme: { color: "#8b5cf6" },
         handler: async (response: Record<string, string>) => {
-          const verifyRes = await fetch("/api/subscription/verify", {
+          const verifyRes = await fetch(`${API_BASE}/api/subscription/verify`, {
             method: "POST",
             headers,
             body: JSON.stringify({

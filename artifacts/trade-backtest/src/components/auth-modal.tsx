@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Mail, Lock, User, LogIn, UserPlus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { API_BASE } from "@/lib/api-config";
 
 interface AuthModalProps {
   open: boolean;
@@ -37,7 +38,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
     setError("");
     setLoading(true);
     try {
-      const url = tab === "signin" ? "/api/auth/signin" : "/api/auth/signup";
+      const url = tab === "signin" ? `${API_BASE}/api/auth/signin` : `${API_BASE}/api/auth/signup`;
       const body = tab === "signin"
         ? { email, password }
         : { email, name, password };

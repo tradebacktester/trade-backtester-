@@ -25,6 +25,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { AuthModal } from "@/components/auth-modal";
 import { format, subYears } from "date-fns";
+import { API_BASE } from "@/lib/api-config";
 
 /* ─── Zod Schema ──────────────────────────────────────────── */
 const formSchema = z.object({
@@ -184,7 +185,7 @@ export default function NewBacktest() {
     if (!aiPrompt.trim() || !token) return;
     setAiLoading(true); setAiResult(null);
     try {
-      const r = await fetch("/api/ai/build-strategy", {
+      const r = await fetch(`${API_BASE}/api/ai/build-strategy`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ description: aiPrompt }),

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
+import { API_BASE } from "@/lib/api-config";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const C = {
@@ -113,7 +114,7 @@ function ScreenerTab() {
 
   const { data, isLoading, refetch, isFetching } = useQuery<ScreenerRow[]>({
     queryKey: ["tools-screener"],
-    queryFn: () => fetch("/api/tools/screener").then(r => r.json()),
+    queryFn: () => fetch(`${API_BASE}/api/tools/screener`).then(r => r.json()),
     refetchInterval: 30_000,
   });
 
@@ -298,7 +299,7 @@ function HeatMapTab() {
   const [period, setPeriod] = useState<"change1h"|"change4h"|"change24h"|"change7d"|"change30d">("change24h");
   const { data, isLoading, refetch, isFetching } = useQuery<HeatCell[]>({
     queryKey: ["tools-heatmap"],
-    queryFn: () => fetch("/api/tools/heatmap").then(r => r.json()),
+    queryFn: () => fetch(`${API_BASE}/api/tools/heatmap`).then(r => r.json()),
     refetchInterval: 60_000,
   });
 
@@ -411,7 +412,7 @@ function DepthTab() {
   const [symbol, setSymbol] = useState("BTCUSDT");
   const { data, isLoading, refetch, isFetching } = useQuery<DepthData>({
     queryKey: ["tools-depth", symbol],
-    queryFn: () => fetch(`/api/tools/depth/${symbol}`).then(r => r.json()),
+    queryFn: () => fetch(`${API_BASE}/api/tools/depth/${symbol}`).then(r => r.json()),
     refetchInterval: 15_000,
   });
 
@@ -538,7 +539,7 @@ function CorrelationTab() {
   const [tf, setTf] = useState("30d");
   const { data, isLoading } = useQuery<CorrData>({
     queryKey: ["tools-correlation", tf],
-    queryFn: () => fetch(`/api/tools/correlation?timeframe=${tf}`).then(r => r.json()),
+    queryFn: () => fetch(`${API_BASE}/api/tools/correlation?timeframe=${tf}`).then(r => r.json()),
     refetchInterval: 120_000,
   });
 
@@ -632,7 +633,7 @@ function CalendarTab() {
   const [filterCurrency, setFilterCurrency] = useState("all");
   const { data, isLoading } = useQuery<CalEvent[]>({
     queryKey: ["tools-calendar"],
-    queryFn: () => fetch("/api/tools/calendar").then(r => r.json()),
+    queryFn: () => fetch(`${API_BASE}/api/tools/calendar`).then(r => r.json()),
     staleTime: 5 * 60_000,
   });
 
@@ -949,7 +950,7 @@ function FundingTab() {
   const [sortDir, setSortDir] = useState<"asc"|"desc">("desc");
   const { data, isLoading, refetch, isFetching } = useQuery<FundingData>({
     queryKey: ["tools-funding"],
-    queryFn: () => fetch("/api/tools/funding-rates").then(r => r.json()),
+    queryFn: () => fetch(`${API_BASE}/api/tools/funding-rates`).then(r => r.json()),
     refetchInterval: 30_000,
   });
 

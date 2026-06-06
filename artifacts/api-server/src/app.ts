@@ -33,9 +33,27 @@ app.use(
   }),
 );
 
+// CORS — in production restrict to explicitly allowed origins.
+// Set ALLOWED_ORIGINS as a comma-separated list of allowed origins in your
+// Railway / Replit environment, e.g.:
+//   ALLOWED_ORIGINS=https://my-app.vercel.app,https://my-custom-domain.com
+// Leave unset (or set to "*") only for local development.
+const rawOrigins = process.env["ALLOWED_ORIGINS"] ?? "";
+const allowedOrigins = rawOrigins
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: true,
+    origin(requestOrigin, callback) {
+      // Allow server-to-server requests (no Origin header) and same-origin
+      if (!requestOrigin) return callback(null, true);
+      // No restriction configured → open (dev / Replit only)
+      if (allowedOrigins.length === 0) return callback(null, true);
+      if (allowedOrigins.includes(requestOrigin)) return callback(null, true);
+      callback(new Error(`CORS: origin '${requestOrigin}' not allowed`));
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "x-admin-token"],
     credentials: true,

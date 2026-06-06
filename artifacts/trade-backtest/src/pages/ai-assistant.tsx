@@ -8,6 +8,7 @@ import {
   Activity, ChevronDown, ChevronUp, MessageCircle, Send, Bot, User,
   BookOpen, Zap, ArrowUp, ArrowDown, Info, ChevronRight, Compass,
 } from "lucide-react";
+import { API_BASE } from "@/lib/api-config";
 
 type Sentiment = "bullish" | "bearish" | "neutral";
 type Tab = "overview" | "news" | "ict" | "calendar" | "chat" | "bias";
@@ -560,7 +561,7 @@ function ChatPanel({ token }: { token: string }) {
     setMessages(newMessages);
     setLoading(true);
     try {
-      const res = await fetch("/api/ai/chat", {
+      const res = await fetch(`${API_BASE}/api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: newMessages }),
@@ -707,7 +708,7 @@ function BiasPanel({ token }: { token: string }) {
     if (trades.length < 3) { setBpError("You need at least 3 closed paper trades. Head to the Demo page and make some trades first."); return; }
     setLoading(true); setBpError(null); setReport(null);
     try {
-      const resp = await fetch("/api/ai/bias-report", {
+      const resp = await fetch(`${API_BASE}/api/ai/bias-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ trades }),

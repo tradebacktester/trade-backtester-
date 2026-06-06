@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Crown, CreditCard, Calendar, AlertTriangle, CheckCircle, Loader2, ArrowRight, Shield, Zap, Star } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSubscription } from "@/lib/subscription-context";
+import { API_BASE } from "@/lib/api-config";
 
 interface Payment {
   id: number;
@@ -34,7 +35,7 @@ export default function BillingPage() {
     const token = localStorage.getItem("tt_token");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    fetch("/api/subscription/payments", { headers })
+    fetch(`${API_BASE}/api/subscription/payments`, { headers })
       .then(r => r.ok ? r.json() : [])
       .then(data => { setPayments(data); setPaymentsLoading(false); })
       .catch(() => setPaymentsLoading(false));
@@ -47,7 +48,7 @@ export default function BillingPage() {
       const token = localStorage.getItem("tt_token");
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/subscription/cancel", { method: "POST", headers });
+      const res = await fetch(`${API_BASE}/api/subscription/cancel`, { method: "POST", headers });
       if (res.ok) { refresh(); }
     } finally { setCancelling(false); }
   }

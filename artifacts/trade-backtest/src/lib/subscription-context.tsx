@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./auth-context";
+import { API_BASE } from "@/lib/api-config";
 
 export interface PlanFeatures {
   maxBacktestsPerMonth: number;
@@ -72,7 +73,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       const token = localStorage.getItem("tt_token");
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/subscription/status", { headers });
+      const res = await fetch(`${API_BASE}/api/subscription/status`, { headers });
       if (res.ok) {
         const data = await res.json();
         setPlan(data.plan ?? null);

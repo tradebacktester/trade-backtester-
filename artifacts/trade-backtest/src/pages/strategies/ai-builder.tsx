@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE } from "@/lib/api-config";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -82,7 +83,7 @@ export default function AiBuilder() {
     setError(null);
     setResult(null);
     try {
-      const resp = await fetch("/api/ai/build-strategy", {
+      const resp = await fetch(`${API_BASE}/api/ai/build-strategy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -104,7 +105,7 @@ export default function AiBuilder() {
     if (!result) return;
     setIsSaving(true);
     try {
-      const resp = await fetch("/api/strategies", {
+      const resp = await fetch(`${API_BASE}/api/strategies`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

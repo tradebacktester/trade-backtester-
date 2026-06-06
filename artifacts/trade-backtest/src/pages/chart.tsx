@@ -63,6 +63,7 @@ import {
   type IndicatorConfig, type IndicatorId,
   type ChartLayout, type PriceAlert, type PositionTool,
 } from "@/lib/chart-utils";
+import { API_BASE } from "@/lib/api-config";
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -184,7 +185,7 @@ function savePtTrade(trade: { id: number; entryPrice: number; entryTime: number;
   // Also persist to server for logged-in users (fire and forget)
   const token = localStorage.getItem("tt_token");
   if (token) {
-    fetch("/api/paper/trades", {
+    fetch(`${API_BASE}/api/paper/trades`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({
@@ -504,7 +505,7 @@ export default function ChartPage() {
     // Also reset server-side trades for logged-in users
     const token = localStorage.getItem("tt_token");
     if (token) {
-      fetch("/api/paper/trades", {
+      fetch(`${API_BASE}/api/paper/trades`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       }).catch(() => {});

@@ -7,6 +7,7 @@ import {
   X, Check, Package, AlertCircle, Calendar, Hash,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { API_BASE } from "@/lib/api-config";
 
 interface AdminUser {
   id: number; email: string; name: string; banned: boolean; bannedReason: string | null; createdAt: string;
@@ -134,7 +135,7 @@ export default function AdminPanel() {
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true); setUsersError("");
     try {
-      const res = await fetch("/api/admin/users", { headers });
+      const res = await fetch(`${API_BASE}/api/admin/users`, { headers });
       if (res.status === 401) { setAdminToken(null); setLocation("/admin"); return; }
       setUsers(await res.json());
     } catch { setUsersError("Failed to load users"); }
@@ -144,7 +145,7 @@ export default function AdminPanel() {
   const fetchPolicies = useCallback(async () => {
     setPoliciesLoading(true);
     try {
-      const res = await fetch("/api/admin/policies", { headers });
+      const res = await fetch(`${API_BASE}/api/admin/policies`, { headers });
       const data: Policy[] = await res.json();
       setPolicies(data);
       const init: Record<string, string> = {};
@@ -157,7 +158,7 @@ export default function AdminPanel() {
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
     try {
-      const res = await fetch("/api/admin/plans", { headers });
+      const res = await fetch(`${API_BASE}/api/admin/plans`, { headers });
       if (res.ok) setPlans(await res.json());
     } catch { }
     finally { setPlansLoading(false); }
@@ -166,7 +167,7 @@ export default function AdminPanel() {
   const fetchSubs = useCallback(async (silent = false) => {
     if (!silent) setSubsLoading(true);
     try {
-      const res = await fetch("/api/admin/subscriptions", { headers });
+      const res = await fetch(`${API_BASE}/api/admin/subscriptions`, { headers });
       if (res.ok) setSubs(await res.json());
     } catch { }
     finally { if (!silent) setSubsLoading(false); }
@@ -175,7 +176,7 @@ export default function AdminPanel() {
   const fetchPayments = useCallback(async () => {
     setPaymentsLoading(true);
     try {
-      const res = await fetch("/api/admin/payments", { headers });
+      const res = await fetch(`${API_BASE}/api/admin/payments`, { headers });
       if (res.ok) setPayments(await res.json());
     } catch { }
     finally { setPaymentsLoading(false); }
@@ -190,7 +191,7 @@ export default function AdminPanel() {
 
   async function toggleBan(user: AdminUser) {
     const reason = !user.banned ? (banReason[user.id] || null) : null;
-    const res = await fetch(`/api/admin/users/${user.id}/ban`, {
+    const res = await fetch(`${API_BASE}/api/admin/users/${user.id}/ban`, {
       method: "POST", headers, body: JSON.stringify({ banned: !user.banned, reason }),
     });
     if (res.ok) {
@@ -202,7 +203,7 @@ export default function AdminPanel() {
   async function savePolicy(slug: string, title: string) {
     setSavingSlug(slug);
     try {
-      const res = await fetch(`/api/admin/policies/${slug}`, {
+      const res = await fetch(`${API_BASE}/api/admin/policies/${slug}`, {
         method: "PUT", headers, body: JSON.stringify({ content: editingContent[slug], title }),
       });
       if (res.ok) {
@@ -217,7 +218,7 @@ export default function AdminPanel() {
   async function togglePlanActive(plan: SubscriptionPlan) {
     setSavingPlan(plan.id);
     try {
-      const res = await fetch(`/api/admin/plans/${plan.id}`, {
+      const res = await fetch(`${API_BASE}/api/admin/plans/${plan.id}`, {
         method: "PATCH", headers, body: JSON.stringify({ isActive: !plan.isActive }),
       });
       if (res.ok) {
@@ -231,7 +232,7 @@ export default function AdminPanel() {
     if (!editDraft) return;
     setSavingPlan(editDraft.id);
     try {
-      const res = await fetch(`/api/admin/plans/${editDraft.id}`, {
+      const res = await fetch(`${API_BASE}/api/admin/plans/${editDraft.id}`, {
         method: "PATCH", headers,
         body: JSON.stringify({
           name: editDraft.name,
@@ -253,7 +254,7 @@ export default function AdminPanel() {
     if (!newPlan.name || !newPlan.slug) return;
     setSavingPlan(-1);
     try {
-      const res = await fetch("/api/admin/plans", {
+      const res = await fetch(`${API_BASE}/api/admin/plans`, {
         method: "POST", headers,
         body: JSON.stringify({ ...newPlan, features: {} }),
       });
@@ -270,7 +271,7 @@ export default function AdminPanel() {
     if (!grantUserId || !grantPlanId) return;
     setGranting(true);
     try {
-      const res = await fetch("/api/admin/grant-premium", {
+      const res = await fetch(`${API_BASE}/api/admin/grant-premium`, {
         method: "POST", headers,
         body: JSON.stringify({ userId: parseInt(grantUserId), planId: parseInt(grantPlanId), months: parseInt(grantMonths) }),
       });
@@ -285,7 +286,7 @@ export default function AdminPanel() {
 
   async function revokeSubscription(id: number) {
     if (!confirm("Revoke this subscription?")) return;
-    const res = await fetch(`/api/admin/subscriptions/${id}/revoke`, { method: "PATCH", headers });
+    const res = await fetch(`${API_BASE}/api/admin/subscriptions/${id}/revoke`, { method: "PATCH", headers });
     if (res.ok) setSubs(ss => ss.map(s => s.id === id ? { ...s, status: "cancelled" } : s));
   }
 

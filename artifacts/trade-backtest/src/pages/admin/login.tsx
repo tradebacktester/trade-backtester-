@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Shield, Eye, EyeOff, ChevronRight, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { API_BASE } from "@/lib/api-config";
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
@@ -39,7 +40,7 @@ export default function AdminLogin() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/login", {
+      const res = await fetch(`${API_BASE}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, password, id2, password2 }),

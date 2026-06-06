@@ -4,6 +4,7 @@ import {
   Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { API_BASE } from "@/lib/api-config";
 
 interface Post {
   id: number;
@@ -48,7 +49,7 @@ function avatarColor(name: string): string {
 
 async function apiFetch(path: string, opts?: RequestInit) {
   const token = localStorage.getItem("tt_token");
-  const r = await fetch(path, {
+  const r = await fetch(`${API_BASE}${path}` as string, {
     ...opts,
     headers: {
       "Content-Type": "application/json",

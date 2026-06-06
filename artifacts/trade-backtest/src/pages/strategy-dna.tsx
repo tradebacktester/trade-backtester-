@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, Dna, AlertTriangle, TrendingUp, Shield, Target, Zap, BarChart2, Star, Brain, ChevronRight, CheckCircle2, XCircle, Lightbulb } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { API_BASE } from "@/lib/api-config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +125,7 @@ export default function StrategyDnaPage() {
     setIsLoading(true); setError(null); setData(null); setSelectedIdx(null);
     try {
       const t = token ?? "";
-      const resp = await fetch("/api/strategies/dna", {
+      const resp = await fetch(`${API_BASE}/api/strategies/dna`, {
         headers: { "Authorization": `Bearer ${t}` },
       });
       if (!resp.ok) throw new Error((await resp.json()).error ?? "Request failed");
@@ -142,7 +143,7 @@ export default function StrategyDnaPage() {
     setNarrativeError(null);
     setNarrative(null);
     try {
-      const resp = await fetch("/api/ai/dna-narrative", {
+      const resp = await fetch(`${API_BASE}/api/ai/dna-narrative`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({

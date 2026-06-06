@@ -9,6 +9,7 @@ import {
   MessageCircle, Send, X, Bot, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { API_BASE } from "@/lib/api-config";
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function fmtPct(v: number | null | undefined, sign = true) {
@@ -493,7 +494,7 @@ function PaperTradingSection() {
     const token = localStorage.getItem("tt_token");
     if (token) {
       try {
-        const resp = await fetch("/api/paper/trades", {
+        const resp = await fetch(`${API_BASE}/api/paper/trades`, {
           headers: { "Authorization": `Bearer ${token}` },
         });
         if (resp.ok) {
@@ -659,7 +660,7 @@ export default function Dashboard() {
     setIsChatLoading(true);
     try {
       const token = localStorage.getItem("tt_token");
-      const res = await fetch("/api/ai/chat", {
+      const res = await fetch(`${API_BASE}/api/ai/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

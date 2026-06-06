@@ -36,6 +36,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, ComposedChart, Line, BarChart, Bar, Cell, ReferenceLine, PieChart, Pie
 } from "recharts";
+import { API_BASE } from "@/lib/api-config";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: numbe
   useEffect(() => {
     const token = localStorage.getItem("tt_token");
     if (!token) return;
-    fetch(`/api/backtests/${backtestId}/journal/${tradeId}`, {
+    fetch(`${API_BASE}/api/backtests/${backtestId}/journal/${tradeId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.ok ? r.json() : null)
@@ -198,7 +199,7 @@ function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: numbe
     saveTimerRef.current = setTimeout(() => {
       const token = localStorage.getItem("tt_token");
       if (!token) return;
-      fetch(`/api/backtests/${backtestId}/journal/${tradeId}`, {
+      fetch(`${API_BASE}/api/backtests/${backtestId}/journal/${tradeId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -456,7 +457,7 @@ function ParameterOptHeatmap({
     setIsLoading(true);
     setError(null);
     try {
-      const resp = await fetch("/api/backtests/optimize", {
+      const resp = await fetch(`${API_BASE}/api/backtests/optimize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -685,7 +686,7 @@ function PeerRankingTab({ backtestId }: { backtestId: number }) {
   React.useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/backtests/${backtestId}/percentile`)
+    fetch(`${API_BASE}/api/backtests/${backtestId}/percentile`)
       .then(r => r.json())
       .then(d => {
         if (d.error) { setError(d.error); return; }
@@ -914,7 +915,7 @@ export default function BacktestDetail() {
     setAutopsyError(null);
     setAutopsyText(null);
     try {
-      const resp = await fetch("/api/ai/autopsy", {
+      const resp = await fetch(`${API_BASE}/api/ai/autopsy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -985,7 +986,7 @@ export default function BacktestDetail() {
         }
       }
 
-      const resp = await fetch("/api/ai/narrative", {
+      const resp = await fetch(`${API_BASE}/api/ai/narrative`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}` },
         body: JSON.stringify({
@@ -1028,7 +1029,7 @@ export default function BacktestDetail() {
     setIsLoadingEvents(true);
     setEventError(null);
     try {
-      const resp = await fetch(`/api/backtests/${id}/event-impact`);
+      const resp = await fetch(`${API_BASE}/api/backtests/${id}/event-impact`);
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error ?? "Failed to load event data");
       setEventData(data);
@@ -2366,7 +2367,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
     setIsLoading(true); setError(null);
     try {
       const token = localStorage.getItem("tt_token") ?? "";
-      const resp = await fetch(`/api/backtests/${backtestId}/regime-analysis`, {
+      const resp = await fetch(`${API_BASE}/api/backtests/${backtestId}/regime-analysis`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       if (!resp.ok) throw new Error("Failed to load regime data");
@@ -2646,8 +2647,8 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
     setIsLoading(true);
     try {
       const [tradesResp, divResp] = await Promise.all([
-        fetch(`/api/backtests/${backtestId}/live-trades`, { headers: { "Authorization": `Bearer ${token()}` } }),
-        fetch(`/api/backtests/${backtestId}/divergence`,  { headers: { "Authorization": `Bearer ${token()}` } }),
+        fetch(`${API_BASE}/api/backtests/${backtestId}/live-trades`, { headers: { "Authorization": `Bearer ${token()}` } }),
+        fetch(`${API_BASE}/api/backtests/${backtestId}/divergence`,  { headers: { "Authorization": `Bearer ${token()}` } }),
       ]);
       if (tradesResp.ok) setLiveTrades(await tradesResp.json());
       if (divResp.ok) setDivergence(await divResp.json());
@@ -2661,7 +2662,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
     if (!form.tradeDate) { toast({ title: "Trade date required", variant: "destructive" }); return; }
     setIsSubmitting(true);
     try {
-      const resp = await fetch(`/api/backtests/${backtestId}/live-trades`, {
+      const resp = await fetch(`${API_BASE}/api/backtests/${backtestId}/live-trades`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token()}` },
         body: JSON.stringify({
@@ -2681,7 +2682,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
   }
 
   async function handleDelete(id: number) {
-    await fetch(`/api/backtests/${backtestId}/live-trades/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token()}` } });
+    await fetch(`${API_BASE}/api/backtests/${backtestId}/live-trades/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token()}` } });
     await loadAll();
     toast({ title: "Trade removed" });
   }

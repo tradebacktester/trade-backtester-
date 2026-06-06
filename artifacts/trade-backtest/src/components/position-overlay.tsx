@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { X, Loader2, Sparkles, Lock, Trash2 } from "lucide-react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { PositionTool } from "@/lib/chart-utils";
+import { API_BASE } from "@/lib/api-config";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -229,7 +230,7 @@ export function PositionOverlay({
     setAiState({ posId: pos.id, loading: true, text: null });
     try {
       const { riskPctActual, rewPctActual, rrRatio } = calcMetrics(pos);
-      const res = await fetch("/api/ai/analyze-position", {
+      const res = await fetch(`${API_BASE}/api/ai/analyze-position`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

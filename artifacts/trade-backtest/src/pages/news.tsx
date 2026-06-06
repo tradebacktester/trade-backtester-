@@ -8,6 +8,7 @@ import {
   Clock, ChevronLeft, ChevronRight, RefreshCw, Filter
 } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
+import { API_BASE } from "@/lib/api-config";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -213,7 +214,7 @@ export default function NewsPage() {
   const { data: events, isLoading, isError, refetch, isFetching } = useQuery<CalendarEvent[]>({
     queryKey: ["news-calendar", week],
     queryFn: async () => {
-      const res = await fetch(`/api/news/calendar?week=${week}`);
+      const res = await fetch(`${API_BASE}/api/news/calendar?week=${week}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
