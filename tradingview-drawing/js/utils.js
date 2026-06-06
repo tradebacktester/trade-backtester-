@@ -75,11 +75,21 @@ export function debounce(fn, ms) {
   };
 }
 
-/** Convert event coords to canvas-relative coords */
+/** Convert event coords to canvas-relative coords.
+ *  Handles MouseEvent, TouchEvent (touches) and TouchEvent (changedTouches on touchend). */
 export function eventToCanvas(e, el) {
   const r = el.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  let clientX, clientY;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else if (e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
   return { x: clientX - r.left, y: clientY - r.top };
 }
 

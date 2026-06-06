@@ -55,11 +55,18 @@ export class ToolManager {
     this._onMove     = throttle(this._onMove.bind(this), 16);
     this._onUp       = this._onUp.bind(this);
     this._onKey      = this._onKey.bind(this);
+    this._onTouchStart = this._onTouchStart.bind(this);
+    this._onTouchMove  = throttle(this._onTouchMove.bind(this), 16);
+    this._onTouchEnd   = this._onTouchEnd.bind(this);
 
     wrapper.addEventListener('mousedown', this._onDown);
     wrapper.addEventListener('mousemove', this._onMove);
     wrapper.addEventListener('mouseup',   this._onUp);
     document.addEventListener('keydown',  this._onKey);
+
+    wrapper.addEventListener('touchstart', this._onTouchStart, { passive: false });
+    wrapper.addEventListener('touchmove',  this._onTouchMove,  { passive: false });
+    wrapper.addEventListener('touchend',   this._onTouchEnd,   { passive: false });
 
     // Cursor-mode: fabric handles selection
     getFabricCanvas().on('selection:cleared', () => {});
@@ -122,6 +129,39 @@ export class ToolManager {
       pushUndoState(serializeDrawings());
       saveDrawings(serializeDrawings());
       // Pitchfork uses 3 clicks — don't reset isDrawing prematurely
+      if (this._tool.needsMoreClicks && this._tool.needsMoreClicks()) {
+        this.isDrawing = true;
+      }
+    }
+  }
+
+  _onTouchStart(e) {
+    if (this.activeTool === 'cursor') return;
+    if (!this._tool) return;
+    e.preventDefault();
+    const pos = eventToCanvas(e, this.wrapper);
+    this.isDrawing = true;
+    this._tool.onMouseDown(pos.x, pos.y);
+  }
+
+  _onTouchMove(e) {
+    if (this.activeTool === 'cursor') return;
+    if (!this.isDrawing || !this._tool) return;
+    e.preventDefault();
+    const pos = eventToCanvas(e, this.wrapper);
+    this._tool.onMouseMove(pos.x, pos.y);
+  }
+
+  _onTouchEnd(e) {
+    if (this.activeTool === 'cursor') return;
+    if (!this.isDrawing || !this._tool) return;
+    e.preventDefault();
+    const pos = eventToCanvas(e, this.wrapper);
+    const finished = this._tool.onMouseUp(pos.x, pos.y);
+    if (finished) {
+      this.isDrawing = false;
+      pushUndoState(serializeDrawings());
+      saveDrawings(serializeDrawings());
       if (this._tool.needsMoreClicks && this._tool.needsMoreClicks()) {
         this.isDrawing = true;
       }
@@ -264,34 +304,60 @@ class TextTool extends BaseTool {
   constructor(wrapper) { super(); this._wrapper = wrapper; }
   onMouseDown(x, y) {
     const lg = toLogical(x, y);
-    // show overlay input
+
     let overlay = document.getElementById('text-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.id = 'text-overlay';
+
       const inp = document.createElement('input');
       inp.type = 'text'; inp.id = 'text-input';
       inp.placeholder = 'Type label…';
+      inp.setAttribute('autocomplete', 'off');
+
+      const btn = document.createElement('button');
+      btn.id = 'text-confirm-btn';
+      btn.textContent = '✓';
+      btn.type = 'button';
+
       overlay.appendChild(inp);
+      overlay.appendChild(btn);
       this._wrapper.appendChild(overlay);
     }
-    overlay.style.left    = `${x}px`;
+
+    // Clamp overlay so it doesn't go off-screen
+    const ww = this._wrapper.clientWidth;
+    const overlayW = 160;
+    const clampedX = Math.min(x, ww - overlayW - 8);
+    overlay.style.left    = `${Math.max(4, clampedX)}px`;
     overlay.style.top     = `${y - 18}px`;
-    overlay.style.display = 'block';
+    overlay.style.display = 'flex';
+
     const inp = document.getElementById('text-input');
+    const btn = document.getElementById('text-confirm-btn');
     inp.value = '';
     inp.focus();
-    this._px = x; this._py = y; this._lg = lg;
-    inp.onkeydown = (e) => {
-      if (e.key === 'Enter' || e.key === 'Escape') {
-        const txt = inp.value.trim();
-        overlay.style.display = 'none';
-        if (txt) {
-          makeText(x, y, txt, { time: lg.time, price: lg.price, text: txt });
-          saveDrawings(serializeDrawings());
-        }
+
+    const commit = () => {
+      const txt = inp.value.trim();
+      overlay.style.display = 'none';
+      inp.onkeydown = null;
+      btn.onclick = null;
+      inp.onblur = null;
+      if (txt) {
+        makeText(x, y, txt, { time: lg.time, price: lg.price, text: txt });
+        saveDrawings(serializeDrawings());
       }
     };
+
+    inp.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); commit(); }
+    };
+
+    // blur fires when mobile keyboard "Done" is tapped
+    inp.onblur = () => setTimeout(commit, 80);
+
+    btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); inp.onblur = null; commit(); };
   }
   onMouseUp() { return true; }
 }
