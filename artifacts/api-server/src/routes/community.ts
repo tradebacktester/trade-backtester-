@@ -8,7 +8,10 @@ const router: IRouter = Router();
 
 const ADMIN_ID = process.env.ADMIN_ID ?? "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
-const HMAC_SECRET = `${ADMIN_ID}:${ADMIN_PASSWORD}`;
+const ADMIN_ID_2 = process.env.ADMIN_ID_2 ?? "";
+const ADMIN_PASSWORD_2 = process.env.ADMIN_PASSWORD_2 ?? "";
+// MUST match the HMAC_SECRET in admin.ts exactly — same 4-credential derivation
+const HMAC_SECRET = `${ADMIN_ID}:${ADMIN_PASSWORD}:${ADMIN_ID_2}:${ADMIN_PASSWORD_2}`;
 
 function makeAdminToken(): string {
   return createHmac("sha256", HMAC_SECRET).update("admin-session-v1").digest("hex");
