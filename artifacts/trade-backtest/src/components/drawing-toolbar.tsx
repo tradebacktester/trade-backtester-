@@ -118,6 +118,16 @@ const TOOLS = [
       </svg>
     ),
   },
+  {
+    id: "eraser", label: "Eraser — click drawing to delete", group: 5,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M9.5 2.5L13.5 6.5L6.5 13.5L2 13.5L2 9L9.5 2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="rgba(239,83,80,0.15)"/>
+        <path d="M6 13.5L13.5 6.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.5"/>
+        <line x1="2" y1="13.5" x2="14" y2="13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.4"/>
+      </svg>
+    ),
+  },
 ] as const;
 
 export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props) {
@@ -171,7 +181,7 @@ export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props)
   }
 
   return (
-    <div style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", zIndex:50, display:"flex", flexDirection:"column", gap:5, pointerEvents:"all" }}>
+    <div style={{ position:"absolute", left:8, top:8, bottom:8, zIndex:50, display:"flex", flexDirection:"column", gap:5, pointerEvents:"all", overflowY:"auto", scrollbarWidth:"none" }}>
 
       {/* Floating tooltip */}
       {tooltip && (

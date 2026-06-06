@@ -142,6 +142,17 @@ class DrawingController {
     });
     this._ro.observe(container);
 
+    // Eraser: delete any object clicked while in eraser mode
+    fab.on("mouse:down", (opts: any) => {
+      if (this.tool !== "eraser") return;
+      const target = opts.target;
+      if (!target || target._isPreview) return;
+      this._rmObj(target);
+      fab.discardActiveObject();
+      this._fin();
+      fab.requestRenderAll();
+    });
+
     this._load();
     this._pushUndo();
   }
@@ -157,6 +168,12 @@ class DrawingController {
       this.fab.selection    = !this.locked;
       this.fab.skipTargetFind = this.locked;
       this._selectable(!this.locked);
+    } else if (t === "eraser") {
+      upper.style.pointerEvents = "all";
+      upper.style.cursor = "cell";
+      this.fab.selection    = false;
+      this.fab.skipTargetFind = false;
+      this._selectable(true);
     } else {
       upper.style.pointerEvents = "none";
       upper.style.cursor = "crosshair";
@@ -204,7 +221,7 @@ class DrawingController {
 
   // ── Click / tap ─────────────────────────────────────────────────────────────
   private _onClick(e: MouseEvent) {
-    if (this.tool === "cursor") return;
+    if (this.tool === "cursor" || this.tool === "eraser") return;
     // Suppress clicks that originated from a touch (touchend fires click too)
     if ((e as any).sourceCapabilities?.firesTouchEvents) return;
     const { x, y } = this._xy(e);
@@ -302,14 +319,14 @@ class DrawingController {
   }
 
   // ── Touch ────────────────────────────────────────────────────────────────────
-  private _onTS(e: TouchEvent) { if (this.tool === "cursor") return; e.preventDefault(); }
+  private _onTS(e: TouchEvent) { if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault(); }
   private _onTM(e: TouchEvent) {
-    if (this.tool === "cursor") return; e.preventDefault();
+    if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault();
     if (this.phase !== "placing" || !this.preview) return;
     const { x, y } = this._xy(e); this._updPreview(x, y);
   }
   private _onTE(e: TouchEvent) {
-    if (this.tool === "cursor") return; e.preventDefault();
+    if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault();
     const { x, y } = this._xy(e); this._handlePt(x, y);
   }
 
