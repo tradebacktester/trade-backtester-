@@ -2137,6 +2137,114 @@ export default function ChartPage() {
           )}
         </div>
       </div>
+
+      {/* ── Demo Account Overview (below chart, scroll to see) ───────── */}
+      <div className="mx-auto w-full px-3 pb-6 mt-4 max-w-[1600px]">
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(52,211,153,0.18)", background: "linear-gradient(135deg, rgba(52,211,153,0.04) 0%, rgba(255,255,255,0.01) 100%)" }}>
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(52,211,153,0.1)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)" }} />
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest" style={{ color: "hsl(150,90%,60%)" }}>Demo Account</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.08)", color: "hsl(150,70%,50%)", border: "1px solid rgba(52,211,153,0.15)" }}>Paper Trading</span>
+            </div>
+            <button
+              onClick={() => setAccountModalOpen(true)}
+              className="text-[10px] font-mono px-3 py-1 rounded-lg transition-all"
+              style={{ background: "rgba(52,211,153,0.08)", color: "hsl(150,80%,55%)", border: "1px solid rgba(52,211,153,0.15)" }}
+            >
+              Configure
+            </button>
+          </div>
+
+          <div className="px-5 py-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+              <div className="rounded-xl p-3.5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Equity</p>
+                <p className="text-lg font-mono font-bold leading-none" style={{ color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
+                  ${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-[10px] font-mono mt-1" style={{ color: equityGain >= 0 ? "hsl(150,70%,45%)" : "hsl(0,70%,50%)" }}>
+                  {fmtPct(equityGainPct)} from ${ptCapital.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-xl p-3.5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Realized P&L</p>
+                <p className="text-lg font-mono font-bold leading-none" style={{ color: totalPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
+                  {fmtPnl(totalPnl)}
+                </p>
+                <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,38%)" }}>
+                  {trades.length} closed trade{trades.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+
+              <div className="rounded-xl p-3.5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Win Rate</p>
+                <p className="text-lg font-mono font-bold leading-none" style={{ color: trades.length > 0 ? (winRate >= 50 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)") : "hsl(220,14%,45%)" }}>
+                  {trades.length > 0 ? `${winRate.toFixed(0)}%` : "—"}
+                </p>
+                <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,38%)" }}>
+                  {trades.length > 0 ? `${wins}W · ${trades.length - wins}L` : "no trades yet"}
+                </p>
+              </div>
+
+              <div className="rounded-xl p-3.5" style={{ background: position ? "rgba(52,211,153,0.05)" : "rgba(255,255,255,0.025)", border: `1px solid ${position ? "rgba(52,211,153,0.18)" : "rgba(255,255,255,0.06)"}` }}>
+                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Open Position</p>
+                {position ? (
+                  <>
+                    <p className="text-lg font-mono font-bold leading-none" style={{ color: position.side === "long" ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
+                      {position.side.toUpperCase()}
+                    </p>
+                    <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,40%)" }}>
+                      Entry @ ${fmt(position.price)}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-mono font-bold leading-none" style={{ color: "hsl(220,14%,40%)" }}>None</p>
+                    <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,32%)" }}>use Buy/Sell above</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {trades.length > 0 && (
+              <div>
+                <p className="text-[9px] font-mono uppercase tracking-widest mb-2.5" style={{ color: "hsl(220,14%,35%)" }}>Recent Trades</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {[...trades].reverse().slice(0, 6).map((t, i) => (
+                    <div key={t.id} className="rounded-xl px-3.5 py-2.5" style={t.pnl >= 0 ? { background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.12)" } : { background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.1)" }}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>#{trades.length - i}</span>
+                        <span className="text-sm font-mono font-bold" style={{ color: t.pnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
+                          {fmtPnl(t.pnl)} <span className="text-[10px] font-normal opacity-70">({fmtPct(t.pnlPct)})</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono" style={{ color: "hsl(220,14%,42%)" }}>
+                        <span style={{ color: "hsl(150,80%,50%)" }}>B</span><span>${fmt(t.entryPrice)}</span>
+                        <span style={{ color: "hsl(220,14%,28%)" }}>→</span>
+                        <span style={{ color: "hsl(0,75%,60%)" }}>S</span><span>${fmt(t.exitPrice)}</span>
+                      </div>
+                      <div className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(220,14%,28%)" }}>
+                        {fmtDate(t.entryTime)} → {fmtDate(t.exitTime)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {trades.length === 0 && !position && (
+              <div className="flex items-center justify-center py-4">
+                <p className="text-[11px] font-mono text-center leading-relaxed" style={{ color: "hsl(220,14%,30%)" }}>
+                  No trades yet. Use the order panel above to place your first paper trade.<br />
+                  Press <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>B</kbd> to buy or <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>S</kbd> to sell.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

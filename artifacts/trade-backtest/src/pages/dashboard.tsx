@@ -927,9 +927,9 @@ export default function Dashboard() {
           <Panel>
             <div className="flex items-center justify-between mb-3">
               <SectionLabel>Demo Account</SectionLabel>
-              <Link href="/demo">
+              <Link href="/chart">
                 <span className="text-[10px] font-mono cursor-pointer hover:opacity-70" style={{ color: C.sub }}>
-                  Open Demo →
+                  Open Chart →
                 </span>
               </Link>
             </div>

@@ -523,7 +523,7 @@ export default function NewBacktest() {
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-[260px] overflow-y-auto">
                         {["Crypto", "Stocks", "ETFs"].map(group => (
                           <React.Fragment key={group}>
                             <div className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>{group}</div>

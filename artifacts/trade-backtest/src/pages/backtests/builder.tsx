@@ -225,17 +225,18 @@ const STRATEGY_DEFS: StrategyDef[] = [
     gradientTo: "#0ea5e9",
     description: "Mean-revert from VWAP extremes",
     longDesc: "Volume Weighted Average Price anchors intraday fair value. Buy when price dips significantly below VWAP and rebounds. Sell when price extends too far above VWAP. Ideal for mean-reversion setups.",
-    defaultParams: { threshold: 2 },
+    defaultParams: { rsiPeriod: 14, oversold: 40 },
     paramConfig: [
-      { key: "threshold", label: "Deviation Threshold (%)", min: 0.5, max: 8, step: 0.5 },
+      { key: "rsiPeriod", label: "RSI Period", min: 5, max: 30, step: 1 },
+      { key: "oversold", label: "RSI Oversold Level", min: 20, max: 50, step: 1 },
     ],
-    entryConditions: (_p) => [
-      { label: `Price falls ${_p.threshold}% below VWAP then recovers`, color: "#22c55e" },
+    entryConditions: (p) => [
+      { label: `Price below VWAP & RSI(${p.rsiPeriod}) < ${p.oversold} (oversold)`, color: "#22c55e" },
     ],
-    exitConditions: (_p) => [
-      { label: `Price rises ${_p.threshold}% above VWAP`, color: "#ef4444" },
+    exitConditions: (p) => [
+      { label: `Price above VWAP & RSI(${p.rsiPeriod}) > ${100 - p.oversold}`, color: "#ef4444" },
     ],
-    logicSummary: (p) => `VWAP ± ${p.threshold}% deviation mean-reversion`,
+    logicSummary: (p) => `VWAP mean-reversion with RSI(${p.rsiPeriod}) confirmation`,
   },
   {
     type: "macd_rsi",
@@ -320,18 +321,18 @@ const STRATEGY_DEFS: StrategyDef[] = [
     gradientTo: "#f97316",
     description: "Trade breakouts from the early session range",
     longDesc: "Defines the Opening Range as the high/low of the first N minutes. Enter when price breaks above (long) or below (short) that range. A classic intraday momentum strategy used by professionals.",
-    defaultParams: { rangeMinutes: 30, multiplier: 1 },
+    defaultParams: { rangePeriod: 5, holdDays: 10 },
     paramConfig: [
-      { key: "rangeMinutes", label: "Range Minutes", min: 5, max: 120, step: 5 },
-      { key: "multiplier", label: "ATR Target Multiplier", min: 0.5, max: 3, step: 0.5 },
+      { key: "rangePeriod", label: "Range Period (bars)", min: 2, max: 30, step: 1 },
+      { key: "holdDays", label: "Hold Days", min: 1, max: 60, step: 1 },
     ],
     entryConditions: (p) => [
-      { label: `Price breaks above ${p.rangeMinutes}-min opening range high`, color: "#22c55e" },
+      { label: `Price breaks above ${p.rangePeriod}-bar opening range high`, color: "#22c55e" },
     ],
     exitConditions: (p) => [
-      { label: `ATR-based target (${p.multiplier}x) or range low hit`, color: "#ef4444" },
+      { label: `Hold for ${p.holdDays} bars or range low hit`, color: "#ef4444" },
     ],
-    logicSummary: (p) => `${p.rangeMinutes}-min ORB with ${p.multiplier}x ATR target`,
+    logicSummary: (p) => `${p.rangePeriod}-bar ORB, hold up to ${p.holdDays} days`,
   },
   {
     type: "trend_following",

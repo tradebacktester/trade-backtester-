@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { format, differenceInDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -445,6 +446,7 @@ function ParameterOptHeatmap({
   const [result, setResult] = useState<OptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { token } = useAuth();
 
   const runOptimize = useCallback(async () => {
     if (param1 === param2) {
@@ -456,7 +458,10 @@ function ParameterOptHeatmap({
     try {
       const resp = await fetch("/api/backtests/optimize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           strategyId, symbol, startDate, endDate, initialCapital,
           param1Name: param1,
