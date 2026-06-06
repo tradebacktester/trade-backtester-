@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradingView Drawing Tools</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Left toolbar ─────────────────────────────────────────────────────── -->
+    <div id="toolbar"></div>
+
+    <!-- ── Chart area ───────────────────────────────────────────────────────── -->
+    <div id="chart-wrapper">
+      <div id="chart-container"></div>
+      <!-- Fabric canvas injected here by drawingLayer.js              -->
+      <!-- Undo/redo + magnet buttons injected here by ui.js           -->
+      <!-- Status bar injected here by ui.js                           -->
+    </div>
+
+  </div>
+
+  <!-- ── Libraries (loaded BEFORE modules) ──────────────────────────────────── -->
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://unpkg.com/fabric@5.3.0/dist/fabric.min.js"></script>
+
+  <!-- ── App entry point ────────────────────────────────────────────────────── -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

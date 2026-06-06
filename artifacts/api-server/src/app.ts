@@ -48,6 +48,18 @@ app.use(createRateLimit(200));
 
 app.use("/api", router);
 
+// Serve drawing tools at /drawing-tools (vanilla JS app — no build needed)
+const drawingToolsDir = path.resolve(process.cwd(), "tradingview-drawing");
+if (fs.existsSync(drawingToolsDir)) {
+  app.use(
+    "/drawing-tools",
+    express.static(drawingToolsDir, {
+      setHeaders(res) { res.setHeader("Cache-Control", "no-store"); },
+    }),
+  );
+  logger.info({ drawingToolsDir }, "Serving drawing tools");
+}
+
 // Serve the pre-built Vite frontend for all non-API routes (SPA fallback)
 const frontendDist = process.env["FRONTEND_DIST"] ?? path.resolve("dist/public");
 if (fs.existsSync(frontendDist)) {
