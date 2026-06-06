@@ -22,6 +22,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/TradeLab: Expo Mobile"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -33,6 +37,18 @@ outputType = "webview"
 task = "shell.exec"
 args = "bash scripts/start.sh"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "artifacts/TradeLab: Expo Mobile"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/TradeLab && CI=1 npx expo start --web --port 9000"
+waitForPort = 9000
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -58,6 +74,10 @@ externalPort = 8081
 [[ports]]
 localPort = 8082
 externalPort = 3002
+
+[[ports]]
+localPort = 9000
+externalPort = 9000
 
 [[ports]]
 localPort = 24593
