@@ -1,21 +1,157 @@
 {
+  "id": "/trade-lab",
   "name": "Trade Lab",
   "short_name": "Trade Lab",
-  "description": "A fast trading and analysis platform for real-time market insights and tools.",
+  "description": "A fast trading and analysis platform for real-time market insights, strategy backtesting, and AI-powered tools.",
+  "lang": "en-US",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
   "background_color": "#111827",
   "theme_color": "#8B0000",
+  "orientation": "any",
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "iarc_rating_id": "",
+  "categories": ["finance", "productivity", "utilities", "business"],
+
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+
+  "screenshots": [
+    {
+      "src": "/opengraph.jpg",
+      "sizes": "1200x630",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Trade Lab — Dashboard with live market overview and performance metrics"
+    },
+    {
+      "src": "/opengraph.jpg",
+      "sizes": "1200x630",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Trade Lab — Mobile trading dashboard"
+    }
+  ],
+
+  "shortcuts": [
+    {
+      "name": "Charts",
+      "short_name": "Charts",
+      "description": "View live market charts and technical analysis",
+      "url": "/chart",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Backtests",
+      "short_name": "Backtests",
+      "description": "Run and review strategy backtests",
+      "url": "/backtests",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "AI Assistant",
+      "short_name": "AI",
+      "description": "Get AI-powered trading insights and strategy help",
+      "url": "/ai",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Community",
+      "short_name": "Community",
+      "description": "Browse and share trading ideas with the community",
+      "url": "/community",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "text/csv": [".csv"],
+        "application/json": [".json"]
+      }
+    }
+  ],
+
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+
+  "protocol_handlers": [
+    {
+      "protocol": "web+tradelab",
+      "url": "/?action=%s"
+    }
+  ],
+
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+
+  "note_taking": {
+    "new_note_url": "/journal"
+  },
+
+  "scope_extensions": [],
+
+  "widgets": [
+    {
+      "name": "Market Overview",
+      "short_name": "Markets",
+      "description": "Live crypto and forex market snapshot",
+      "tag": "market-overview",
+      "ms_ac_template": "widgets/market-overview.json",
+      "data": "/api/klines?widget=true",
+      "type": "application/json",
+      "screenshots": [
+        {
+          "src": "/opengraph.jpg",
+          "sizes": "1200x630",
+          "label": "Market Overview Widget"
+        }
+      ],
+      "icons": [
+        { "src": "/icon-192.png", "sizes": "192x192" }
+      ]
     }
   ]
 }
