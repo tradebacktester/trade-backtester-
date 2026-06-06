@@ -78,9 +78,11 @@ if (fs.existsSync(drawingToolsDir)) {
   logger.info({ drawingToolsDir }, "Serving drawing tools");
 }
 
-// Serve the pre-built Vite frontend for all non-API routes (SPA fallback)
+// Serve the pre-built Vite frontend for all non-API routes (SPA fallback).
+// Set SERVE_FRONTEND=false on Railway (API-only) so this block is skipped.
+const serveFrontend = process.env["SERVE_FRONTEND"] !== "false";
 const frontendDist = process.env["FRONTEND_DIST"] ?? path.resolve("dist/public");
-if (fs.existsSync(frontendDist)) {
+if (serveFrontend && fs.existsSync(frontendDist)) {
   // Hashed assets (index-abc123.js) can be cached long-term; index.html must never be cached
   app.use(
     express.static(frontendDist, {

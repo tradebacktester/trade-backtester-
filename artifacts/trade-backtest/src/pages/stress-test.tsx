@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useListStrategies } from "@workspace/api-client-react";
+import { API } from "@/lib/api-config";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +82,7 @@ export default function StressTestPage() {
     }
     setIsLoading(true); setError(null); setResult(null);
     try {
-      const resp = await fetch("/api/superpowers/stress-test", {
+      const resp = await fetch(`${API}/superpowers/stress-test`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
