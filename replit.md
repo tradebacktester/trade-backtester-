@@ -11,6 +11,16 @@ A full-stack trade backtesting app that lets you define algorithmic trading stra
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
 
+## First-time setup (after clone)
+
+Run once after cloning to install the git pre-commit hook that blocks accidental secret commits:
+
+```bash
+bash scripts/setup-git-hooks.sh
+```
+
+This installs `scripts/check-replit-secrets.sh` as `.git/hooks/pre-commit`. After that, any `git commit` that contains a secret-looking value in the `.replit` `[userenv.shared]` block is automatically rejected with a clear error message. The hook is also re-installed automatically on every `git merge` (via `scripts/post-merge.sh`) so it stays in place without any repeated manual step.
+
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
