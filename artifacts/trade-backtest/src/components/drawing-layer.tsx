@@ -85,6 +85,7 @@ class DrawingController {
   pitchPreviews: FObj[] = [];
   _unsubs: Array<() => void> = [];
   _mouseBound: { down: (e: MouseEvent) => void; move: (e: MouseEvent) => void; up: (e: MouseEvent) => void; key: (e: KeyboardEvent) => void };
+  _touchBound: { start: (e: TouchEvent) => void; move: (e: TouchEvent) => void; end: (e: TouchEvent) => void };
   _ro: ResizeObserver;
 
   constructor(
@@ -110,6 +111,15 @@ class DrawingController {
     container.addEventListener("mouseup",   onUp);
     document.addEventListener("keydown",   onKey);
     this._mouseBound = { down: onDown, move: onMove, up: onUp, key: onKey };
+
+    // Bind touch handlers (mobile support)
+    const onTouchStart = this._onTouchStart.bind(this);
+    const onTouchMove  = this._onTouchMove.bind(this);
+    const onTouchEnd   = this._onTouchEnd.bind(this);
+    container.addEventListener("touchstart", onTouchStart, { passive: false });
+    container.addEventListener("touchmove",  onTouchMove,  { passive: false });
+    container.addEventListener("touchend",   onTouchEnd,   { passive: false });
+    this._touchBound = { start: onTouchStart, move: onTouchMove, end: onTouchEnd };
 
     // Chart sync subscriptions
     const chart = chartRef.current;
@@ -174,9 +184,17 @@ class DrawingController {
   }
 
   // ── Mouse handlers ──────────────────────────────────────────────────────────
-  private _eventXY(e: MouseEvent) {
+  private _eventXY(e: MouseEvent | TouchEvent) {
     const r = this.container.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    let clientX: number, clientY: number;
+    if ("touches" in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
+    } else if ("changedTouches" in e && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = (e as MouseEvent).clientX; clientY = (e as MouseEvent).clientY;
+    }
+    return { x: clientX - r.left, y: clientY - r.top };
   }
 
   private _onDown(e: MouseEvent) {
@@ -261,6 +279,23 @@ class DrawingController {
     if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.shiftKey && e.key === "z"))) { e.preventDefault(); this.redo(); }
   }
 
+  // ── Touch handlers (mobile) ─────────────────────────────────────────────────
+  private _onTouchStart(e: TouchEvent) {
+    if (this.activeTool === "cursor") return;
+    e.preventDefault();
+    this._onDown(e as unknown as MouseEvent);
+  }
+  private _onTouchMove(e: TouchEvent) {
+    if (this.activeTool === "cursor") return;
+    e.preventDefault();
+    this._onMove(e as unknown as MouseEvent);
+  }
+  private _onTouchEnd(e: TouchEvent) {
+    if (this.activeTool === "cursor") return;
+    e.preventDefault();
+    this._onUp(e as unknown as MouseEvent);
+  }
+
   private _cancelDrawing() {
     this.isDrawing = false;
     if (this.preview) { this.fab.remove(this.preview); this.preview = null; }
@@ -296,27 +331,42 @@ class DrawingController {
     if (!overlay) {
       overlay = document.createElement("div");
       overlay.id = "drawing-text-overlay";
-      overlay.style.cssText = "position:absolute;z-index:100;display:none;";
+      overlay.style.cssText = "position:absolute;z-index:100;display:none;align-items:center;gap:0;";
       const inp = document.createElement("input");
       inp.type = "text"; inp.id = "drawing-text-input";
       inp.placeholder = "Type label…";
-      inp.style.cssText = "background:#1E222D;border:1px solid #2962FF;color:#D9D9D9;padding:3px 8px;font-size:13px;border-radius:3px;outline:none;min-width:100px;";
+      inp.setAttribute("autocomplete", "off");
+      inp.style.cssText = "background:#1E222D;border:1px solid #2962FF;color:#D9D9D9;padding:4px 8px;font-size:13px;border-radius:3px 0 0 3px;outline:none;min-width:100px;";
+      const btn = document.createElement("button");
+      btn.id = "drawing-text-confirm";
+      btn.textContent = "✓";
+      btn.type = "button";
+      btn.style.cssText = "background:#2962FF;border:none;color:#fff;padding:4px 10px;font-size:14px;border-radius:0 3px 3px 0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;";
       overlay.appendChild(inp);
+      overlay.appendChild(btn);
       this.container.appendChild(overlay);
     }
-    overlay.style.left = `${x}px`; overlay.style.top = `${y - 22}px`; overlay.style.display = "block";
+    const ww = this.container.clientWidth;
+    const clampedX = Math.min(x, ww - 168);
+    overlay.style.left = `${Math.max(4, clampedX)}px`;
+    overlay.style.top = `${y - 22}px`;
+    overlay.style.display = "flex";
     const inp = document.getElementById("drawing-text-input") as HTMLInputElement;
+    const btn = document.getElementById("drawing-text-confirm") as HTMLButtonElement;
     inp.value = ""; inp.focus();
-    inp.onkeydown = (e) => {
-      if (e.key === "Enter" || e.key === "Escape") {
-        const txt = inp.value.trim();
-        overlay!.style.display = "none";
-        if (txt && e.key === "Enter") {
-          this._makeText(x, y, time, price, txt);
-          this._finalize();
-        }
-      }
+
+    const commit = (accept: boolean) => {
+      const txt = inp.value.trim();
+      overlay!.style.display = "none";
+      inp.onkeydown = null; inp.onblur = null; btn.onclick = null;
+      if (accept && txt) { this._makeText(x, y, time, price, txt); this._finalize(); }
     };
+    inp.onkeydown = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commit(true); }
+      if (e.key === "Escape") { e.preventDefault(); commit(false); }
+    };
+    inp.onblur = () => setTimeout(() => commit(true), 80);
+    btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); inp.onblur = null; commit(true); };
   }
 
   // ── Drawing object factories ────────────────────────────────────────────────
@@ -553,6 +603,10 @@ class DrawingController {
     this.container.removeEventListener("mousemove", move);
     this.container.removeEventListener("mouseup", up);
     document.removeEventListener("keydown", key);
+    const { start, move: tmove, end } = this._touchBound;
+    this.container.removeEventListener("touchstart", start);
+    this.container.removeEventListener("touchmove", tmove);
+    this.container.removeEventListener("touchend", end);
     try { this.fab.dispose(); } catch { /* ignore */ }
   }
 }
