@@ -1,0 +1,12 @@
+{
+  "buildCommand": "pnpm --filter @workspace/trade-backtest run build",
+  "outputDirectory": "artifacts/trade-backtest/dist",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "rewrites": [
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ],
+  "env": {
+    "VITE_API_URL": "@vite_api_url"
+  }
+}

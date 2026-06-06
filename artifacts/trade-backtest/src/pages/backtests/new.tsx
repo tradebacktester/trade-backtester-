@@ -176,7 +176,7 @@ export default function NewBacktest() {
           toast({ title: "Strategy created", description: `${typeDef.name} strategy is ready to test.` });
           setCreatingStrategyType(null);
         },
-        onError: () => { toast({ title: "Error", description: "Failed to create strategy", variant: "destructive" }); setCreatingStrategyType(null); },
+        onError: (err: { data?: { error?: string } | null; message?: string }) => { toast({ title: "Error", description: err.data?.error ?? err.message ?? "Failed to create strategy", variant: "destructive" }); setCreatingStrategyType(null); },
       }
     );
   }
@@ -209,7 +209,7 @@ export default function NewBacktest() {
           toast({ title: "Strategy created", description: aiResult!.name });
           setAiResult(null); setAiPrompt("");
         },
-        onError: () => toast({ title: "Error", description: "Failed to create strategy", variant: "destructive" }),
+        onError: (err: { data?: { error?: string } | null; message?: string }) => toast({ title: "Error", description: err.data?.error ?? err.message ?? "Failed to create strategy", variant: "destructive" }),
       }
     );
   }

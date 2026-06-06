@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { SubscriptionProvider } from "@/lib/subscription-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { PolicyPopup } from "@/components/policy-popup";
+import { useToast } from "@/hooks/use-toast";
 
 // Pages (eager)
 import Dashboard from "@/pages/dashboard";
@@ -52,6 +53,28 @@ const queryClient = new QueryClient({
     }
   }
 });
+
+function UnauthorizedHandler() {
+  const { signout, user } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    function handle() {
+      if (user) {
+        signout();
+        toast({
+          title: "Session expired",
+          description: "Please sign in again to continue.",
+          variant: "destructive",
+        });
+      }
+    }
+    window.addEventListener("api:unauthorized", handle);
+    return () => window.removeEventListener("api:unauthorized", handle);
+  }, [user, signout, toast]);
+
+  return null;
+}
 
 function AdminPanelGuard() {
   const { adminToken } = useAuth();
@@ -129,6 +152,7 @@ function App() {
           <SettingsProvider>
             <QueryClientProvider client={queryClient}>
               <TooltipProvider>
+                <UnauthorizedHandler />
                 <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                   <Layout>
                     <Router />
