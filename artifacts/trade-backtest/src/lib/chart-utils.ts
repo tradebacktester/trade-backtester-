@@ -105,7 +105,6 @@ export interface ChartLayout {
   name: string;
   symbol: string;
   interval: string;
-  drawings: SerializableDrawing[];
   indicators: IndicatorId[];
   createdAt: number;
 }

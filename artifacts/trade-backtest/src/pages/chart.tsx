@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, Fragment } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useBinanceLivePrice, useBinancePrices } from "@/lib/use-binance-ws";
 import {
   createChart,
@@ -39,11 +39,10 @@ import { Button } from "@/components/ui/button";
 import {
   AlertCircle, RefreshCw, Play, Pause, SkipBack, SkipForward,
   StepBack, StepForward, Clapperboard, X, TrendingUp, TrendingDown,
-  RotateCcw, MousePointer2, Minus, GitCommit, Hash, Eraser,
-  BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
+  RotateCcw, BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
   Flame, Bell, BellOff, ArrowLeftRight, BookOpen, List,
-  CalendarClock, GitBranch, Type, Triangle, Sparkles,
-  Sun, Moon, Keyboard, Crosshair, Maximize2, Minimize2,
+  CalendarClock, Triangle, Sparkles,
+  Sun, Moon, Keyboard, Maximize2, Minimize2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PositionOverlay } from "@/components/position-overlay";
@@ -57,9 +56,9 @@ import {
   loadLayouts, saveLayouts,
   loadAlerts, saveAlerts,
   loadPositions, savePositions,
-  type DrawnObject, type DrawTool, type DrawStart, type OhlcState,
+  type OhlcState,
   type KlineBar, type Position, type SimTrade,
-  type IndicatorConfig, type SerializableDrawing, type IndicatorId,
+  type IndicatorConfig, type IndicatorId,
   type ChartLayout, type PriceAlert, type PositionTool,
 } from "@/lib/chart-utils";
 
@@ -129,15 +128,6 @@ const SPEEDS = [
   { value: 2000, label: "0.5×" },
 ];
 
-const DRAW_COLORS = [
-  { value: "hsl(190,90%,55%)", label: "Cyan" },
-  { value: "hsl(38,100%,55%)", label: "Amber" },
-  { value: "hsl(150,90%,55%)", label: "Green" },
-  { value: "hsl(0,85%,62%)", label: "Red" },
-  { value: "hsl(260,90%,70%)", label: "Purple" },
-  { value: "hsl(200,14%,75%)", label: "White" },
-];
-
 const VIRAL_INDICATOR_IDS = ["ema9", "ema20", "ema50", "bb", "vwap", "rsi"] as const;
 
 const CHART_TYPES = [
@@ -149,16 +139,6 @@ const CHART_TYPES = [
   { id: "bar"         as const, label: "B",  title: "Bar" },
 ] as const;
 type ChartType = typeof CHART_TYPES[number]["id"];
-
-const FIB_LEVELS = [
-  { pct: 0,     color: "hsl(200,14%,65%)", label: "0%" },
-  { pct: 0.236, color: "hsl(200,90%,60%)", label: "23.6%" },
-  { pct: 0.382, color: "hsl(150,80%,55%)", label: "38.2%" },
-  { pct: 0.5,   color: "hsl(38,100%,55%)", label: "50%" },
-  { pct: 0.618, color: "hsl(0,85%,62%)",   label: "61.8%" },
-  { pct: 0.786, color: "hsl(260,80%,68%)", label: "78.6%" },
-  { pct: 1,     color: "hsl(200,14%,65%)", label: "100%" },
-];
 
 const MIN_CANDLES = 30;
 const CHART_BG   = "hsl(222,22%,8%)";
@@ -238,15 +218,6 @@ function calcHeikinAshi(bars: { time: number; open: number; high: number; low: n
   return ha;
 }
 
-// ── Drawing hit-test helper ─────────────────────────────────────────────
-function distToSeg(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
-  const dx = x2 - x1; const dy = y2 - y1;
-  const len2 = dx * dx + dy * dy;
-  if (len2 === 0) return Math.hypot(px - x1, py - y1);
-  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
-  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-}
-
 function makeChartOptions(hideTimeScale = false, logScale = false, theme: "dark" | "light" = "dark") {
   const t = theme === "light" ? LIGHT_THEME : DARK_THEME;
   return {
@@ -313,22 +284,9 @@ export default function ChartPage() {
   const [pendingChartOrders, setPendingChartOrders] = useState<PendingChartOrder[]>([]);
   const entryPriceLineRef = useRef<import("lightweight-charts").IPriceLine | null>(null);
 
-  // Drawing tools
-  const [activeTool, setActiveTool] = useState<DrawTool>("cursor");
-  const [drawColor, setDrawColor] = useState(DRAW_COLORS[0].value);
-  const [drawings, setDrawings] = useState<DrawnObject[]>([]);
-  const [drawStart, setDrawStart] = useState<DrawStart | null>(null);
-  const [drawStart2, setDrawStart2] = useState<DrawStart | null>(null); // for 3-point tools
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-  const [textInput, setTextInput] = useState<{ x: number; y: number; price: number; time: Time } | null>(null);
-  const [textValue, setTextValue] = useState("");
-
   // Position drawing tools
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
   const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
-  const [selectedDrawId, setSelectedDrawId] = useState<number | null>(null);
-  const [drawHandles, setDrawHandles] = useState<{ role: string; x: number; y: number }[]>([]);
-  const [drawCursor, setDrawCursor] = useState<string>("default");
   const { token } = useAuth();
 
   // Fullscreen
@@ -376,9 +334,8 @@ export default function ChartPage() {
   const [savedLayouts, setSavedLayouts] = useState<ChartLayout[]>(loadLayouts);
   const [showLoadLayout, setShowLoadLayout] = useState(false);
 
-  // Chart theme, magnet mode, shortcuts panel
+  // Chart theme, shortcuts panel
   const [chartTheme, setChartTheme] = useState<"dark" | "light">("dark");
-  const [magnetMode, setMagnetMode] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────
@@ -390,14 +347,6 @@ export default function ChartPage() {
   const markersPluginRef   = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const sortedKlinesRef    = useRef<KlineBar[]>([]);
   const markersRef         = useRef<SeriesMarker<Time>[]>([]);
-  const drawingsRef        = useRef<DrawnObject[]>([]);
-  const draggingRef        = useRef<{
-    drawingId: number; point: "p1" | "p2" | "p3" | "body";
-    startSX: number; startSY: number;
-    origP1SX: number; origP1SY: number;
-    origP2SX: number; origP2SY: number;
-    origP3SX: number; origP3SY: number;
-  } | null>(null);
   const indicatorPanelRef  = useRef<HTMLDivElement>(null);
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line"> | ISeriesApi<"Line">[]>>(new Map());
 
@@ -413,12 +362,10 @@ export default function ChartPage() {
   const multiTfCandleRef    = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
   const isSyncingRef       = useRef(false);
-  const pendingRestoreRef  = useRef<SerializableDrawing[] | null>(null);
   const replayIndexRef     = useRef(replayIndex);
   const positionRef        = useRef(position);
   useEffect(() => { replayIndexRef.current = replayIndex; }, [replayIndex]);
   useEffect(() => { positionRef.current = position; }, [position]);
-  useEffect(() => { drawingsRef.current = drawings; }, [drawings]);
 
   const queryClient = useQueryClient();
 
@@ -537,509 +484,6 @@ export default function ChartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentBar]);
 
-  // ── Draw tools definition ──────────────────────────────────────────
-  const DRAW_TOOLS: { id: DrawTool; icon: React.ReactNode; label: string; key: string }[] = [
-    { id: "cursor",           icon: <MousePointer2 className="h-3.5 w-3.5" />,                label: "Select",    key: "Esc" },
-    { id: "hline",            icon: <Minus className="h-3.5 w-3.5" />,                         label: "H-Line",    key: "H" },
-    { id: "trendline",        icon: <GitCommit className="h-3.5 w-3.5 rotate-45" />,           label: "Trend",     key: "T" },
-    { id: "ray",              icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="2" y1="12" x2="12" y2="2"/><polyline points="8,2 12,2 12,6" fill="none"/></svg>, label: "Ray", key: "R" },
-    { id: "arrow",            icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="currentColor" stroke="currentColor" strokeWidth="0"><line x1="2" y1="12" x2="11" y2="3" stroke="currentColor" strokeWidth="1.5" fill="none"/><polygon points="7,2 12,2 12,7"/></svg>, label: "Arrow", key: "A" },
-    { id: "fibonacci",        icon: <Hash className="h-3.5 w-3.5" />,                          label: "Fib",       key: "F" },
-    { id: "rectangle",        icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="10" height="8" rx="1"/></svg>, label: "Rect", key: "Q" },
-    { id: "parallel_channel", icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="2" y1="4" x2="12" y2="4"/><line x1="2" y1="10" x2="12" y2="10"/></svg>, label: "Channel", key: "C" },
-    { id: "pitchfork",        icon: <GitBranch className="h-3.5 w-3.5" />,                     label: "Pitchfork", key: "P" },
-    { id: "text",             icon: <Type className="h-3.5 w-3.5" />,                          label: "Text",      key: "X" },
-    { id: "eraser",           icon: <Eraser className="h-3.5 w-3.5" />,                        label: "Erase",     key: "E" },
-    { id: "long_pos",  icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="9" x2="13" y2="9" stroke="hsl(0,85%,62%)" strokeWidth="1.1"/><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="5" x2="13" y2="5" stroke="hsl(150,90%,55%)" strokeWidth="1.1"/></svg>, label: "Long",      key: "L" },
-    { id: "short_pos", icon: <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="5" x2="13" y2="5" stroke="hsl(0,85%,62%)" strokeWidth="1.1"/><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.1"/><line x1="1" y1="9" x2="13" y2="9" stroke="hsl(150,90%,55%)" strokeWidth="1.1"/></svg>, label: "Short",     key: "J" },
-  ];
-
-  // ── Coord helpers ──────────────────────────────────────────────────
-  const getChartCoords = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const rect    = chartContainerRef.current!.getBoundingClientRect();
-    const x       = e.clientX - rect.left;
-    const y       = e.clientY - rect.top;
-    let   price   = candleSeriesRef.current?.coordinateToPrice(y) ?? null;
-    const logical = chartRef.current?.timeScale().coordinateToLogical(x) ?? null;
-    let time: Time | null = null;
-    if (logical !== null) {
-      const idx = Math.max(0, Math.min(Math.round(Number(logical)), sortedKlinesRef.current.length - 1));
-      const bar = sortedKlinesRef.current[idx];
-      time = (bar?.time ?? null) as Time | null;
-      if (magnetMode && bar && price !== null) {
-        const candidates = [bar.open, bar.high, bar.low, bar.close];
-        const raw = Number(price);
-        const snapped = candidates.reduce((best, v) => Math.abs(v - raw) < Math.abs(best - raw) ? v : best);
-        return { x, y, price: snapped, time };
-      }
-    }
-    return { x, y, price: price !== null ? Number(price) : null, time };
-  }, [magnetMode]);
-
-  // ── Drawing helpers ────────────────────────────────────────────────
-
-  const toScreen = useCallback((time: number, price: number): { x: number; y: number } | null => {
-    const x = chartRef.current?.timeScale().timeToCoordinate(time as Time);
-    const y = candleSeriesRef.current?.priceToCoordinate(price);
-    if (x == null || y == null) return null;
-    return { x: Number(x), y: Number(y) };
-  }, []);
-
-  const screenToPrice = useCallback((sy: number): number | null => {
-    const p = candleSeriesRef.current?.coordinateToPrice(sy);
-    return p != null ? Number(p) : null;
-  }, []);
-
-  const screenToTime = useCallback((sx: number): number | null => {
-    const logical = chartRef.current?.timeScale().coordinateToLogical(sx);
-    if (logical == null) return null;
-    const idx = Math.max(0, Math.min(Math.round(Number(logical)), sortedKlinesRef.current.length - 1));
-    return sortedKlinesRef.current[idx]?.time ?? null;
-  }, []);
-
-  const recomputeDrawHandles = useCallback((drawId: number | null) => {
-    if (drawId == null) { setDrawHandles([]); return; }
-    const d = drawingsRef.current.find(x => x.id === drawId);
-    if (!d) { setDrawHandles([]); return; }
-    const handles: { role: string; x: number; y: number }[] = [];
-    const cW = chartContainerRef.current?.clientWidth ?? 400;
-    if (d.kind === "hline") {
-      const y = candleSeriesRef.current?.priceToCoordinate(d.price);
-      if (y != null) handles.push({ role: "p1", x: cW / 2, y: Number(y) });
-    } else if (d.kind === "trendline" || d.kind === "arrow" || d.kind === "ray") {
-      const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price);
-      if (s1) handles.push({ role: "p1", ...s1 });
-      if (s2) handles.push({ role: "p2", ...s2 });
-    } else if (d.kind === "rectangle") {
-      const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price);
-      if (s1) handles.push({ role: "p1", ...s1 });
-      if (s2) handles.push({ role: "p2", ...s2 });
-    } else if (d.kind === "fibonacci") {
-      const midT = sortedKlinesRef.current.length > 0 ? sortedKlinesRef.current[Math.floor(sortedKlinesRef.current.length / 2)].time : 0;
-      const sH = toScreen(midT, d.high); const sL = toScreen(midT, d.low);
-      if (sH) handles.push({ role: "p1", ...sH });
-      if (sL) handles.push({ role: "p2", ...sL });
-    } else if (d.kind === "parallel_channel") {
-      const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price); const s3 = toScreen(d.p3.time, d.p3.price);
-      if (s1) handles.push({ role: "p1", ...s1 });
-      if (s2) handles.push({ role: "p2", ...s2 });
-      if (s3) handles.push({ role: "p3", ...s3 });
-    } else if (d.kind === "pitchfork") {
-      const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price); const s3 = toScreen(d.p3.time, d.p3.price);
-      if (s1) handles.push({ role: "p1", ...s1 });
-      if (s2) handles.push({ role: "p2", ...s2 });
-      if (s3) handles.push({ role: "p3", ...s3 });
-    }
-    setDrawHandles(handles);
-  }, [toScreen]);
-
-  const hitTestDrawings = useCallback((sx: number, sy: number): { drawing: DrawnObject; point: "p1" | "p2" | "p3" | "body" } | null => {
-    const H = 10; const L = 7;
-    for (let i = drawingsRef.current.length - 1; i >= 0; i--) {
-      const d = drawingsRef.current[i];
-      if (d.kind === "hline") {
-        const y = candleSeriesRef.current?.priceToCoordinate(d.price);
-        if (y != null && Math.abs(sy - Number(y)) < L) return { drawing: d, point: "p1" };
-      } else if (d.kind === "trendline" || d.kind === "arrow" || d.kind === "ray") {
-        const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price);
-        if (!s1 || !s2) continue;
-        if (Math.hypot(sx - s1.x, sy - s1.y) < H) return { drawing: d, point: "p1" };
-        if (Math.hypot(sx - s2.x, sy - s2.y) < H) return { drawing: d, point: "p2" };
-        if (distToSeg(sx, sy, s1.x, s1.y, s2.x, s2.y) < L) return { drawing: d, point: "body" };
-      } else if (d.kind === "rectangle") {
-        const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price);
-        if (!s1 || !s2) continue;
-        if (Math.hypot(sx - s1.x, sy - s1.y) < H) return { drawing: d, point: "p1" };
-        if (Math.hypot(sx - s2.x, sy - s2.y) < H) return { drawing: d, point: "p2" };
-        const xMin = Math.min(s1.x, s2.x); const xMax = Math.max(s1.x, s2.x);
-        const yMin = Math.min(s1.y, s2.y); const yMax = Math.max(s1.y, s2.y);
-        if ((Math.abs(sy - yMin) < L || Math.abs(sy - yMax) < L) && sx >= xMin - L && sx <= xMax + L) return { drawing: d, point: "body" };
-        if ((Math.abs(sx - xMin) < L || Math.abs(sx - xMax) < L) && sy >= yMin - L && sy <= yMax + L) return { drawing: d, point: "body" };
-      } else if (d.kind === "fibonacci") {
-        const yH = candleSeriesRef.current?.priceToCoordinate(d.high);
-        const yL = candleSeriesRef.current?.priceToCoordinate(d.low);
-        if (yH != null && Math.abs(sy - Number(yH)) < L) return { drawing: d, point: "p1" };
-        if (yL != null && Math.abs(sy - Number(yL)) < L) return { drawing: d, point: "p2" };
-      } else if (d.kind === "parallel_channel") {
-        const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price); const s3 = toScreen(d.p3.time, d.p3.price);
-        if (!s1 || !s2 || !s3) continue;
-        if (Math.hypot(sx - s1.x, sy - s1.y) < H) return { drawing: d, point: "p1" };
-        if (Math.hypot(sx - s2.x, sy - s2.y) < H) return { drawing: d, point: "p2" };
-        if (Math.hypot(sx - s3.x, sy - s3.y) < H) return { drawing: d, point: "p3" };
-        if (distToSeg(sx, sy, s1.x, s1.y, s2.x, s2.y) < L) return { drawing: d, point: "body" };
-      } else if (d.kind === "pitchfork") {
-        const s1 = toScreen(d.p1.time, d.p1.price); const s2 = toScreen(d.p2.time, d.p2.price); const s3 = toScreen(d.p3.time, d.p3.price);
-        if (!s1 || !s2 || !s3) continue;
-        if (Math.hypot(sx - s1.x, sy - s1.y) < H) return { drawing: d, point: "p1" };
-        if (Math.hypot(sx - s2.x, sy - s2.y) < H) return { drawing: d, point: "p2" };
-        if (Math.hypot(sx - s3.x, sy - s3.y) < H) return { drawing: d, point: "p3" };
-        if (distToSeg(sx, sy, s1.x, s1.y, (s2.x + s3.x) / 2, (s2.y + s3.y) / 2) < L) return { drawing: d, point: "body" };
-      }
-    }
-    return null;
-  }, [toScreen]);
-
-  const applyDrag = useCallback((sx: number, sy: number) => {
-    const drag = draggingRef.current;
-    if (!drag) return;
-    const d = drawingsRef.current.find(x => x.id === drag.drawingId);
-    if (!d) return;
-    const dSX = sx - drag.startSX; const dSY = sy - drag.startSY;
-
-    if (d.kind === "hline") {
-      const np = screenToPrice(drag.origP1SY + dSY); if (np == null) return;
-      d.price = np; d.priceLine.applyOptions({ price: np, title: fmt(np) });
-    } else if (d.kind === "trendline" || d.kind === "arrow") {
-      if (drag.point === "p1") { const nt = screenToTime(drag.origP1SX + dSX); const np = screenToPrice(drag.origP1SY + dSY); if (nt != null) d.p1 = { time: nt, price: np ?? d.p1.price }; }
-      else if (drag.point === "p2") { const nt = screenToTime(drag.origP2SX + dSX); const np = screenToPrice(drag.origP2SY + dSY); if (nt != null) d.p2 = { time: nt, price: np ?? d.p2.price }; }
-      else { const nt1 = screenToTime(drag.origP1SX + dSX); const np1 = screenToPrice(drag.origP1SY + dSY); if (nt1 != null) d.p1 = { time: nt1, price: np1 ?? d.p1.price }; const nt2 = screenToTime(drag.origP2SX + dSX); const np2 = screenToPrice(drag.origP2SY + dSY); if (nt2 != null) d.p2 = { time: nt2, price: np2 ?? d.p2.price }; }
-      const { p1, p2 } = d; const pts = p1.time <= p2.time ? [{ time: p1.time as Time, value: p1.price }, { time: p2.time as Time, value: p2.price }] : [{ time: p2.time as Time, value: p2.price }, { time: p1.time as Time, value: p1.price }];
-      d.series.setData(pts);
-    } else if (d.kind === "ray") {
-      if (drag.point === "p1") { const nt = screenToTime(drag.origP1SX + dSX); const np = screenToPrice(drag.origP1SY + dSY); if (nt != null) d.p1 = { time: nt, price: np ?? d.p1.price }; }
-      else if (drag.point === "p2") { const nt = screenToTime(drag.origP2SX + dSX); const np = screenToPrice(drag.origP2SY + dSY); if (nt != null) d.p2 = { time: nt, price: np ?? d.p2.price }; }
-      else { const nt1 = screenToTime(drag.origP1SX + dSX); const np1 = screenToPrice(drag.origP1SY + dSY); if (nt1 != null) d.p1 = { time: nt1, price: np1 ?? d.p1.price }; const nt2 = screenToTime(drag.origP2SX + dSX); const np2 = screenToPrice(drag.origP2SY + dSY); if (nt2 != null) d.p2 = { time: nt2, price: np2 ?? d.p2.price }; }
-      const { p1, p2 } = d; const bars = sortedKlinesRef.current;
-      const slope = p2.time !== p1.time ? (p2.price - p1.price) / (p2.time - p1.time) : 0;
-      const tS = Math.min(p1.time, p2.time); const tE = bars.length ? bars[bars.length - 1].time + 100 * 86400 : p2.time + 100 * 86400;
-      const pS = p1.time <= p2.time ? p1.price : p2.price;
-      d.series.setData([{ time: tS as Time, value: pS }, { time: ((tS + tE) / 2) as Time, value: pS + slope * ((tS + tE) / 2 - (p1.time <= p2.time ? p1.time : p2.time)) }, { time: tE as Time, value: pS + slope * (tE - (p1.time <= p2.time ? p1.time : p2.time)) }]);
-    } else if (d.kind === "rectangle") {
-      if (drag.point === "p1" || drag.point === "body") { const nt = screenToTime(drag.origP1SX + dSX); const np = screenToPrice(drag.origP1SY + dSY); if (nt != null) d.p1 = { time: nt, price: np ?? d.p1.price }; }
-      if (drag.point === "p2" || drag.point === "body") { const nt = screenToTime(drag.origP2SX + dSX); const np = screenToPrice(drag.origP2SY + dSY); if (nt != null) d.p2 = { time: nt, price: np ?? d.p2.price }; }
-      const tMin = Math.min(d.p1.time, d.p2.time) as Time; const tMax = Math.max(d.p1.time, d.p2.time) as Time;
-      const pMin = Math.min(d.p1.price, d.p2.price); const pMax = Math.max(d.p1.price, d.p2.price);
-      d.series.setData([{ time: tMin, value: pMax }, { time: tMax, value: pMax }]);
-      d.series2.setData([{ time: tMin, value: pMin }, { time: tMax, value: pMin }]);
-      d.series3.setData([{ time: tMin, value: pMin }, { time: (Number(tMin) + 1) as Time, value: pMax }]);
-      d.series4.setData([{ time: (Number(tMax) - 1) as Time, value: pMin }, { time: tMax, value: pMax }]);
-    } else if (d.kind === "fibonacci") {
-      if (drag.point === "p1" || drag.point === "body") { const np = screenToPrice(drag.origP1SY + dSY); if (np != null) d.high = np; }
-      if (drag.point === "p2" || drag.point === "body") { const np = screenToPrice(drag.origP2SY + dSY); if (np != null) d.low = np; }
-      const range = d.high - d.low;
-      FIB_LEVELS.forEach(({ pct }, i) => { d.priceLines[i]?.applyOptions({ price: d.high - range * pct }); });
-    } else if (d.kind === "parallel_channel") {
-      if (drag.point === "p1") { const nt = screenToTime(drag.origP1SX + dSX); const np = screenToPrice(drag.origP1SY + dSY); if (nt != null) d.p1 = { time: nt, price: np ?? d.p1.price }; }
-      if (drag.point === "p2") { const nt = screenToTime(drag.origP2SX + dSX); const np = screenToPrice(drag.origP2SY + dSY); if (nt != null) d.p2 = { time: nt, price: np ?? d.p2.price }; }
-      if (drag.point === "p3") { const nt = screenToTime(drag.origP3SX + dSX); const np = screenToPrice(drag.origP3SY + dSY); if (nt != null) d.p3 = { time: nt, price: np ?? d.p3.price }; }
-      if (drag.point === "body") { const nt1 = screenToTime(drag.origP1SX + dSX); const np1 = screenToPrice(drag.origP1SY + dSY); if (nt1 != null) d.p1 = { time: nt1, price: np1 ?? d.p1.price }; const nt2 = screenToTime(drag.origP2SX + dSX); const np2 = screenToPrice(drag.origP2SY + dSY); if (nt2 != null) d.p2 = { time: nt2, price: np2 ?? d.p2.price }; const nt3 = screenToTime(drag.origP3SX + dSX); const np3 = screenToPrice(drag.origP3SY + dSY); if (nt3 != null) d.p3 = { time: nt3, price: np3 ?? d.p3.price }; }
-      const { p1, p2, p3 } = d; const offset = p3.price - (p1.price + (p2.price - p1.price) * ((p3.time - p1.time) / (p2.time - p1.time || 1)));
-      const tMin = Math.min(p1.time, p2.time) as Time; const tMax = Math.max(p1.time, p2.time) as Time;
-      d.series.setData(p1.time <= p2.time ? [{ time: tMin, value: p1.price }, { time: tMax, value: p2.price }] : [{ time: tMin, value: p2.price }, { time: tMax, value: p1.price }]);
-      d.series2.setData(p1.time <= p2.time ? [{ time: tMin, value: p1.price + offset }, { time: tMax, value: p2.price + offset }] : [{ time: tMin, value: p2.price + offset }, { time: tMax, value: p1.price + offset }]);
-    } else if (d.kind === "pitchfork") {
-      if (drag.point === "p1") { const nt = screenToTime(drag.origP1SX + dSX); const np = screenToPrice(drag.origP1SY + dSY); if (nt != null) d.p1 = { time: nt, price: np ?? d.p1.price }; }
-      if (drag.point === "p2") { const nt = screenToTime(drag.origP2SX + dSX); const np = screenToPrice(drag.origP2SY + dSY); if (nt != null) d.p2 = { time: nt, price: np ?? d.p2.price }; }
-      if (drag.point === "p3") { const nt = screenToTime(drag.origP3SX + dSX); const np = screenToPrice(drag.origP3SY + dSY); if (nt != null) d.p3 = { time: nt, price: np ?? d.p3.price }; }
-      if (drag.point === "body") { const nt1 = screenToTime(drag.origP1SX + dSX); const np1 = screenToPrice(drag.origP1SY + dSY); if (nt1 != null) d.p1 = { time: nt1, price: np1 ?? d.p1.price }; const nt2 = screenToTime(drag.origP2SX + dSX); const np2 = screenToPrice(drag.origP2SY + dSY); if (nt2 != null) d.p2 = { time: nt2, price: np2 ?? d.p2.price }; const nt3 = screenToTime(drag.origP3SX + dSX); const np3 = screenToPrice(drag.origP3SY + dSY); if (nt3 != null) d.p3 = { time: nt3, price: np3 ?? d.p3.price }; }
-      const { p1, p2, p3 } = d; const midT = (p2.time + p3.time) / 2; const midP = (p2.price + p3.price) / 2;
-      const bars = sortedKlinesRef.current; const tEnd = bars.length ? bars[bars.length - 1].time + 100 * 86400 : p3.time + 100 * 86400;
-      const slope = midT !== p1.time ? (midP - p1.price) / (midT - p1.time) : 0;
-      d.series.setData([{ time: p1.time as Time, value: p1.price }, { time: tEnd as Time, value: p1.price + slope * (tEnd - p1.time) }]);
-      d.series2.setData([{ time: p2.time as Time, value: p2.price }, { time: tEnd as Time, value: p2.price + slope * (tEnd - p2.time) }]);
-      d.series3.setData([{ time: p3.time as Time, value: p3.price }, { time: tEnd as Time, value: p3.price + slope * (tEnd - p3.time) }]);
-    }
-    recomputeDrawHandles(drag.drawingId);
-  }, [screenToPrice, screenToTime, recomputeDrawHandles]);
-
-  const eraseDrawingById = useCallback((id: number) => {
-    const d = drawingsRef.current.find(x => x.id === id);
-    if (!d || !chartRef.current || !candleSeriesRef.current) return;
-    if (d.kind === "hline")            candleSeriesRef.current.removePriceLine(d.priceLine);
-    if (d.kind === "text")             candleSeriesRef.current.removePriceLine(d.priceLine);
-    if (d.kind === "trendline")        chartRef.current.removeSeries(d.series);
-    if (d.kind === "fibonacci")        d.priceLines.forEach(pl => candleSeriesRef.current!.removePriceLine(pl));
-    if (d.kind === "rectangle")        { chartRef.current.removeSeries(d.series); chartRef.current.removeSeries(d.series2); chartRef.current.removeSeries(d.series3); chartRef.current.removeSeries(d.series4); }
-    if (d.kind === "ray")              chartRef.current.removeSeries(d.series);
-    if (d.kind === "arrow")            chartRef.current.removeSeries(d.series);
-    if (d.kind === "parallel_channel") { chartRef.current.removeSeries(d.series); chartRef.current.removeSeries(d.series2); }
-    if (d.kind === "pitchfork")        { chartRef.current.removeSeries(d.series); chartRef.current.removeSeries(d.series2); chartRef.current.removeSeries(d.series3); }
-    setDrawings(prev => prev.filter(x => x.id !== id));
-    setSelectedDrawId(sid => sid === id ? null : sid);
-    setDrawHandles([]);
-  }, []);
-
-  const eraseLastDrawing = useCallback(() => {
-    const list = drawingsRef.current;
-    if (!list.length) return;
-    eraseDrawingById(list[list.length - 1].id);
-  }, [eraseDrawingById]);
-
-  const handleChartMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (activeTool === "cursor") return;
-    e.preventDefault();
-    const { x, y, price, time } = getChartCoords(e);
-    if (price === null || time === null) return;
-    if (activeTool === "eraser") {
-      const rect = chartContainerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const sx = e.clientX - rect.left; const sy = e.clientY - rect.top;
-        const hit = hitTestDrawings(sx, sy);
-        if (hit) { eraseDrawingById(hit.drawing.id); } else { eraseLastDrawing(); }
-      } else { eraseLastDrawing(); }
-      return;
-    }
-
-    if (activeTool === "long_pos" || activeTool === "short_pos") {
-      const isLong = activeTool === "long_pos";
-      const newPos: PositionTool = {
-        id: Date.now(),
-        side: isLong ? "long" : "short",
-        entry: price,
-        stopLoss:   isLong ? price * 0.98  : price * 1.02,
-        takeProfit: isLong ? price * 1.04  : price * 0.96,
-        accountSize: 10000,
-        riskPct: 1,
-        symbol,
-        createdAt: Date.now(),
-      };
-      setPositionTools(prev => [...prev, newPos]);
-      setSelectedPosId(newPos.id);
-      setActiveTool("cursor");
-      return;
-    }
-
-    if (activeTool === "hline") {
-      const priceLine = candleSeriesRef.current!.createPriceLine({
-        price, color: drawColor, lineWidth: 1, lineStyle: LineStyle.Dashed,
-        axisLabelVisible: true, title: fmt(price),
-      });
-      setDrawings(prev => [...prev, { kind: "hline", priceLine, id: Date.now(), price, color: drawColor }]);
-      setActiveTool("cursor");
-      return;
-    }
-
-    if (activeTool === "text") {
-      setTextInput({ x, y, price, time });
-      return;
-    }
-
-    // 2-point tools
-    if (activeTool === "trendline" || activeTool === "fibonacci" || activeTool === "ray" || activeTool === "rectangle" || activeTool === "arrow") {
-      if (!drawStart) {
-        setDrawStart({ x, y, price, time });
-      } else {
-        const p1 = drawStart.price; const t1 = drawStart.time as number;
-        const p2 = price;           const t2 = time as number;
-        const id = Date.now();
-
-        if (activeTool === "trendline" || activeTool === "arrow") {
-          const pts = t1 <= t2
-            ? [{ time: t1 as Time, value: p1 }, { time: t2 as Time, value: p2 }]
-            : [{ time: t2 as Time, value: p2 }, { time: t1 as Time, value: p1 }];
-          const series = chartRef.current!.addSeries(LineSeries, { color: drawColor, lineWidth: activeTool === "arrow" ? 2 : 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-          series.setData(pts);
-          if (activeTool === "arrow") {
-            setDrawings(prev => [...prev, { kind: "arrow", series, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
-          } else {
-            setDrawings(prev => [...prev, { kind: "trendline", series, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
-          }
-        } else if (activeTool === "ray") {
-          const bars  = sortedKlinesRef.current;
-          const slope = t2 !== t1 ? (p2 - p1) / (t2 - t1) : 0;
-          const tStart = Math.min(t1, t2);
-          const tEnd   = bars.length > 0 ? bars[bars.length - 1].time + 100 * 86400 : t2 + 100 * 86400;
-          const pts = [
-            { time: tStart as Time, value: p1 },
-            { time: (tStart + (tEnd - tStart) / 2) as Time, value: p1 + slope * (tStart + (tEnd - tStart) / 2 - t1) },
-            { time: tEnd as Time, value: p1 + slope * (tEnd - t1) },
-          ];
-          const series = chartRef.current!.addSeries(LineSeries, { color: drawColor, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, lineStyle: LineStyle.SparseDotted });
-          series.setData(pts);
-          setDrawings(prev => [...prev, { kind: "ray", series, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
-        } else if (activeTool === "rectangle") {
-          const tMin = Math.min(t1, t2) as Time; const tMax = Math.max(t1, t2) as Time;
-          const pMin = Math.min(p1, p2);         const pMax = Math.max(p1, p2);
-          const opts = { color: drawColor, lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-          const s  = chartRef.current!.addSeries(LineSeries, opts);
-          s.setData([{ time: tMin, value: pMax }, { time: tMax, value: pMax }]);
-          const s2 = chartRef.current!.addSeries(LineSeries, opts);
-          s2.setData([{ time: tMin, value: pMin }, { time: tMax, value: pMin }]);
-          const s3 = chartRef.current!.addSeries(LineSeries, opts);
-          s3.setData([{ time: tMin, value: pMin }, { time: (Number(tMin) + 1) as Time, value: pMax }]);
-          const s4 = chartRef.current!.addSeries(LineSeries, opts);
-          s4.setData([{ time: (Number(tMax) - 1) as Time, value: pMin }, { time: tMax, value: pMax }]);
-          setDrawings(prev => [...prev, { kind: "rectangle", series: s, series2: s2, series3: s3, series4: s4, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 } }]);
-        } else {
-          // Fibonacci
-          const high = Math.max(p1, p2); const low = Math.min(p1, p2); const range = high - low;
-          const priceLines: IPriceLine[] = FIB_LEVELS.map(({ pct, color, label }) =>
-            candleSeriesRef.current!.createPriceLine({ price: high - range * pct, color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: label })
-          );
-          setDrawings(prev => [...prev, { kind: "fibonacci", priceLines, id, high, low, color: drawColor }]);
-        }
-        setDrawStart(null);
-        setActiveTool("cursor");
-      }
-      return;
-    }
-
-    // Parallel channel: 2-point (top line), then 3rd click sets channel width
-    if (activeTool === "parallel_channel") {
-      if (!drawStart) {
-        setDrawStart({ x, y, price, time });
-      } else if (!drawStart2) {
-        setDrawStart2({ x, y, price, time });
-      } else {
-        // 3rd click: offset for bottom line
-        const t1 = drawStart.time as number;  const p1 = drawStart.price;
-        const t2 = drawStart2.time as number; const p2 = drawStart2.price;
-        const offset = price - (p1 + (p2 - p1) * ((time as number - t1) / (t2 - t1 || 1)));
-        const tMin = Math.min(t1, t2) as Time; const tMax = Math.max(t1, t2) as Time;
-        const opts = { color: drawColor, lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-        const top = chartRef.current!.addSeries(LineSeries, opts);
-        const bot = chartRef.current!.addSeries(LineSeries, opts);
-        top.setData(t1 <= t2
-          ? [{ time: tMin, value: p1 }, { time: tMax, value: p2 }]
-          : [{ time: tMin, value: p2 }, { time: tMax, value: p1 }]);
-        bot.setData(t1 <= t2
-          ? [{ time: tMin, value: p1 + offset }, { time: tMax, value: p2 + offset }]
-          : [{ time: tMin, value: p2 + offset }, { time: tMax, value: p1 + offset }]);
-        const id = Date.now();
-        setDrawings(prev => [...prev, { kind: "parallel_channel", series: top, series2: bot, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 }, p3: { time: time as number, price } }]);
-        setDrawStart(null); setDrawStart2(null); setActiveTool("cursor");
-      }
-      return;
-    }
-
-    // Andrews pitchfork: 3 points
-    if (activeTool === "pitchfork") {
-      if (!drawStart) {
-        setDrawStart({ x, y, price, time });
-      } else if (!drawStart2) {
-        setDrawStart2({ x, y, price, time });
-      } else {
-        const t1 = drawStart.time  as number; const p1 = drawStart.price;
-        const t2 = drawStart2.time as number; const p2 = drawStart2.price;
-        const t3 = time as number;             const p3 = price;
-        const midT = (t2 + t3) / 2; const midP = (p2 + p3) / 2;
-        const bars = sortedKlinesRef.current;
-        const tEnd = bars.length > 0 ? bars[bars.length - 1].time + 100 * 86400 : t3 + 100 * 86400;
-        const slope = midT !== t1 ? (midP - p1) / (midT - t1) : 0;
-        const opts  = { color: drawColor, lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-        // Median line
-        const med = chartRef.current!.addSeries(LineSeries, opts);
-        med.setData([{ time: t1 as Time, value: p1 }, { time: tEnd as Time, value: p1 + slope * (tEnd - t1) }]);
-        // Upper tine (from p2, parallel to median)
-        const tine1 = chartRef.current!.addSeries(LineSeries, { ...opts, lineStyle: LineStyle.Dashed });
-        tine1.setData([{ time: t2 as Time, value: p2 }, { time: tEnd as Time, value: p2 + slope * (tEnd - t2) }]);
-        // Lower tine (from p3, parallel to median)
-        const tine2 = chartRef.current!.addSeries(LineSeries, { ...opts, lineStyle: LineStyle.Dashed });
-        tine2.setData([{ time: t3 as Time, value: p3 }, { time: tEnd as Time, value: p3 + slope * (tEnd - t3) }]);
-        const id = Date.now();
-        setDrawings(prev => [...prev, { kind: "pitchfork", series: med, series2: tine1, series3: tine2, id, color: drawColor, p1: { time: t1, price: p1 }, p2: { time: t2, price: p2 }, p3: { time: t3, price: p3 } }]);
-        setDrawStart(null); setDrawStart2(null); setActiveTool("cursor");
-      }
-      return;
-    }
-  }, [activeTool, drawColor, drawStart, drawStart2, eraseLastDrawing, getChartCoords, symbol]);
-
-  const handleTextSubmit = useCallback(() => {
-    if (!textInput || !textValue.trim() || !candleSeriesRef.current) return;
-    const priceLine = candleSeriesRef.current.createPriceLine({
-      price: textInput.price, color: drawColor, lineWidth: 1, lineStyle: LineStyle.Dotted,
-      axisLabelVisible: true, title: `◆ ${textValue.trim()}`,
-    });
-    setDrawings(prev => [...prev, { kind: "text", priceLine, id: Date.now(), price: textInput.price, time: textInput.time as number, text: textValue.trim(), color: drawColor }]);
-    setTextInput(null); setTextValue(""); setActiveTool("cursor");
-  }, [textInput, textValue, drawColor]);
-
-  // Cancel pending draw on Escape / Delete selected drawing
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && (drawStart || drawStart2 || textInput)) {
-        setDrawStart(null); setDrawStart2(null); setTextInput(null); setTextValue(""); setActiveTool("cursor");
-      }
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedDrawId != null && document.activeElement === document.body) {
-        eraseDrawingById(selectedDrawId);
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [drawStart, drawStart2, textInput, selectedDrawId, eraseDrawingById]);
-
-  // Cursor-mode: window mousedown (capture) for selection + drag start
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (activeTool !== "cursor") return;
-      const rect = chartContainerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const sx = e.clientX - rect.left; const sy = e.clientY - rect.top;
-      if (sx < 0 || sy < 0 || sx > rect.width || sy > rect.height) return;
-      const hit = hitTestDrawings(sx, sy);
-      if (hit) {
-        e.preventDefault(); e.stopPropagation();
-        setSelectedDrawId(hit.drawing.id);
-        const d = hit.drawing;
-        const getS = (t: number, p: number) => toScreen(t, p);
-        let o1sx = sx; let o1sy = sy; let o2sx = sx; let o2sy = sy; let o3sx = sx; let o3sy = sy;
-        if (d.kind === "hline") {
-          const y = candleSeriesRef.current?.priceToCoordinate(d.price);
-          o1sy = y != null ? Number(y) : sy;
-        } else if (d.kind === "trendline" || d.kind === "arrow" || d.kind === "ray") {
-          const s1 = getS(d.p1.time, d.p1.price); const s2 = getS(d.p2.time, d.p2.price);
-          if (s1) { o1sx = s1.x; o1sy = s1.y; } if (s2) { o2sx = s2.x; o2sy = s2.y; }
-        } else if (d.kind === "rectangle") {
-          const s1 = getS(d.p1.time, d.p1.price); const s2 = getS(d.p2.time, d.p2.price);
-          if (s1) { o1sx = s1.x; o1sy = s1.y; } if (s2) { o2sx = s2.x; o2sy = s2.y; }
-        } else if (d.kind === "fibonacci") {
-          const midT = sortedKlinesRef.current.length > 0 ? sortedKlinesRef.current[Math.floor(sortedKlinesRef.current.length / 2)].time : 0;
-          const sH = getS(midT, d.high); const sL = getS(midT, d.low);
-          if (sH) { o1sx = sH.x; o1sy = sH.y; } if (sL) { o2sx = sL.x; o2sy = sL.y; }
-        } else if (d.kind === "parallel_channel" || d.kind === "pitchfork") {
-          const s1 = getS(d.p1.time, d.p1.price); const s2 = getS(d.p2.time, d.p2.price); const s3 = getS(d.p3.time, d.p3.price);
-          if (s1) { o1sx = s1.x; o1sy = s1.y; } if (s2) { o2sx = s2.x; o2sy = s2.y; } if (s3) { o3sx = s3.x; o3sy = s3.y; }
-        }
-        draggingRef.current = { drawingId: d.id, point: hit.point, startSX: sx, startSY: sy, origP1SX: o1sx, origP1SY: o1sy, origP2SX: o2sx, origP2SY: o2sy, origP3SX: o3sx, origP3SY: o3sy };
-      } else {
-        setSelectedDrawId(null); setDrawHandles([]);
-      }
-    };
-    window.addEventListener("mousedown", onDown, { capture: true });
-    return () => window.removeEventListener("mousedown", onDown, { capture: true });
-  }, [activeTool, hitTestDrawings, toScreen]);
-
-  // Cursor-mode: window mousemove / mouseup for dragging
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const rect = chartContainerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const sx = e.clientX - rect.left; const sy = e.clientY - rect.top;
-      if (draggingRef.current) {
-        applyDrag(sx, sy);
-        return;
-      }
-      // Hover cursor in cursor mode
-      if (activeTool !== "cursor") return;
-      if (sx < 0 || sy < 0 || sx > rect.width || sy > rect.height) { setDrawCursor("default"); return; }
-      const hit = hitTestDrawings(sx, sy);
-      setDrawCursor(hit ? (hit.point !== "body" ? "crosshair" : "grab") : "default");
-    };
-    const onUp = (e: MouseEvent) => {
-      if (!draggingRef.current) return;
-      const rect = chartContainerRef.current?.getBoundingClientRect();
-      if (rect) { const sx = e.clientX - rect.left; const sy = e.clientY - rect.top; applyDrag(sx, sy); }
-      draggingRef.current = null;
-      // Commit to React state for persistence
-      setDrawings([...drawingsRef.current]);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, [activeTool, hitTestDrawings, applyDrag]);
-
-  // Refresh draw handles when chart scrolls/zooms
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-    const refresh = () => recomputeDrawHandles(selectedDrawId);
-    chart.timeScale().subscribeVisibleLogicalRangeChange(refresh);
-    return () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(refresh);
-  }, [selectedDrawId, recomputeDrawHandles]);
-
-  // Recompute handles when selection changes
-  useEffect(() => { recomputeDrawHandles(selectedDrawId); }, [selectedDrawId, recomputeDrawHandles]);
 
   // ── Trading helpers ────────────────────────────────────────────────
   const applyMarkers = useCallback(() => {
@@ -1191,24 +635,12 @@ export default function ChartPage() {
         if (e.key === "b" || e.key === "B") { const bar = sortedKlinesRef.current[replayIndexRef.current - 1]; if (bar) handleBuy(bar); }
         if (e.key === "s" || e.key === "S") { const bar = sortedKlinesRef.current[replayIndexRef.current - 1]; if (bar) handleSell(bar, positionRef.current ?? undefined); }
       }
-      if (e.key === "h") setActiveTool("hline");
-      if (e.key === "t") setActiveTool("trendline");
-      if (e.key === "f") setActiveTool("fibonacci");
-      if (e.key === "e") setActiveTool("eraser");
-      if (e.key === "a") setActiveTool("arrow");
-      if (e.key === "q") setActiveTool("rectangle");
-      if (e.key === "c") setActiveTool("parallel_channel");
-      if (e.key === "p") setActiveTool("pitchfork");
-      if (e.key === "x") setActiveTool("text");
-      if (e.key === "m" || e.key === "M") setMagnetMode(v => !v);
-      if (e.key === "l") setActiveTool("long_pos");
-      if (e.key === "j") setActiveTool("short_pos");
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) setShowShortcuts(v => !v);
-      if (e.key === "Escape" && !drawStart && !drawStart2 && !textInput) { setActiveTool("cursor"); setShowShortcuts(false); if (replayMode) exitReplay(); }
+      if (e.key === "Escape") { setShowShortcuts(false); if (replayMode) exitReplay(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [replayMode, stepForward, stepBack, exitReplay, handleBuy, handleSell, drawStart, drawStart2, textInput]);
+  }, [replayMode, stepForward, stepBack, exitReplay, handleBuy, handleSell]);
 
   // ── Chart init ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -1323,13 +755,6 @@ export default function ChartPage() {
 
     chart.timeScale().fitContent();
     markersPluginRef.current?.setMarkers([...markersRef.current]);
-
-    // Restore pending layout drawings
-    if (pendingRestoreRef.current) {
-      const toRestore = pendingRestoreRef.current;
-      pendingRestoreRef.current = null;
-      restoreDrawingsFromData(toRestore, sortedData);
-    }
 
     // Update VPVR
     if (showVPVR) setVpvrBuckets(calcVolumeProfile(slice));
@@ -1751,96 +1176,6 @@ export default function ChartPage() {
   }, [goToDate]);
 
   // ── Layout helpers ─────────────────────────────────────────────────
-  function restoreDrawingsFromData(toRestore: SerializableDrawing[], bars: KlineBar[]) {
-    if (!candleSeriesRef.current || !chartRef.current) return;
-    const newDrawings: DrawnObject[] = [];
-    const times = new Set(bars.map(b => b.time));
-
-    for (const d of toRestore) {
-      try {
-        if (d.kind === "hline") {
-          const pl = candleSeriesRef.current.createPriceLine({ price: d.price, color: d.color, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: fmt(d.price) });
-          newDrawings.push({ kind: "hline", priceLine: pl, id: d.id, price: d.price, color: d.color });
-        } else if (d.kind === "text") {
-          const pl = candleSeriesRef.current.createPriceLine({ price: d.price, color: d.color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: `◆ ${d.text}` });
-          newDrawings.push({ kind: "text", priceLine: pl, id: d.id, price: d.price, time: d.time, text: d.text, color: d.color });
-        } else if (d.kind === "trendline") {
-          const t1 = d.p1.time; const t2 = d.p2.time;
-          if (!times.has(t1) || !times.has(t2)) continue;
-          const pts = t1 <= t2 ? [{ time: t1 as Time, value: d.p1.price }, { time: t2 as Time, value: d.p2.price }] : [{ time: t2 as Time, value: d.p2.price }, { time: t1 as Time, value: d.p1.price }];
-          const s = chartRef.current.addSeries(LineSeries, { color: d.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-          s.setData(pts);
-          newDrawings.push({ kind: "trendline", series: s, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
-        } else if (d.kind === "fibonacci") {
-          const range = d.high - d.low;
-          const pls: IPriceLine[] = FIB_LEVELS.map(({ pct, color, label }) => candleSeriesRef.current!.createPriceLine({ price: d.high - range * pct, color, lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: label }));
-          newDrawings.push({ kind: "fibonacci", priceLines: pls, id: d.id, high: d.high, low: d.low, color: d.color });
-        } else if (d.kind === "rectangle") {
-          const tMin = Math.min(d.p1.time, d.p2.time) as Time; const tMax = Math.max(d.p1.time, d.p2.time) as Time;
-          const pMin = Math.min(d.p1.price, d.p2.price);        const pMax = Math.max(d.p1.price, d.p2.price);
-          const opts = { color: d.color, lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-          const s  = chartRef.current.addSeries(LineSeries, opts); s.setData([{ time: tMin, value: pMax }, { time: tMax, value: pMax }]);
-          const s2 = chartRef.current.addSeries(LineSeries, opts); s2.setData([{ time: tMin, value: pMin }, { time: tMax, value: pMin }]);
-          const s3 = chartRef.current.addSeries(LineSeries, opts); s3.setData([{ time: tMin, value: pMin }, { time: (Number(tMin) + 1) as Time, value: pMax }]);
-          const s4 = chartRef.current.addSeries(LineSeries, opts); s4.setData([{ time: (Number(tMax) - 1) as Time, value: pMin }, { time: tMax, value: pMax }]);
-          newDrawings.push({ kind: "rectangle", series: s, series2: s2, series3: s3, series4: s4, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
-        } else if (d.kind === "arrow") {
-          const t1 = d.p1.time; const t2 = d.p2.time;
-          const pts = t1 <= t2 ? [{ time: t1 as Time, value: d.p1.price }, { time: t2 as Time, value: d.p2.price }] : [{ time: t2 as Time, value: d.p2.price }, { time: t1 as Time, value: d.p1.price }];
-          const s = chartRef.current.addSeries(LineSeries, { color: d.color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-          s.setData(pts);
-          newDrawings.push({ kind: "arrow", series: s, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
-        } else if (d.kind === "ray") {
-          const t1 = d.p1.time; const p1 = d.p1.price; const t2 = d.p2.time; const p2 = d.p2.price;
-          const slope = t2 !== t1 ? (p2 - p1) / (t2 - t1) : 0;
-          const tStart = Math.min(t1, t2);
-          const tEnd   = bars.length > 0 ? bars[bars.length - 1]!.time + 100 * 86400 : t2 + 100 * 86400;
-          const pts = [{ time: tStart as Time, value: p1 }, { time: ((tStart + tEnd) / 2) as Time, value: p1 + slope * ((tStart + tEnd) / 2 - t1) }, { time: tEnd as Time, value: p1 + slope * (tEnd - t1) }];
-          const s = chartRef.current.addSeries(LineSeries, { color: d.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, lineStyle: LineStyle.SparseDotted });
-          s.setData(pts);
-          newDrawings.push({ kind: "ray", series: s, id: d.id, p1: d.p1, p2: d.p2, color: d.color });
-        } else if (d.kind === "parallel_channel") {
-          const t1 = d.p1.time; const p1 = d.p1.price; const t2 = d.p2.time; const p2 = d.p2.price; const p3 = d.p3.price;
-          const offset = p3 - (p1 + (p2 - p1) * ((d.p3.time - t1) / (t2 - t1 || 1)));
-          const tMin = Math.min(t1, t2) as Time; const tMax = Math.max(t1, t2) as Time;
-          const opts = { color: d.color, lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-          const top = chartRef.current.addSeries(LineSeries, opts); const bot = chartRef.current.addSeries(LineSeries, opts);
-          top.setData(t1 <= t2 ? [{ time: tMin, value: p1 }, { time: tMax, value: p2 }] : [{ time: tMin, value: p2 }, { time: tMax, value: p1 }]);
-          bot.setData(t1 <= t2 ? [{ time: tMin, value: p1 + offset }, { time: tMax, value: p2 + offset }] : [{ time: tMin, value: p2 + offset }, { time: tMax, value: p1 + offset }]);
-          newDrawings.push({ kind: "parallel_channel", series: top, series2: bot, id: d.id, p1: d.p1, p2: d.p2, p3: d.p3, color: d.color });
-        } else if (d.kind === "pitchfork") {
-          const t1 = d.p1.time; const p1 = d.p1.price; const t2 = d.p2.time; const p2 = d.p2.price; const t3 = d.p3.time; const p3 = d.p3.price;
-          const midT = (t2 + t3) / 2; const midP = (p2 + p3) / 2;
-          const tEnd = bars.length > 0 ? bars[bars.length - 1].time + 100 * 86400 : t3 + 100 * 86400;
-          const slope = midT !== t1 ? (midP - p1) / (midT - t1) : 0;
-          const opts = { color: d.color, lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-          const med   = chartRef.current.addSeries(LineSeries, opts);
-          const tine1 = chartRef.current.addSeries(LineSeries, { ...opts, lineStyle: LineStyle.Dashed });
-          const tine2 = chartRef.current.addSeries(LineSeries, { ...opts, lineStyle: LineStyle.Dashed });
-          med.setData([{ time: t1 as Time, value: p1 }, { time: tEnd as Time, value: p1 + slope * (tEnd - t1) }]);
-          tine1.setData([{ time: t2 as Time, value: p2 }, { time: tEnd as Time, value: p2 + slope * (tEnd - t2) }]);
-          tine2.setData([{ time: t3 as Time, value: p3 }, { time: tEnd as Time, value: p3 + slope * (tEnd - t3) }]);
-          newDrawings.push({ kind: "pitchfork", series: med, series2: tine1, series3: tine2, id: d.id, p1: d.p1, p2: d.p2, p3: d.p3, color: d.color });
-        }
-      } catch { /* ignore */ }
-    }
-    setDrawings(newDrawings);
-  }
-
-  const serializeDrawings = useCallback((): SerializableDrawing[] => {
-    return drawingsRef.current.map(d => {
-      if (d.kind === "hline")            return { kind: "hline", id: d.id, price: d.price, color: d.color } as SerializableDrawing;
-      if (d.kind === "text")             return { kind: "text", id: d.id, price: d.price, time: d.time, text: d.text, color: d.color } as SerializableDrawing;
-      if (d.kind === "trendline")        return { kind: "trendline", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
-      if (d.kind === "fibonacci")        return { kind: "fibonacci", id: d.id, high: d.high, low: d.low, color: d.color } as SerializableDrawing;
-      if (d.kind === "rectangle")        return { kind: "rectangle", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
-      if (d.kind === "ray")              return { kind: "ray", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
-      if (d.kind === "parallel_channel") return { kind: "parallel_channel", id: d.id, p1: d.p1, p2: d.p2, p3: d.p3, color: d.color } as SerializableDrawing;
-      if (d.kind === "pitchfork")        return { kind: "pitchfork", id: d.id, p1: d.p1, p2: d.p2, p3: d.p3, color: d.color } as SerializableDrawing;
-      if (d.kind === "arrow")            return { kind: "arrow", id: d.id, p1: d.p1, p2: d.p2, color: d.color } as SerializableDrawing;
-      return null!;
-    }).filter(Boolean);
-  }, []);
 
   const handleSaveLayout = useCallback(() => {
     if (!layoutName.trim()) return;
@@ -1848,20 +1183,18 @@ export default function ChartPage() {
       id: `layout-${Date.now()}`,
       name: layoutName.trim(),
       symbol, interval,
-      drawings: serializeDrawings(),
       indicators: indicators.filter(i => i.enabled).map(i => i.id),
       createdAt: Date.now(),
     };
     const updated = [...savedLayouts, layout];
     setSavedLayouts(updated); saveLayouts(updated);
     setLayoutName(""); setShowSaveLayout(false);
-  }, [layoutName, symbol, interval, serializeDrawings, indicators, savedLayouts]);
+  }, [layoutName, symbol, interval, indicators, savedLayouts]);
 
   const handleLoadLayout = useCallback((layout: ChartLayout) => {
     setSymbol(layout.symbol);
     setInterval(layout.interval as GetKlinesInterval);
     setIndicators(prev => prev.map(i => ({ ...i, enabled: layout.indicators.includes(i.id) })));
-    pendingRestoreRef.current = layout.drawings;
     setShowLoadLayout(false);
   }, []);
 
@@ -2139,13 +1472,6 @@ export default function ChartPage() {
             <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Trade</span>
           </button>
 
-          {/* Magnet mode */}
-          <button onClick={() => setMagnetMode(v => !v)} title="Magnet mode — snap to OHLC (M)"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={magnetMode ? { background: "rgba(0,229,255,0.15)", borderColor: "rgba(0,229,255,0.35)", color: "hsl(190,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <Crosshair className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Magnet</span>
-          </button>
-
           {/* Theme toggle */}
           <button onClick={() => setChartTheme(t => t === "dark" ? "light" : "dark")} title="Toggle chart theme"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
@@ -2200,21 +1526,7 @@ export default function ChartPage() {
             </div>
             <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-1.5 max-h-[70vh] overflow-y-auto">
               {[
-                { section: "Drawing Tools" },
-                { key: "H", label: "Horizontal line" },
-                { key: "T", label: "Trend line" },
-                { key: "F", label: "Fibonacci retracement" },
-                { key: "R", label: "Ray" },
-                { key: "Q", label: "Rectangle" },
-                { key: "C", label: "Parallel channel" },
-                { key: "P", label: "Pitchfork" },
-                { key: "X", label: "Text annotation" },
-                { key: "E", label: "Eraser" },
-                { key: "L", label: "Long position tool" },
-                { key: "J", label: "Short position tool" },
-                { key: "Esc", label: "Select / deselect tool" },
                 { section: "Chart Controls" },
-                { key: "M", label: "Toggle magnet mode" },
                 { key: "?", label: "Toggle shortcuts panel" },
                 { section: "Replay Mode" },
                 { key: "→", label: "Step forward" },
@@ -2297,7 +1609,7 @@ export default function ChartPage() {
               className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold disabled:opacity-30"
               style={{ background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" }}>Save</button>
           </div>
-          <p className="text-[9px] font-mono mt-1.5" style={{ color: "hsl(220,14%,35%)" }}>Saves: {displayLabel} · {interval} · {indicators.filter(i => i.enabled).length} indicators · {drawings.length} drawings</p>
+          <p className="text-[9px] font-mono mt-1.5" style={{ color: "hsl(220,14%,35%)" }}>Saves: {displayLabel} · {interval} · {indicators.filter(i => i.enabled).length} indicators</p>
         </div>
       )}
 
@@ -2480,79 +1792,6 @@ export default function ChartPage() {
               </div>
             )}
 
-            {/* Drawing overlay */}
-            <div className="absolute inset-0 z-20"
-              style={{ cursor: activeTool === "cursor" ? drawCursor : activeTool === "eraser" ? "cell" : "crosshair", pointerEvents: activeTool === "cursor" ? "none" : "auto" }}
-              onMouseDown={handleChartMouseDown}
-              onMouseMove={e => { const rect = chartContainerRef.current?.getBoundingClientRect(); if (!rect) return; setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top }); }}
-              onMouseUp={() => setMousePos(null)}
-              onMouseLeave={() => setMousePos(null)}
-            />
-
-            {/* Text annotation input */}
-            {textInput && (
-              <div className="absolute z-30 pointer-events-auto" style={{ left: textInput.x + 8, top: textInput.y - 16, zIndex: 35 }}>
-                <div className="flex gap-1.5 px-2 py-1.5 rounded-xl" style={{ background: "hsl(222,28%,12%)", border: "1px solid rgba(255,255,255,0.15)", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}>
-                  <input autoFocus type="text" value={textValue} onChange={e => setTextValue(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") handleTextSubmit(); if (e.key === "Escape") { setTextInput(null); setTextValue(""); setActiveTool("cursor"); } }}
-                    placeholder="Annotation text…"
-                    className="text-xs font-mono outline-none bg-transparent w-40" style={{ color: drawColor }} />
-                  <button onClick={handleTextSubmit} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)" }}>OK</button>
-                </div>
-              </div>
-            )}
-
-            {/* Ghost preview while drawing (2-point tools) */}
-            {drawStart && mousePos && (activeTool === "trendline" || activeTool === "ray" || activeTool === "fibonacci" || activeTool === "rectangle" || activeTool === "arrow") && (
-              <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 22, width: "100%", height: "100%", overflow: "visible" }}>
-                <defs>
-                  <filter id="glow-filter-lw"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                  <marker id="arrowhead-ghost" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><polygon points="0 0, 7 3.5, 0 7" fill={drawColor} opacity="0.9" /></marker>
-                </defs>
-                {activeTool === "rectangle" ? (
-                  <rect x={Math.min(drawStart.x, mousePos.x)} y={Math.min(drawStart.y, mousePos.y)}
-                    width={Math.abs(mousePos.x - drawStart.x)} height={Math.abs(mousePos.y - drawStart.y)}
-                    fill={`${drawColor}15`} stroke={drawColor} strokeWidth="1" strokeDasharray="6 3" opacity="0.7" filter="url(#glow-filter-lw)" />
-                ) : activeTool === "arrow" ? (
-                  <line x1={drawStart.x} y1={drawStart.y} x2={mousePos.x} y2={mousePos.y} stroke={drawColor} strokeWidth="2" strokeDasharray="6 3" opacity="0.85" filter="url(#glow-filter-lw)" markerEnd="url(#arrowhead-ghost)" />
-                ) : (
-                  <line x1={drawStart.x} y1={drawStart.y} x2={mousePos.x} y2={mousePos.y} stroke={drawColor} strokeWidth="1.5" strokeDasharray="6 3" opacity="0.8" filter="url(#glow-filter-lw)" />
-                )}
-                <circle cx={mousePos.x} cy={mousePos.y} r="3.5" fill={drawColor} opacity="0.7" filter="url(#glow-filter-lw)" />
-              </svg>
-            )}
-            {/* Ghost for 3-point tools (parallel channel, pitchfork) */}
-            {drawStart && mousePos && (activeTool === "parallel_channel" || activeTool === "pitchfork") && !drawStart2 && (
-              <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 22, width: "100%", height: "100%", overflow: "visible" }}>
-                <line x1={drawStart.x} y1={drawStart.y} x2={mousePos.x} y2={mousePos.y} stroke={drawColor} strokeWidth="1.5" strokeDasharray="6 3" opacity="0.8" />
-                <circle cx={mousePos.x} cy={mousePos.y} r="3.5" fill={drawColor} opacity="0.7" />
-              </svg>
-            )}
-            {drawStart && drawStart2 && mousePos && (activeTool === "parallel_channel" || activeTool === "pitchfork") && (
-              <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 22, width: "100%", height: "100%", overflow: "visible" }}>
-                <line x1={drawStart.x} y1={drawStart.y} x2={drawStart2.x} y2={drawStart2.y} stroke={drawColor} strokeWidth="1.5" opacity="0.8" />
-                <line x1={mousePos.x} y1={mousePos.y} x2={mousePos.x + (drawStart2.x - drawStart.x)} y2={mousePos.y + (drawStart2.y - drawStart.y)} stroke={drawColor} strokeWidth="1.5" strokeDasharray="6 3" opacity="0.6" />
-                <circle cx={mousePos.x} cy={mousePos.y} r="3.5" fill={drawColor} opacity="0.7" />
-              </svg>
-            )}
-
-            {/* Drawing selection handles overlay */}
-            {drawHandles.length > 0 && selectedDrawId != null && (
-              <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 23, width: "100%", height: "100%", overflow: "visible" }}>
-                {drawHandles.map(h => (
-                  <g key={h.role}>
-                    <circle cx={h.x} cy={h.y} r="8" fill="transparent" />
-                    <circle cx={h.x} cy={h.y} r="5" fill={drawings.find(d => d.id === selectedDrawId)?.color ?? "hsl(190,90%,65%)"}
-                      stroke="rgba(255,255,255,0.9)" strokeWidth="1.5" style={{ filter: "drop-shadow(0 0 4px rgba(0,229,255,0.6))" }} />
-                  </g>
-                ))}
-              </svg>
-            )}
-
-            {/* Drawing start-point indicator */}
-            {drawStart && <div className="absolute z-30 pointer-events-none" style={{ left: drawStart.x - 5, top: drawStart.y - 5 }}><div className="w-2.5 h-2.5 rounded-full border-2" style={{ borderColor: drawColor, background: `${drawColor}30`, boxShadow: `0 0 10px ${drawColor}` }} /></div>}
-            {drawStart2 && <div className="absolute z-30 pointer-events-none" style={{ left: drawStart2.x - 5, top: drawStart2.y - 5 }}><div className="w-2.5 h-2.5 rounded-full border-2" style={{ borderColor: drawColor, background: `${drawColor}30` }} /></div>}
-
             {/* Watermark */}
             <div className="absolute top-3 left-3 pointer-events-none select-none" style={{ zIndex: 5 }}>
               <span className="text-4xl font-bold font-mono" style={{ color: "rgba(255,255,255,0.025)" }}>{displayLabel}</span>
@@ -2583,85 +1822,7 @@ export default function ChartPage() {
               </div>
             )}
 
-            {activeTool === "cursor" && selectedDrawId != null && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 25 }}>
-                <span className="text-xs font-mono px-3 py-1.5 rounded-full" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", color: "hsl(260,80%,72%)" }}>
-                  Drag handles to resize · drag body to move · Del to delete
-                </span>
-              </div>
-            )}
-            {activeTool !== "cursor" && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 25 }}>
-                <span className="text-xs font-mono px-3 py-1.5 rounded-full" style={{ background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.25)", color: "hsl(190,90%,65%)" }}>
-                  {activeTool === "hline" && "Click to place horizontal line"}
-                  {activeTool === "text" && "Click on chart to place text annotation"}
-                  {activeTool === "trendline" && (drawStart ? "Click 2nd point to finish" : "Click to set start point")}
-                  {activeTool === "arrow" && (drawStart ? "Click 2nd point to finish arrow" : "Click to set arrow start point")}
-                  {activeTool === "ray" && (drawStart ? "Click 2nd point — ray extends forward" : "Click start point")}
-                  {activeTool === "fibonacci" && (drawStart ? "Click 2nd point for Fib levels" : "Click high or low to start")}
-                  {activeTool === "rectangle" && (drawStart ? "Click 2nd point to finish" : "Click first corner")}
-                  {activeTool === "parallel_channel" && (!drawStart ? "Click start of top line" : !drawStart2 ? "Click end of top line" : "Click to set channel width")}
-                  {activeTool === "pitchfork" && (!drawStart ? "Click first point (pivot)" : !drawStart2 ? "Click second point" : "Click third point")}
-                  {activeTool === "eraser" && "Click to erase last drawing · Esc to cancel"}
-                  {activeTool === "long_pos" && "Click chart to place Long position · drag handles to adjust · Esc to cancel"}
-                  {activeTool === "short_pos" && "Click chart to place Short position · drag handles to adjust · Esc to cancel"}
-                </span>
-              </div>
-            )}
           </div>
-
-          {/* ── Drawing toolbar ─────────────────────────────────────── */}
-          {!replayMode && (
-            <div className="flex items-center gap-1 px-2 py-1.5 rounded-2xl overflow-x-auto scrollbar-none"
-              style={{ background: "rgba(10,12,18,0.97)", border: "1px solid rgba(255,255,255,0.09)", flexShrink: 0 }}>
-              {DRAW_TOOLS.map(tool => {
-                const breakBefore: DrawTool[] = ["hline", "rectangle", "text", "eraser", "long_pos"];
-                return (
-                  <Fragment key={tool.id}>
-                    {breakBefore.includes(tool.id) && <div className="w-px h-5 bg-white/10 mx-0.5 flex-shrink-0" />}
-                    <button onClick={() => setActiveTool(tool.id)} title={`${tool.label} [${tool.key}]`}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
-                      style={activeTool === tool.id
-                        ? tool.id === "eraser"
-                          ? { background: "rgba(239,68,68,0.2)", color: "hsl(0,85%,65%)", border: "1px solid rgba(239,68,68,0.3)", boxShadow: "0 0 12px rgba(239,68,68,0.3)" }
-                          : tool.id === "long_pos"
-                          ? { background: "rgba(52,211,153,0.15)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.35)", boxShadow: "0 0 12px rgba(52,211,153,0.25)" }
-                          : tool.id === "short_pos"
-                          ? { background: "rgba(239,68,68,0.15)", color: "hsl(0,85%,65%)", border: "1px solid rgba(239,68,68,0.3)", boxShadow: "0 0 12px rgba(239,68,68,0.25)" }
-                          : { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.3)", boxShadow: "0 0 12px rgba(0,229,255,0.25)" }
-                        : { color: "hsl(220,14%,50%)", border: "1px solid transparent" }}>
-                      {tool.icon}
-                    </button>
-                  </Fragment>
-                );
-              })}
-              <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
-              {DRAW_COLORS.map(c => (
-                <button key={c.value} onClick={() => setDrawColor(c.value)} title={c.label}
-                  className="h-4 w-4 rounded-full flex-shrink-0 transition-all"
-                  style={{ background: c.value, transform: drawColor === c.value ? "scale(1.4)" : "scale(1)", boxShadow: drawColor === c.value ? `0 0 8px ${c.value}` : "none", outline: drawColor === c.value ? `2px solid ${c.value}` : "none", outlineOffset: "2px" }} />
-              ))}
-              {drawings.length > 0 && (
-                <>
-                  <div className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
-                  <button onClick={() => {
-                    drawings.forEach(d => {
-                      if (d.kind === "hline" || d.kind === "text") candleSeriesRef.current?.removePriceLine(d.priceLine);
-                      if (d.kind === "trendline" || d.kind === "ray" || d.kind === "arrow") chartRef.current?.removeSeries(d.series);
-                      if (d.kind === "parallel_channel") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); }
-                      if (d.kind === "rectangle") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); chartRef.current?.removeSeries(d.series3); chartRef.current?.removeSeries(d.series4); }
-                      if (d.kind === "fibonacci") d.priceLines.forEach(pl => candleSeriesRef.current?.removePriceLine(pl));
-                      if (d.kind === "pitchfork") { chartRef.current?.removeSeries(d.series); chartRef.current?.removeSeries(d.series2); chartRef.current?.removeSeries(d.series3); }
-                    });
-                    setDrawings([]);
-                  }} className="h-6 px-2 flex items-center justify-center rounded-lg text-[9px] font-mono flex-shrink-0"
-                    style={{ color: "hsl(0,85%,60%)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }} title="Clear all drawings">
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </>
-              )}
-            </div>
-          )}
 
           {/* ── Sub-chart ─────────────────────────────────────────── */}
           {hasSubChart && (
