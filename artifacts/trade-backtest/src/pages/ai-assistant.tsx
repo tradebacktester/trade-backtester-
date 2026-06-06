@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { Link } from "wouter";
+import { Lock } from "lucide-react";
 import {
   Brain, TrendingUp, TrendingDown, Minus, Globe, Bitcoin, BarChart2, DollarSign,
   Clock, AlertTriangle, Target, Layers, RefreshCw, Newspaper, Shield, Eye, Crosshair,
@@ -540,7 +543,7 @@ function IctTab() {
 }
 
 /* ─── Chat Panel ──────────────────────────────────────────── */
-function ChatPanel() {
+function ChatPanel({ token }: { token: string }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -557,10 +560,9 @@ function ChatPanel() {
     setMessages(newMessages);
     setLoading(true);
     try {
-      const token = localStorage.getItem("tt_token");
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ messages: newMessages }),
       });
       const data = await res.json();
@@ -680,7 +682,7 @@ interface BiasReport { score: number; summary: string; biases: BiasItem[]; }
 const SEV_COLOR = { low: "#16a34a", medium: "#d97706", high: "#dc2626" };
 const SEV_BG    = { low: "rgba(22,163,74,0.09)", medium: "rgba(217,119,6,0.09)", high: "rgba(220,38,38,0.09)" };
 
-function BiasPanel() {
+function BiasPanel({ token }: { token: string }) {
   const [report, setReport] = useState<BiasReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [bpError, setBpError] = useState<string | null>(null);
@@ -707,7 +709,7 @@ function BiasPanel() {
     try {
       const resp = await fetch("/api/ai/bias-report", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ trades }),
       });
       const data = await resp.json();
@@ -841,12 +843,48 @@ const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
 
 /* ─── Page ────────────────────────────────────────────────── */
 export default function AiAssistant() {
+  const { token } = useAuth();
   const [tab, setTab] = useState<Tab>("overview");
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     document.querySelector(".tt-main")?.scrollTo({ top: 0, behavior: "instant" });
   }, [tab]);
+
+  if (!token) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <div className="h-16 w-16 rounded-2xl flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <Lock className="h-7 w-7" style={{ color: "hsl(var(--muted-foreground))" }} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold mb-2" style={{ color: "hsl(var(--foreground))" }}>
+              Sign in to access AI
+            </h2>
+            <p className="text-sm leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
+              The AI Market Assistant requires an account. Sign in or create a free account to get started.
+            </p>
+          </div>
+          <div className="flex gap-3 w-full">
+            <Link href="/auth/signin" className="flex-1">
+              <button className="w-full h-10 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}>
+                Sign In
+              </button>
+            </Link>
+            <Link href="/auth/signup" className="flex-1">
+              <button className="w-full h-10 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(var(--foreground))" }}>
+                Create Account
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const overallScore = Math.round(MARKETS.reduce((a, m) => a + m.score, 0) / MARKETS.length);
   const overallSent: Sentiment = overallScore >= 60 ? "bullish" : overallScore >= 40 ? "neutral" : "bearish";
@@ -986,12 +1024,12 @@ export default function AiAssistant() {
 
       {/* Chat */}
       <div style={show("chat")}>
-        <ChatPanel />
+        <ChatPanel token={token} />
       </div>
 
       {/* Bias */}
       <div style={show("bias")}>
-        <BiasPanel />
+        <BiasPanel token={token} />
       </div>
     </div>
   );
