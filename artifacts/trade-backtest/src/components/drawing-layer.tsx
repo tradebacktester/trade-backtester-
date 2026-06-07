@@ -64,7 +64,10 @@ function setLC(l: FObj, x1: number, y1: number, x2: number, y2: number) {
   l.setCoords();
 }
 
-const ND = { selectable: false, evented: false, hasControls: false, hasBorders: false };
+// lockMovementX/Y prevent fabric from moving drawings freely; cursor mode still
+// allows selection (for Delete key) but drawings must not drift since logicalData
+// would be stale and syncAll() would snap them back to the original position.
+const ND = { selectable: false, evented: false, hasControls: false, hasBorders: false, lockMovementX: true, lockMovementY: true };
 const FIB  = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 const FIBC = ["#ef5350","#26a69a","#2962ff","#ff9800","#9c27b0","#26a69a","#ef5350"];
 
@@ -130,9 +133,13 @@ class DrawingController {
       const sync = () => { this.syncAll(); this.onSync(); };
       chart.timeScale().subscribeVisibleTimeRangeChange(sync);
       chart.timeScale().subscribeVisibleLogicalRangeChange(sync);
+      // subscribeCrosshairMove fires during pinch-zoom on mobile where the
+      // time/logical range events may not fire fast enough, keeping drawings in sync.
+      chart.subscribeCrosshairMove(sync);
       this._unsubs.push(
         () => chart.timeScale().unsubscribeVisibleTimeRangeChange(sync),
         () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(sync),
+        () => chart.unsubscribeCrosshairMove(sync),
       );
     }
 
@@ -187,8 +194,14 @@ class DrawingController {
     this.fab.getObjects().forEach((o: FObj) => {
       if (o._isPreview) return;
       o.set({ selectable: v, evented: v });
-      if (v) { o.set({ hasControls: true, hasBorders: true }); }
-      else   { o.set({ hasControls: false, hasBorders: false }); }
+      if (v) {
+        // Keep lockMovement even when selectable so cursor mode only allows
+        // selecting (for Delete key) — not free dragging, which would desync
+        // pixel position from logicalData and cause snap-back on next zoom/pan.
+        o.set({ hasControls: true, hasBorders: true, lockMovementX: true, lockMovementY: true });
+      } else {
+        o.set({ hasControls: false, hasBorders: false });
+      }
     });
     this.fab.requestRenderAll();
   }
@@ -242,14 +255,21 @@ class DrawingController {
 
     // ── Pitchfork (3-click) ─────────────────────────────────────────────────
     if (tool === "pitchfork") {
+      const F = (window as any).fabric;
       this.pitchPts.push(pt);
+
       if (this.pitchPts.length >= 2) {
+        // Draw the committed segment from previous click to this click
         const prev = this.pitchPts[this.pitchPts.length - 2];
-        const F = (window as any).fabric;
-        const l = new F.Line([prev.x, prev.y, pt.x, pt.y], { ...ND, stroke: "#2962FF", strokeWidth: 1, strokeDashArray: [3,3], _isPreview: true });
-        this.pitchLines.push(l); this.fab.add(l); this.fab.requestRenderAll();
+        const seg = new F.Line([prev.x, prev.y, pt.x, pt.y], {
+          ...ND, stroke: "#2962FF", strokeWidth: 1, strokeDashArray: [3,3], _isPreview: true,
+        });
+        this.pitchLines.push(seg);
+        this.fab.add(seg);
       }
+
       if (this.pitchPts.length === 3) {
+        // All 3 points placed — finalise the pitchfork
         const [a, b, c] = this.pitchPts;
         this.pitchLines.forEach(l => this.fab.remove(l));
         this.pitchLines = []; this.pitchPts = [];
@@ -257,13 +277,19 @@ class DrawingController {
         this._mkPitchfork(a, b, c);
         this._fin(); this.phase = "idle";
       } else {
+        // After click 1 or 2: keep the preview line tracking the mouse from this point
         this.p1 = pt; this.phase = "placing";
-        if (!this.preview) {
-          const F = (window as any).fabric;
-          this.preview = new F.Line([pt.x, pt.y, pt.x, pt.y], { stroke: "#2962FF55", strokeWidth: 1, selectable: false, evented: false, _isPreview: true });
+        if (this.preview) {
+          // Reuse existing preview line: update its start to the new click point
+          setLC(this.preview, pt.x, pt.y, pt.x, pt.y);
+        } else {
+          this.preview = new F.Line([pt.x, pt.y, pt.x, pt.y], {
+            stroke: "#2962FF55", strokeWidth: 1, selectable: false, evented: false, _isPreview: true,
+          });
           this.fab.add(this.preview);
         }
       }
+      this.fab.requestRenderAll();
       return;
     }
 
@@ -291,8 +317,19 @@ class DrawingController {
 
   // ── Move (live preview) ──────────────────────────────────────────────────────
   private _onMove(e: MouseEvent) {
-    if (this.tool === "cursor" || this.phase !== "placing" || !this.p1 || !this.preview) return;
+    if (this.tool === "cursor") return;
     const { x, y } = this._xy(e);
+
+    // Pitchfork: preview always tracks from the LAST clicked point to the cursor,
+    // even between clicks 1→2 and 2→3.
+    if (this.tool === "pitchfork" && this.pitchPts.length > 0 && this.preview) {
+      const last = this.pitchPts[this.pitchPts.length - 1];
+      setLC(this.preview, last.x, last.y, x, y);
+      this.fab.requestRenderAll();
+      return;
+    }
+
+    if (this.phase !== "placing" || !this.p1 || !this.preview) return;
     this._updPreview(x, y);
   }
 
@@ -504,7 +541,17 @@ class DrawingController {
         case "trendline": { const x1=t2x(chart,d.start.time),y1=p2y(series,d.start.price),x2=t2x(chart,d.end.time),y2=p2y(series,d.end.price); if(x1!=null&&y1!=null&&x2!=null&&y2!=null) setLC(obj,x1,y1,x2,y2); break; }
         case "ray": {
           const x1=t2x(chart,d.start.time),y1=p2y(series,d.start.price),x2=t2x(chart,d.end.time),y2=p2y(series,d.end.price);
-          if(x1!=null&&y1!=null&&x2!=null&&y2!=null){ const dx=x2-x1,dy=y2-y1; const ts:number[]=[]; if(Math.abs(dx)>0.001){ts.push((0-x1)/dx);ts.push((w-x1)/dx);} if(Math.abs(dy)>0.001){ts.push((0-y1)/dy);ts.push((h-y1)/dy);} const mx=Math.max(...ts.filter(t=>t>0)); setLC(obj,x1,y1,x1+dx*mx,y1+dy*mx); }
+          if(x1!=null&&y1!=null&&x2!=null&&y2!=null){
+            const dx=x2-x1,dy=y2-y1;
+            const ts:number[]=[];
+            if(Math.abs(dx)>0.001){ts.push((0-x1)/dx);ts.push((w-x1)/dx);}
+            if(Math.abs(dy)>0.001){ts.push((0-y1)/dy);ts.push((h-y1)/dy);}
+            // Guard: if no positive-t intersections (degenerate or zero-length ray), skip
+            const pos=ts.filter(t=>t>0);
+            if(pos.length===0) break;
+            const mx=Math.max(...pos);
+            setLC(obj,x1,y1,x1+dx*mx,y1+dy*mx);
+          }
           break;
         }
         case "hline": { const y=p2y(series,d.price); if(y!=null) setLC(obj,0,y,w,y); break; }
@@ -568,6 +615,19 @@ class DrawingController {
       case "rect":  this._mkRect(ld.start.time,ld.start.price,ld.end.time,ld.end.price); break;
       case "text":  { const px=this._px(ld.time,ld.price); this._mkText(px?.x??100,px?.y??100,ld.time,ld.price,ld.text); break; }
       case "fib":   this._mkFib(ld.start.time,ld.start.price,ld.end.time,ld.end.price); break;
+      case "pitchfork": {
+        // Resolve pixels at restore time so _mkPitchfork has valid coords;
+        // syncAll() runs immediately after and corrects any off-screen positions.
+        const pa = this._px(ld.a.time, ld.a.price) ?? { x: 0, y: 0 };
+        const pb = this._px(ld.b.time, ld.b.price) ?? { x: 0, y: 0 };
+        const pc = this._px(ld.c.time, ld.c.price) ?? { x: 0, y: 0 };
+        this._mkPitchfork(
+          { x: pa.x, y: pa.y, time: ld.a.time, price: ld.a.price },
+          { x: pb.x, y: pb.y, time: ld.b.time, price: ld.b.price },
+          { x: pc.x, y: pc.y, time: ld.c.time, price: ld.c.price },
+        );
+        break;
+      }
     }
   }
   private _fin() { this._pushUndo(); this._save(); }
@@ -719,7 +779,9 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
   const [locked,  setLocked]  = useState(false);
   const [visible, setVisible] = useState(true);
   const [syncTick, setSyncTick] = useState(0);
-  const [containerH, setContainerH] = useState(600);
+  // Derive containerH live from the ref so it stays accurate after window resize
+  // without needing a separate state update — syncTick re-renders PositionTool on
+  // every viewport change, so reading clientHeight inline is always fresh.
 
   const buildHandle = useCallback((ctrl: DrawingController): DrawingLayerHandle => ({
     setTool:          (t) => { prevTool.current = t; ctrl.setTool(t); },
@@ -745,7 +807,6 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
       }
       const F = (window as any).fabric;
       const container = containerRef.current!;
-      setContainerH(container.clientHeight);
 
       const fab = new F.Canvas(canvasRef.current!, {
         selection: false, renderOnAddRemove: false, skipTargetFind: true, preserveObjectStacking: true,
@@ -797,7 +858,7 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
           pos={pos}
           series={seriesRef.current}
           syncTick={syncTick}
-          containerH={containerH}
+          containerH={containerRef.current?.clientHeight ?? 600}
           onUpdate={(id, patch) => { ctrlRef.current?.updatePos(id, patch); }}
           onRemove={(id) => { ctrlRef.current?.removePos(id); }}
         />
