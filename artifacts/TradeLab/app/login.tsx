@@ -168,8 +168,6 @@ const styles = StyleSheet.create({
     width: 72, height: 72,
     borderRadius: 20,
     backgroundColor: colors.brand,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -246,7 +244,7 @@ const styles = StyleSheet.create({
   submitText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    color: colors.brandForeground,
+    color: '#FFFFFF',
   },
   switchMode: { marginTop: 28, alignItems: 'center' },
   switchModeText: {

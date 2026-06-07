@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 22,
-    color: colors.brandForeground,
+    color: '#FFFFFF',
   },
   avatarLarge: {
     width: 90, height: 90,
