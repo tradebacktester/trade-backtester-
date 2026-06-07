@@ -21,7 +21,12 @@ export interface DrawingLayerHandle {
 
 // ── Internal types ────────────────────────────────────────────────────────────
 interface Pt { x: number; y: number; time: number; price: number }
-export interface PosDraw { id: string; kind: "long" | "short"; entry: number; stop: number; target: number }
+export interface PosDraw {
+  id: string; kind: "long" | "short";
+  entry: number; stop: number; target: number;
+  accountSize: number;  // e.g. 10000
+  riskPct:     number;  // 0-100, e.g. 1 = 1%
+}
 
 interface Props {
   chartRef:      React.RefObject<IChartApi | null>;
@@ -94,6 +99,9 @@ class DrawingController {
   undoStack: string[] = []; redoStack: string[] = [];
   _unsubs: Array<() => void> = [];
   _ro: ResizeObserver;
+  // RAF throttle for move events — only one preview update per animation frame
+  _rafId:     number | null = null;
+  _pendingXY: { x: number; y: number } | null = null;
   _b: { click:(e:MouseEvent)=>void; move:(e:MouseEvent)=>void; key:(e:KeyboardEvent)=>void;
         ts:(e:TouchEvent)=>void; tm:(e:TouchEvent)=>void; te:(e:TouchEvent)=>void };
 
@@ -133,13 +141,12 @@ class DrawingController {
       const sync = () => { this.syncAll(); this.onSync(); };
       chart.timeScale().subscribeVisibleTimeRangeChange(sync);
       chart.timeScale().subscribeVisibleLogicalRangeChange(sync);
-      // subscribeCrosshairMove fires during pinch-zoom on mobile where the
-      // time/logical range events may not fire fast enough, keeping drawings in sync.
-      chart.subscribeCrosshairMove(sync);
+      // NOTE: crosshairMove is NOT subscribed — it fires on every pixel of mouse
+      // movement and causes heavy re-renders. timeRange + logicalRange cover
+      // all pan/zoom cases including pinch-zoom.
       this._unsubs.push(
         () => chart.timeScale().unsubscribeVisibleTimeRangeChange(sync),
         () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(sync),
-        () => chart.unsubscribeCrosshairMove(sync),
       );
     }
 
@@ -169,24 +176,34 @@ class DrawingController {
     this._cancelDraw();
     this.tool = t;
     const upper = this.fab.upperCanvasEl as HTMLElement;
+    const chart = this.chartRef.current;
+
     if (t === "cursor") {
       upper.style.pointerEvents = "all";
       upper.style.cursor = "default";
-      this.fab.selection    = !this.locked;
+      this.fab.selection     = !this.locked;
       this.fab.skipTargetFind = this.locked;
       this._selectable(!this.locked);
+      // Restore chart panning/zooming in cursor mode
+      chart?.applyOptions({ handleScroll: true, handleScale: true });
     } else if (t === "eraser") {
       upper.style.pointerEvents = "all";
       upper.style.cursor = "cell";
-      this.fab.selection    = false;
+      this.fab.selection     = false;
       this.fab.skipTargetFind = false;
       this._selectable(true);
+      // Eraser intercepts clicks — keep chart from panning at the same time
+      chart?.applyOptions({ handleScroll: false, handleScale: false });
     } else {
+      // Any drawing tool: events pass through the transparent upper canvas to
+      // the container below. Disable chart's own scroll/scale so it doesn't
+      // pan while the user is placing a drawing.
       upper.style.pointerEvents = "none";
       upper.style.cursor = "crosshair";
-      this.fab.selection    = false;
+      this.fab.selection     = false;
       this.fab.skipTargetFind = true;
       this._selectable(false);
+      chart?.applyOptions({ handleScroll: false, handleScale: false });
     }
   }
 
@@ -247,8 +264,8 @@ class DrawingController {
     const tool = this.tool;
 
     // ── 1-click tools ───────────────────────────────────────────────────────
-    if (tool === "hline") { this._mkHLine(pt.price); this._fin(); return; }
-    if (tool === "vline") { this._mkVLine(pt.time); this._fin(); return; }
+    if (tool === "hline") { this._mkHLine(pt.price); this._fin(); this.fab.requestRenderAll(); return; }
+    if (tool === "vline") { this._mkVLine(pt.time);  this._fin(); this.fab.requestRenderAll(); return; }
     if (tool === "text")  { this._startText(pt.x, pt.y, pt.time, pt.price); return; }
     if (tool === "long")  { this._placeLong(pt.price); return; }
     if (tool === "short") { this._placeShort(pt.price); return; }
@@ -315,22 +332,35 @@ class DrawingController {
     }
   }
 
-  // ── Move (live preview) ──────────────────────────────────────────────────────
-  private _onMove(e: MouseEvent) {
-    if (this.tool === "cursor") return;
-    const { x, y } = this._xy(e);
+  // ── Move (live preview) — RAF-throttled for smooth mobile performance ────────
+  private _schedulePreview(x: number, y: number) {
+    this._pendingXY = { x, y };
+    if (this._rafId !== null) return;           // already scheduled for this frame
+    this._rafId = requestAnimationFrame(() => {
+      this._rafId = null;
+      if (!this._pendingXY) return;
+      const { x: px, y: py } = this._pendingXY;
+      this._pendingXY = null;
+      this._applyPreview(px, py);
+    });
+  }
 
-    // Pitchfork: preview always tracks from the LAST clicked point to the cursor,
-    // even between clicks 1→2 and 2→3.
+  private _applyPreview(x: number, y: number) {
+    // Pitchfork: preview tracks from the LAST clicked point to the cursor.
     if (this.tool === "pitchfork" && this.pitchPts.length > 0 && this.preview) {
       const last = this.pitchPts[this.pitchPts.length - 1];
       setLC(this.preview, last.x, last.y, x, y);
       this.fab.requestRenderAll();
       return;
     }
-
     if (this.phase !== "placing" || !this.p1 || !this.preview) return;
     this._updPreview(x, y);
+  }
+
+  private _onMove(e: MouseEvent) {
+    if (this.tool === "cursor") return;
+    const { x, y } = this._xy(e);
+    this._schedulePreview(x, y);
   }
 
   private _updPreview(x: number, y: number) {
@@ -358,9 +388,10 @@ class DrawingController {
   // ── Touch ────────────────────────────────────────────────────────────────────
   private _onTS(e: TouchEvent) { if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault(); }
   private _onTM(e: TouchEvent) {
-    if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault();
-    if (this.phase !== "placing" || !this.preview) return;
-    const { x, y } = this._xy(e); this._updPreview(x, y);
+    if (this.tool === "cursor" || this.tool === "eraser") return;
+    e.preventDefault();  // Must be synchronous (passive:false listener)
+    const { x, y } = this._xy(e);
+    this._schedulePreview(x, y);  // RAF-throttled, same path as mouse
   }
   private _onTE(e: TouchEvent) {
     if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault();
@@ -499,12 +530,12 @@ class DrawingController {
 
   // ── Position tools ───────────────────────────────────────────────────────────
   private _placeLong(entry: number) {
-    const pos: PosDraw = { id: crypto.randomUUID(), kind:"long", entry, stop: entry*0.985, target: entry*1.03 };
+    const pos: PosDraw = { id: crypto.randomUUID(), kind:"long", entry, stop: entry*0.985, target: entry*1.03, accountSize: 10000, riskPct: 1 };
     this.positions = [...this.positions, pos]; this._savePosns(); this.onPositions(this.positions);
     this.onToolChange("cursor"); this.setTool("cursor");
   }
   private _placeShort(entry: number) {
-    const pos: PosDraw = { id: crypto.randomUUID(), kind:"short", entry, stop: entry*1.015, target: entry*0.97 };
+    const pos: PosDraw = { id: crypto.randomUUID(), kind:"short", entry, stop: entry*1.015, target: entry*0.97, accountSize: 10000, riskPct: 1 };
     this.positions = [...this.positions, pos]; this._savePosns(); this.onPositions(this.positions);
     this.onToolChange("cursor"); this.setTool("cursor");
   }
@@ -638,6 +669,11 @@ class DrawingController {
   clear() { this.fab.getObjects().slice().forEach((o:FObj)=>this.fab.remove(o)); this.positions=[]; this._savePosns(); this.onPositions([]); this.fab.requestRenderAll(); this._fin(); }
 
   destroy() {
+    // Cancel pending RAF before anything else
+    if (this._rafId !== null) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+    this._pendingXY = null;
+    // Restore chart interactivity
+    this.chartRef.current?.applyOptions({ handleScroll: true, handleScale: true });
     this._cancelDraw(); this._unsubs.forEach(f=>f()); this._ro.disconnect();
     const {click,move,key,ts,tm,te}=this._b;
     this.container.removeEventListener("click",click);
@@ -651,51 +687,57 @@ class DrawingController {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// PositionTool — DOM overlay for Long / Short position drawings
+// PositionTool — TradingView-style Long / Short overlay with full position sizing
 // ═════════════════════════════════════════════════════════════════════════════
 interface PTProps {
-  pos:     PosDraw;
-  series:  ISeriesApi<"Candlestick"> | null;
+  pos:      PosDraw;
+  series:   ISeriesApi<"Candlestick"> | null;
   syncTick: number;
-  onUpdate: (id:string, patch:Partial<PosDraw>) => void;
-  onRemove: (id:string) => void;
+  onUpdate: (id: string, patch: Partial<PosDraw>) => void;
+  onRemove: (id: string) => void;
   containerH: number;
 }
 
 function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, containerH }: PTProps) {
-  const drag = useRef<{field:"entry"|"stop"|"target"; startY:number; startPrice:number}|null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const drag = useRef<{ field: "entry"|"stop"|"target"; startY: number; startPrice: number } | null>(null);
 
+  // ── Pixel positions ────────────────────────────────────────────────────────
   const ey = series ? (p2y(series, pos.entry)  ?? -999) : -999;
   const sy = series ? (p2y(series, pos.stop)   ?? -999) : -999;
   const ty = series ? (p2y(series, pos.target) ?? -999) : -999;
-  if (ey < 0 || ey > containerH + 200) return null;
+  if (ey < -200 || ey > containerH + 200) return null;
 
-  const isLong  = pos.kind === "long";
-  const risk    = Math.abs(pos.entry - pos.stop);
-  const reward  = Math.abs(pos.target - pos.entry);
-  const rr      = risk > 0 ? (reward / risk).toFixed(2) : "–";
-  const risktPct  = risk   > 0 ? ((risk   / pos.entry) * 100).toFixed(2) : "0";
-  const rewardPct = reward > 0 ? ((reward / pos.entry) * 100).toFixed(2) : "0";
+  const isLong = pos.kind === "long";
 
-  const zoneTop  = isLong ? Math.min(ey, ty) : Math.min(ey, sy);
-  const zoneBotSL = isLong ? Math.max(ey, sy) : Math.max(ey, ty);
+  // ── Metrics ────────────────────────────────────────────────────────────────
+  const risk      = Math.abs(pos.entry - pos.stop);
+  const reward    = Math.abs(pos.target - pos.entry);
+  const rr        = risk > 0 ? (reward / risk).toFixed(2) : "–";
+  const riskPctPx = risk   > 0 ? ((risk   / pos.entry) * 100).toFixed(2) : "0";
+  const rewPctPx  = reward > 0 ? ((reward / pos.entry) * 100).toFixed(2) : "0";
+  const acctSz    = pos.accountSize ?? 10000;
+  const riskPct   = pos.riskPct    ?? 1;
+  const riskUsd   = acctSz * riskPct / 100;
+  const posSize   = risk > 0 ? riskUsd / risk : 0;
+  const rewUsd    = posSize * reward;
+  const fmt       = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`;
+
   const zoneH_tp = Math.abs(ey - ty);
   const zoneH_sl = Math.abs(ey - sy);
 
+  // ── Drag handles ──────────────────────────────────────────────────────────
   function startDrag(field: "entry"|"stop"|"target") {
     return (e: React.MouseEvent | React.TouchEvent) => {
       e.stopPropagation();
       const startY = "touches" in e ? e.touches[0].clientY : e.clientY;
       drag.current = { field, startY, startPrice: pos[field] };
-
       const onMove = (ev: MouseEvent | TouchEvent) => {
         if (!drag.current || !series) return;
         const cy = "touches" in ev ? (ev as TouchEvent).touches[0].clientY : (ev as MouseEvent).clientY;
-        const dy = cy - drag.current.startY;
-        const newY = (p2y(series, drag.current.startPrice) ?? 0) + dy;
-        const newPrice = y2p(series, newY);
-        if (newPrice == null) return;
-        onUpdate(pos.id, { [drag.current.field]: newPrice });
+        const newY = (p2y(series, drag.current.startPrice) ?? 0) + (cy - drag.current.startY);
+        const newP = y2p(series, newY);
+        if (newP != null) onUpdate(pos.id, { [drag.current.field]: newP });
       };
       const onUp = () => {
         drag.current = null;
@@ -711,59 +753,155 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
     };
   }
 
-  const lineStyle = (color: string): React.CSSProperties => ({
-    position: "absolute", left: 0, right: 0, height: 1.5, background: color,
-    pointerEvents: "all", cursor: "ns-resize", zIndex: 40,
-  });
+  // ── Style helpers ──────────────────────────────────────────────────────────
+  const tpC = "#26a69a", slC = "#ef5350", enC = "#F79009";
 
-  const labelStyle = (color: string, right?: boolean): React.CSSProperties => ({
-    position: "absolute", [right ? "right" : "left"]: right ? 8 : 44,
-    background: color, color: "#fff", fontSize: 10, fontFamily: "monospace",
-    padding: "1px 6px", borderRadius: 3, whiteSpace: "nowrap", fontWeight: 600,
-    pointerEvents: "none", userSelect: "none", top: "50%", transform: "translateY(-50%)",
+  const lineS = (color: string, top: number): React.CSSProperties => ({
+    position: "absolute", left: 0, right: 0, top, height: 2,
+    background: color, pointerEvents: "all", cursor: "ns-resize", zIndex: 40,
   });
-
-  const handleStyle = (color: string): React.CSSProperties => ({
+  const handleS = (color: string): React.CSSProperties => ({
     position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)",
-    width: 28, height: 16, borderRadius: 3, background: color, display: "flex",
-    alignItems: "center", justifyContent: "center", cursor: "ns-resize",
-    pointerEvents: "all", zIndex: 2,
+    width: 30, height: 18, borderRadius: 3, background: color,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "ns-resize", pointerEvents: "all", zIndex: 2,
+  });
+  const lbl = (color: string, left: number | string): React.CSSProperties => ({
+    position: "absolute", left, background: color, color: "#fff",
+    fontSize: 10, fontFamily: "monospace", padding: "1px 6px",
+    borderRadius: 3, whiteSpace: "nowrap", fontWeight: 600,
+    pointerEvents: "none", userSelect: "none",
+    top: "50%", transform: "translateY(-50%)",
+  });
+  const lblGhost = (color: string, left: number | string): React.CSSProperties => ({
+    ...lbl(color + "77", left),
   });
 
   return (
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 30 }}>
-      {/* TP zone */}
-      <div style={{ position: "absolute", left: 0, right: 0, top: isLong ? ty : ey, height: zoneH_tp, background: "rgba(38,166,154,0.13)", pointerEvents: "none" }} />
-      {/* SL zone */}
-      <div style={{ position: "absolute", left: 0, right: 0, top: isLong ? ey : sy, height: zoneH_sl, background: "rgba(239,83,80,0.13)", pointerEvents: "none" }} />
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 30 }}>
 
-      {/* Target line */}
-      <div style={{ ...lineStyle("#26a69a"), top: ty }}>
-        <div style={handleStyle("#26a69a")} onMouseDown={startDrag("target")} onTouchStart={startDrag("target")}>
+      {/* ── Coloured zones ─── */}
+      <div style={{ position: "absolute", left: 0, right: 0, top: isLong ? ty : ey, height: zoneH_tp, background: "rgba(38,166,154,0.10)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", left: 0, right: 0, top: isLong ? ey : sy, height: zoneH_sl, background: "rgba(239,83,80,0.10)", pointerEvents: "none" }} />
+
+      {/* ── Take-Profit line ─── */}
+      <div style={lineS(tpC, ty)}>
+        <div style={handleS(tpC)} onMouseDown={startDrag("target")} onTouchStart={startDrag("target")}>
           <svg width="14" height="8" viewBox="0 0 14 8"><path d="M1 4h12M7 1l3 3-3 3" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
         </div>
-        <span style={labelStyle("#26a69a")}>TP {pos.target.toFixed(isLong?2:4)} +{rewardPct}%</span>
-        <span style={labelStyle("#26a69a", true)}>R:R {rr}</span>
+        <span style={lbl(tpC, 44)}>TP {pos.target.toFixed(pos.target > 10 ? 2 : 4)} +{rewPctPx}%</span>
+        <span style={lblGhost(tpC, "30%")}>{fmt(rewUsd)} profit</span>
+        <span style={{ ...lbl(tpC + "cc", "auto"), right: 8 }}>R:R 1:{rr}</span>
       </div>
 
-      {/* Entry line */}
-      <div style={{ ...lineStyle("#F79009"), top: ey }}>
-        <div style={handleStyle("#F79009")} onMouseDown={startDrag("entry")} onTouchStart={startDrag("entry")}>
+      {/* ── Entry line ─── */}
+      <div style={lineS(enC, ey)}>
+        <div style={handleS(enC)} onMouseDown={startDrag("entry")} onTouchStart={startDrag("entry")}>
           <svg width="14" height="8" viewBox="0 0 14 8"><path d="M1 4h12" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
         </div>
-        <span style={labelStyle("#F79009")}>{isLong ? "Long" : "Short"} {pos.entry.toFixed(pos.entry > 10 ? 2 : 4)}</span>
+        <span style={lbl(enC, 44)}>{isLong ? "▲ Long" : "▼ Short"} {pos.entry.toFixed(pos.entry > 10 ? 2 : 4)}</span>
+        <span style={lblGhost(enC, "30%")}>
+          {posSize > 0 ? `${posSize.toFixed(4)} units · ${fmt(riskUsd)} risk (${riskPct}%)` : `${fmt(acctSz)} account`}
+        </span>
+        {/* Settings gear */}
+        <button
+          onMouseDown={e => { e.stopPropagation(); setShowSettings(s => !s); }}
+          onTouchStart={e => { e.stopPropagation(); setShowSettings(s => !s); }}
+          style={{ position: "absolute", right: 30, top: "50%", transform: "translateY(-50%)",
+            background: showSettings ? enC : "rgba(40,44,60,0.85)",
+            border: `1px solid ${enC}88`, color: "#fff", width: 22, height: 22,
+            borderRadius: 4, cursor: "pointer", fontSize: 12, lineHeight: "22px",
+            textAlign: "center", pointerEvents: "all" }}
+          title="Position sizing settings"
+        >⚙</button>
+        {/* Remove */}
         <button
           onClick={() => onRemove(pos.id)}
-          style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(239,83,80,0.8)", border: "none", color: "#fff", width: 18, height: 18, borderRadius: "50%", cursor: "pointer", fontSize: 12, lineHeight: "18px", textAlign: "center", pointerEvents: "all" }}>×</button>
+          style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+            background: "rgba(239,83,80,0.85)", border: "none", color: "#fff",
+            width: 20, height: 20, borderRadius: "50%", cursor: "pointer",
+            fontSize: 14, lineHeight: "20px", textAlign: "center", pointerEvents: "all" }}>×</button>
       </div>
 
-      {/* Stop line */}
-      <div style={{ ...lineStyle("#ef5350"), top: sy }}>
-        <div style={handleStyle("#ef5350")} onMouseDown={startDrag("stop")} onTouchStart={startDrag("stop")}>
-          <svg width="14" height="8" viewBox="0 0 14 8"><path d="M1 4h12M7 1l3 3-3 3" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" transform={isLong?"rotate(180 7 4)":""}/>  </svg>
+      {/* ── Stop-Loss line ─── */}
+      <div style={lineS(slC, sy)}>
+        <div style={handleS(slC)} onMouseDown={startDrag("stop")} onTouchStart={startDrag("stop")}>
+          <svg width="14" height="8" viewBox="0 0 14 8">
+            <path d="M1 4h12M7 1l3 3-3 3" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"
+              transform={isLong ? "rotate(180 7 4)" : ""} />
+          </svg>
         </div>
-        <span style={labelStyle("#ef5350")}>SL {pos.stop.toFixed(pos.stop > 10 ? 2 : 4)} -{risktPct}%</span>
+        <span style={lbl(slC, 44)}>SL {pos.stop.toFixed(pos.stop > 10 ? 2 : 4)} -{riskPctPx}%</span>
+        <span style={lblGhost(slC, "30%")}>{fmt(riskUsd)} max loss</span>
       </div>
+
+      {/* ── Settings panel ─── */}
+      {showSettings && (
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: "absolute", top: Math.max(8, ey + 10), left: 44,
+            background: "rgba(13,17,28,0.97)",
+            border: `1px solid ${enC}55`,
+            borderRadius: 10, padding: "12px 16px",
+            zIndex: 80, pointerEvents: "all",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
+            fontFamily: "monospace", color: "#D9D9D9", fontSize: 11,
+            minWidth: 230,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 10, color: enC, fontSize: 12 }}>
+            {isLong ? "▲ Long" : "▼ Short"} Position Sizing
+          </div>
+
+          {/* Account size */}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+            <span style={{ width: 96, opacity: 0.65 }}>Account Size</span>
+            <span style={{ opacity: 0.5 }}>$</span>
+            <input
+              type="number" min={100} step={500}
+              value={acctSz}
+              onChange={e => onUpdate(pos.id, { accountSize: Number(e.target.value) })}
+              style={{ width: 80, background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#fff", borderRadius: 4, padding: "3px 7px",
+                fontFamily: "monospace", fontSize: 11 }}
+            />
+          </label>
+
+          {/* Risk % */}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ width: 96, opacity: 0.65 }}>Risk per Trade</span>
+            <input
+              type="number" min={0.1} max={100} step={0.1}
+              value={riskPct}
+              onChange={e => onUpdate(pos.id, { riskPct: Number(e.target.value) })}
+              style={{ width: 80, background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#fff", borderRadius: 4, padding: "3px 7px",
+                fontFamily: "monospace", fontSize: 11 }}
+            />
+            <span style={{ opacity: 0.5 }}>%</span>
+          </label>
+
+          {/* Computed results */}
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
+            {[
+              { label: "$ at Risk",      val: `$${riskUsd.toFixed(2)}`,  color: slC },
+              { label: "Position Size",  val: `${posSize.toFixed(4)} units`, color: "#D9D9D9" },
+              { label: "$ Reward",       val: `$${rewUsd.toFixed(2)}`,  color: tpC },
+              { label: "Risk : Reward",  val: `1 : ${rr}`,
+                color: rr !== "–" && parseFloat(rr) >= 2 ? tpC : rr !== "–" && parseFloat(rr) >= 1 ? enC : slC },
+            ].map(row => (
+              <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ opacity: 0.55 }}>{row.label}</span>
+                <span style={{ fontWeight: 700, color: row.color }}>{row.val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
