@@ -122,7 +122,7 @@ export default function AIScreen() {
               <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.aiBubble]}>
                 {item.role === 'assistant' && (
                   <View style={styles.aiIcon}>
-                    <Ionicons name="sparkles" size={12} color={colors.brand} />
+                    <Ionicons name="sparkles" size={12} color={colors.foregroundMuted} />
                   </View>
                 )}
                 <Text style={[styles.bubbleText, item.role === 'user' ? styles.userText : styles.aiText]}>
@@ -135,7 +135,7 @@ export default function AIScreen() {
 
         {sending && (
           <View style={styles.typing}>
-            <ActivityIndicator size="small" color={colors.brand} />
+            <ActivityIndicator size="small" color={colors.foreground} />
             <Text style={styles.typingText}>Thinking…</Text>
           </View>
         )}
@@ -157,7 +157,7 @@ export default function AIScreen() {
             onPress={() => send(input)}
             disabled={!input.trim() || sending}
           >
-            <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+            <Ionicons name="arrow-up" size={20} color={colors.brandForeground} />
           </TouchableOpacity>
         </View>
       </View>
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     flex: 1,
   },
-  userText: { color: '#FFFFFF' },
+  userText: { color: colors.brandForeground },
   aiText: { color: colors.foreground },
   typing: {
     flexDirection: 'row',
@@ -293,6 +293,6 @@ const styles = StyleSheet.create({
   signInText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: colors.brandForeground,
   },
 });
