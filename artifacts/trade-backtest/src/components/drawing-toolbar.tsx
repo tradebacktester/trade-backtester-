@@ -8,10 +8,9 @@ interface Props {
   layerHandle:  DrawingLayerHandle | null;
 }
 
-// NOTE: eraser removed — use Delete/Backspace key to delete selected drawings
 const TOOLS = [
   {
-    id: "cursor", label: "Select / Move  [V]", group: 0,
+    id: "cursor", label: "Select / Move", group: 0,
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M3 2l10 5.5-5.5 1.5L6 15z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
@@ -119,13 +118,22 @@ const TOOLS = [
       </svg>
     ),
   },
+  {
+    id: "eraser", label: "Eraser — click drawing to delete", group: 5,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M9.5 2.5L13.5 6.5L6.5 13.5L2 13.5L2 9L9.5 2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="rgba(239,83,80,0.15)"/>
+        <path d="M6 13.5L13.5 6.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.5"/>
+        <line x1="2" y1="13.5" x2="14" y2="13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.4"/>
+      </svg>
+    ),
+  },
 ] as const;
 
 export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props) {
   const [tooltip, setTooltip] = useState<string | null>(null);
   const isLocked  = layerHandle?.isLocked  ?? false;
   const isVisible = layerHandle?.isVisible ?? true;
-  const isDrawing = activeTool !== "cursor";
 
   const glass: React.CSSProperties = {
     background:          "rgba(11,15,26,0.90)",
@@ -172,11 +180,6 @@ export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props)
     toolGroups[toolGroups.length - 1].push(t);
   }
 
-  // Clicking the already-active tool toggles back to cursor (deselect)
-  function handleToolClick(id: string) {
-    onToolChange(activeTool === id && id !== "cursor" ? "cursor" : id);
-  }
-
   return (
     <div style={{ position:"absolute", left:8, top:8, bottom:8, zIndex:50, display:"flex", flexDirection:"column", gap:5, pointerEvents:"all", overflowY:"auto", scrollbarWidth:"none" }}>
 
@@ -204,7 +207,7 @@ export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props)
                 <button
                   key={tool.id}
                   style={btn(activeTool === tool.id, accent)}
-                  onClick={() => handleToolClick(tool.id)}
+                  onClick={() => onToolChange(tool.id)}
                   onMouseEnter={() => setTooltip(tool.label)}
                   onMouseLeave={() => setTooltip(null)}
                   title={tool.label}
@@ -236,9 +239,9 @@ export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props)
           </svg>
         </button>
         {sep}
-        <button style={{ ...btn(), color:"rgba(220,100,100,0.8)" }} title="Delete Selected (Del)"
+        <button style={{ ...btn(), color:"rgba(220,100,100,0.8)" }} title="Delete Selected"
           onClick={() => layerHandle?.deleteSelected()}
-          onMouseEnter={() => setTooltip("Delete Selected (Del)")} onMouseLeave={() => setTooltip(null)}>
+          onMouseEnter={() => setTooltip("Delete Selected")} onMouseLeave={() => setTooltip(null)}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M2 4h10M5 4V2.5h4V4M3 4l1 8.5h6L11 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -305,57 +308,6 @@ export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props)
           </svg>
         </button>
       </div>
-
-      {/* Drawing-mode active indicator — shows when any drawing tool is selected */}
-      {isDrawing && (
-        <div style={{
-          background: "rgba(0,229,255,0.08)",
-          border: "1px solid rgba(0,229,255,0.25)",
-          borderRadius: 8,
-          padding: "6px 4px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 4,
-          pointerEvents: "all",
-        }}>
-          {/* ESC to deselect */}
-          <button
-            onClick={() => onToolChange("cursor")}
-            title="Exit drawing mode (Esc)"
-            onMouseEnter={() => setTooltip("Exit drawing mode (Esc)")}
-            onMouseLeave={() => setTooltip(null)}
-            style={{
-              background: "rgba(0,229,255,0.15)",
-              border: "1px solid rgba(0,229,255,0.3)",
-              borderRadius: 6,
-              color: "#00E5FF",
-              width: 36,
-              height: 28,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-              fontFamily: "monospace",
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-            }}
-          >
-            ESC
-          </button>
-          <span style={{
-            fontSize: 8,
-            fontFamily: "monospace",
-            color: "rgba(0,229,255,0.5)",
-            textAlign: "center",
-            lineHeight: 1.3,
-            userSelect: "none",
-          }}>
-            drawing<br/>mode
-          </span>
-        </div>
-      )}
     </div>
   );
 }

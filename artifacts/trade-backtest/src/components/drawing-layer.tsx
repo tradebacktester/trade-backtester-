@@ -404,8 +404,6 @@ class DrawingController {
     if (this.preview) { this.fab.remove(this.preview); this.preview = null; }
     this.pitchLines.forEach(l => this.fab.remove(l));
     this.pitchLines = []; this.pitchPts = [];
-    // Dismiss the text-label popup if it's open
-    document.getElementById("dl-text-ov")?.remove();
     this.fab.requestRenderAll();
   }
 
@@ -462,9 +460,9 @@ class DrawingController {
     this.fab.add(rect); return rect;
   }
 
-  private _mkText(x: number, y: number, time: number, price: number, text: string, color = "#D9D9D9", size = 13) {
+  private _mkText(x: number, y: number, time: number, price: number, text: string) {
     const F = (window as any).fabric;
-    const t = new F.IText(text, { left: x, top: y, fill: color, fontSize: size, fontFamily: "system-ui,sans-serif", fontWeight: size >= 18 ? "600" : "400", ...ND, editable: false, drawingType: "text", logicalData: { time, price, text, color, size } });
+    const t = new F.IText(text, { left: x, top: y, fill: "#D9D9D9", fontSize: 13, fontFamily: "monospace", ...ND, editable: false, drawingType: "text", logicalData: { time, price, text } });
     this.fab.add(t); return t;
   }
 
@@ -495,148 +493,39 @@ class DrawingController {
     this.fab.add(med); this.fab.add(up); this.fab.add(lo);
   }
 
-  // ── Text overlay — improved panel with color/size options ────────────────────
+  // ── Text overlay ─────────────────────────────────────────────────────────────
   private _startText(x: number, y: number, time: number, price: number) {
-    // Remove any stale overlay from a previous mount
-    document.getElementById("dl-text-ov")?.remove();
-
-    const TEXT_COLORS = ["#D9D9D9","#F79009","#26a69a","#ef5350","#2962FF","#9C27B0","#FFEB3B"];
-    const TEXT_SIZES  = [{ label:"S", px:11 },{ label:"M", px:14 },{ label:"L", px:20 }];
-    let pickedColor = TEXT_COLORS[0];
-    let pickedSize  = TEXT_SIZES[1].px;  // default Medium
-
-    const ov = document.createElement("div");
-    ov.id = "dl-text-ov";
-    ov.style.cssText = [
-      "position:absolute;z-index:300;",
-      "display:flex;flex-direction:column;gap:8px;",
-      "background:rgba(13,17,28,0.97);",
-      "border:1px solid rgba(41,98,255,0.45);",
-      "border-radius:10px;padding:10px 12px;",
-      "box-shadow:0 8px 40px rgba(0,0,0,0.7);",
-      "min-width:220px;",
-    ].join("");
-
-    // ── Input row ──────────────────────────────────────────────────────────────
-    const row1 = document.createElement("div");
-    row1.style.cssText = "display:flex;gap:0;";
-    const inp = document.createElement("input");
-    inp.id = "dl-text-inp"; inp.type = "text"; inp.placeholder = "Type label…";
-    inp.setAttribute("autocomplete","off");
-    inp.style.cssText = [
-      "flex:1;background:rgba(255,255,255,0.06);",
-      "border:1.5px solid rgba(41,98,255,0.5);border-right:none;",
-      "color:#e0e3eb;padding:7px 10px;font-size:13px;",
-      "border-radius:6px 0 0 6px;outline:none;",
-      "font-family:system-ui,sans-serif;",
-    ].join("");
-
-    const addBtn = document.createElement("button");
-    addBtn.textContent = "Add"; addBtn.type = "button";
-    addBtn.style.cssText = [
-      "background:#2962FF;border:none;color:#fff;",
-      "padding:7px 14px;font-size:12px;font-weight:600;",
-      "border-radius:0 6px 6px 0;cursor:pointer;",
-      "font-family:system-ui,sans-serif;white-space:nowrap;",
-      "touch-action:manipulation;",
-    ].join("");
-    row1.appendChild(inp); row1.appendChild(addBtn);
-
-    // ── Size row ───────────────────────────────────────────────────────────────
-    const row2 = document.createElement("div");
-    row2.style.cssText = "display:flex;align-items:center;gap:4px;";
-    const szLabel = document.createElement("span");
-    szLabel.textContent = "Size:";
-    szLabel.style.cssText = "font-size:10px;color:rgba(165,170,195,0.6);font-family:system-ui,sans-serif;margin-right:2px;";
-    row2.appendChild(szLabel);
-
-    TEXT_SIZES.forEach(sz => {
-      const b = document.createElement("button");
-      b.textContent = sz.label; b.type = "button";
-      b.dataset["px"] = String(sz.px);
-      b.style.cssText = [
-        `background:${pickedSize===sz.px?"rgba(41,98,255,0.3)":"rgba(255,255,255,0.07)"};`,
-        `border:1px solid ${pickedSize===sz.px?"rgba(41,98,255,0.7)":"rgba(255,255,255,0.12)"};`,
-        "color:#D9D9D9;border-radius:5px;padding:3px 9px;",
-        "font-size:11px;cursor:pointer;font-family:system-ui,sans-serif;",
-        "touch-action:manipulation;",
-      ].join("");
-      b.addEventListener("mousedown", e => {
-        e.preventDefault();
-        pickedSize = sz.px;
-        row2.querySelectorAll("button").forEach((bb: Element) => {
-          const bbEl = bb as HTMLButtonElement;
-          const active = bbEl.dataset["px"] === String(sz.px);
-          bbEl.style.background = active ? "rgba(41,98,255,0.3)" : "rgba(255,255,255,0.07)";
-          bbEl.style.border     = `1px solid ${active ? "rgba(41,98,255,0.7)" : "rgba(255,255,255,0.12)"}`;
-        });
-      });
-      row2.appendChild(b);
-    });
-
-    // ── Color row ──────────────────────────────────────────────────────────────
-    const row3 = document.createElement("div");
-    row3.style.cssText = "display:flex;align-items:center;gap:5px;";
-    const cLabel = document.createElement("span");
-    cLabel.textContent = "Color:";
-    cLabel.style.cssText = "font-size:10px;color:rgba(165,170,195,0.6);font-family:system-ui,sans-serif;margin-right:2px;";
-    row3.appendChild(cLabel);
-
-    TEXT_COLORS.forEach(c => {
-      const swatch = document.createElement("button");
-      swatch.type = "button"; swatch.dataset["color"] = c;
-      swatch.style.cssText = [
-        `background:${c};`,
-        `width:${pickedColor===c?18:14}px;height:${pickedColor===c?18:14}px;`,
-        `border:${pickedColor===c?"2px solid #fff":"2px solid transparent"};`,
-        "border-radius:50%;cursor:pointer;flex-shrink:0;",
-        "touch-action:manipulation;padding:0;",
-      ].join("");
-      swatch.addEventListener("mousedown", e => {
-        e.preventDefault();
-        pickedColor = c;
-        inp.style.color = c;
-        row3.querySelectorAll("button").forEach((sw: Element) => {
-          const swEl = sw as HTMLButtonElement;
-          const sel = swEl.dataset["color"] === c;
-          swEl.style.width  = sel ? "18px" : "14px";
-          swEl.style.height = sel ? "18px" : "14px";
-          swEl.style.border = sel ? "2px solid #fff" : "2px solid transparent";
-        });
-      });
-      row3.appendChild(swatch);
-    });
-
-    ov.appendChild(row1); ov.appendChild(row2); ov.appendChild(row3);
-
-    // Position the panel, keeping it inside the container
+    let ov = document.getElementById("dl-text-ov");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "dl-text-ov";
+      ov.style.cssText = "position:absolute;z-index:300;display:none;align-items:center;gap:0;box-shadow:0 4px 24px rgba(0,0,0,0.5);";
+      const inp = document.createElement("input");
+      inp.id = "dl-text-inp"; inp.type = "text"; inp.placeholder = "Label text…";
+      inp.setAttribute("autocomplete","off");
+      inp.style.cssText = "background:#131722;border:1.5px solid #2962FF;color:#e0e3eb;padding:6px 10px;font-size:13px;border-radius:4px 0 0 4px;outline:none;min-width:130px;font-family:monospace;";
+      const btn = document.createElement("button");
+      btn.id = "dl-text-btn"; btn.textContent = "✓"; btn.type = "button";
+      btn.style.cssText = "background:#2962FF;border:none;color:#fff;padding:6px 13px;font-size:15px;border-radius:0 4px 4px 0;cursor:pointer;touch-action:manipulation;";
+      ov.appendChild(inp); ov.appendChild(btn);
+      this.container.appendChild(ov);
+    }
     const ww = this.container.clientWidth;
-    const wh = this.container.clientHeight;
-    ov.style.left = `${Math.max(4, Math.min(x, ww - 240))}px`;
-    ov.style.top  = `${Math.max(4, Math.min(y - 10, wh - 130))}px`;
-    this.container.appendChild(ov);
-    inp.focus();
-
+    ov.style.left = `${Math.max(4, Math.min(x, ww - 200))}px`;
+    ov.style.top  = `${Math.max(4, y - 26)}px`;
+    ov.style.display = "flex";
+    const inp = document.getElementById("dl-text-inp") as HTMLInputElement;
+    const btn = document.getElementById("dl-text-btn") as HTMLButtonElement;
+    inp.value = ""; inp.focus();
     const commit = (ok: boolean) => {
       const txt = inp.value.trim();
-      ov.remove();
-      if (ok && txt) {
-        this._mkText(x, y, time, price, txt, pickedColor, pickedSize);
-        this._fin();
-        // Auto-revert to cursor after placing a label
-        this.onToolChange("cursor");
-        this.setTool("cursor");
-      }
+      ov!.style.display = "none";
+      inp.onkeydown = null; inp.onblur = null; btn.onclick = null;
+      if (ok && txt) { this._mkText(x, y, time, price, txt); this._fin(); }
     };
-
-    inp.addEventListener("keydown", e => {
-      if (e.key === "Enter")  { e.preventDefault(); commit(true); }
-      if (e.key === "Escape") { e.preventDefault(); commit(false); }
-    });
-    // Small timeout so clicking a size/color swatch doesn't blur-commit
-    inp.addEventListener("blur", () => setTimeout(() => { if (document.getElementById("dl-text-ov")) commit(true); }, 150));
-    addBtn.addEventListener("mousedown", e => { e.preventDefault(); inp.removeEventListener("blur", () => {}); commit(true); });
-    addBtn.addEventListener("click",     e => { e.preventDefault(); e.stopPropagation(); commit(true); });
+    inp.onkeydown = e => { if (e.key==="Enter"){e.preventDefault();commit(true);} if(e.key==="Escape"){e.preventDefault();commit(false);} };
+    inp.onblur    = () => setTimeout(() => commit(true), 100);
+    btn.onclick   = e => { e.preventDefault(); e.stopPropagation(); inp.onblur = null; commit(true); };
   }
 
   // ── Position tools ───────────────────────────────────────────────────────────
@@ -755,7 +644,7 @@ class DrawingController {
       case "hline": this._mkHLine(ld.price); break;
       case "vline": this._mkVLine(ld.time); break;
       case "rect":  this._mkRect(ld.start.time,ld.start.price,ld.end.time,ld.end.price); break;
-      case "text":  { const px=this._px(ld.time,ld.price); this._mkText(px?.x??100,px?.y??100,ld.time,ld.price,ld.text,ld.color,ld.size); break; }
+      case "text":  { const px=this._px(ld.time,ld.price); this._mkText(px?.x??100,px?.y??100,ld.time,ld.price,ld.text); break; }
       case "fib":   this._mkFib(ld.start.time,ld.start.price,ld.end.time,ld.end.price); break;
       case "pitchfork": {
         // Resolve pixels at restore time so _mkPitchfork has valid coords;
