@@ -83,11 +83,12 @@ if (fs.existsSync(drawingToolsDir)) {
 const serveFrontend = process.env["SERVE_FRONTEND"] !== "false";
 const frontendDist = process.env["FRONTEND_DIST"] ?? path.resolve("dist/public");
 if (serveFrontend && fs.existsSync(frontendDist)) {
-  // Hashed assets (index-abc123.js) can be cached long-term; index.html must never be cached
+  // In development, disable all caching so the preview pane always loads fresh assets
+  const isDev = process.env["NODE_ENV"] !== "production";
   app.use(
     express.static(frontendDist, {
       setHeaders(res, filePath) {
-        if (filePath.endsWith(".html")) {
+        if (isDev || filePath.endsWith(".html")) {
           res.setHeader("Cache-Control", "no-store");
         }
       },

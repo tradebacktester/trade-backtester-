@@ -8,7 +8,7 @@ fuser -k 8080/tcp 2>/dev/null || true
 
 # Install dependencies if node_modules is missing or out of date
 echo "[start.sh] Installing dependencies..."
-pnpm install --frozen-lockfile
+pnpm install
 
 # Ensure DB schema is up to date
 echo "[start.sh] Syncing database schema..."
