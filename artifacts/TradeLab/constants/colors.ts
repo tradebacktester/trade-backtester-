@@ -12,9 +12,9 @@ export const colors = {
   primary: '#FFFFFF',
   primaryForeground: '#050505',
 
-  brand: '#8B0000',
-  brandLight: '#B91C1C',
-  brandDim: 'rgba(139,0,0,0.15)',
+  brand: '#000000',
+  brandLight: '#1A1A1A',
+  brandDim: 'rgba(0,0,0,0.35)',
 
   success: '#22C55E',
   successDim: 'rgba(34,197,94,0.12)',
