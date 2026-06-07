@@ -146,11 +146,11 @@ function Router() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <SubscriptionProvider>
-          <SettingsProvider>
-            <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <SubscriptionProvider>
+            <SettingsProvider>
               <TooltipProvider>
                 <UnauthorizedHandler />
                 <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
@@ -161,11 +161,11 @@ function App() {
                 </WouterRouter>
                 <Toaster />
               </TooltipProvider>
-            </QueryClientProvider>
-          </SettingsProvider>
-        </SubscriptionProvider>
-      </AuthProvider>
-    </ThemeProvider>
+            </SettingsProvider>
+          </SubscriptionProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
