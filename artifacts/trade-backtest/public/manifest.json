@@ -9,8 +9,8 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
-  "background_color": "#111827",
-  "theme_color": "#8B0000",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "orientation": "any",
   "prefer_related_applications": false,
   "related_applications": [
