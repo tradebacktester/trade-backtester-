@@ -11,7 +11,7 @@ import {
 import { API_BASE } from "@/lib/api-config";
 
 type Sentiment = "bullish" | "bearish" | "neutral";
-type Tab = "overview" | "news" | "ict" | "calendar" | "chat" | "bias";
+type Tab = "overview" | "news" | "ict" | "calendar" | "chat" | "bias" | "coach";
 type Impact = "high" | "medium" | "low";
 type IctCategory = "all" | "structure" | "liquidity" | "smart_money" | "concepts";
 
@@ -840,6 +840,7 @@ const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
   { id: "calendar",  label: "Calendar",   Icon: Clock },
   { id: "chat",      label: "Chat",       Icon: MessageCircle },
   { id: "bias",      label: "Psychology", Icon: Activity },
+  { id: "coach",     label: "Daily Coach",Icon: Zap },
 ];
 
 /* ─── Page ────────────────────────────────────────────────── */
@@ -1032,6 +1033,129 @@ export default function AiAssistant() {
       <div style={show("bias")}>
         <BiasPanel token={token} />
       </div>
+
+      {/* Daily Coach */}
+      <div style={show("coach")}>
+        <DailyCoachTab token={token} />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Daily Coach Tab ─────────────────────────────────────── */
+function DailyCoachTab({ token }: { token: string | null }) {
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState(false);
+
+  useEffect(() => {
+    if (!token || fetched) return;
+    setFetched(true);
+    setLoading(true);
+    fetch(`${API_BASE}/api/ai/daily-coach`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => setData(d as Record<string, unknown>))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token, fetched]);
+
+  const PURPLE = "#a855f7";
+
+  if (!token) {
+    return (
+      <Card>
+        <div className="p-6 text-center">
+          <Zap className="h-8 w-8 mx-auto mb-3 opacity-20" style={{ color: BLUE }} />
+          <p className="text-sm font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>Sign in to get your personalized daily coaching briefing</p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <div className="p-6 flex flex-col gap-3">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-9 w-9 rounded-xl animate-pulse" style={{ background: "hsl(var(--muted))" }} />
+            <div className="h-5 w-40 rounded animate-pulse" style={{ background: "hsl(var(--muted))" }} />
+          </div>
+          {[1,2,3,4,5].map(i => <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: "hsl(var(--muted))" }} />)}
+        </div>
+      </Card>
+    );
+  }
+
+  if (!data?.hasData) {
+    return (
+      <Card>
+        <div className="p-6 text-center flex flex-col items-center gap-3">
+          <Zap className="h-8 w-8 opacity-15" style={{ color: PURPLE }} />
+          <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>No coaching data yet</p>
+          <p className="text-[12px] font-mono text-center max-w-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
+            {(data?.todayGoal as string) ?? "Run backtests to unlock your personalized daily AI coaching briefing."}
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  const sections = [
+    { icon: Brain,       label: "Win Rate Trend",      value: data.winRateTrend as string,      color: "#22c55e" },
+    { icon: AlertTriangle, label: "Recent Loss Pattern", value: data.recentLossPattern as string, color: "#ef4444" },
+    { icon: TrendingUp,  label: "Best Session",         value: data.bestSession as string,        color: "#4ade80" },
+    { icon: TrendingDown,label: "Worst Session",         value: data.worstSession as string,       color: "#f87171" },
+    { icon: Target,      label: "Today's Goal",         value: data.todayGoal as string,          color: PURPLE },
+    { icon: Zap,         label: "Top Recommendation",   value: data.recommendation as string,     color: "#facc15" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Greeting card */}
+      <div className="rounded-2xl p-5 relative overflow-hidden"
+        style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+        <div className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse 70% 100% at 0% 50%, rgba(168,85,247,0.07) 0%, transparent 65%)" }} />
+        <div className="relative flex items-start gap-3">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.25)" }}>
+            <Zap className="h-5 w-5" style={{ color: PURPLE }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Daily Coach Briefing</p>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.2)", color: PURPLE }}>
+                {data.traderStyle as string ?? "Trader"}
+              </span>
+            </div>
+            <p className="text-[13px] leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
+              {data.greeting as string}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Insight sections */}
+      {sections.map(sec => (
+        <div key={sec.label} className="rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+            style={{ background: `${sec.color}12`, border: `1px solid ${sec.color}25` }}>
+            <sec.icon className="h-3.5 w-3.5" style={{ color: sec.color }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: "hsl(var(--muted-foreground))" }}>
+              {sec.label}
+            </p>
+            <p className="text-[13px] leading-relaxed" style={{ color: "hsl(var(--foreground))" }}>
+              {sec.value ?? "—"}
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

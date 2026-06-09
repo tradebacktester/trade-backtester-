@@ -85,6 +85,95 @@ type CoachingData = {
   hasData: boolean;
 };
 
+/* ── Daily Coach Card (compact dashboard widget) ─────────────────── */
+function DailyCoachCard() {
+  const { token } = useAuth();
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    setLoading(true);
+    fetch(`${API_BASE}/api/ai/daily-coach`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => setData(d as Record<string, unknown>))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  if (!token || (!loading && !data?.hasData)) return null;
+
+  const PURPLE = "#a855f7";
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ ...CARD, borderColor: "rgba(168,85,247,0.22)" }}>
+      {/* header */}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-5 py-3.5 text-left"
+        style={{ borderBottom: open ? "1px solid rgba(168,85,247,0.15)" : "none" }}
+      >
+        <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.25)" }}>
+          <Zap className="h-3.5 w-3.5" style={{ color: PURPLE }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] font-bold" style={{ color: C.text }}>Daily Coach</span>
+          <span className="text-[10px] font-mono ml-2" style={{ color: C.sub }}>
+            {loading ? "Loading…" : (data?.traderStyle as string) ?? "Personal briefing"}
+          </span>
+        </div>
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full flex-shrink-0"
+          style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.2)", color: PURPLE }}>
+          AI
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 transition-transform"
+          style={{ color: C.sub, transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+      </button>
+
+      {open && (
+        <div className="px-5 py-4 flex flex-col gap-3">
+          {loading ? (
+            <div className="flex flex-col gap-2">
+              {[1,2,3].map(i => <div key={i} className="h-8 rounded-lg animate-pulse" style={{ background: "var(--glass-bg)" }} />)}
+            </div>
+          ) : (
+            <>
+              {data?.greeting && (
+                <p className="text-[12px] leading-relaxed" style={{ color: C.sub }}>{data.greeting as string}</p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { icon: Target,       label: "Today's Goal",      value: data?.todayGoal as string,          color: PURPLE },
+                  { icon: Zap,          label: "Top Tip",           value: data?.recommendation as string,     color: C.amber },
+                  { icon: TrendingUp,   label: "Best Session",       value: data?.bestSession as string,        color: C.positive },
+                  { icon: AlertTriangle,label: "Watch Out",          value: data?.recentLossPattern as string,  color: C.negative },
+                ].filter(r => r.value).map(row => (
+                  <div key={row.label} className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                    <div className="h-6 w-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{ background: `${row.color}12`, border: `1px solid ${row.color}20` }}>
+                      <row.icon className="h-3 w-3" style={{ color: row.color }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-mono uppercase tracking-wider" style={{ color: C.sub }}>{row.label}</p>
+                      <p className="text-[11px] font-mono leading-snug mt-0.5" style={{ color: C.text }}>{row.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AiCoachSection() {
   const { token } = useAuth();
   const [data, setData] = useState<CoachingData | null>(null);
@@ -938,6 +1027,9 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-4 pb-4 page-enter">
+
+      {/* Daily Coach Card */}
+      <DailyCoachCard />
 
       {/* AI Coach Section */}
       <AiCoachSection />

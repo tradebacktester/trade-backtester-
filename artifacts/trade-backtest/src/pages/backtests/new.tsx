@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Play, TrendingUp, Activity, BarChart3, Zap, Target,
   Layers, ChevronDown, ChevronUp, Info, Sparkles, Loader2, CheckCircle2,
-  Settings, FlaskConical, Cpu, ChevronRight,
+  Settings, FlaskConical, Cpu, ChevronRight, Eye,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AuthModal } from "@/components/auth-modal";
@@ -232,6 +232,7 @@ export default function NewBacktest() {
   }
 
   const selectedStrategyId = form.watch("strategyId");
+  const currentSymbol = form.watch("symbol") || "BTCUSDT";
   const selectedStrategy = strategies?.find(s => s.id === selectedStrategyId);
   const commissionVal = form.watch("commission") ?? 0;
   const slippageVal = form.watch("slippage") ?? 0;
@@ -661,7 +662,187 @@ export default function NewBacktest() {
         </div>
       </div>
 
+      {/* Ghost Mode Panel */}
+      {user && <GhostModePanel symbol={currentSymbol} strategies={strategies} selectedStrategyId={selectedStrategyId} token={token} />}
+
       <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
+    </div>
+  );
+}
+
+/* ─── Ghost Mode Panel ────────────────────────────────────── */
+function GhostModePanel({
+  symbol, strategies, selectedStrategyId, token,
+}: {
+  symbol: string;
+  strategies: { id: number; type: string }[] | undefined;
+  selectedStrategyId: number;
+  token: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [side, setSide] = useState<"long" | "short">("long");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{
+    hasHistory: boolean;
+    similarityScore: number;
+    closestMatch: { symbol: string; side: string; entryDate: string; exitDate: string; pnl: number; pnlPercent: number; durationDays: number } | null;
+    winCount: number;
+    lossCount: number;
+    winRate: number;
+    avgReturn: number;
+    message?: string;
+  } | null>(null);
+
+  const selectedStratType = strategies?.find(s => s.id === selectedStrategyId)?.type;
+
+  async function runGhostMode() {
+    if (!token || !symbol) return;
+    setLoading(true); setResult(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/ai/ghost-mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ symbol, side, strategyType: selectedStratType }),
+      });
+      const d = await r.json();
+      setResult(d);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }
+
+  const GHOST_COLOR = "#8b5cf6";
+
+  return (
+    <div className="rounded-2xl overflow-hidden mb-4"
+      style={{ border: `1px solid ${open ? "rgba(139,92,246,0.3)" : "var(--glass-border)"}`, boxShadow: "var(--shadow-card)", background: "var(--card-bg)", transition: "border-color 0.25s" }}>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-5 py-3.5 text-left"
+        style={{ borderBottom: open ? "1px solid var(--glass-border)" : "none" }}>
+        <span className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: open ? "rgba(139,92,246,0.12)" : "var(--glass-bg)", border: `1px solid ${open ? "rgba(139,92,246,0.25)" : "var(--glass-border)"}` }}>
+          <Eye className="h-3.5 w-3.5" style={{ color: open ? GHOST_COLOR : "hsl(var(--muted-foreground))" }} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] font-bold" style={{ color: "hsl(var(--foreground))" }}>Ghost Mode</span>
+          <span className="text-[10px] font-mono ml-2" style={{ color: "hsl(var(--muted-foreground))" }}>
+            Compare setup against your trade history
+          </span>
+        </div>
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+          style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.2)", color: GHOST_COLOR }}>
+          AI
+        </span>
+        {open ? <ChevronUp className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }} />
+               : <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }} />}
+      </button>
+
+      {open && (
+        <div className="p-5 flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-[10px] font-mono mb-1.5" style={{ color: "hsl(var(--muted-foreground))" }}>Symbol</p>
+              <div className="h-9 rounded-xl px-3 flex items-center font-mono text-[13px]"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}>
+                {symbol}
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-mono mb-1.5" style={{ color: "hsl(var(--muted-foreground))" }}>Side</p>
+              <div className="flex gap-1.5">
+                {(["long","short"] as const).map(s => (
+                  <button key={s} type="button" onClick={() => setSide(s)}
+                    className="flex-1 h-9 rounded-xl text-[13px] font-mono font-semibold capitalize transition-all"
+                    style={side === s
+                      ? { background: s === "long" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${s === "long" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`, color: s === "long" ? "#22c55e" : "#ef4444" }
+                      : { background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))" }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <button type="button" onClick={runGhostMode} disabled={loading}
+            className="flex items-center justify-center gap-2 h-9 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-40"
+            style={{ background: GHOST_COLOR, color: "#fff", border: "none" }}>
+            {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Scanning history…</>
+                     : <><Eye className="h-3.5 w-3.5" />Run Ghost Mode</>}
+          </button>
+
+          {result && (
+            result.hasHistory ? (
+              <div className="flex flex-col gap-3">
+                {/* Similarity gauge */}
+                <div className="rounded-xl px-4 py-3 flex items-center gap-4"
+                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                  <div className="relative flex-shrink-0" style={{ width: 56, height: 56 }}>
+                    <svg width="56" height="56" viewBox="0 0 56 56" style={{ transform: "rotate(-225deg)" }}>
+                      {(() => {
+                        const R=22, S=4, C2=2*Math.PI*R, ARC=0.75*C2, OFF=ARC*(1-result.similarityScore/100);
+                        return <>
+                          <circle cx="28" cy="28" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={S} strokeDasharray={`${ARC} ${C2}`} strokeLinecap="round" />
+                          <circle cx="28" cy="28" r={R} fill="none" stroke={GHOST_COLOR} strokeWidth={S} strokeDasharray={`${ARC} ${C2}`} strokeDashoffset={OFF} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 5px ${GHOST_COLOR}80)` }} />
+                        </>;
+                      })()}
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: 4 }}>
+                      <span className="text-[14px] font-bold font-mono" style={{ color: GHOST_COLOR }}>{result.similarityScore}</span>
+                      <span className="text-[7px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>%</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>
+                      {result.similarityScore >= 70 ? "High similarity" : result.similarityScore >= 40 ? "Moderate match" : "Low similarity"} to past setups
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Similar", value: `${result.winCount + result.lossCount}`, color: "hsl(var(--muted-foreground))" },
+                        { label: "Win Rate", value: `${result.winRate}%`, color: result.winRate >= 50 ? "#22c55e" : "#ef4444" },
+                        { label: "Avg Return", value: `${result.avgReturn >= 0 ? "+" : ""}${result.avgReturn}%`, color: result.avgReturn >= 0 ? "#22c55e" : "#ef4444" },
+                      ].map(stat => (
+                        <div key={stat.label}>
+                          <p className="text-[9px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{stat.label}</p>
+                          <p className="text-[12px] font-bold font-mono" style={{ color: stat.color }}>{stat.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Closest match */}
+                {result.closestMatch && (
+                  <div className="rounded-xl px-4 py-3"
+                    style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.18)" }}>
+                    <p className="text-[9px] font-mono uppercase tracking-wider mb-2" style={{ color: GHOST_COLOR }}>Closest Historical Match</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[12px] font-mono font-semibold" style={{ color: "hsl(var(--foreground))" }}>
+                          {result.closestMatch.symbol} · {result.closestMatch.side.toUpperCase()}
+                        </p>
+                        <p className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          {result.closestMatch.entryDate} → {result.closestMatch.exitDate} · {result.closestMatch.durationDays}d hold
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold font-mono flex-shrink-0"
+                        style={{ color: result.closestMatch.pnl >= 0 ? "#22c55e" : "#ef4444" }}>
+                        {result.closestMatch.pnlPercent >= 0 ? "+" : ""}{result.closestMatch.pnlPercent}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl px-4 py-3 flex items-center gap-2"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                <Eye className="h-4 w-4 flex-shrink-0 opacity-40" style={{ color: GHOST_COLOR }} />
+                <p className="text-[12px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  {result.message ?? "No trade history found."}
+                </p>
+              </div>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,8 +2,9 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import OpenAI from "openai";
 import { verifyJwt } from "../lib/jwt";
 import { logger } from "../lib/logger";
-import { db, subscriptionsTable, subscriptionPlansTable, aiUsageTable, backtestsTable, paperTradesTable, tradesTable, journalEntriesTable } from "@workspace/db";
+import { db, subscriptionsTable, subscriptionPlansTable, aiUsageTable, backtestsTable, paperTradesTable, tradesTable, journalEntriesTable, traderPatternsTable, twinProfileTable, coachCacheTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+import { extractTraderProfile } from "../lib/pattern-extractor";
 
 const JWT_SECRET_AI = process.env.JWT_SECRET ?? "";
 
@@ -1174,6 +1175,338 @@ router.get("/ai/session-analysis", requireAuth, async (req, res) => {
     bySession: sortedSessions,
     byMarket:  toArr(byMarket),
   });
+});
+
+/* ─── Ghost Mode ──────────────────────────────────────────────────────────── */
+router.post("/ai/ghost-mode", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded." });
+    return;
+  }
+
+  const { symbol, side, strategyType, entryReason } = req.body as {
+    symbol?: string;
+    side?: string;
+    strategyType?: string;
+    entryReason?: string;
+  };
+
+  if (!symbol || !side) {
+    res.status(400).json({ error: "symbol and side are required" });
+    return;
+  }
+
+  // Check if we have a fresh cache (30 min TTL)
+  const CACHE_TTL_MS = 30 * 60 * 1000;
+  const cacheRow = await db.select()
+    .from(traderPatternsTable)
+    .where(and(
+      eq(traderPatternsTable.userId, userId),
+      eq(traderPatternsTable.patternType, "ghost_cache"),
+    ))
+    .orderBy(desc(traderPatternsTable.computedAt))
+    .limit(1)
+    .then(r => r[0] ?? null);
+
+  let profile: Awaited<ReturnType<typeof extractTraderProfile>>;
+  if (cacheRow && Date.now() - new Date(cacheRow.computedAt).getTime() < CACHE_TTL_MS) {
+    profile = cacheRow.patternData as any;
+  } else {
+    profile = await extractTraderProfile(userId);
+    await db.delete(traderPatternsTable).where(and(
+      eq(traderPatternsTable.userId, userId),
+      eq(traderPatternsTable.patternType, "ghost_cache"),
+    ));
+    await db.insert(traderPatternsTable).values({
+      userId,
+      patternType: "ghost_cache",
+      patternData: profile as any,
+    });
+  }
+
+  const allTrades = [...(profile.recentTrades ?? []), ...(profile.winningTrades ?? []), ...(profile.losingTrades ?? [])];
+  const uniqueTrades: typeof allTrades = [];
+  const seen = new Set<string>();
+  for (const t of allTrades) {
+    const key = `${t.symbol}|${t.entryDate}|${t.side}`;
+    if (!seen.has(key)) { seen.add(key); uniqueTrades.push(t); }
+  }
+
+  if (uniqueTrades.length === 0) {
+    res.json({
+      hasHistory: false,
+      similarityScore: 0,
+      closestMatch: null,
+      winCount: 0,
+      lossCount: 0,
+      winRate: 0,
+      avgReturn: 0,
+      message: "No trade history found. Run some backtests to enable Ghost Mode.",
+    });
+    return;
+  }
+
+  // Weighted similarity: symbol (40%) + side (30%) + strategyType (20%) + market (10%)
+  const getMarket = (sym: string) => {
+    if (["BTC","ETH","SOL","BNB","XRP","ADA","DOGE"].some(c => sym.includes(c))) return "Crypto";
+    if (["EUR","GBP","JPY","AUD","CAD","CHF","NZD"].some(c => sym.includes(c))) return "Forex";
+    return "Stocks";
+  };
+  const proposedMarket = getMarket(symbol);
+
+  const scored = uniqueTrades.map(t => {
+    let score = 0;
+    if (t.symbol === symbol) score += 40;
+    else if (getMarket(t.symbol) === proposedMarket) score += 15;
+    if (t.side === side) score += 30;
+    if (strategyType && t.strategyType === strategyType) score += 20;
+    else if (!strategyType) score += 10;
+    score += 10;
+    return { trade: t, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const topScore = scored[0]?.score ?? 0;
+  const similarityScore = Math.min(100, Math.round(topScore));
+
+  // Stats for similar trades (same symbol or market + same side)
+  const similar = uniqueTrades.filter(t =>
+    (t.symbol === symbol || getMarket(t.symbol) === proposedMarket) && t.side === side
+  );
+  const winCount  = similar.filter(t => t.pnl > 0).length;
+  const lossCount = similar.filter(t => t.pnl <= 0).length;
+  const winRate   = similar.length ? Number(((winCount / similar.length) * 100).toFixed(1)) : 0;
+  const avgReturn = similar.length ? Number((similar.reduce((s, t) => s + t.pnlPercent, 0) / similar.length).toFixed(2)) : 0;
+
+  const closestMatch = scored[0]?.trade ?? null;
+
+  res.json({
+    hasHistory: true,
+    similarityScore,
+    closestMatch: closestMatch ? {
+      symbol: closestMatch.symbol,
+      side: closestMatch.side,
+      entryDate: closestMatch.entryDate,
+      exitDate: closestMatch.exitDate,
+      entryPrice: Number(closestMatch.entryPrice.toFixed(4)),
+      exitPrice: Number(closestMatch.exitPrice.toFixed(4)),
+      pnl: Number(closestMatch.pnl.toFixed(2)),
+      pnlPercent: Number(closestMatch.pnlPercent.toFixed(2)),
+      durationDays: Number(closestMatch.durationDays.toFixed(1)),
+      strategyType: closestMatch.strategyType ?? null,
+    } : null,
+    similarTrades: similar.length,
+    winCount,
+    lossCount,
+    winRate,
+    avgReturn,
+    marketContext: proposedMarket,
+  });
+});
+
+/* ─── AI Trading Twin ─────────────────────────────────────────────────────── */
+router.post("/ai/twin-analysis", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded." });
+    return;
+  }
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI not configured." }); return; }
+
+  const { symbol, side, strategyType, entryReason, entryPrice } = req.body as {
+    symbol?: string;
+    side?: string;
+    strategyType?: string;
+    entryReason?: string;
+    entryPrice?: number;
+  };
+
+  if (!symbol || !side) {
+    res.status(400).json({ error: "symbol and side are required" });
+    return;
+  }
+
+  // Load or regenerate twin profile (24h TTL)
+  const TWIN_TTL_MS = 24 * 60 * 60 * 1000;
+  const existingTwin = await db.select()
+    .from(twinProfileTable)
+    .where(eq(twinProfileTable.userId, userId))
+    .limit(1)
+    .then(r => r[0] ?? null);
+
+  let profileData: Awaited<ReturnType<typeof extractTraderProfile>>;
+  if (existingTwin && Date.now() - new Date(existingTwin.updatedAt).getTime() < TWIN_TTL_MS) {
+    profileData = existingTwin.profileData as any;
+  } else {
+    profileData = await extractTraderProfile(userId);
+    if (existingTwin) {
+      await db.update(twinProfileTable)
+        .set({ profileData: profileData as any, updatedAt: new Date() })
+        .where(eq(twinProfileTable.userId, userId));
+    } else {
+      await db.insert(twinProfileTable).values({ userId, profileData: profileData as any });
+    }
+  }
+
+  if (profileData.backtestCount === 0 && profileData.totalTrades === 0) {
+    res.json({
+      hasProfile: false,
+      decision: "insufficient_data",
+      confidence: 0,
+      reason: "Your Trading Twin needs data to learn from. Run some backtests first.",
+      alternative: null,
+    });
+    return;
+  }
+
+  const profileSummary = `
+TRADER PROFILE:
+- Style: ${profileData.traderStyle} (avg holding ${profileData.avgHoldingDays.toFixed(1)} days)
+- Preferred side: ${profileData.preferredSide}
+- Avg win rate: ${profileData.avgWinRate.toFixed(1)}%
+- Avg return: ${profileData.avgReturn.toFixed(2)}%
+- Avg max drawdown: ${profileData.avgDrawdown.toFixed(1)}%
+- Avg Sharpe: ${profileData.avgSharpe.toFixed(2)}
+- Total trades analyzed: ${profileData.totalTrades}
+- Top symbols: ${profileData.topSymbols.slice(0, 3).map(s => `${s.symbol} (WR: ${s.winRate.toFixed(0)}%)`).join(", ")}
+- Best sessions: ${profileData.sessionStats.sort((a, b) => b.winRate - a.winRate).slice(0, 2).map(s => `${s.label} (WR: ${s.winRate.toFixed(0)}%)`).join(", ")}
+- Preferred strategies: ${profileData.strategyStats.slice(0, 2).map(s => s.type).join(", ")}
+- Journal mistakes: ${profileData.journalMistakes.slice(0, 3).map(m => m.label).join(", ") || "None logged"}
+`;
+
+  const proposed = `
+PROPOSED TRADE:
+- Symbol: ${symbol}
+- Side: ${side}
+- Strategy: ${strategyType ?? "unspecified"}
+- Entry price: ${entryPrice ? `$${entryPrice}` : "unspecified"}
+- Entry reason: ${entryReason ?? "not provided"}
+`;
+
+  const systemPrompt = `You are an AI Trading Twin — a behavioral clone of a specific trader built from their historical trade data. Your job is to analyze a proposed trade and decide if THIS SPECIFIC TRADER would enter it, based on their established patterns. Respond ONLY with valid JSON matching this schema exactly: { "decision": "would_enter" | "would_not_enter", "confidence": <number 0-100>, "reason": "<1-2 sentences explaining why based on their patterns>", "alternative": "<optional: suggest what adjustment could make this a better fit for their style, or null>" }`;
+
+  try {
+    const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `${profileSummary}\n${proposed}\nAnalyze this trade against the trader's profile and respond with JSON only.` },
+      ],
+      max_tokens: 400,
+      temperature: 0.4,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    let result: { decision?: string; confidence?: number; reason?: string; alternative?: string | null } = {};
+    try { result = JSON.parse(raw); } catch { result = {}; }
+
+    res.json({
+      hasProfile: true,
+      decision: result.decision ?? "would_not_enter",
+      confidence: Number(result.confidence ?? 50),
+      reason: result.reason ?? "Unable to analyze this trade at this time.",
+      alternative: result.alternative ?? null,
+      traderStyle: profileData.traderStyle,
+      preferredSide: profileData.preferredSide,
+    });
+  } catch (err) {
+    logger.error(err, "ai/twin-analysis error");
+    res.status(500).json({ error: "AI service temporarily unavailable." });
+  }
+});
+
+/* ─── Daily Coach ─────────────────────────────────────────────────────────── */
+router.get("/ai/daily-coach", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded." });
+    return;
+  }
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI not configured." }); return; }
+
+  const today = new Date().toISOString().split("T")[0]!;
+
+  // Check cache: one briefing per user per day
+  const cached = await db.select()
+    .from(coachCacheTable)
+    .where(and(eq(coachCacheTable.userId, userId), eq(coachCacheTable.date, today)))
+    .limit(1)
+    .then(r => r[0] ?? null);
+
+  if (cached) {
+    res.json({ cached: true, ...cached.briefingData as object });
+    return;
+  }
+
+  const profile = await extractTraderProfile(userId);
+
+  if (profile.backtestCount === 0 && profile.totalTrades === 0) {
+    const briefing = {
+      hasData: false,
+      greeting: "Welcome to TradeLab! Your personalized daily coaching starts here.",
+      winRateTrend: "No data yet",
+      recentLossPattern: "Run your first backtest to identify loss patterns.",
+      bestSession: "To be determined",
+      worstSession: "To be determined",
+      todayGoal: "Complete your first backtest to begin receiving personalized coaching.",
+      recommendation: "Start with a simple SMA Crossover strategy on BTCUSDT to learn the platform.",
+      traderStyle: "Undetermined",
+    };
+    await db.insert(coachCacheTable).values({ userId, date: today, briefingData: briefing as any });
+    res.json(briefing);
+    return;
+  }
+
+  const recentWR = profile.avgWinRate;
+  const recentLosses = profile.losingTrades.slice(0, 5);
+  const lossSymbols = recentLosses.map(t => t.symbol).join(", ") || "various";
+  const bestSes = profile.sessionStats.sort((a, b) => b.winRate - a.winRate)[0];
+  const worstSes = profile.sessionStats.sort((a, b) => a.winRate - b.winRate)[0];
+  const topMistake = profile.journalMistakes[0]?.label ?? null;
+
+  const profileText = `
+Trader: ${profile.traderStyle}, ${profile.preferredSide} bias
+Win rate: ${recentWR.toFixed(1)}%, Sharpe: ${profile.avgSharpe.toFixed(2)}, Avg drawdown: ${profile.avgDrawdown.toFixed(1)}%
+Recent losses on: ${lossSymbols}
+Best session: ${bestSes?.label ?? "N/A"} (WR: ${bestSes?.winRate.toFixed(0) ?? 0}%)
+Worst session: ${worstSes?.label ?? "N/A"} (WR: ${worstSes?.winRate.toFixed(0) ?? 0}%)
+Top journal mistake: ${topMistake ?? "none logged"}
+Backtests: ${profile.backtestCount}, Total trades: ${profile.totalTrades}
+Top strategies: ${profile.strategyStats.slice(0, 2).map(s => `${s.type} (avg return ${s.avgReturn.toFixed(1)}%)`).join(", ")}
+`;
+
+  const systemPrompt = `You are a personal AI trading coach generating a daily briefing for a trader. Be warm, specific, and actionable. Always use THEIR actual data. Respond ONLY with valid JSON matching this schema exactly: { "hasData": true, "greeting": "<personalized 1-sentence morning greeting using their trader style>", "winRateTrend": "<1 sentence on their win rate pattern — is it improving, stable, or declining?>", "recentLossPattern": "<1-2 sentences identifying what their recent losses have in common>", "bestSession": "<session name and why it works for them>", "worstSession": "<session name and what to watch out for>", "todayGoal": "<one specific, measurable focus goal for today based on their weak points>", "recommendation": "<one concrete, actionable improvement for their next trade>", "traderStyle": "<their trader style label>" }`;
+
+  try {
+    const client = new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Generate today's coaching briefing for this trader:\n${profileText}` },
+      ],
+      max_tokens: 600,
+      temperature: 0.65,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    let briefing: Record<string, unknown> = {};
+    try { briefing = JSON.parse(raw); } catch { briefing = {}; }
+    briefing.hasData = true;
+    briefing.traderStyle = briefing.traderStyle ?? profile.traderStyle;
+
+    await db.insert(coachCacheTable).values({ userId, date: today, briefingData: briefing as any });
+    res.json(briefing);
+  } catch (err) {
+    logger.error(err, "ai/daily-coach error");
+    res.status(500).json({ error: "AI service temporarily unavailable." });
+  }
 });
 
 export default router;

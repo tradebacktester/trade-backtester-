@@ -15,3 +15,6 @@ export * from "./marketplace";
 export * from "./journal_entries";
 export * from "./paper_trades";
 export * from "./ai_usage";
+export * from "./trader_patterns";
+export * from "./twin_profile";
+export * from "./coach_cache";

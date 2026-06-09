@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import {
   Dna, BarChart2, Brain, Shield, BookOpen, Activity, Sparkles,
   ArrowUpRight, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
-  Target, Zap, ChevronRight,
+  Target, Zap, ChevronRight, Bot, Loader2, X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useListBacktests } from "@workspace/api-client-react";
@@ -44,6 +44,7 @@ const TABS = [
   { id: "psychology",   label: "Psychology",        icon: Brain,     color: C.purple  },
   { id: "risk",         label: "Risk Profile",      icon: Shield,    color: C.amber   },
   { id: "journal",      label: "Journal",           icon: BookOpen,  color: C.blue    },
+  { id: "twin",         label: "Trading Twin",      icon: Bot,       color: "#ec4899" },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -551,6 +552,215 @@ function JournalTab() {
   );
 }
 
+/* ── Trading Twin Tab ─────────────────────────────────────────────── */
+const TWIN_SYMBOLS = ["BTCUSDT","ETHUSDT","SOLUSDT","AAPL","MSFT","TSLA","NVDA","EURUSD","GBPUSD","SPY","QQQ"];
+const TWIN_STRATEGIES = ["sma_crossover","ema_crossover","rsi","macd","bollinger_bands","super_trend","breakout","vwap"];
+
+function TwinTab() {
+  const { token } = useAuth();
+  const [symbol, setSymbol] = useState("BTCUSDT");
+  const [side, setSide] = useState<"long"|"short">("long");
+  const [strategyType, setStrategyType] = useState("sma_crossover");
+  const [entryReason, setEntryReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{
+    hasProfile: boolean;
+    decision: string;
+    confidence: number;
+    reason: string;
+    alternative: string | null;
+    traderStyle?: string;
+    preferredSide?: string;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const PINK = "#ec4899";
+
+  async function analyze() {
+    if (!token) return;
+    setLoading(true); setResult(null); setError(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/ai/twin-analysis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ symbol, side, strategyType, entryReason: entryReason || undefined }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setError(d.error ?? "Failed to analyze"); return; }
+      setResult(d);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally { setLoading(false); }
+  }
+
+  if (!token) {
+    return (
+      <div className="rounded-2xl p-6 text-center" style={GLASS}>
+        <Bot className="h-8 w-8 mx-auto mb-3 opacity-20" style={{ color: PINK }} />
+        <p className="text-sm font-mono" style={{ color: C.muted }}>Sign in to use your AI Trading Twin</p>
+      </div>
+    );
+  }
+
+  const isEnter = result?.decision === "would_enter";
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Intro */}
+      <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+        <div className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse 70% 100% at 0% 50%, rgba(236,72,153,0.06) 0%, transparent 65%)" }} />
+        <div className="relative flex items-start gap-3">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(236,72,153,0.12)", border: "1px solid rgba(236,72,153,0.25)" }}>
+            <Bot className="h-5 w-5" style={{ color: PINK }} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-sm font-semibold" style={{ color: C.text }}>AI Trading Twin</p>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(236,72,153,0.12)", border: "1px solid rgba(236,72,153,0.2)", color: PINK }}>
+                Behavioral Model
+              </span>
+            </div>
+            <p className="text-[11px] font-mono leading-relaxed" style={{ color: C.muted }}>
+              Your twin is built from your backtest history. Enter a proposed trade and see if it would pass your own trading filters.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Setup form */}
+      <div className="rounded-2xl p-5 flex flex-col gap-4" style={CARD}>
+        <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>Test Your Setup</p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] font-mono mb-1.5" style={{ color: C.muted }}>Symbol</p>
+            <select value={symbol} onChange={e => setSymbol(e.target.value)}
+              className="w-full h-9 rounded-xl px-3 text-[13px] font-mono"
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.text, outline: "none" }}>
+              {TWIN_SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <p className="text-[10px] font-mono mb-1.5" style={{ color: C.muted }}>Side</p>
+            <div className="flex gap-1.5">
+              {(["long","short"] as const).map(s => (
+                <button key={s} onClick={() => setSide(s)} type="button"
+                  className="flex-1 h-9 rounded-xl text-[13px] font-mono font-semibold transition-all capitalize"
+                  style={side === s
+                    ? { background: s === "long" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${s === "long" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`, color: s === "long" ? C.positive : C.negative }
+                    : { background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.muted }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-mono mb-1.5" style={{ color: C.muted }}>Strategy Type</p>
+          <select value={strategyType} onChange={e => setStrategyType(e.target.value)}
+            className="w-full h-9 rounded-xl px-3 text-[13px] font-mono"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.text, outline: "none" }}>
+            {TWIN_STRATEGIES.map(s => <option key={s} value={s}>{s.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-mono mb-1.5" style={{ color: C.muted }}>Entry Reason (optional)</p>
+          <input
+            value={entryReason}
+            onChange={e => setEntryReason(e.target.value)}
+            placeholder="e.g. Golden cross on 1H, RSI oversold bounce..."
+            className="w-full h-9 rounded-xl px-3 text-[13px] font-mono"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.text, outline: "none" }}
+          />
+        </div>
+
+        <button onClick={analyze} disabled={loading}
+          className="flex items-center justify-center gap-2 h-10 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-40"
+          style={{ background: PINK, color: "#fff", border: "none", cursor: loading ? "not-allowed" : "pointer" }}>
+          {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Analyzing your twin…</> : <><Bot className="h-3.5 w-3.5" />Ask My Trading Twin</>}
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-xl px-4 py-3 flex items-center gap-2"
+          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+          <p className="text-[12px] font-mono" style={{ color: C.negative }}>{error}</p>
+        </div>
+      )}
+
+      {/* Result */}
+      {result && (
+        result.hasProfile ? (
+          <div className="rounded-2xl overflow-hidden" style={CARD}>
+            {/* Decision banner */}
+            <div className="px-5 py-4 flex items-center gap-4"
+              style={{ background: isEnter ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)", borderBottom: "1px solid var(--glass-border)" }}>
+              <div className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: isEnter ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${isEnter ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}` }}>
+                {isEnter
+                  ? <CheckCircle2 className="h-6 w-6" style={{ color: C.positive }} />
+                  : <X className="h-6 w-6" style={{ color: C.negative }} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold" style={{ color: isEnter ? C.positive : C.negative }}>
+                  {isEnter ? "Would Enter" : "Would Not Enter"}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1.5 rounded-full" style={{ background: "var(--glass-border)" }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${result.confidence}%`, background: isEnter ? C.positive : C.negative }} />
+                  </div>
+                  <span className="text-[11px] font-mono font-bold" style={{ color: isEnter ? C.positive : C.negative }}>
+                    {result.confidence}% confidence
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 flex flex-col gap-3">
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: C.muted }}>Twin's Reasoning</p>
+                <p className="text-[13px] leading-relaxed" style={{ color: C.text }}>{result.reason}</p>
+              </div>
+              {result.alternative && (
+                <div className="rounded-xl px-3.5 py-3 flex items-start gap-2.5"
+                  style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.18)" }}>
+                  <Zap className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: C.purple }} />
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-wider mb-1" style={{ color: C.purple }}>Alternative Suggestion</p>
+                    <p className="text-[12px] font-mono leading-relaxed" style={{ color: C.sub }}>{result.alternative}</p>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-3 pt-1" style={{ borderTop: "1px solid var(--glass-border)" }}>
+                <p className="text-[10px] font-mono" style={{ color: C.muted }}>
+                  Twin style: <span style={{ color: PINK }}>{result.traderStyle ?? "—"}</span>
+                </p>
+                <p className="text-[10px] font-mono" style={{ color: C.muted }}>
+                  Bias: <span style={{ color: result.preferredSide === "long" ? C.positive : result.preferredSide === "short" ? C.negative : C.amber }}>{result.preferredSide ?? "—"}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl p-5 text-center flex flex-col items-center gap-3" style={GLASS}>
+            <Bot className="h-8 w-8 opacity-20" style={{ color: PINK }} />
+            <p className="text-sm font-semibold" style={{ color: C.text }}>Twin needs more data</p>
+            <p className="text-[11px] font-mono" style={{ color: C.muted }}>
+              {result.reason}
+            </p>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 /* ── Main Page ─────────────────────────────────────────────────────── */
 export default function TraderDnaPage() {
   const [activeTab, setActiveTab] = useState<TabId>("performance");
@@ -618,6 +828,7 @@ export default function TraderDnaPage() {
         {activeTab === "psychology"  && <PsychologyTab />}
         {activeTab === "risk"        && <RiskTab />}
         {activeTab === "journal"     && <JournalTab />}
+        {activeTab === "twin"        && <TwinTab />}
       </div>
 
     </div>
