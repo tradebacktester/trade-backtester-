@@ -81,7 +81,7 @@ function AdminPanelGuard() {
   const { adminToken } = useAuth();
   const [, setLocation] = useLocation();
   useEffect(() => {
-    if (!adminToken) setLocation("/admin");
+    if (!adminToken) setLocation("/dashboard");
   }, [adminToken]);
   if (!adminToken) return null;
   return <AdminPanel />;
@@ -139,7 +139,7 @@ function Router() {
       <Route path="/pricing" component={PricingPage} />
       <Route path="/billing" component={BillingPage} />
 
-      <Route path="/admin" component={AdminLogin} />
+      <Route path="/admin" component={() => <Redirect to="/dashboard" />} />
       <Route path="/admin/panel" component={AdminPanelGuard} />
       
       <Route component={NotFound} />

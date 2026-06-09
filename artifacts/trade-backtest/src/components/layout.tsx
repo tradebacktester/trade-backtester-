@@ -106,7 +106,7 @@ const DOCK_ITEMS = [
   { title: "Research", url: "/ai",         icon: Search,           sectionId: "research" },
   { title: "Home",     url: null,          icon: LayoutDashboard,  sectionId: null,         home: true },
   { title: "Strategy", url: "/strategies", icon: FlaskConical,     sectionId: "strategy-lab" },
-  { title: "DNA",      url: "/trader-dna", icon: Dna,              sectionId: "trader-dna" },
+  { title: "Sign In",  url: null,          icon: LogIn,            sectionId: null,         signin: true },
 ] as const;
 
 /* ── Home sheet sections (overflow hub, replaces 6th dock slot) ─────── */
@@ -124,9 +124,8 @@ const HOME_SHEET_SECTIONS = [
     label: "Account",
     items: [
       { title: "Profile",  url: "/profile",  icon: UserCircle },
-      { title: "Billing",  url: "/billing",  icon: CreditCard },
       { title: "Settings", url: "/settings", icon: Settings },
-      { title: "Admin",    url: "/admin",    icon: Shield },
+      { title: "Billing",  url: "/billing",  icon: CreditCard },
     ],
   },
 ] as const;
@@ -300,6 +299,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Right controls */}
         <div className="flex items-center gap-1.5 pr-4 flex-shrink-0">
 
+          {/* Settings link */}
+          <Link href="/settings">
+            <span
+              className="flex items-center justify-center"
+              title="Settings"
+              style={{
+                width: "32px", height: "32px", borderRadius: "9px",
+                border: `1px solid ${isItemActive("/settings") ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+                background: isItemActive("/settings") ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                color: isItemActive("/settings") ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                cursor: "pointer",
+                display: "flex",
+              }}
+            >
+              <Settings style={{ height: "13px", width: "13px" }} />
+            </span>
+          </Link>
+
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
@@ -376,15 +393,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="tt-float-dock md:hidden">
         {DOCK_ITEMS.map((item) => {
           const isHome = 'home' in item && item.home === true;
+          const isSignin = 'signin' in item && item.signin === true;
 
           // Active state
           const active = isHome
             ? homeSheetOpen || isDashboard
-            : (item.url
-                ? ('sectionId' in item && item.sectionId
-                    ? activeSection === item.sectionId
-                    : isItemActive(item.url))
-                : false);
+            : isSignin
+              ? showAuthModal
+              : (item.url
+                  ? ('sectionId' in item && item.sectionId
+                      ? activeSection === item.sectionId
+                      : isItemActive(item.url))
+                  : false);
 
           const iconColor  = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
           const labelColor = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
@@ -411,6 +431,37 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: labelColor, marginTop: "2px" }}>
                   {item.title}
+                </span>
+              </button>
+            );
+          }
+
+          if (isSignin) {
+            // If already logged in, show profile link instead
+            if (user) {
+              return (
+                <Link key="profile" href="/profile">
+                  <div className={`dock-item ${isItemActive("/profile") ? "dock-item-active" : ""}`}>
+                    <div className="h-[18px] w-[18px] rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+                      style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)", color: "white" }}>
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: isItemActive("/profile") ? "var(--nav-active-color)" : "var(--nav-dim-color)", whiteSpace: "nowrap" }}>
+                      Profile
+                    </span>
+                  </div>
+                </Link>
+              );
+            }
+            return (
+              <button
+                key="signin"
+                onClick={() => setShowAuthModal(true)}
+                className={`dock-item ${active ? "dock-item-active" : ""}`}
+              >
+                <item.icon style={{ height: "18px", width: "18px", color: iconColor }} />
+                <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: labelColor, whiteSpace: "nowrap" }}>
+                  Sign In
                 </span>
               </button>
             );
