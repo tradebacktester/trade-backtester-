@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, CandlestickChart,
-  BarChart2, Settings, Zap, Brain,
-  X, BookOpen,
+  BarChart2, Settings, Zap,
+  Brain, X, BookOpen,
   Shield, LogIn, LogOut, Users, Crown, CreditCard, Wrench, Store,
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
-  UserCircle, Calculator, Play, Search, ChevronDown,
+  UserCircle, Calculator, Play, Search, ChevronDown, MoreHorizontal,
   Cpu, Globe,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -32,10 +32,11 @@ const SECTIONS = [
     icon: Search,
     primary: "/ai",
     items: [
-      { title: "AI Assistant",   url: "/ai",          icon: Bot,       desc: "AI-powered trading coach" },
-      { title: "Market News",    url: "/news",         icon: Newspaper, desc: "Live market news & events" },
-      { title: "Calculator",     url: "/calculator",   icon: Calculator,desc: "Position & risk calculator" },
-      { title: "Marketplace",    url: "/marketplace",  icon: Store,     desc: "Community strategies" },
+      { title: "AI Assistant",   url: "/ai",          icon: Bot,        desc: "AI-powered trading coach" },
+      { title: "Market News",    url: "/news",         icon: Newspaper,  desc: "Live market news & events" },
+      { title: "Calculator",     url: "/calculator",   icon: Calculator, desc: "Position & risk calculator" },
+      { title: "Marketplace",    url: "/marketplace",  icon: Store,      desc: "Community strategies" },
+      { title: "Community",      url: "/community",    icon: Users,      desc: "Trader community & posts" },
     ],
   },
   {
@@ -44,13 +45,13 @@ const SECTIONS = [
     icon: FlaskConical,
     primary: "/strategies",
     items: [
-      { title: "Strategies",       url: "/strategies",           icon: Target,      desc: "Build & manage strategies" },
-      { title: "Backtests",        url: "/backtests",            icon: BookOpen,    desc: "Historical backtesting" },
-      { title: "Batch Backtest",   url: "/backtests/batch",      icon: Activity,    desc: "Multi-strategy runs" },
-      { title: "Strategy Builder", url: "/backtests/builder",    icon: Cpu,         desc: "Visual drag-and-drop builder" },
-      { title: "AI Builder",       url: "/strategies/ai-builder",icon: Bot,         desc: "AI-powered strategy creation" },
-      { title: "Stress Test",      url: "/stress-test",          icon: Zap,         desc: "Monte Carlo stress testing" },
-      { title: "Strategy DNA",     url: "/strategy-dna",         icon: Dna,         desc: "Deep strategy analysis" },
+      { title: "Strategies",       url: "/strategies",            icon: Target,   desc: "Build & manage strategies" },
+      { title: "Backtests",        url: "/backtests",             icon: BookOpen, desc: "Historical backtesting" },
+      { title: "Batch Backtest",   url: "/backtests/batch",       icon: Activity, desc: "Multi-strategy runs" },
+      { title: "Strategy Builder", url: "/backtests/builder",     icon: Cpu,      desc: "Visual drag-and-drop builder" },
+      { title: "AI Builder",       url: "/strategies/ai-builder", icon: Bot,      desc: "AI-powered strategy creation" },
+      { title: "Stress Test",      url: "/stress-test",           icon: Zap,      desc: "Monte Carlo stress testing" },
+      { title: "Strategy DNA",     url: "/strategy-dna",          icon: Dna,      desc: "Deep strategy analysis" },
     ],
   },
   {
@@ -59,10 +60,10 @@ const SECTIONS = [
     icon: Dna,
     primary: "/trader-dna",
     items: [
-      { title: "Overview",     url: "/trader-dna",  icon: Globe,       desc: "Your full trader profile" },
-      { title: "Analytics",    url: "/analytics",   icon: BarChart2,   desc: "Performance analytics" },
-      { title: "Psych Match",  url: "/psych-match", icon: Brain,       desc: "Psychology profiling" },
-      { title: "Profile",      url: "/profile",     icon: UserCircle,  desc: "Account & preferences" },
+      { title: "Overview",     url: "/trader-dna",  icon: Globe,      desc: "Your full trader profile" },
+      { title: "Analytics",    url: "/analytics",   icon: BarChart2,  desc: "Performance analytics" },
+      { title: "Psych Match",  url: "/psych-match", icon: Brain,      desc: "Psychology profiling" },
+      { title: "Profile",      url: "/profile",     icon: UserCircle, desc: "Account & preferences" },
     ],
   },
   {
@@ -71,9 +72,9 @@ const SECTIONS = [
     icon: Users,
     primary: "/community",
     items: [
-      { title: "Feed",         url: "/community",   icon: Users,       desc: "Trader community posts" },
-      { title: "Marketplace",  url: "/marketplace", icon: Store,       desc: "Published strategies" },
-      { title: "Pricing",      url: "/pricing",     icon: Crown,       desc: "Subscription plans" },
+      { title: "Feed",         url: "/community",   icon: Users,    desc: "Trader community posts" },
+      { title: "Marketplace",  url: "/marketplace", icon: Store,    desc: "Published strategies" },
+      { title: "Pricing",      url: "/pricing",     icon: Crown,    desc: "Subscription plans" },
     ],
   },
 ] as const;
@@ -82,11 +83,11 @@ const SECTIONS = [
 const ROUTE_SECTION: Record<string, string> = {
   "/chart": "trade", "/demo": "trade", "/tools": "trade",
   "/ai": "research", "/news": "research", "/calculator": "research", "/marketplace": "research",
+  "/community": "research",
   "/strategies": "strategy-lab", "/backtests": "strategy-lab",
   "/stress-test": "strategy-lab", "/strategy-dna": "strategy-lab",
   "/analytics": "trader-dna", "/psych-match": "trader-dna",
   "/profile": "trader-dna", "/trader-dna": "trader-dna",
-  "/community": "community",
 };
 
 function getActiveSection(location: string): string | null {
@@ -96,25 +97,33 @@ function getActiveSection(location: string): string | null {
   return null;
 }
 
-/* ── Mobile dock items ─────────────────────────────────────────────── */
+/* ── Mobile dock items (5 primary + 1 overflow) ────────────────────── */
 const DOCK_ITEMS = [
   { title: "Trade",        url: "/chart",      icon: CandlestickChart, sectionId: "trade" },
   { title: "Research",     url: "/ai",         icon: Search,           sectionId: "research" },
   { title: "Home",         url: "/dashboard",  icon: LayoutDashboard,  sectionId: null, home: true },
-  { title: "Strategy Lab", url: "/strategies", icon: FlaskConical,     sectionId: "strategy-lab" },
-  { title: "Trader DNA",   url: "/trader-dna", icon: Dna,              sectionId: "trader-dna" },
+  { title: "Strategy",     url: "/strategies", icon: FlaskConical,     sectionId: "strategy-lab" },
+  { title: "DNA",          url: "/trader-dna", icon: Dna,              sectionId: "trader-dna" },
+  { title: "More",         url: null,          icon: MoreHorizontal,   sectionId: null, more: true },
 ] as const;
 
-/* ── Mobile sheet secondary items ──────────────────────────────────── */
-const SHEET_EXTRAS = [
+/* ── Sheet sections ─────────────────────────────────────────────────── */
+const SHEET_SECTIONS = [
+  {
+    label: "Explore",
+    items: [
+      { title: "Community",  url: "/community",   icon: Users },
+      { title: "Marketplace",url: "/marketplace", icon: Store },
+      { title: "Pricing",    url: "/pricing",     icon: Crown },
+    ],
+  },
   {
     label: "Account",
     items: [
-      { title: "Profile",   url: "/profile",   icon: UserCircle },
-      { title: "Pricing",   url: "/pricing",   icon: Crown },
-      { title: "Billing",   url: "/billing",   icon: CreditCard },
-      { title: "Settings",  url: "/settings",  icon: Settings },
-      { title: "Admin",     url: "/admin",     icon: Shield },
+      { title: "Profile",    url: "/profile",     icon: UserCircle },
+      { title: "Billing",    url: "/billing",     icon: CreditCard },
+      { title: "Settings",   url: "/settings",    icon: Settings },
+      { title: "Admin",      url: "/admin",       icon: Shield },
     ],
   },
 ] as const;
@@ -122,38 +131,38 @@ const SHEET_EXTRAS = [
 /* ── Layout ────────────────────────────────────────────────────────── */
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const [openSection, setOpenSection] = useState<string | null>(null);
+  const [hoverSection, setHoverSection] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const navRef = useRef<HTMLDivElement>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { user, signout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
 
   const activeSection = getActiveSection(location);
   const isDashboard = location === "/" || location === "/dashboard";
 
-  /* Close dropdown on outside click */
-  useEffect(() => {
-    if (!openSection) return;
-    function handler(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setOpenSection(null);
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [openSection]);
-
-  /* Close sheet/dropdown on navigation */
-  useEffect(() => { setSheetOpen(false); setOpenSection(null); }, [location]);
-
-  function toggleSection(id: string) {
-    setOpenSection(v => (v === id ? null : id));
-  }
+  /* Close dropdown on navigation */
+  useEffect(() => { setSheetOpen(false); setHoverSection(null); }, [location]);
 
   function isItemActive(url: string) {
     if (url === "/dashboard") return isDashboard;
     return location === url || location.startsWith(url + "/");
+  }
+
+  /* Hover menu helpers — delayed close to allow cursor to reach menu */
+  function handleSectionEnter(id: string) {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setHoverSection(id);
+  }
+  function handleSectionLeave() {
+    hoverTimerRef.current = setTimeout(() => setHoverSection(null), 120);
+  }
+  function handleMenuEnter() {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+  }
+  function handleMenuLeave() {
+    hoverTimerRef.current = setTimeout(() => setHoverSection(null), 120);
   }
 
   return (
@@ -180,51 +189,61 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="w-px h-4 mx-2 flex-shrink-0" style={{ background: "var(--nav-border)" }} />
 
-        {/* Section nav */}
-        <nav className="flex-1 flex items-center justify-center gap-0.5 px-2 relative" ref={navRef}>
+        {/* Section nav — hover opens dropdown, click navigates to primary */}
+        <nav className="flex-1 flex items-center justify-center gap-0.5 px-2">
           {SECTIONS.map((section) => {
             const isActiveSection = activeSection === section.id;
-            const isOpen = openSection === section.id;
+            const isOpen = hoverSection === section.id;
             return (
-              <div key={section.id} className="relative">
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="flex items-center gap-1.5 cursor-pointer select-none"
-                  style={{
-                    padding: "5px 11px",
-                    borderRadius: "10px",
-                    fontSize: "13px",
-                    fontWeight: isActiveSection ? 600 : 500,
-                    letterSpacing: isActiveSection ? "-0.01em" : "0em",
-                    border: `1px solid ${(isActiveSection || isOpen) ? "var(--nav-active-border)" : "transparent"}`,
-                    background: (isActiveSection || isOpen) ? "var(--nav-active-bg)" : "transparent",
-                    color: (isActiveSection || isOpen) ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                    boxShadow: (isActiveSection || isOpen) ? "var(--shadow-tab-active)" : "none",
-                    transition: "all 0.18s ease",
-                  }}
-                >
-                  <section.icon style={{ height: "12px", width: "12px", flexShrink: 0 }} />
-                  {section.label}
-                  <ChevronDown style={{
-                    height: "10px", width: "10px", flexShrink: 0,
-                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    transition: "transform 0.18s ease",
-                    opacity: 0.5,
-                  }} />
-                </button>
+              <div
+                key={section.id}
+                className="relative"
+                onMouseEnter={() => handleSectionEnter(section.id)}
+                onMouseLeave={handleSectionLeave}
+              >
+                {/* Section label — navigates to primary route */}
+                <Link href={section.primary}>
+                  <span
+                    className="flex items-center gap-1.5 cursor-pointer select-none"
+                    style={{
+                      padding: "5px 11px",
+                      borderRadius: "10px",
+                      fontSize: "13px",
+                      fontWeight: isActiveSection ? 600 : 500,
+                      letterSpacing: isActiveSection ? "-0.01em" : "0em",
+                      border: `1px solid ${(isActiveSection || isOpen) ? "var(--nav-active-border)" : "transparent"}`,
+                      background: (isActiveSection || isOpen) ? "var(--nav-active-bg)" : "transparent",
+                      color: (isActiveSection || isOpen) ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                      boxShadow: (isActiveSection || isOpen) ? "var(--shadow-tab-active)" : "none",
+                      transition: "all 0.18s ease",
+                      display: "flex",
+                    }}
+                  >
+                    <section.icon style={{ height: "12px", width: "12px", flexShrink: 0 }} />
+                    {section.label}
+                    <ChevronDown style={{
+                      height: "10px", width: "10px", flexShrink: 0,
+                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      transition: "transform 0.18s ease",
+                      opacity: 0.4,
+                    }} />
+                  </span>
+                </Link>
 
-                {/* Dropdown mega-menu */}
+                {/* Dropdown mega-menu — appears on hover */}
                 {isOpen && (
                   <div
-                    className="glass-panel absolute top-[calc(100%+10px)] rounded-2xl p-2 scale-in"
+                    className="glass-panel absolute top-[calc(100%+6px)] rounded-2xl p-2 scale-in"
                     style={{
                       zIndex: 200,
                       left: "50%",
                       transform: "translateX(-50%)",
                       minWidth: section.items.length > 4 ? "440px" : "280px",
                     }}
+                    onMouseEnter={handleMenuEnter}
+                    onMouseLeave={handleMenuLeave}
                   >
-                    <div className="text-[9px] font-mono uppercase tracking-widest px-2 py-1.5 mb-1"
+                    <div className="text-[9px] font-mono uppercase tracking-widest px-2 py-1 mb-1"
                       style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
                       {section.label}
                     </div>
@@ -232,7 +251,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       {section.items.map((item) => {
                         const active = isItemActive(item.url);
                         return (
-                          <Link key={item.title} href={item.url} onClick={() => setOpenSection(null)}>
+                          <Link key={item.title} href={item.url}>
                             <span
                               className="flex items-start gap-2.5 px-3 py-2 rounded-xl cursor-pointer"
                               style={{
@@ -353,19 +372,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* ── MOBILE FLOATING DOCK (5 tabs) ────────────────────────────── */}
+      {/* ── MOBILE FLOATING DOCK ─────────────────────────────────────── */}
       <div className="tt-float-dock md:hidden">
         {DOCK_ITEMS.map((item) => {
           const isHome = 'home' in item && item.home === true;
-          const active = item.url
-            ? (isHome ? isDashboard : (activeSection === item.sectionId || isItemActive(item.url)))
-            : false;
+          const isMore = 'more' in item && item.more === true;
+
+          const active = isMore
+            ? false
+            : item.url
+              ? (isHome
+                  ? isDashboard
+                  : ('sectionId' in item && item.sectionId
+                      ? activeSection === item.sectionId
+                      : isItemActive(item.url!)))
+              : false;
 
           const iconColor = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
           const labelColor = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
 
+          if (isMore) {
+            return (
+              <button
+                key="more"
+                onClick={() => setSheetOpen(true)}
+                className={`dock-item ${sheetOpen ? "dock-item-active" : ""}`}
+              >
+                <item.icon style={{ height: "18px", width: "18px", color: sheetOpen ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
+                <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: sheetOpen ? "var(--nav-active-color)" : "var(--nav-dim-color)" }}>
+                  More
+                </span>
+              </button>
+            );
+          }
+
           return (
-            <Link key={item.title} href={item.url}>
+            <Link key={item.title} href={item.url!}>
               <div
                 className={`dock-item ${active ? "dock-item-active" : ""}`}
                 style={isHome ? { position: "relative" } : {}}
@@ -419,18 +461,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
               borderLeft: "1px solid var(--nav-border)",
               borderRight: "1px solid var(--nav-border)",
               boxShadow: "var(--shadow-sheet)",
-              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)",
             }}
           >
+            {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ background: "var(--nav-border)" }} />
             </div>
 
+            {/* Sheet header */}
             <div className="flex items-center justify-between px-5 py-3">
               <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "var(--nav-dim-color)" }}>
-                Navigation
+                More
               </p>
               <div className="flex items-center gap-2">
+                {/* Theme toggle — accessible from sheet */}
                 <button onClick={toggleTheme}
                   className="h-8 w-8 flex items-center justify-center rounded-full"
                   style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)" }}>
@@ -444,7 +489,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* User row */}
+            {/* Auth row */}
             <div className="px-4 mb-3">
               {user ? (
                 <Link href="/profile" onClick={() => setSheetOpen(false)}>
@@ -485,10 +530,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            <div className="px-4 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "calc(55dvh - 8px)", paddingBottom: "4px" }}>
-              {SHEET_EXTRAS.map(section => (
+            {/* Sectioned items */}
+            <div className="px-4 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "50dvh" }}>
+              {SHEET_SECTIONS.map(section => (
                 <div key={section.label}>
-                  <div className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1.5" style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
+                  <div className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1.5"
+                    style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
                     {section.label}
                   </div>
                   <div className="flex flex-col gap-1">
