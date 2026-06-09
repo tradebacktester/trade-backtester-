@@ -3,120 +3,168 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, CandlestickChart,
   BarChart2, Settings, Zap, Brain,
-  MoreHorizontal, X, ChevronRight, BookOpen,
-  Shield, LogIn, LogOut, User, Users, Crown, CreditCard, Wrench, Store,
+  X, BookOpen,
+  Shield, LogIn, LogOut, Users, Crown, CreditCard, Wrench, Store,
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
-  UserCircle, ChevronDown, Calculator,
+  UserCircle, Calculator, Play, Search, ChevronDown,
+  Cpu, Globe,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { AuthModal } from "@/components/auth-modal";
 
-const DESKTOP_ITEMS = [
-  { title: "Charts",    url: "/chart",      icon: CandlestickChart },
-  { title: "Community", url: "/community",  icon: Users },
-  { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
-  { title: "Backtests", url: "/backtests",  icon: BookOpen },
-  { title: "AI",        url: "/ai",         icon: Brain },
+/* ── Section definitions ───────────────────────────────────────────── */
+const SECTIONS = [
+  {
+    id: "trade",
+    label: "Trade",
+    icon: CandlestickChart,
+    primary: "/chart",
+    items: [
+      { title: "Live Charts",    url: "/chart",   icon: CandlestickChart, desc: "Advanced charting & analysis" },
+      { title: "Paper Trading",  url: "/demo",    icon: Play,             desc: "Simulated trading practice" },
+      { title: "Tools",          url: "/tools",   icon: Wrench,           desc: "Drawing & analysis tools" },
+    ],
+  },
+  {
+    id: "research",
+    label: "Research",
+    icon: Search,
+    primary: "/ai",
+    items: [
+      { title: "AI Assistant",   url: "/ai",          icon: Bot,       desc: "AI-powered trading coach" },
+      { title: "Market News",    url: "/news",         icon: Newspaper, desc: "Live market news & events" },
+      { title: "Calculator",     url: "/calculator",   icon: Calculator,desc: "Position & risk calculator" },
+      { title: "Marketplace",    url: "/marketplace",  icon: Store,     desc: "Community strategies" },
+    ],
+  },
+  {
+    id: "strategy-lab",
+    label: "Strategy Lab",
+    icon: FlaskConical,
+    primary: "/strategies",
+    items: [
+      { title: "Strategies",       url: "/strategies",           icon: Target,      desc: "Build & manage strategies" },
+      { title: "Backtests",        url: "/backtests",            icon: BookOpen,    desc: "Historical backtesting" },
+      { title: "Batch Backtest",   url: "/backtests/batch",      icon: Activity,    desc: "Multi-strategy runs" },
+      { title: "Strategy Builder", url: "/backtests/builder",    icon: Cpu,         desc: "Visual drag-and-drop builder" },
+      { title: "AI Builder",       url: "/strategies/ai-builder",icon: Bot,         desc: "AI-powered strategy creation" },
+      { title: "Stress Test",      url: "/stress-test",          icon: Zap,         desc: "Monte Carlo stress testing" },
+      { title: "Strategy DNA",     url: "/strategy-dna",         icon: Dna,         desc: "Deep strategy analysis" },
+    ],
+  },
+  {
+    id: "trader-dna",
+    label: "Trader DNA",
+    icon: Dna,
+    primary: "/trader-dna",
+    items: [
+      { title: "Overview",     url: "/trader-dna",  icon: Globe,       desc: "Your full trader profile" },
+      { title: "Analytics",    url: "/analytics",   icon: BarChart2,   desc: "Performance analytics" },
+      { title: "Psych Match",  url: "/psych-match", icon: Brain,       desc: "Psychology profiling" },
+      { title: "Profile",      url: "/profile",     icon: UserCircle,  desc: "Account & preferences" },
+    ],
+  },
+  {
+    id: "community",
+    label: "Community",
+    icon: Users,
+    primary: "/community",
+    items: [
+      { title: "Feed",         url: "/community",   icon: Users,       desc: "Trader community posts" },
+      { title: "Marketplace",  url: "/marketplace", icon: Store,       desc: "Published strategies" },
+      { title: "Pricing",      url: "/pricing",     icon: Crown,       desc: "Subscription plans" },
+    ],
+  },
 ] as const;
 
+/* ── Route → section mapping ───────────────────────────────────────── */
+const ROUTE_SECTION: Record<string, string> = {
+  "/chart": "trade", "/demo": "trade", "/tools": "trade",
+  "/ai": "research", "/news": "research", "/calculator": "research", "/marketplace": "research",
+  "/strategies": "strategy-lab", "/backtests": "strategy-lab",
+  "/stress-test": "strategy-lab", "/strategy-dna": "strategy-lab",
+  "/analytics": "trader-dna", "/psych-match": "trader-dna",
+  "/profile": "trader-dna", "/trader-dna": "trader-dna",
+  "/community": "community",
+};
+
+function getActiveSection(location: string): string | null {
+  for (const [prefix, section] of Object.entries(ROUTE_SECTION)) {
+    if (location === prefix || location.startsWith(prefix + "/")) return section;
+  }
+  return null;
+}
+
+/* ── Mobile dock items ─────────────────────────────────────────────── */
 const DOCK_ITEMS = [
-  { title: "Charts",    url: "/chart",      icon: CandlestickChart },
-  { title: "Community", url: "/community",  icon: Users },
-  { title: "Home",      url: "/dashboard",  icon: LayoutDashboard, home: true },
-  { title: "AI",        url: "/ai",         icon: Brain },
-  { title: "More",      url: null,          icon: MoreHorizontal },
+  { title: "Trade",        url: "/chart",      icon: CandlestickChart, sectionId: "trade" },
+  { title: "Research",     url: "/ai",         icon: Search,           sectionId: "research" },
+  { title: "Home",         url: "/dashboard",  icon: LayoutDashboard,  sectionId: null, home: true },
+  { title: "Strategy Lab", url: "/strategies", icon: FlaskConical,     sectionId: "strategy-lab" },
+  { title: "Trader DNA",   url: "/trader-dna", icon: Dna,              sectionId: "trader-dna" },
 ] as const;
 
-const NAV_SECTIONS = [
-  {
-    label: "Trading",
-    items: [
-      { title: "Charts",          url: "/chart",             icon: CandlestickChart },
-      { title: "Backtests",       url: "/backtests",         icon: BookOpen },
-      { title: "Strategy Builder",url: "/backtests/builder", icon: Target },
-      { title: "Batch Backtest",  url: "/backtests/batch",   icon: Activity },
-    ],
-  },
-  {
-    label: "Marketplace",
-    items: [
-      { title: "Community",       url: "/community",    icon: Users },
-      { title: "Marketplace",     url: "/marketplace",  icon: Store },
-    ],
-  },
-  {
-    label: "AI Tools",
-    items: [
-      { title: "AI Assistant",    url: "/ai",           icon: Bot },
-      { title: "Strategy DNA",    url: "/strategy-dna", icon: Dna },
-      { title: "Psych Match",     url: "/psych-match",  icon: Brain },
-      { title: "Stress Test",     url: "/stress-test",  icon: FlaskConical },
-    ],
-  },
-  {
-    label: "Tools",
-    items: [
-      { title: "Analytics",       url: "/analytics",    icon: BarChart2 },
-      { title: "Calculator",      url: "/calculator",   icon: Calculator },
-      { title: "Tools",           url: "/tools",        icon: Wrench },
-      { title: "News",            url: "/news",         icon: Newspaper },
-    ],
-  },
+/* ── Mobile sheet secondary items ──────────────────────────────────── */
+const SHEET_EXTRAS = [
   {
     label: "Account",
     items: [
-      { title: "Profile",         url: "/profile",      icon: UserCircle },
-      { title: "Pricing",         url: "/pricing",      icon: Crown },
-      { title: "Billing",         url: "/billing",      icon: CreditCard },
-      { title: "Settings",        url: "/settings",     icon: Settings },
-      { title: "Admin",           url: "/admin",        icon: Shield },
+      { title: "Profile",   url: "/profile",   icon: UserCircle },
+      { title: "Pricing",   url: "/pricing",   icon: Crown },
+      { title: "Billing",   url: "/billing",   icon: CreditCard },
+      { title: "Settings",  url: "/settings",  icon: Settings },
+      { title: "Admin",     url: "/admin",     icon: Shield },
     ],
   },
 ] as const;
 
-const MOBILE_SECTIONS = NAV_SECTIONS;
-
+/* ── Layout ────────────────────────────────────────────────────────── */
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
   const { user, signout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
 
+  const activeSection = getActiveSection(location);
+  const isDashboard = location === "/" || location === "/dashboard";
+
+  /* Close dropdown on outside click */
   useEffect(() => {
-    if (!moreOpen) return;
+    if (!openSection) return;
     function handler(e: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenSection(null);
       }
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [moreOpen]);
+  }, [openSection]);
 
-  useEffect(() => { setSheetOpen(false); setMoreOpen(false); }, [location]);
+  /* Close sheet/dropdown on navigation */
+  useEffect(() => { setSheetOpen(false); setOpenSection(null); }, [location]);
 
-  const isActive = (url: string) => {
-    if (url === "/dashboard") return location === "/" || location === "/dashboard";
-    return location.startsWith(url);
-  };
+  function toggleSection(id: string) {
+    setOpenSection(v => (v === id ? null : id));
+  }
 
-  const allMoreItems = NAV_SECTIONS.flatMap(s => s.items as readonly { url: string }[]);
-  const moreActive = allMoreItems.some(i => isActive(i.url));
-  const mobileMoreActive = allMoreItems.some(i => isActive(i.url));
+  function isItemActive(url: string) {
+    if (url === "/dashboard") return isDashboard;
+    return location === url || location.startsWith(url + "/");
+  }
 
   return (
     <div className="tt-root">
 
-      {/* ── DESKTOP TOP NAV ────────────────────────────────────────── */}
+      {/* ── DESKTOP TOP NAV ──────────────────────────────────────────── */}
       <header className="glass-nav fixed top-0 inset-x-0 z-50 hidden md:flex items-center h-[56px]">
 
-        {/* Logo */}
+        {/* Logo → Home */}
         <Link href="/dashboard">
-          <span className="flex items-center gap-2.5 px-5 cursor-pointer select-none">
+          <span className="flex items-center gap-2.5 px-5 cursor-pointer select-none flex-shrink-0">
             <div className="h-7 w-7 rounded-xl overflow-hidden flex-shrink-0" style={{
               boxShadow: isDark
                 ? "0 0 0 1px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.4)"
@@ -132,34 +180,98 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="w-px h-4 mx-2 flex-shrink-0" style={{ background: "var(--nav-border)" }} />
 
-        {/* Nav items */}
-        <nav className="flex-1 flex items-center justify-center gap-0.5 px-2">
-          {DESKTOP_ITEMS.map((item) => {
-            const active = isActive(item.url);
-            const isHome = 'home' in item && item.home;
+        {/* Section nav */}
+        <nav className="flex-1 flex items-center justify-center gap-0.5 px-2 relative" ref={navRef}>
+          {SECTIONS.map((section) => {
+            const isActiveSection = activeSection === section.id;
+            const isOpen = openSection === section.id;
             return (
-              <Link key={item.title} href={item.url}>
-                <span
+              <div key={section.id} className="relative">
+                <button
+                  onClick={() => toggleSection(section.id)}
                   className="flex items-center gap-1.5 cursor-pointer select-none"
                   style={{
-                    padding: isHome ? "5px 16px" : "5px 10px",
+                    padding: "5px 11px",
                     borderRadius: "10px",
                     fontSize: "13px",
-                    fontWeight: active ? 600 : 500,
-                    letterSpacing: active ? "-0.01em" : "0em",
-                    border: `1px solid ${active ? "var(--nav-active-border)" : (isHome ? "var(--nav-border)" : "transparent")}`,
-                    background: active ? "var(--nav-active-bg)" : (isHome ? (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)") : "transparent"),
-                    color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                    boxShadow: active
-                      ? `var(--shadow-tab-active), 0 0 0 1px rgba(255,255,255,0.04), 0 0 18px rgba(255,255,255,0.04)`
-                      : (isHome ? "var(--shadow-2xs)" : "none"),
-                    transition: "all 0.24s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    fontWeight: isActiveSection ? 600 : 500,
+                    letterSpacing: isActiveSection ? "-0.01em" : "0em",
+                    border: `1px solid ${(isActiveSection || isOpen) ? "var(--nav-active-border)" : "transparent"}`,
+                    background: (isActiveSection || isOpen) ? "var(--nav-active-bg)" : "transparent",
+                    color: (isActiveSection || isOpen) ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                    boxShadow: (isActiveSection || isOpen) ? "var(--shadow-tab-active)" : "none",
+                    transition: "all 0.18s ease",
                   }}
                 >
-                  <item.icon style={{ height: "13px", width: "13px", flexShrink: 0 }} />
-                  {item.title}
-                </span>
-              </Link>
+                  <section.icon style={{ height: "12px", width: "12px", flexShrink: 0 }} />
+                  {section.label}
+                  <ChevronDown style={{
+                    height: "10px", width: "10px", flexShrink: 0,
+                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.18s ease",
+                    opacity: 0.5,
+                  }} />
+                </button>
+
+                {/* Dropdown mega-menu */}
+                {isOpen && (
+                  <div
+                    className="glass-panel absolute top-[calc(100%+10px)] rounded-2xl p-2 scale-in"
+                    style={{
+                      zIndex: 200,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      minWidth: section.items.length > 4 ? "440px" : "280px",
+                    }}
+                  >
+                    <div className="text-[9px] font-mono uppercase tracking-widest px-2 py-1.5 mb-1"
+                      style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
+                      {section.label}
+                    </div>
+                    <div className={section.items.length > 4 ? "grid grid-cols-2 gap-0.5" : "flex flex-col gap-0.5"}>
+                      {section.items.map((item) => {
+                        const active = isItemActive(item.url);
+                        return (
+                          <Link key={item.title} href={item.url} onClick={() => setOpenSection(null)}>
+                            <span
+                              className="flex items-start gap-2.5 px-3 py-2 rounded-xl cursor-pointer"
+                              style={{
+                                background: active ? "var(--nav-active-bg)" : "transparent",
+                                color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                                transition: "background 0.12s ease, color 0.12s ease",
+                              }}
+                              onMouseEnter={e => {
+                                if (!active) {
+                                  (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+                                  (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
+                                }
+                              }}
+                              onMouseLeave={e => {
+                                if (!active) {
+                                  (e.currentTarget as HTMLElement).style.background = "transparent";
+                                  (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
+                                }
+                              }}
+                            >
+                              <span className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                                style={{
+                                  background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                                  border: "1px solid var(--nav-border)",
+                                }}>
+                                <item.icon style={{ height: "12px", width: "12px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
+                              </span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[12px] font-medium leading-none mb-0.5">{item.title}</span>
+                                <span className="text-[10px] font-mono opacity-50 leading-tight">{item.desc}</span>
+                              </div>
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -167,7 +279,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Right controls */}
         <div className="flex items-center gap-1.5 pr-4 flex-shrink-0">
 
-          {/* Theme Toggle */}
+          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
             title={isDark ? "Light mode" : "Dark mode"}
@@ -195,8 +307,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link href="/profile">
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg cursor-pointer" style={{
                 border: "1px solid var(--nav-border)",
-                background: isActive("/profile") ? "var(--nav-active-bg)" : "transparent",
-                color: isActive("/profile") ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                background: isItemActive("/profile") ? "var(--nav-active-bg)" : "transparent",
+                color: isItemActive("/profile") ? "var(--nav-active-color)" : "var(--nav-dim-color)",
               }}>
                 <div className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{
                   background: "linear-gradient(135deg, #6366f1, #a855f7)",
@@ -225,114 +337,62 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           )}
 
-          {/* Sectioned More dropdown */}
-          <div className="relative" ref={moreRef}>
-            <button
-              onClick={() => setMoreOpen(v => !v)}
-              className="flex items-center gap-1.5"
-              style={{
-                padding: "5px 10px", borderRadius: "9px",
-                fontSize: "13px", fontWeight: 500,
-                border: `1px solid ${moreOpen || moreActive ? "var(--nav-active-border)" : "transparent"}`,
-                background: moreOpen || moreActive ? "var(--nav-active-bg)" : "transparent",
-                color: moreOpen || moreActive ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                cursor: "pointer",
-              }}
-            >
-              <MoreHorizontal style={{ height: "13px", width: "13px" }} />
-              More
-            </button>
-
-            {moreOpen && (
-              <div
-                className="glass-panel absolute right-0 top-[calc(100%+8px)] rounded-2xl p-2 flex gap-3 scale-in"
-                style={{ zIndex: 200, minWidth: "580px" }}
-              >
-                {NAV_SECTIONS.map(section => (
-                  <div key={section.label} className="flex-1 min-w-0">
-                    <div className="text-[9px] font-mono uppercase tracking-widest px-2 py-1.5 mb-0.5" style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
-                      {section.label}
-                    </div>
-                    {section.items.map(item => {
-                      const active = isActive(item.url);
-                      return (
-                        <Link key={item.title} href={item.url} onClick={() => setMoreOpen(false)}>
-                          <span
-                            className="flex items-center gap-2 px-2 py-1.5 rounded-xl text-[12px] cursor-pointer"
-                            style={{
-                              background: active ? "var(--nav-active-bg)" : "transparent",
-                              color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                            }}
-                            onMouseEnter={e => {
-                              if (!active) {
-                                (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
-                                (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
-                              }
-                            }}
-                            onMouseLeave={e => {
-                              if (!active) {
-                                (e.currentTarget as HTMLElement).style.background = "transparent";
-                                (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
-                              }
-                            }}
-                          >
-                            <item.icon style={{ height: "12px", width: "12px", flexShrink: 0 }} />
-                            {item.title}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Live indicator */}
-          <span className="flex items-center gap-1.5 text-[11px] font-mono" style={{ color: "var(--nav-dim-color)" }}>
-            <span className="h-1.5 w-1.5 rounded-full live-pulse" style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.8)" }} />
+          <span className="flex items-center gap-1.5 text-[11px] font-mono ml-1" style={{ color: "var(--nav-dim-color)" }}>
+            <span className="h-1.5 w-1.5 rounded-full live-pulse"
+              style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.8)" }} />
             LIVE
           </span>
         </div>
       </header>
 
-      {/* ── MAIN CONTENT ───────────────────────────────────────────── */}
+      {/* ── MAIN CONTENT ─────────────────────────────────────────────── */}
       <main className="tt-main">
         <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-5 md:py-6">
           {children}
         </div>
       </main>
 
-      {/* ── MOBILE FLOATING DOCK ───────────────────────────────────── */}
+      {/* ── MOBILE FLOATING DOCK (5 tabs) ────────────────────────────── */}
       <div className="tt-float-dock md:hidden">
         {DOCK_ITEMS.map((item) => {
           const isHome = 'home' in item && item.home === true;
-          const active = item.url ? isActive(item.url) : mobileMoreActive;
-          const isMore = item.url === null;
+          const active = item.url
+            ? (isHome ? isDashboard : (activeSection === item.sectionId || isItemActive(item.url)))
+            : false;
 
           const iconColor = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
           const labelColor = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
 
-          if (isMore) {
-            return (
-              <button
-                key="more"
-                onClick={() => setSheetOpen(true)}
-                className={`dock-item ${active ? "dock-item-active" : ""}`}
-              >
-                <item.icon style={{ height: "18px", width: "18px", color: iconColor }} />
-                <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: labelColor }}>
-                  More
-                </span>
-              </button>
-            );
-          }
-
           return (
-            <Link key={item.title} href={item.url!}>
-              <div className={`dock-item ${active ? "dock-item-active" : ""} ${isHome ? "relative" : ""}`}>
-                <item.icon style={{ height: isHome ? "20px" : "18px", width: isHome ? "20px" : "18px", color: iconColor }} />
-                <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: labelColor }}>
+            <Link key={item.title} href={item.url}>
+              <div
+                className={`dock-item ${active ? "dock-item-active" : ""}`}
+                style={isHome ? { position: "relative" } : {}}
+              >
+                {isHome && (
+                  <div style={{
+                    position: "absolute",
+                    inset: "-3px -6px",
+                    borderRadius: "14px",
+                    background: active
+                      ? "var(--nav-active-bg)"
+                      : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                    border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+                    zIndex: 0,
+                  }} />
+                )}
+                <item.icon style={{
+                  height: isHome ? "20px" : "18px",
+                  width:  isHome ? "20px" : "18px",
+                  color: iconColor,
+                  position: "relative", zIndex: 1,
+                }} />
+                <span style={{
+                  fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em",
+                  color: labelColor, position: "relative", zIndex: 1,
+                  whiteSpace: "nowrap",
+                }}>
                   {item.title}
                 </span>
               </div>
@@ -341,7 +401,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         })}
       </div>
 
-      {/* ── MOBILE MORE SHEET ──────────────────────────────────────── */}
+      {/* ── MOBILE MORE SHEET ────────────────────────────────────────── */}
       {sheetOpen && (
         <>
           <div
@@ -362,12 +422,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
             }}
           >
-            {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ background: "var(--nav-border)" }} />
             </div>
 
-            {/* Sheet header */}
             <div className="flex items-center justify-between px-5 py-3">
               <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "var(--nav-dim-color)" }}>
                 Navigation
@@ -418,7 +476,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     background: isDark ? "rgba(255,255,255,0.08)" : "hsl(var(--primary))",
                     color: isDark ? "#FFFFFF" : "white",
                     border: `1px solid ${isDark ? "rgba(255,255,255,0.14)" : "transparent"}`,
-                    boxShadow: isDark ? "none" : "var(--shadow-btn)",
                     fontWeight: 600, fontSize: "14px",
                   }}
                 >
@@ -428,24 +485,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            {/* Sectioned items */}
-            <div className="px-4 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "calc(65dvh - 8px)", paddingBottom: "4px" }}>
-              {MOBILE_SECTIONS.map(section => (
+            <div className="px-4 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "calc(55dvh - 8px)", paddingBottom: "4px" }}>
+              {SHEET_EXTRAS.map(section => (
                 <div key={section.label}>
                   <div className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1.5" style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
                     {section.label}
                   </div>
                   <div className="flex flex-col gap-1">
                     {section.items.map(item => {
-                      const active = isActive(item.url);
+                      const active = isItemActive(item.url);
                       return (
                         <Link key={item.title} href={item.url} onClick={() => setSheetOpen(false)}>
                           <span
                             className="flex items-center gap-3.5 px-4 py-2.5 rounded-2xl cursor-pointer active:opacity-70"
                             style={{
-                              background: active
-                                ? "var(--nav-active-bg)"
-                                : (isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.02)"),
+                              background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.02)"),
                               border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
                               color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
                             }}
@@ -455,7 +509,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                               <item.icon style={{ height: "13px", width: "13px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
                             </span>
                             <span className="text-[14px] font-medium">{item.title}</span>
-                            {active && <ChevronRight style={{ height: "12px", width: "12px", marginLeft: "auto" }} />}
                           </span>
                         </Link>
                       );
