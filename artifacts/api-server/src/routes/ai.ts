@@ -982,13 +982,53 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
       mistakes.push({ label: jm.label, severity: jm.count >= 3 ? "high" : "medium", detail: `Logged ${jm.count} time${jm.count > 1 ? "s" : ""} in your journal — a recurring pattern worth addressing.` });
   }
 
-  const tips: string[] = [];
-  if (avgWinRate < 50) tips.push("Wait for confirmation signals before entering — avoid chasing breakouts.");
-  if (avgDD > 15) tips.push("Apply a 2% max daily loss rule to prevent large drawdowns from compounding.");
-  if (avgSharpe < 1) tips.push("Reduce position size during high-volatility periods to improve risk-adjusted returns.");
-  if (avgPF < 1.5) tips.push("Target asymmetric risk/reward — aim for at least 1:2 on every setup you take.");
-  if (backtests.length < 5) tips.push("Run more backtests across different symbols and timeframes to diversify your strategy view.");
-  if (tips.length === 0) tips.push("Your metrics are solid — forward test your best strategy in paper trading to build live confidence.");
+  type Insight = { text: string; improvementPct: number; category: string };
+  const insights: Insight[] = [];
+
+  if (avgWinRate < 50 && backtests.length >= 2) {
+    const gap = Math.max(1, 50 - avgWinRate);
+    insights.push({
+      text: "Wait for confirmation signals before entering — avoid chasing breakouts.",
+      improvementPct: Math.min(25, Math.round(gap * 0.5)),
+      category: "win-rate",
+    });
+  }
+  if (avgDD > 15) {
+    insights.push({
+      text: "Apply a 2% max daily loss rule to prevent large drawdowns from compounding.",
+      improvementPct: Math.min(20, Math.round(avgDD * 0.6)),
+      category: "risk",
+    });
+  }
+  if (avgSharpe < 1 && avgSharpe > 0) {
+    insights.push({
+      text: "Reduce position size during high-volatility periods to improve risk-adjusted returns.",
+      improvementPct: Math.min(18, Math.round((1 - avgSharpe) * 18)),
+      category: "sharpe",
+    });
+  }
+  if (avgPF < 1.5 && avgPF > 0.01) {
+    insights.push({
+      text: "Target asymmetric risk/reward — aim for at least 1:2 on every setup you take.",
+      improvementPct: Math.min(15, Math.round((1.5 - avgPF) * 12)),
+      category: "profit-factor",
+    });
+  }
+  if (backtests.length < 5) {
+    insights.push({
+      text: "Run more backtests across different symbols and timeframes to diversify your strategy view.",
+      improvementPct: 10,
+      category: "data",
+    });
+  }
+  if (insights.length === 0) {
+    insights.push({
+      text: "Your metrics are solid — forward test your best strategy in paper trading to build live confidence.",
+      improvementPct: 8,
+      category: "general",
+    });
+  }
+  const finalInsights = insights.slice(0, 4);
 
   res.json({
     traderScore: score,
@@ -1002,7 +1042,7 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
     avgProfitFactor: Number(avgPF.toFixed(2)),
     journalMistakes,
     mistakes,
-    tips,
+    insights: finalInsights,
     hasData: true,
   });
 });
@@ -1083,15 +1123,25 @@ router.get("/ai/session-analysis", requireAuth, async (req, res) => {
     addToBucket(byMarket,  mkt, isWin, pnlPct);
   }
 
+  // Backtest trades have date only — derive approximate session from market type as heuristic
+  const marketToSession = (mkt: string): string => {
+    if (mkt === "Stocks")      return "New York Open";
+    if (mkt === "Forex")       return "London Open";
+    if (mkt === "Commodities") return "New York Open";
+    return "Asian Session"; // Crypto trades 24/7; Asian is largest crypto session
+  };
+
   for (const t of btTrades) {
     const pnl    = Number(t.pnl);
     const pnlPct = Number(t.pnlPercent ?? 0);
     const d      = new Date(t.entryDate);
     const day    = DAY_NAMES[d.getUTCDay()] ?? "Mon";
     const mkt    = getMarket(t.symbol);
+    const ses    = marketToSession(mkt);
     const isWin  = pnl > 0;
-    addToBucket(byDay,    day, isWin, pnlPct);
-    addToBucket(byMarket, mkt, isWin, pnlPct);
+    addToBucket(byDay,     day, isWin, pnlPct);
+    addToBucket(bySession, ses, isWin, pnlPct);
+    addToBucket(byMarket,  mkt, isWin, pnlPct);
   }
 
   const toArr = (map: Record<string, Bucket>) =>

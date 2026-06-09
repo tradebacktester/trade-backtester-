@@ -70,6 +70,7 @@ function Panel({ children, className = "" }: { children: React.ReactNode; classN
 }
 
 /* ── AI Coach Section ─────────────────────────────────────────────── */
+type CoachingInsight = { text: string; improvementPct: number; category: string };
 type CoachingData = {
   traderScore: number;
   traderStyle: string;
@@ -80,7 +81,7 @@ type CoachingData = {
   avgSharpe: number;
   avgDrawdown: number;
   mistakes: { label: string; severity: "high" | "medium" | "low"; detail: string }[];
-  tips: string[];
+  insights: CoachingInsight[];
   hasData: boolean;
 };
 
@@ -211,13 +212,20 @@ function AiCoachSection() {
                 ))}
               </div>
 
-              {data!.tips[0] && (
-                <div className="rounded-xl px-3 py-2.5 flex items-start gap-2"
-                  style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.15)" }}>
-                  <Sparkles className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "#a855f7" }} />
-                  <p className="text-[11px] font-mono leading-relaxed" style={{ color: C.sub }}>
-                    {data!.tips[0]}
-                  </p>
+              {data!.insights && data!.insights.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {data!.insights.slice(0, 4).map((insight, i) => (
+                    <div key={i} className="rounded-xl px-3 py-2 flex items-start gap-2.5"
+                      style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.15)" }}>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex-shrink-0"
+                        style={{ background: "rgba(34,197,94,0.1)", color: C.positive, border: "1px solid rgba(34,197,94,0.2)" }}>
+                        +{insight.improvementPct}%
+                      </span>
+                      <p className="text-[11px] font-mono leading-relaxed" style={{ color: C.sub }}>
+                        {insight.text}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
 

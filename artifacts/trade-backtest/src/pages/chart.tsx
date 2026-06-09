@@ -289,9 +289,19 @@ export default function ChartPage() {
 
   // Live trade warning modal (pattern-based — only shown when a mistake is detected)
   type TradeMistake = { label: string; severity: string; detail: string };
-  const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number; mistake: TradeMistake } | null>(null);
+  const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number; mistake: TradeMistake; similarity: number } | null>(null);
   const pendingTradeRef = useRef<(() => void) | null>(null);
   const coachingRef = useRef<{ mistakes: TradeMistake[] } | null>(null);
+
+  // Similarity score: how closely does a known losing pattern apply to the current trade?
+  // HIGH severity → 72 base (above 60% gate); MEDIUM → 60 (at gate); LOW → 30 (below gate).
+  // Leverage and total mistake count raise the score — amplifying pattern strength.
+  function computeMistakeSimilarity(m: TradeMistake, lev: number, total: number): number {
+    let s = m.severity === "high" ? 72 : m.severity === "medium" ? 60 : 30;
+    if (lev >= 5) s += 12; else if (lev >= 3) s += 8; else if (lev >= 2) s += 4;
+    if (total >= 3) s += 8; else if (total >= 2) s += 4;
+    return Math.min(100, s);
+  }
 
   // Position drawing tools
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
@@ -561,15 +571,20 @@ export default function ChartPage() {
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
       };
-      const activeMistake = coachingRef.current?.mistakes.find(
-        m => m.severity === "high" || m.severity === "medium"
-      );
-      if (activeMistake) {
-        pendingTradeRef.current = execLong;
-        setTradeWarn({ side: "long", price: exitPrice, mistake: activeMistake });
-      } else {
-        execLong();
+      const coaching = coachingRef.current;
+      if (coaching && coaching.mistakes.length > 0) {
+        const total = coaching.mistakes.length;
+        const scored = coaching.mistakes
+          .map(m => ({ m, score: computeMistakeSimilarity(m, snapLev, total) }))
+          .sort((a, b) => b.score - a.score);
+        const top = scored[0];
+        if (top && top.score >= 60) {
+          pendingTradeRef.current = execLong;
+          setTradeWarn({ side: "long", price: exitPrice, mistake: top.m, similarity: top.score });
+          return;
+        }
       }
+      execLong();
       return;
     }
     // Limit/stop order (priceOverride set) — execute immediately
@@ -614,15 +629,20 @@ export default function ChartPage() {
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
       };
-      const activeMistake = coachingRef.current?.mistakes.find(
-        m => m.severity === "high" || m.severity === "medium"
-      );
-      if (activeMistake) {
-        pendingTradeRef.current = execShort;
-        setTradeWarn({ side: "short", price: exitPrice, mistake: activeMistake });
-      } else {
-        execShort();
+      const coaching2 = coachingRef.current;
+      if (coaching2 && coaching2.mistakes.length > 0) {
+        const total2 = coaching2.mistakes.length;
+        const scored2 = coaching2.mistakes
+          .map(m => ({ m, score: computeMistakeSimilarity(m, snapLev, total2) }))
+          .sort((a, b) => b.score - a.score);
+        const top2 = scored2[0];
+        if (top2 && top2.score >= 60) {
+          pendingTradeRef.current = execShort;
+          setTradeWarn({ side: "short", price: exitPrice, mistake: top2.m, similarity: top2.score });
+          return;
+        }
       }
+      execShort();
       return;
     }
     const units = (equity * chartLeverage) / exitPrice;
@@ -1348,7 +1368,7 @@ export default function ChartPage() {
                 <div>
                   <h2 className="text-sm font-bold font-mono" style={{ color: "hsl(220,14%,90%)" }}>Risk Pattern Detected</h2>
                   <p className="text-[11px] font-mono" style={{ color: "hsl(220,14%,50%)" }}>
-                    {tradeWarn.mistake.severity === "high" ? "⚠ High severity" : "⚠ Medium severity"} · {symbol} {tradeWarn.side === "long" ? "Long" : "Short"}
+                    {tradeWarn.similarity}% match · {symbol} {tradeWarn.side === "long" ? "Long" : "Short"}
                   </p>
                 </div>
               </div>
