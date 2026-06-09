@@ -37,7 +37,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
-  AlertCircle, RefreshCw, Play, Pause, SkipBack, SkipForward,
+  AlertCircle, AlertTriangle, RefreshCw, Play, Pause, SkipBack, SkipForward,
   StepBack, StepForward, Clapperboard, X, TrendingUp, TrendingDown,
   RotateCcw, BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
   Flame, Bell, BellOff, ArrowLeftRight, BookOpen, List,
@@ -287,14 +287,30 @@ export default function ChartPage() {
   const [pendingChartOrders, setPendingChartOrders] = useState<PendingChartOrder[]>([]);
   const entryPriceLineRef = useRef<import("lightweight-charts").IPriceLine | null>(null);
 
-  // Live trade warning modal
-  const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number } | null>(null);
+  // Live trade warning modal (pattern-based — only shown when a mistake is detected)
+  type TradeMistake = { label: string; severity: string; detail: string };
+  const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number; mistake: TradeMistake } | null>(null);
   const pendingTradeRef = useRef<(() => void) | null>(null);
+  const coachingRef = useRef<{ mistakes: TradeMistake[] } | null>(null);
 
   // Position drawing tools
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
   const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
   const { token } = useAuth();
+
+  // Fetch coaching insights once on mount — used to gate trade warning modal
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/api/ai/coaching-insights`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { mistakes?: TradeMistake[] } | null) => {
+        if (d?.mistakes) coachingRef.current = { mistakes: d.mistakes };
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   // Fabric drawing tools
   const [activeTool, setActiveTool] = useState<string>("cursor");
@@ -531,10 +547,10 @@ export default function ChartPage() {
       applyMarkers(); return;
     }
     if (position?.side === "long") return;
-    // Market order — show confirmation warning first
+    // Market order — show warning only when a HIGH/MEDIUM mistake pattern is detected (≥60% similarity)
     if (!priceOverride) {
       const snapEquity = equity; const snapLev = chartLeverage;
-      pendingTradeRef.current = () => {
+      const execLong = () => {
         const units2 = (snapEquity * snapLev) / exitPrice;
         setPosition({ price: exitPrice, time: bar.time, units: units2, capitalAtEntry: snapEquity, side: "long" });
         if (candleSeriesRef.current) {
@@ -545,7 +561,15 @@ export default function ChartPage() {
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
       };
-      setTradeWarn({ side: "long", price: exitPrice });
+      const activeMistake = coachingRef.current?.mistakes.find(
+        m => m.severity === "high" || m.severity === "medium"
+      );
+      if (activeMistake) {
+        pendingTradeRef.current = execLong;
+        setTradeWarn({ side: "long", price: exitPrice, mistake: activeMistake });
+      } else {
+        execLong();
+      }
       return;
     }
     // Limit/stop order (priceOverride set) — execute immediately
@@ -576,10 +600,10 @@ export default function ChartPage() {
       applyMarkers(); return;
     }
     if (currentPos?.side === "short") return;
-    // Market open — show warning first (only when not called with pos override for auto-close)
+    // Market open — show warning only when a HIGH/MEDIUM mistake pattern is detected (≥60% similarity)
     if (!pos) {
       const snapEquity = equity; const snapLev = chartLeverage;
-      pendingTradeRef.current = () => {
+      const execShort = () => {
         const units2 = (snapEquity * snapLev) / exitPrice;
         setPosition({ price: exitPrice, time: bar.time, units: units2, capitalAtEntry: snapEquity, side: "short" });
         if (candleSeriesRef.current) {
@@ -590,7 +614,15 @@ export default function ChartPage() {
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
       };
-      setTradeWarn({ side: "short", price: exitPrice });
+      const activeMistake = coachingRef.current?.mistakes.find(
+        m => m.severity === "high" || m.severity === "medium"
+      );
+      if (activeMistake) {
+        pendingTradeRef.current = execShort;
+        setTradeWarn({ side: "short", price: exitPrice, mistake: activeMistake });
+      } else {
+        execShort();
+      }
       return;
     }
     const units = (equity * chartLeverage) / exitPrice;
@@ -1303,35 +1335,36 @@ export default function ChartPage() {
       }}
     >
 
-      {/* ── Live Trade Warning Modal ─────────────────────────────────── */}
+      {/* ── Live Trade Warning Modal (pattern-based — only shown when mistake detected) ── */}
       {tradeWarn && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.88)" }}>
           <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: "hsl(222,22%,10%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
-            <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                style={{
-                  background: tradeWarn.side === "long" ? "linear-gradient(135deg, hsl(150,75%,22%), hsl(150,75%,15%))" : "linear-gradient(135deg, hsl(0,75%,22%), hsl(0,75%,15%))",
-                  border: `1px solid ${tradeWarn.side === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`,
-                }}>
-                {tradeWarn.side === "long"
-                  ? <TrendingUp className="h-5 w-5" style={{ color: "hsl(150,90%,65%)" }} />
-                  : <TrendingDown className="h-5 w-5" style={{ color: "hsl(0,85%,65%)" }} />}
+            <div className="px-6 pt-6 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, hsl(38,90%,25%), hsl(38,90%,18%))", border: "1px solid rgba(245,158,11,0.35)" }}>
+                  <AlertTriangle className="h-5 w-5" style={{ color: "hsl(38,95%,65%)" }} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold font-mono" style={{ color: "hsl(220,14%,90%)" }}>Risk Pattern Detected</h2>
+                  <p className="text-[11px] font-mono" style={{ color: "hsl(220,14%,50%)" }}>
+                    {tradeWarn.mistake.severity === "high" ? "⚠ High severity" : "⚠ Medium severity"} · {symbol} {tradeWarn.side === "long" ? "Long" : "Short"}
+                  </p>
+                </div>
               </div>
-              <h2 className="text-lg font-bold font-mono" style={{ color: "hsl(220,14%,90%)" }}>
-                Confirm {tradeWarn.side === "long" ? "Long" : "Short"} Entry
-              </h2>
-              <p className="text-xs font-mono mt-1.5" style={{ color: "hsl(220,14%,50%)" }}>
-                {symbol} · Market order at ${tradeWarn.price.toLocaleString(undefined, { maximumFractionDigits: 4 })}
-              </p>
+              <div className="rounded-xl p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                <p className="text-[11px] font-mono font-semibold mb-1" style={{ color: "hsl(38,95%,65%)" }}>{tradeWarn.mistake.label}</p>
+                <p className="text-[11px] font-mono leading-relaxed" style={{ color: "hsl(220,14%,65%)" }}>{tradeWarn.mistake.detail}</p>
+              </div>
             </div>
-            <div className="px-6 py-4 flex flex-col gap-2">
+            <div className="px-6 py-3 flex flex-col gap-1.5">
               {[
                 { label: "Side",       value: tradeWarn.side === "long" ? "▲ LONG" : "▼ SHORT", color: tradeWarn.side === "long" ? "hsl(150,90%,65%)" : "hsl(0,85%,65%)" },
                 { label: "Entry Price",value: `$${tradeWarn.price.toLocaleString(undefined, { maximumFractionDigits: 4 })}`, color: "hsl(220,14%,80%)" },
                 { label: "Capital",    value: `$${equity.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, color: "hsl(220,14%,80%)" },
                 { label: "Leverage",   value: `${chartLeverage}×`, color: "hsl(220,14%,80%)" },
               ].map(r => (
-                <div key={r.label} className="flex items-center justify-between px-3 py-2 rounded-xl"
+                <div key={r.label} className="flex items-center justify-between px-3 py-1.5 rounded-xl"
                   style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
                   <span className="text-[11px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>{r.label}</span>
                   <span className="text-[11px] font-mono font-semibold" style={{ color: r.color }}>{r.value}</span>
@@ -1353,7 +1386,7 @@ export default function ChartPage() {
                   border: `1px solid ${tradeWarn.side === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`,
                   color: tradeWarn.side === "long" ? "hsl(150,90%,65%)" : "hsl(0,85%,65%)",
                 }}>
-                Confirm {tradeWarn.side === "long" ? "Buy" : "Sell Short"}
+                Proceed Anyway
               </button>
             </div>
           </div>

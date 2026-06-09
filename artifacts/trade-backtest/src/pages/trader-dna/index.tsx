@@ -160,37 +160,126 @@ function PerformanceTab() {
 }
 
 /* ── Session Analysis Tab ─────────────────────────────────────────── */
-type SessionBucket = { label: string; wins: number; losses: number; trades: number; winRate: number; totalPnl: number };
+type SessionBucket = { label: string; wins: number; losses: number; trades: number; winRate: number; avgPnlPct: number };
 type SessionData = {
   hasData: boolean;
   totalTrades: number;
+  paperTrades?: number;
+  backtestTrades?: number;
   byDay: SessionBucket[];
   bySession: SessionBucket[];
   byMarket: SessionBucket[];
 };
 
-function SessionBar({ label, winRate, totalPnl, trades, color }: { label: string; winRate: number; totalPnl: number; trades: number; color: string }) {
+const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function winRateColor(wr: number): string {
+  if (wr >= 65) return C.positive;
+  if (wr >= 50) return C.cyan;
+  if (wr >= 35) return C.amber;
+  return C.negative;
+}
+
+function DayHeatmap({ byDay }: { byDay: SessionBucket[] }) {
+  const sorted = DAY_ORDER.map(d => byDay.find(b => b.label === d)).filter(Boolean) as SessionBucket[];
+  if (sorted.length === 0) return null;
   return (
-    <div className="flex items-center gap-3">
-      <p className="text-[11px] font-mono w-20 flex-shrink-0" style={{ color: C.muted }}>{label}</p>
-      <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
-        <div className="h-full rounded-full" style={{
-          width: `${Math.max(3, winRate)}%`,
-          background: color,
-          opacity: 0.8,
-          transition: "width 0.8s ease",
-        }} />
+    <div className="flex gap-1.5">
+      {sorted.map(d => {
+        const color = winRateColor(d.winRate);
+        return (
+          <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full rounded-xl py-3 flex flex-col items-center justify-center"
+              style={{ background: `${color}15`, border: `1px solid ${color}30` }}>
+              <p className="text-[10px] font-semibold" style={{ color }}>
+                {d.winRate.toFixed(0)}%
+              </p>
+              <p className="text-[9px] font-mono" style={{ color: C.muted }}>{d.trades}T</p>
+            </div>
+            <p className="text-[9px] font-mono" style={{ color: C.muted }}>{d.label}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SessionTable({ items, label }: { items: SessionBucket[]; label: string }) {
+  if (items.length === 0) return null;
+  const sorted = [...items].sort((a, b) => b.winRate - a.winRate);
+  const best   = sorted[0]!;
+  const worst  = sorted[sorted.length - 1]!;
+  return (
+    <div className="rounded-2xl overflow-hidden" style={CARD}>
+      <div className="px-4 py-3" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+        <p className="text-[11px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>{label}</p>
       </div>
-      <p className="text-[10px] font-mono w-12 text-right flex-shrink-0" style={{ color: winRate >= 50 ? C.positive : C.negative }}>
-        {winRate.toFixed(0)}%
-      </p>
-      <p className="text-[10px] font-mono w-16 text-right flex-shrink-0"
-        style={{ color: totalPnl >= 0 ? C.positive : C.negative }}>
-        {totalPnl >= 0 ? "+" : ""}${Math.abs(totalPnl).toFixed(0)}
-      </p>
-      <p className="text-[9px] font-mono w-10 text-right flex-shrink-0" style={{ color: C.muted }}>
-        {trades}T
-      </p>
+      <div className="p-0">
+        <div className="grid grid-cols-4 px-4 py-2 text-[9px] font-mono uppercase tracking-wider"
+          style={{ color: C.muted, borderBottom: "1px solid hsl(var(--border))" }}>
+          <span>Session</span>
+          <span className="text-center">Win Rate</span>
+          <span className="text-center">Avg P&L%</span>
+          <span className="text-right">Trades</span>
+        </div>
+        {items.map((item, i) => {
+          const isB = item.label === best.label;
+          const isW = item.label === worst.label && worst.label !== best.label;
+          return (
+            <div key={item.label} className="grid grid-cols-4 px-4 py-2.5 items-center"
+              style={{ borderBottom: i < items.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-mono" style={{ color: C.text }}>{item.label}</span>
+                {isB && <span className="text-[8px] font-mono px-1 rounded" style={{ background: "rgba(34,197,94,0.15)", color: C.positive }}>BEST</span>}
+                {isW && <span className="text-[8px] font-mono px-1 rounded" style={{ background: "rgba(239,68,68,0.12)", color: C.negative }}>WEAK</span>}
+              </div>
+              <p className="text-[11px] font-mono font-semibold text-center"
+                style={{ color: winRateColor(item.winRate) }}>{item.winRate.toFixed(1)}%</p>
+              <p className="text-[11px] font-mono text-center"
+                style={{ color: item.avgPnlPct >= 0 ? C.positive : C.negative }}>
+                {item.avgPnlPct >= 0 ? "+" : ""}{item.avgPnlPct.toFixed(2)}%
+              </p>
+              <p className="text-[11px] font-mono text-right" style={{ color: C.muted }}>{item.trades}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AiCallout({ byDay, bySession }: { byDay: SessionBucket[]; bySession: SessionBucket[] }) {
+  const callouts: string[] = [];
+
+  if (byDay.length >= 2) {
+    const sorted = [...byDay].sort((a, b) => b.winRate - a.winRate);
+    const best = sorted[0]!;
+    const worst = sorted[sorted.length - 1]!;
+    callouts.push(`Your strongest day is ${best.label} with a ${best.winRate.toFixed(0)}% win rate — ${best.trades} trade${best.trades !== 1 ? "s" : ""} analyzed.`);
+    if (worst.winRate < 45)
+      callouts.push(`You underperform on ${worst.label} (${worst.winRate.toFixed(0)}% win rate). Consider reducing position size or sitting out on this day.`);
+  }
+
+  if (bySession.length >= 2) {
+    const sorted = [...bySession].sort((a, b) => b.winRate - a.winRate);
+    const best = sorted[0]!;
+    const worst = sorted[sorted.length - 1]!;
+    callouts.push(`Best session: ${best.label} (${best.winRate.toFixed(0)}% win rate, avg ${best.avgPnlPct >= 0 ? "+" : ""}${best.avgPnlPct.toFixed(2)}% P&L).`);
+    if (worst.winRate < 45)
+      callouts.push(`You lose ${((1 - worst.winRate / 100) * 100).toFixed(0)}% of trades during ${worst.label} — an edge you can avoid by not trading this session.`);
+  }
+
+  if (callouts.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl p-4 flex flex-col gap-2" style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.2)" }}>
+      <div className="flex items-center gap-2 mb-1">
+        <Sparkles className="h-3.5 w-3.5" style={{ color: C.cyan }} />
+        <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.cyan }}>AI Analysis</p>
+      </div>
+      {callouts.map((c, i) => (
+        <p key={i} className="text-[11px] font-mono leading-relaxed" style={{ color: C.sub }}>{c}</p>
+      ))}
     </div>
   );
 }
@@ -229,67 +318,57 @@ function SessionAnalysisTab() {
     return (
       <div className="rounded-2xl p-8 text-center" style={GLASS}>
         <Activity className="h-8 w-8 mx-auto mb-2 opacity-15" style={{ color: C.muted }} />
-        <p className="text-xs font-mono" style={{ color: C.muted }}>
-          No paper trades yet — start trading on the Charts page to unlock session analysis
+        <p className="text-xs font-mono mb-1" style={{ color: C.muted }}>No trades yet</p>
+        <p className="text-[11px] font-mono" style={{ color: C.muted }}>
+          Run backtests or paper trade on the Charts page to unlock session analysis
         </p>
-        <Link href="/chart">
-          <button className="mt-3 text-[11px] font-mono px-4 py-2 rounded-xl"
-            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.text }}>
-            Open Charts
-          </button>
-        </Link>
+        <div className="flex gap-2 justify-center mt-3">
+          <Link href="/backtests/new">
+            <button className="text-[11px] font-mono px-4 py-2 rounded-xl"
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.text }}>
+              Run Backtest
+            </button>
+          </Link>
+          <Link href="/chart">
+            <button className="text-[11px] font-mono px-4 py-2 rounded-xl"
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.text }}>
+              Open Charts
+            </button>
+          </Link>
+        </div>
       </div>
     );
   }
-
-  const sections = [
-    { title: "By Day of Week",        items: data.byDay,     color: C.cyan   },
-    { title: "By Trading Session",    items: data.bySession, color: C.purple },
-    { title: "By Market Type",        items: data.byMarket,  color: C.amber  },
-  ];
-
-  const best = (items: SessionBucket[]) =>
-    items.length ? [...items].sort((a, b) => b.winRate - a.winRate)[0] : null;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl p-4 flex items-center gap-3" style={GLASS}>
         <Activity className="h-4 w-4 flex-shrink-0" style={{ color: C.cyan }} />
         <p className="text-xs font-mono" style={{ color: C.sub }}>
-          Based on <span style={{ color: C.text, fontWeight: 600 }}>{data.totalTrades} paper trade{data.totalTrades !== 1 ? "s" : ""}</span> — paper trade on the Charts page to improve accuracy
+          <span style={{ color: C.text, fontWeight: 600 }}>{data.totalTrades} trade{data.totalTrades !== 1 ? "s" : ""}</span> analyzed
+          {(data.paperTrades ?? 0) > 0 && (data.backtestTrades ?? 0) > 0
+            ? ` (${data.paperTrades} paper + ${data.backtestTrades} backtest)`
+            : ""}
+          {" "}— day/market from all trades, session from paper trades only
         </p>
       </div>
 
-      {sections.map(sec => {
-        const b = best(sec.items);
-        return (
-          <div key={sec.title} className="rounded-2xl overflow-hidden" style={CARD}>
-            <div className="px-4 py-3 flex items-center justify-between"
-              style={{ borderBottom: "1px solid hsl(var(--border))" }}>
-              <p className="text-[11px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>{sec.title}</p>
-              {b && (
-                <span className="text-[10px] font-mono flex items-center gap-1"
-                  style={{ color: C.positive }}>
-                  <CheckCircle2 className="h-3 w-3" />
-                  Best: {b.label}
-                </span>
-              )}
-            </div>
-            <div className="p-4 flex flex-col gap-3">
-              <div className="flex items-center gap-3 mb-1">
-                <p className="text-[9px] font-mono w-20 flex-shrink-0" style={{ color: C.muted }}></p>
-                <p className="flex-1 text-[9px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>Win Rate</p>
-                <p className="text-[9px] font-mono w-12 text-right flex-shrink-0" style={{ color: C.muted }}>WR%</p>
-                <p className="text-[9px] font-mono w-16 text-right flex-shrink-0" style={{ color: C.muted }}>Total P&L</p>
-                <p className="text-[9px] font-mono w-10 text-right flex-shrink-0" style={{ color: C.muted }}>Trades</p>
-              </div>
-              {sec.items.map(item => (
-                <SessionBar key={item.label} {...item} color={sec.color} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
+      {data.byDay.length > 0 && (
+        <div className="rounded-2xl p-4" style={CARD}>
+          <p className="text-[11px] font-mono uppercase tracking-widest mb-3" style={{ color: C.muted }}>Day of Week Heatmap</p>
+          <DayHeatmap byDay={data.byDay} />
+        </div>
+      )}
+
+      <AiCallout byDay={data.byDay} bySession={data.bySession} />
+
+      {data.bySession.length > 0 && (
+        <SessionTable items={data.bySession} label="Trading Session Breakdown" />
+      )}
+
+      {data.byMarket.length > 0 && (
+        <SessionTable items={data.byMarket} label="Market Type Breakdown" />
+      )}
     </div>
   );
 }

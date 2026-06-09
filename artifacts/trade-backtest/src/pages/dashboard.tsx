@@ -72,8 +72,9 @@ function Panel({ children, className = "" }: { children: React.ReactNode; classN
 /* ── AI Coach Section ─────────────────────────────────────────────── */
 type CoachingData = {
   traderScore: number;
-  traderType: string;
-  traderTypeColor: string;
+  traderStyle: string;
+  traderStyleColor: string;
+  avgHoldingDays: number;
   backtestCount: number;
   avgWinRate: number;
   avgSharpe: number;
@@ -171,22 +172,22 @@ function AiCoachSection() {
                     stroke="rgba(255,255,255,0.07)" strokeWidth={STROKE}
                     strokeDasharray={`${dashArray} ${CIRCUM}`} strokeLinecap="round" />
                   <circle cx="75" cy="75" r={RADIUS} fill="none"
-                    stroke={data!.traderTypeColor} strokeWidth={STROKE}
+                    stroke={data!.traderStyleColor} strokeWidth={STROKE}
                     strokeDasharray={`${dashArray} ${CIRCUM}`}
                     strokeDashoffset={dashOffset}
                     strokeLinecap="round"
-                    style={{ transition: "stroke-dashoffset 1s ease", filter: `drop-shadow(0 0 6px ${data!.traderTypeColor}60)` }}
+                    style={{ transition: "stroke-dashoffset 1s ease", filter: `drop-shadow(0 0 6px ${data!.traderStyleColor}60)` }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: 8 }}>
-                  <span className="text-3xl font-bold font-mono leading-none" style={{ color: data!.traderTypeColor }}>
+                  <span className="text-3xl font-bold font-mono leading-none" style={{ color: data!.traderStyleColor }}>
                     {data!.traderScore}
                   </span>
                   <span className="text-[9px] font-mono uppercase tracking-widest mt-0.5" style={{ color: C.muted }}>score</span>
                 </div>
               </div>
-              <p className="text-[11px] font-semibold text-center font-mono" style={{ color: data!.traderTypeColor }}>
-                {data!.traderType}
+              <p className="text-[11px] font-semibold text-center font-mono" style={{ color: data!.traderStyleColor }}>
+                {data!.traderStyle}
               </p>
               <p className="text-[10px] font-mono text-center" style={{ color: C.muted }}>
                 {data!.backtestCount} backtest{data!.backtestCount !== 1 ? "s" : ""}

@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import OpenAI from "openai";
 import { verifyJwt } from "../lib/jwt";
 import { logger } from "../lib/logger";
-import { db, subscriptionsTable, subscriptionPlansTable, aiUsageTable, backtestsTable, paperTradesTable } from "@workspace/db";
+import { db, subscriptionsTable, subscriptionPlansTable, aiUsageTable, backtestsTable, paperTradesTable, tradesTable, journalEntriesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 
 const JWT_SECRET_AI = process.env.JWT_SECRET ?? "";
@@ -886,23 +886,38 @@ Keep each bullet under 18 words. No preamble, just the 4 bullets.`;
 router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
   const userId = extractUserId(req)!;
 
-  const backtests = await db
-    .select()
-    .from(backtestsTable)
-    .where(and(eq(backtestsTable.userId, userId), eq(backtestsTable.status, "complete")))
-    .orderBy(desc(backtestsTable.createdAt))
-    .limit(30);
+  const [backtests, btTrades, journals] = await Promise.all([
+    db.select()
+      .from(backtestsTable)
+      .where(and(eq(backtestsTable.userId, userId), eq(backtestsTable.status, "complete")))
+      .orderBy(desc(backtestsTable.createdAt))
+      .limit(30),
+    db.select({
+      entryDate: tradesTable.entryDate,
+      exitDate: tradesTable.exitDate,
+    })
+      .from(tradesTable)
+      .innerJoin(backtestsTable, eq(tradesTable.backtestId, backtestsTable.id))
+      .where(eq(backtestsTable.userId, userId))
+      .limit(500),
+    db.select({ mistakes: journalEntriesTable.mistakes, emotionPre: journalEntriesTable.emotionPre })
+      .from(journalEntriesTable)
+      .where(eq(journalEntriesTable.userId, userId))
+      .limit(100),
+  ]);
 
   if (backtests.length === 0) {
     res.json({
       traderScore: 0,
-      traderType: "Beginner",
-      traderTypeColor: "#6b7280",
+      traderStyle: "Undefined",
+      traderStyleColor: "#6b7280",
+      avgHoldingDays: 0,
       backtestCount: 0,
       avgWinRate: 0,
       avgSharpe: 0,
       avgDrawdown: 0,
       avgProfitFactor: 0,
+      journalMistakes: [],
       mistakes: [],
       tips: ["Run your first backtest to get personalized coaching insights."],
       hasData: false,
@@ -917,6 +932,31 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
   const avgPF       = avgOf(backtests.map(b => Number(b.profitFactor ?? 0)));
   const avgReturn   = avgOf(backtests.map(b => Number(b.totalReturn ?? 0)));
 
+  const avgHoldingDays = btTrades.length > 0
+    ? avgOf(btTrades.map(t => {
+        const entry = new Date(t.entryDate).getTime();
+        const exit  = new Date(t.exitDate).getTime();
+        return Math.max(0, (exit - entry) / 86400000);
+      }))
+    : 0;
+
+  let traderStyle = "Developing";
+  let traderStyleColor = "#f59e0b";
+  if (avgHoldingDays < 1)       { traderStyle = "Scalper";          traderStyleColor = "#ef4444"; }
+  else if (avgHoldingDays < 7)  { traderStyle = "Swing Trader";     traderStyleColor = "#22c55e"; }
+  else if (avgHoldingDays < 30) { traderStyle = "Position Trader";  traderStyleColor = "#3b82f6"; }
+  else                          { traderStyle = "Long-Term Investor"; traderStyleColor = "#a855f7"; }
+
+  const journalMistakeCounts: Record<string, number> = {};
+  for (const j of journals) {
+    const arr = j.mistakes as string[] | null;
+    if (arr) for (const m of arr) journalMistakeCounts[m] = (journalMistakeCounts[m] ?? 0) + 1;
+  }
+  const journalMistakes = Object.entries(journalMistakeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([label, count]) => ({ label, count }));
+
   let score = 50;
   score += Math.min(20, (avgWinRate - 50) * 0.4);
   score += Math.min(20, avgSharpe * 10);
@@ -925,13 +965,6 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
   score += Math.min(10, backtests.length * 1.5);
   score += Math.min(5, avgReturn * 0.1);
   score = Math.max(0, Math.min(100, Math.round(score)));
-
-  let traderType = "Beginner";
-  let traderTypeColor = "#6b7280";
-  if (score >= 80)      { traderType = "Elite Trader";      traderTypeColor = "#a855f7"; }
-  else if (score >= 65) { traderType = "Consistent Trader"; traderTypeColor = "#22c55e"; }
-  else if (score >= 50) { traderType = "Developing Trader"; traderTypeColor = "#f59e0b"; }
-  else if (score >= 35) { traderType = "Learning Trader";   traderTypeColor = "#ef4444"; }
 
   const mistakes: { label: string; severity: "high" | "medium" | "low"; detail: string }[] = [];
   if (avgWinRate < 40 && backtests.length >= 2)
@@ -944,6 +977,10 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
     mistakes.push({ label: "Thin Profit Factor", severity: "medium", detail: `Profit factor of ${avgPF.toFixed(2)} means small average wins. Look for better risk/reward setups.` });
   if (avgReturn < 0)
     mistakes.push({ label: "Negative Average Return", severity: "high", detail: `Average backtest return is ${avgReturn.toFixed(1)}%. Review your strategy parameters and entry logic.` });
+  for (const jm of journalMistakes) {
+    if (!mistakes.find(m => m.label.toLowerCase().includes(jm.label.toLowerCase())))
+      mistakes.push({ label: jm.label, severity: jm.count >= 3 ? "high" : "medium", detail: `Logged ${jm.count} time${jm.count > 1 ? "s" : ""} in your journal — a recurring pattern worth addressing.` });
+  }
 
   const tips: string[] = [];
   if (avgWinRate < 50) tips.push("Wait for confirmation signals before entering — avoid chasing breakouts.");
@@ -955,13 +992,15 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
 
   res.json({
     traderScore: score,
-    traderType,
-    traderTypeColor,
+    traderStyle,
+    traderStyleColor,
+    avgHoldingDays: Number(avgHoldingDays.toFixed(1)),
     backtestCount: backtests.length,
     avgWinRate: Number(avgWinRate.toFixed(1)),
     avgSharpe: Number(avgSharpe.toFixed(2)),
     avgDrawdown: Number(avgDD.toFixed(1)),
     avgProfitFactor: Number(avgPF.toFixed(2)),
+    journalMistakes,
     mistakes,
     tips,
     hasData: true,
@@ -972,64 +1011,117 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
 router.get("/ai/session-analysis", requireAuth, async (req, res) => {
   const userId = extractUserId(req)!;
 
-  const trades = await db
-    .select()
-    .from(paperTradesTable)
-    .where(eq(paperTradesTable.userId, userId))
-    .orderBy(desc(paperTradesTable.createdAt));
+  const [paperTrades, btTrades] = await Promise.all([
+    db.select({
+      symbol: paperTradesTable.symbol,
+      pnl: paperTradesTable.pnl,
+      pnlPct: paperTradesTable.pnlPct,
+      entryTime: paperTradesTable.entryTime,
+    })
+      .from(paperTradesTable)
+      .where(eq(paperTradesTable.userId, userId)),
+    db.select({
+      symbol: tradesTable.symbol,
+      pnl: tradesTable.pnl,
+      pnlPercent: tradesTable.pnlPercent,
+      entryDate: tradesTable.entryDate,
+    })
+      .from(tradesTable)
+      .innerJoin(backtestsTable, eq(tradesTable.backtestId, backtestsTable.id))
+      .where(eq(backtestsTable.userId, userId))
+      .limit(1000),
+  ]);
 
-  if (trades.length === 0) {
+  const totalPaper = paperTrades.length;
+  const totalBt    = btTrades.length;
+
+  if (totalPaper === 0 && totalBt === 0) {
     res.json({ hasData: false, totalTrades: 0, byDay: [], bySession: [], byMarket: [] });
     return;
   }
 
-  const getSession = (utcHour: number) => {
-    if (utcHour >= 0 && utcHour < 8)   return "Asia";
-    if (utcHour >= 8 && utcHour < 13)  return "London";
-    if (utcHour >= 13 && utcHour < 21) return "New York";
-    return "After Hours";
+  const getSession = (utcHour: number): string => {
+    if (utcHour >= 0  && utcHour < 7)  return "Asian Session";
+    if (utcHour >= 7  && utcHour < 12) return "London Open";
+    if (utcHour >= 12 && utcHour < 17) return "New York Open";
+    if (utcHour >= 17 && utcHour < 21) return "New York Close";
+    return "Asian Session";
+  };
+
+  const getMarket = (symbol: string): string => {
+    const s = symbol.toUpperCase();
+    if (s.endsWith("USDT") || s.endsWith("BTC") || s.endsWith("ETH")) return "Crypto";
+    if (s.includes("XAU") || s.includes("OIL") || s.includes("SILVER") || s.includes("CORN") || s.includes("WHEAT")) return "Commodities";
+    if (s.length === 6 && /^[A-Z]+$/.test(s)) return "Forex";
+    return "Stocks";
   };
 
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  type Bucket = { wins: number; losses: number; totalPnl: number };
+  type Bucket = { wins: number; losses: number; pnlPctSum: number };
+  const mkBucket = (): Bucket => ({ wins: 0, losses: 0, pnlPctSum: 0 });
 
-  const byDay: Record<string, Bucket>     = {};
+  const byDay:     Record<string, Bucket> = {};
   const bySession: Record<string, Bucket> = {};
-  const byMarket: Record<string, Bucket>  = {};
+  const byMarket:  Record<string, Bucket> = {};
 
-  for (const t of trades) {
-    const pnl = Number(t.pnl);
-    const d   = new Date(t.entryTime);
-    const day = DAY_NAMES[d.getUTCDay()] ?? "Unknown";
-    const ses = getSession(d.getUTCHours());
-    const sym = t.symbol.toUpperCase();
-    const mkt = sym.endsWith("USDT") || sym.endsWith("BTC") ? "Crypto"
-      : sym.length === 6 && !sym.includes("USDT") ? "Forex"
-      : "Stocks";
-    const isWin = pnl > 0;
+  const addToBucket = (map: Record<string, Bucket>, key: string, isWin: boolean, pnlPct: number) => {
+    if (!map[key]) map[key] = mkBucket();
+    if (isWin) map[key].wins++; else map[key].losses++;
+    map[key].pnlPctSum += pnlPct;
+  };
 
-    for (const [map, key] of [[byDay, day], [bySession, ses], [byMarket, mkt]] as [Record<string, Bucket>, string][]) {
-      if (!map[key]) map[key] = { wins: 0, losses: 0, totalPnl: 0 };
-      if (isWin) map[key].wins++; else map[key].losses++;
-      map[key].totalPnl += pnl;
-    }
+  for (const t of paperTrades) {
+    const pnl    = Number(t.pnl);
+    const pnlPct = Number(t.pnlPct ?? 0);
+    const d      = new Date(Number(t.entryTime));
+    const day    = DAY_NAMES[d.getUTCDay()] ?? "Mon";
+    const ses    = getSession(d.getUTCHours());
+    const mkt    = getMarket(t.symbol);
+    const isWin  = pnl > 0;
+    addToBucket(byDay,     day, isWin, pnlPct);
+    addToBucket(bySession, ses, isWin, pnlPct);
+    addToBucket(byMarket,  mkt, isWin, pnlPct);
+  }
+
+  for (const t of btTrades) {
+    const pnl    = Number(t.pnl);
+    const pnlPct = Number(t.pnlPercent ?? 0);
+    const d      = new Date(t.entryDate);
+    const day    = DAY_NAMES[d.getUTCDay()] ?? "Mon";
+    const mkt    = getMarket(t.symbol);
+    const isWin  = pnl > 0;
+    addToBucket(byDay,    day, isWin, pnlPct);
+    addToBucket(byMarket, mkt, isWin, pnlPct);
   }
 
   const toArr = (map: Record<string, Bucket>) =>
-    Object.entries(map).map(([label, s]) => ({
-      label,
-      wins: s.wins,
-      losses: s.losses,
-      trades: s.wins + s.losses,
-      winRate: Number(((s.wins / (s.wins + s.losses)) * 100).toFixed(1)),
-      totalPnl: Number(s.totalPnl.toFixed(2)),
-    }));
+    Object.entries(map).map(([label, s]) => {
+      const trades = s.wins + s.losses;
+      return {
+        label,
+        wins:       s.wins,
+        losses:     s.losses,
+        trades,
+        winRate:    Number(trades > 0 ? ((s.wins / trades) * 100).toFixed(1) : "0"),
+        avgPnlPct:  Number(trades > 0 ? (s.pnlPctSum / trades).toFixed(2) : "0"),
+      };
+    });
+
+  const SESSION_ORDER = ["Asian Session", "London Open", "New York Open", "New York Close"];
+  const DAY_ORDER     = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const sortedSessions = toArr(bySession).sort((a, b) =>
+    SESSION_ORDER.indexOf(a.label) - SESSION_ORDER.indexOf(b.label));
+  const sortedDays = toArr(byDay).sort((a, b) =>
+    DAY_ORDER.indexOf(a.label) - DAY_ORDER.indexOf(b.label));
 
   res.json({
     hasData: true,
-    totalTrades: trades.length,
-    byDay:     toArr(byDay),
-    bySession: toArr(bySession),
+    totalTrades: totalPaper + totalBt,
+    paperTrades: totalPaper,
+    backtestTrades: totalBt,
+    byDay:     sortedDays,
+    bySession: sortedSessions,
     byMarket:  toArr(byMarket),
   });
 });
