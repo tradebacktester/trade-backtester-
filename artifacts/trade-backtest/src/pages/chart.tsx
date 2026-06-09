@@ -287,6 +287,10 @@ export default function ChartPage() {
   const [pendingChartOrders, setPendingChartOrders] = useState<PendingChartOrder[]>([]);
   const entryPriceLineRef = useRef<import("lightweight-charts").IPriceLine | null>(null);
 
+  // Live trade warning modal
+  const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number } | null>(null);
+  const pendingTradeRef = useRef<(() => void) | null>(null);
+
   // Position drawing tools
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
   const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
@@ -527,6 +531,24 @@ export default function ChartPage() {
       applyMarkers(); return;
     }
     if (position?.side === "long") return;
+    // Market order — show confirmation warning first
+    if (!priceOverride) {
+      const snapEquity = equity; const snapLev = chartLeverage;
+      pendingTradeRef.current = () => {
+        const units2 = (snapEquity * snapLev) / exitPrice;
+        setPosition({ price: exitPrice, time: bar.time, units: units2, capitalAtEntry: snapEquity, side: "long" });
+        if (candleSeriesRef.current) {
+          if (entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } }
+          entryPriceLineRef.current = candleSeriesRef.current.createPriceLine({ price: exitPrice, color: "hsl(150,90%,55%)", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: `▲ Long ${snapLev}x` });
+        }
+        const m2: SeriesMarker<Time> = { time: bar.time as Time, position: "belowBar", color: "hsl(150,90%,55%)", shape: "arrowUp", text: `B $${fmt(exitPrice)}`, size: 1 };
+        markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
+        applyMarkers();
+      };
+      setTradeWarn({ side: "long", price: exitPrice });
+      return;
+    }
+    // Limit/stop order (priceOverride set) — execute immediately
     const units = (equity * chartLeverage) / exitPrice;
     setPosition({ price: exitPrice, time: bar.time, units, capitalAtEntry: equity, side: "long" });
     if (candleSeriesRef.current) {
@@ -554,6 +576,23 @@ export default function ChartPage() {
       applyMarkers(); return;
     }
     if (currentPos?.side === "short") return;
+    // Market open — show warning first (only when not called with pos override for auto-close)
+    if (!pos) {
+      const snapEquity = equity; const snapLev = chartLeverage;
+      pendingTradeRef.current = () => {
+        const units2 = (snapEquity * snapLev) / exitPrice;
+        setPosition({ price: exitPrice, time: bar.time, units: units2, capitalAtEntry: snapEquity, side: "short" });
+        if (candleSeriesRef.current) {
+          if (entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } }
+          entryPriceLineRef.current = candleSeriesRef.current.createPriceLine({ price: exitPrice, color: "hsl(0,85%,62%)", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: `▼ Short ${snapLev}x` });
+        }
+        const m2: SeriesMarker<Time> = { time: bar.time as Time, position: "aboveBar", color: "hsl(0,85%,62%)", shape: "arrowDown", text: `SS $${fmt(exitPrice)}`, size: 1 };
+        markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
+        applyMarkers();
+      };
+      setTradeWarn({ side: "short", price: exitPrice });
+      return;
+    }
     const units = (equity * chartLeverage) / exitPrice;
     setPosition({ price: exitPrice, time: bar.time, units, capitalAtEntry: equity, side: "short" });
     if (candleSeriesRef.current) {
@@ -1263,6 +1302,63 @@ export default function ChartPage() {
         } : {}),
       }}
     >
+
+      {/* ── Live Trade Warning Modal ─────────────────────────────────── */}
+      {tradeWarn && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.88)" }}>
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: "hsl(222,22%,10%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
+            <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="h-12 w-12 rounded-2xl mx-auto mb-3 flex items-center justify-center"
+                style={{
+                  background: tradeWarn.side === "long" ? "linear-gradient(135deg, hsl(150,75%,22%), hsl(150,75%,15%))" : "linear-gradient(135deg, hsl(0,75%,22%), hsl(0,75%,15%))",
+                  border: `1px solid ${tradeWarn.side === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`,
+                }}>
+                {tradeWarn.side === "long"
+                  ? <TrendingUp className="h-5 w-5" style={{ color: "hsl(150,90%,65%)" }} />
+                  : <TrendingDown className="h-5 w-5" style={{ color: "hsl(0,85%,65%)" }} />}
+              </div>
+              <h2 className="text-lg font-bold font-mono" style={{ color: "hsl(220,14%,90%)" }}>
+                Confirm {tradeWarn.side === "long" ? "Long" : "Short"} Entry
+              </h2>
+              <p className="text-xs font-mono mt-1.5" style={{ color: "hsl(220,14%,50%)" }}>
+                {symbol} · Market order at ${tradeWarn.price.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+              </p>
+            </div>
+            <div className="px-6 py-4 flex flex-col gap-2">
+              {[
+                { label: "Side",       value: tradeWarn.side === "long" ? "▲ LONG" : "▼ SHORT", color: tradeWarn.side === "long" ? "hsl(150,90%,65%)" : "hsl(0,85%,65%)" },
+                { label: "Entry Price",value: `$${tradeWarn.price.toLocaleString(undefined, { maximumFractionDigits: 4 })}`, color: "hsl(220,14%,80%)" },
+                { label: "Capital",    value: `$${equity.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, color: "hsl(220,14%,80%)" },
+                { label: "Leverage",   value: `${chartLeverage}×`, color: "hsl(220,14%,80%)" },
+              ].map(r => (
+                <div key={r.label} className="flex items-center justify-between px-3 py-2 rounded-xl"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span className="text-[11px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>{r.label}</span>
+                  <span className="text-[11px] font-mono font-semibold" style={{ color: r.color }}>{r.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 pb-6 flex gap-2">
+              <button
+                onClick={() => { setTradeWarn(null); pendingTradeRef.current = null; }}
+                className="flex-1 py-2.5 rounded-xl font-mono font-semibold text-sm transition-all hover:opacity-80"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,60%)" }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => { pendingTradeRef.current?.(); pendingTradeRef.current = null; setTradeWarn(null); }}
+                className="flex-1 py-2.5 rounded-xl font-mono font-bold text-sm transition-all hover:opacity-90"
+                style={{
+                  background: tradeWarn.side === "long" ? "linear-gradient(135deg, hsl(150,75%,22%), hsl(150,75%,15%))" : "linear-gradient(135deg, hsl(0,60%,25%), hsl(0,60%,18%))",
+                  border: `1px solid ${tradeWarn.side === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`,
+                  color: tradeWarn.side === "long" ? "hsl(150,90%,65%)" : "hsl(0,85%,65%)",
+                }}>
+                Confirm {tradeWarn.side === "long" ? "Buy" : "Sell Short"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Paper Trading Account Setup Modal ─────────────────────────── */}
       {accountModalOpen && (

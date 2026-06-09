@@ -6,10 +6,11 @@ import {
   TrendingUp, TrendingDown, DollarSign, Percent, Target, Shield,
   Clock, BarChart2, Zap, Activity, ArrowUpRight, Play,
   Brain, CandlestickChart, Cpu, Globe, Bitcoin, Gauge,
-  MessageCircle, Send, X, Bot, Sparkles,
+  MessageCircle, Send, X, Bot, Sparkles, AlertTriangle, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_BASE } from "@/lib/api-config";
+import { useAuth } from "@/lib/auth-context";
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function fmtPct(v: number | null | undefined, sign = true) {
@@ -64,6 +65,196 @@ function Panel({ children, className = "" }: { children: React.ReactNode; classN
       <div className="pointer-events-none absolute inset-0 rounded-2xl"
         style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)", zIndex: 0 }} />
       <div className="relative z-[1]">{children}</div>
+    </div>
+  );
+}
+
+/* ── AI Coach Section ─────────────────────────────────────────────── */
+type CoachingData = {
+  traderScore: number;
+  traderType: string;
+  traderTypeColor: string;
+  backtestCount: number;
+  avgWinRate: number;
+  avgSharpe: number;
+  avgDrawdown: number;
+  mistakes: { label: string; severity: "high" | "medium" | "low"; detail: string }[];
+  tips: string[];
+  hasData: boolean;
+};
+
+function AiCoachSection() {
+  const { token } = useAuth();
+  const [data, setData] = useState<CoachingData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showMistakes, setShowMistakes] = useState(false);
+
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    fetch(`${API_BASE}/api/ai/coaching-insights`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => setData(d as CoachingData))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  if (!token) return null;
+
+  const RADIUS = 52;
+  const STROKE = 6;
+  const CIRCUM = 2 * Math.PI * RADIUS;
+  const ARC = 0.75;
+  const dashArray = CIRCUM * ARC;
+  const dashOffset = data ? dashArray * (1 - data.traderScore / 100) : dashArray;
+  const rotation = -225;
+  const sevColor = (s: string) => s === "high" ? C.negative : s === "medium" ? C.amber : "#6b7280";
+
+  return (
+    <div className="rounded-3xl overflow-hidden relative" style={{ ...CARD }}>
+      <div className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 60% 100% at 0% 50%, rgba(168,85,247,0.07) 0%, transparent 65%)" }} />
+      <div className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 50% 60% at 100% 30%, rgba(34,197,94,0.04) 0%, transparent 65%)" }} />
+
+      <div className="relative p-5 sm:p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.25)" }}>
+            <Brain className="h-[18px] w-[18px]" style={{ color: "#a855f7" }} />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold" style={{ color: C.text }}>AI Coach</p>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.2)", color: "#a855f7" }}>
+                Live Insights
+              </span>
+            </div>
+            <p className="text-[10px] font-mono" style={{ color: C.muted }}>Personalized coaching from your backtest history</p>
+          </div>
+          <Link href="/trader-dna">
+            <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: C.sub }}>
+              Full DNA <ArrowUpRight className="h-3 w-3" />
+            </span>
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="flex gap-4">
+            <Skel className="h-28 w-28 rounded-2xl flex-shrink-0" />
+            <div className="flex-1 flex flex-col gap-2 pt-2">
+              <Skel className="h-4 w-32" />
+              <Skel className="h-3 w-48" />
+              <Skel className="h-3 w-40" />
+              <Skel className="h-8 w-full mt-1 rounded-xl" />
+            </div>
+          </div>
+        ) : !data?.hasData ? (
+          <div className="flex flex-col items-center py-4 gap-2">
+            <Brain className="h-8 w-8 opacity-15" style={{ color: C.muted }} />
+            <p className="text-xs font-mono text-center" style={{ color: C.muted }}>
+              Run your first backtest to unlock personalized AI coaching
+            </p>
+            <Link href="/backtests/new">
+              <Button variant="outline" size="sm" className="mt-1">Run First Backtest</Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-5">
+            <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div className="relative" style={{ width: 130, height: 130 }}>
+                <svg width="130" height="130" viewBox="0 0 150 150"
+                  style={{ transform: `rotate(${rotation}deg)` }}>
+                  <circle cx="75" cy="75" r={RADIUS} fill="none"
+                    stroke="rgba(255,255,255,0.07)" strokeWidth={STROKE}
+                    strokeDasharray={`${dashArray} ${CIRCUM}`} strokeLinecap="round" />
+                  <circle cx="75" cy="75" r={RADIUS} fill="none"
+                    stroke={data!.traderTypeColor} strokeWidth={STROKE}
+                    strokeDasharray={`${dashArray} ${CIRCUM}`}
+                    strokeDashoffset={dashOffset}
+                    strokeLinecap="round"
+                    style={{ transition: "stroke-dashoffset 1s ease", filter: `drop-shadow(0 0 6px ${data!.traderTypeColor}60)` }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: 8 }}>
+                  <span className="text-3xl font-bold font-mono leading-none" style={{ color: data!.traderTypeColor }}>
+                    {data!.traderScore}
+                  </span>
+                  <span className="text-[9px] font-mono uppercase tracking-widest mt-0.5" style={{ color: C.muted }}>score</span>
+                </div>
+              </div>
+              <p className="text-[11px] font-semibold text-center font-mono" style={{ color: data!.traderTypeColor }}>
+                {data!.traderType}
+              </p>
+              <p className="text-[10px] font-mono text-center" style={{ color: C.muted }}>
+                {data!.backtestCount} backtest{data!.backtestCount !== 1 ? "s" : ""}
+              </p>
+            </div>
+
+            <div className="flex-1 min-w-0 flex flex-col gap-3">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Win Rate", value: `${data!.avgWinRate}%`, good: data!.avgWinRate >= 50 },
+                  { label: "Sharpe",   value: data!.avgSharpe.toFixed(2),    good: data!.avgSharpe >= 1 },
+                  { label: "Drawdown", value: `-${data!.avgDrawdown}%`,       good: data!.avgDrawdown < 15 },
+                ].map(stat => (
+                  <div key={stat.label} className="rounded-xl px-2.5 py-2 text-center"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                    <p className="text-[10px] font-mono" style={{ color: C.muted }}>{stat.label}</p>
+                    <p className="text-xs font-bold font-mono" style={{ color: stat.good ? C.positive : C.amber }}>
+                      {stat.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {data!.tips[0] && (
+                <div className="rounded-xl px-3 py-2.5 flex items-start gap-2"
+                  style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.15)" }}>
+                  <Sparkles className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "#a855f7" }} />
+                  <p className="text-[11px] font-mono leading-relaxed" style={{ color: C.sub }}>
+                    {data!.tips[0]}
+                  </p>
+                </div>
+              )}
+
+              {data!.mistakes.length > 0 && (
+                <button
+                  onClick={() => setShowMistakes(v => !v)}
+                  className="flex items-center gap-1.5 text-[11px] font-mono hover:opacity-80 w-fit"
+                  style={{ color: C.negative }}>
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {data!.mistakes.length} mistake{data!.mistakes.length !== 1 ? "s" : ""} detected
+                  <ChevronDown className="h-3 w-3" style={{
+                    transform: showMistakes ? "rotate(180deg)" : "none",
+                    transition: "transform 0.2s",
+                  }} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showMistakes && data && data.mistakes.length > 0 && (
+          <div className="mt-4 flex flex-col gap-2">
+            <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: C.muted }}>
+              Mistake Alert Center
+            </p>
+            {data.mistakes.map(m => (
+              <div key={m.label} className="rounded-xl px-3 py-2.5 flex items-start gap-2.5"
+                style={{ background: `${sevColor(m.severity)}08`, border: `1px solid ${sevColor(m.severity)}22` }}>
+                <div className="h-1.5 w-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: sevColor(m.severity) }} />
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: sevColor(m.severity) }}>{m.label}</p>
+                  <p className="text-[11px] font-mono leading-relaxed" style={{ color: C.muted }}>{m.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -738,6 +929,9 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-4 pb-4 page-enter">
+
+      {/* AI Coach Section */}
+      <AiCoachSection />
 
       {/* AI Market Pulse Hero */}
       <AiMarketPulse />
