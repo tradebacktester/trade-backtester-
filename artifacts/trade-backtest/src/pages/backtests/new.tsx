@@ -685,11 +685,14 @@ function GhostModePanel({
   const [result, setResult] = useState<{
     hasHistory: boolean;
     similarityScore: number;
-    closestMatch: { symbol: string; side: string; entryDate: string; exitDate: string; pnl: number; pnlPercent: number; durationDays: number } | null;
+    closestMatch: { symbol: string; side: string; entryDate: string; exitDate: string; pnl: number; pnlPercent: number; durationDays: number; strategyType?: string | null } | null;
     winCount: number;
     lossCount: number;
     winRate: number;
     avgReturn: number;
+    avgDrawdown: number;
+    similarTrades: number;
+    marketContext?: string;
     message?: string;
   } | null>(null);
 
@@ -772,52 +775,89 @@ function GhostModePanel({
           {result && (
             result.hasHistory ? (
               <div className="flex flex-col gap-3">
-                {/* Similarity gauge */}
-                <div className="rounded-xl px-4 py-3 flex items-center gap-4"
-                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-                  <div className="relative flex-shrink-0" style={{ width: 56, height: 56 }}>
-                    <svg width="56" height="56" viewBox="0 0 56 56" style={{ transform: "rotate(-225deg)" }}>
-                      {(() => {
-                        const R=22, S=4, C2=2*Math.PI*R, ARC=0.75*C2, OFF=ARC*(1-result.similarityScore/100);
-                        return <>
-                          <circle cx="28" cy="28" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={S} strokeDasharray={`${ARC} ${C2}`} strokeLinecap="round" />
-                          <circle cx="28" cy="28" r={R} fill="none" stroke={GHOST_COLOR} strokeWidth={S} strokeDasharray={`${ARC} ${C2}`} strokeDashoffset={OFF} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 5px ${GHOST_COLOR}80)` }} />
-                        </>;
-                      })()}
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: 4 }}>
-                      <span className="text-[14px] font-bold font-mono" style={{ color: GHOST_COLOR }}>{result.similarityScore}</span>
-                      <span className="text-[7px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>%</span>
+                {/* ── Proposed vs Historical ghost card ── */}
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Proposed setup */}
+                  <div className="rounded-xl p-3 flex flex-col gap-2"
+                    style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.2)" }}>
+                    <p className="text-[8px] font-mono uppercase tracking-widest" style={{ color: GHOST_COLOR }}>Proposed</p>
+                    <div>
+                      <p className="text-[13px] font-bold font-mono" style={{ color: "hsl(var(--foreground))" }}>{symbol}</p>
+                      <span className="text-[10px] font-mono font-semibold capitalize"
+                        style={{ color: side === "long" ? "#22c55e" : "#ef4444" }}>{side}</span>
                     </div>
+                    {selectedStratType && (
+                      <p className="text-[9px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>
+                        {selectedStratType.replace(/_/g, " ")}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>
-                      {result.similarityScore >= 70 ? "High similarity" : result.similarityScore >= 40 ? "Moderate match" : "Low similarity"} to past setups
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { label: "Similar", value: `${result.winCount + result.lossCount}`, color: "hsl(var(--muted-foreground))" },
-                        { label: "Win Rate", value: `${result.winRate}%`, color: result.winRate >= 50 ? "#22c55e" : "#ef4444" },
-                        { label: "Avg Return", value: `${result.avgReturn >= 0 ? "+" : ""}${result.avgReturn}%`, color: result.avgReturn >= 0 ? "#22c55e" : "#ef4444" },
-                      ].map(stat => (
-                        <div key={stat.label}>
-                          <p className="text-[9px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{stat.label}</p>
-                          <p className="text-[12px] font-bold font-mono" style={{ color: stat.color }}>{stat.value}</p>
+                  {/* Historical ghost */}
+                  <div className="rounded-xl p-3 flex flex-col gap-2"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                    <p className="text-[8px] font-mono uppercase tracking-widest" style={{ color: "hsl(var(--muted-foreground))" }}>Historical Ghost</p>
+                    <div className="flex items-center gap-2">
+                      {/* Mini similarity arc */}
+                      <div className="relative flex-shrink-0" style={{ width: 34, height: 34 }}>
+                        <svg width="34" height="34" viewBox="0 0 34 34" style={{ transform: "rotate(-225deg)" }}>
+                          {(() => {
+                            const R=13, S=3, C2=2*Math.PI*R, ARC=0.75*C2, OFF=ARC*(1-result.similarityScore/100);
+                            return <>
+                              <circle cx="17" cy="17" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={S} strokeDasharray={`${ARC} ${C2}`} strokeLinecap="round" />
+                              <circle cx="17" cy="17" r={R} fill="none" stroke={GHOST_COLOR} strokeWidth={S} strokeDasharray={`${ARC} ${C2}`} strokeDashoffset={OFF} strokeLinecap="round" />
+                            </>;
+                          })()}
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ paddingTop: 2 }}>
+                          <span className="text-[10px] font-bold font-mono" style={{ color: GHOST_COLOR }}>{result.similarityScore}</span>
                         </div>
-                      ))}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-mono font-semibold" style={{ color: "hsl(var(--foreground))" }}>
+                          {result.similarityScore >= 70 ? "High match" : result.similarityScore >= 40 ? "Moderate" : "Low match"}
+                        </p>
+                        <p className="text-[9px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          {result.similarTrades} similar setups
+                        </p>
+                      </div>
                     </div>
                   </div>
+                </div>
+
+                {/* ── Stats bar: Win Rate · Avg Return · Avg Drawdown ── */}
+                <div className="rounded-xl px-4 py-3 flex flex-col gap-3"
+                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                  {[
+                    { label: "Win Rate",   value: result.winRate,     display: `${result.winRate}%`,                               color: result.winRate >= 50 ? "#22c55e" : "#ef4444",     max: 100 },
+                    { label: "Avg Return", value: Math.max(0, result.avgReturn), display: `${result.avgReturn >= 0 ? "+" : ""}${result.avgReturn}%`, color: result.avgReturn >= 0 ? "#22c55e" : "#ef4444", max: 30  },
+                    { label: "Avg Drawdown", value: result.avgDrawdown, display: `-${result.avgDrawdown}%`,                          color: result.avgDrawdown <= 10 ? "#22c55e" : result.avgDrawdown <= 20 ? "#f59e0b" : "#ef4444", max: 50  },
+                  ].map(stat => (
+                    <div key={stat.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[9px] font-mono uppercase tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>{stat.label}</p>
+                        <p className="text-[11px] font-bold font-mono" style={{ color: stat.color }}>{stat.display}</p>
+                      </div>
+                      <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }}>
+                        <div className="h-full rounded-full transition-all"
+                          style={{ width: `${Math.min(100, (stat.value / stat.max) * 100)}%`, background: stat.color }} />
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[9px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Based on {result.winCount + result.lossCount} similar {result.marketContext ?? ""} {side} trades
+                  </p>
                 </div>
 
                 {/* Closest match */}
                 {result.closestMatch && (
                   <div className="rounded-xl px-4 py-3"
                     style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.18)" }}>
-                    <p className="text-[9px] font-mono uppercase tracking-wider mb-2" style={{ color: GHOST_COLOR }}>Closest Historical Match</p>
+                    <p className="text-[8px] font-mono uppercase tracking-wider mb-2" style={{ color: GHOST_COLOR }}>Closest Historical Match</p>
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[12px] font-mono font-semibold" style={{ color: "hsl(var(--foreground))" }}>
                           {result.closestMatch.symbol} · {result.closestMatch.side.toUpperCase()}
+                          {result.closestMatch.strategyType && <span className="ml-1.5 text-[9px] opacity-60">{result.closestMatch.strategyType.replace(/_/g, " ")}</span>}
                         </p>
                         <p className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>
                           {result.closestMatch.entryDate} → {result.closestMatch.exitDate} · {result.closestMatch.durationDays}d hold

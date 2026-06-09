@@ -1279,6 +1279,13 @@ router.post("/ai/ghost-mode", requireAuth, async (req, res) => {
   const winRate   = similar.length ? Number(((winCount / similar.length) * 100).toFixed(1)) : 0;
   const avgReturn = similar.length ? Number((similar.reduce((s, t) => s + t.pnlPercent, 0) / similar.length).toFixed(2)) : 0;
 
+  // Average drawdown for similar setups — uses abs(pnlPercent) of losing trades in cohort
+  // as a per-trade drawdown proxy; falls back to profile.avgDrawdown when cohort is small.
+  const losingTrades = similar.filter(t => t.pnl < 0);
+  const cohortAvgDrawdown = losingTrades.length >= 2
+    ? Number((losingTrades.reduce((s, t) => s + Math.abs(t.pnlPercent), 0) / losingTrades.length).toFixed(2))
+    : Number(profile.avgDrawdown.toFixed(2));
+
   const closestMatch = scored[0]?.trade ?? null;
 
   res.json({
@@ -1301,6 +1308,7 @@ router.post("/ai/ghost-mode", requireAuth, async (req, res) => {
     lossCount,
     winRate,
     avgReturn,
+    avgDrawdown: cohortAvgDrawdown,
     marketContext: proposedMarket,
   });
 });
