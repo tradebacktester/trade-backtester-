@@ -1,147 +1,249 @@
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
-import { useQueries } from '@tanstack/react-query';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors } from '@/constants/colors';
 import { apiRequest } from '@/lib/query-client';
+import { useAuth } from '@/context/auth-context';
 
-interface Bar {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+const PURPLE = '#7C3AED';
+const PURPLE_DIM = 'rgba(124,58,237,0.12)';
+const PURPLE_BORDER = 'rgba(124,58,237,0.25)';
+
+interface CoachingInsight {
+  text: string;
+  improvementPct: number;
+  category: string;
 }
 
-interface SymbolData {
-  symbol: string;
-  price: number;
-  change24h: number;
+interface Mistake {
+  label: string;
+  severity: 'high' | 'medium' | 'low';
+  detail: string;
 }
 
-const SYMBOLS = [
-  'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
-  'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'DOTUSDT', 'LINKUSDT',
-];
-
-function computeMarketData(symbol: string, bars: Bar[]): SymbolData {
-  const last = bars[bars.length - 1];
-  const prev = bars[bars.length - 2];
-  const price = last?.close ?? 0;
-  const change24h = prev?.close
-    ? ((last.close - prev.close) / prev.close) * 100
-    : 0;
-  return { symbol, price, change24h };
+interface CoachingData {
+  traderScore: number;
+  traderStyle: string;
+  traderStyleColor: string;
+  avgWinRate: number;
+  avgSharpe: number;
+  avgDrawdown: number;
+  backtestCount: number;
+  insights: CoachingInsight[];
+  mistakes: Mistake[];
+  hasData: boolean;
 }
 
-function PriceRow({ item }: { item: SymbolData }) {
-  const up = item.change24h >= 0;
-  const changeColor = up ? colors.success : colors.error;
-  const base = item.symbol.replace('USDT', '');
+function ScoreRing({ score }: { score: number }) {
+  const label =
+    score >= 80 ? 'Elite' :
+    score >= 60 ? 'Advanced' :
+    score >= 40 ? 'Developing' : 'Beginner';
+  const labelColor =
+    score >= 80 ? colors.success :
+    score >= 60 ? '#A78BFA' :
+    score >= 40 ? colors.warning : colors.foregroundSubtle;
 
   return (
-    <View style={styles.row}>
-      <View style={styles.rowLeft}>
-        <View style={[styles.symbolBadge, { backgroundColor: BADGE_COLORS[base] ?? colors.brand }]}>
-          <Text style={styles.symbolBadgeText}>{base[0]}</Text>
-        </View>
-        <View>
-          <Text style={styles.symbol}>{base}</Text>
-          <Text style={styles.pair}>/ USDT</Text>
-        </View>
-      </View>
-      <View style={styles.rowRight}>
-        <Text style={styles.price}>
-          {item.price < 1
-            ? `$${item.price.toFixed(4)}`
-            : `$${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-        </Text>
-        <View style={[styles.changeBadge, { backgroundColor: up ? colors.successDim : colors.errorDim }]}>
-          <Ionicons name={up ? 'arrow-up' : 'arrow-down'} size={10} color={changeColor} />
-          <Text style={[styles.change, { color: changeColor }]}>
-            {Math.abs(item.change24h).toFixed(2)}%
-          </Text>
+    <View style={ring.wrap}>
+      <View style={ring.outer}>
+        <View style={ring.inner}>
+          <Text style={ring.score}>{score}</Text>
+          <Text style={ring.label}>{label}</Text>
         </View>
       </View>
     </View>
   );
 }
 
-const BADGE_COLORS: Record<string, string> = {
-  BTC: '#F7931A', ETH: '#627EEA', SOL: '#9945FF', BNB: '#F3BA2F',
-  XRP: '#00AAE4', ADA: '#0033AD', DOGE: '#C2A633', AVAX: '#E84142',
-  DOT: '#E6007A', LINK: '#2A5ADA',
-};
+const ring = StyleSheet.create({
+  wrap: { alignItems: 'center', marginBottom: 4 },
+  outer: {
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: PURPLE_DIM,
+    borderWidth: 3, borderColor: PURPLE_BORDER,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  inner: { alignItems: 'center' },
+  score: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 32,
+    color: '#A78BFA',
+    letterSpacing: -1,
+  },
+  label: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    color: colors.foregroundSubtle,
+    marginTop: 1,
+  },
+});
 
-export default function MarketsScreen() {
+function MistakeSeverityDot({ severity }: { severity: string }) {
+  const c = severity === 'high' ? colors.error : severity === 'medium' ? colors.warning : colors.foregroundSubtle;
+  return <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c, marginTop: 3 }} />;
+}
+
+export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const router = useRouter();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
 
-  const results = useQueries({
-    queries: SYMBOLS.map((symbol) => ({
-      queryKey: ['/api/klines', symbol],
-      queryFn: () =>
-        apiRequest<Bar[]>(`/api/klines?symbol=${symbol}&interval=1d&limit=2`),
-      refetchInterval: 30_000,
-      staleTime: 20_000,
-    })),
+  const { data, isLoading } = useQuery<CoachingData>({
+    queryKey: ['/api/ai/coaching-insights'],
+    queryFn: () => apiRequest('/api/ai/coaching-insights'),
+    enabled: !!user,
   });
 
-  const isLoading = results.every((r) => r.isLoading);
-  const data: SymbolData[] = results
-    .map((r, i) => {
-      if (!r.data?.length) return null;
-      return computeMarketData(SYMBOLS[i], r.data);
-    })
-    .filter((d): d is SymbolData => d !== null);
-
-  function refetchAll() {
-    results.forEach((r) => r.refetch());
+  if (!user) {
+    return (
+      <View style={[styles.container, { paddingTop: topInset }]}>
+        <View style={styles.header}>
+          <Text style={styles.heading}>Home</Text>
+          <Text style={styles.subheading}>Your trading command center</Text>
+        </View>
+        <View style={styles.center}>
+          <View style={styles.guestIcon}>
+            <Ionicons name="home-outline" size={36} color={colors.foregroundSubtle} />
+          </View>
+          <Text style={styles.guestTitle}>Sign in to unlock your AI dashboard</Text>
+          <Text style={styles.guestSub}>
+            Trader score, AI coaching insights, and pattern alerts — all personalized to your trading history.
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/login')} style={styles.signInBtn}>
+            <Text style={styles.signInText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
-
-  const isRefetching = results.some((r) => r.isFetching);
 
   return (
     <View style={[styles.container, { paddingTop: topInset }]}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.heading}>Markets</Text>
+          <Text style={styles.heading}>Home</Text>
           <Text style={styles.subheading}>
-            {data.length} symbols · live prices
+            {user.name.split(' ')[0]}'s trading dashboard
           </Text>
         </View>
-        <TouchableOpacity onPress={refetchAll} style={styles.refreshBtn}>
-          <Ionicons
-            name={isRefetching ? 'sync' : 'refresh'}
-            size={20}
-            color={colors.foregroundMuted}
-          />
-        </TouchableOpacity>
+        <View style={styles.aiTag}>
+          <Ionicons name="sparkles" size={12} color="#A78BFA" />
+          <Text style={styles.aiTagText}>AI</Text>
+        </View>
       </View>
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.brand} size="large" />
-          <Text style={styles.loadingText}>Loading markets…</Text>
+          <ActivityIndicator color={PURPLE} size="large" />
+          <Text style={styles.loadingText}>Analysing your trades…</Text>
         </View>
-      ) : !data.length ? (
+      ) : !data?.hasData ? (
         <View style={styles.center}>
-          <Ionicons name="trending-up-outline" size={48} color={colors.foregroundSubtle} />
-          <Text style={styles.emptyText}>Market data unavailable</Text>
-          <TouchableOpacity onPress={refetchAll} style={styles.retryBtn}>
-            <Text style={styles.retryText}>Retry</Text>
+          <Ionicons name="analytics-outline" size={48} color={colors.foregroundSubtle} />
+          <Text style={styles.emptyTitle}>No trading data yet</Text>
+          <Text style={styles.emptySub}>
+            Run a backtest or place a paper trade to unlock your AI coaching dashboard.
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/backtests')}
+            style={styles.ctaBtn}
+          >
+            <Text style={styles.ctaBtnText}>Go to Strategy Lab</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={data}
-          keyExtractor={(item) => item.symbol}
-          renderItem={({ item }) => <PriceRow item={item} />}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+        <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.list}
-        />
+          contentContainerStyle={styles.scroll}
+        >
+          {/* Trader Score Card */}
+          <View style={styles.scoreCard}>
+            <ScoreRing score={data.traderScore} />
+            <View style={styles.scoreRight}>
+              <View style={styles.styleTag}>
+                <Text style={styles.styleTagText}>{data.traderStyle}</Text>
+              </View>
+              <View style={styles.miniStats}>
+                <View style={styles.miniStat}>
+                  <Text style={styles.miniStatVal}>{data.avgWinRate.toFixed(0)}%</Text>
+                  <Text style={styles.miniStatLbl}>Win Rate</Text>
+                </View>
+                <View style={styles.miniStatDivider} />
+                <View style={styles.miniStat}>
+                  <Text style={styles.miniStatVal}>{data.avgSharpe.toFixed(1)}</Text>
+                  <Text style={styles.miniStatLbl}>Sharpe</Text>
+                </View>
+                <View style={styles.miniStatDivider} />
+                <View style={styles.miniStat}>
+                  <Text style={[styles.miniStatVal, { color: colors.error }]}>
+                    -{data.avgDrawdown.toFixed(0)}%
+                  </Text>
+                  <Text style={styles.miniStatLbl}>Max DD</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/trader-dna')} style={styles.dnaLink}>
+                <Text style={styles.dnaLinkText}>Full DNA →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* AI Coach Insights */}
+          {data.insights && data.insights.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionRow}>
+                <Ionicons name="sparkles" size={14} color="#A78BFA" />
+                <Text style={styles.sectionTitle}>AI Coach</Text>
+              </View>
+              {data.insights.slice(0, 2).map((ins, i) => (
+                <View key={i} style={styles.insightCard}>
+                  <View style={styles.insightBadge}>
+                    <Text style={styles.insightBadgeText}>+{ins.improvementPct}%</Text>
+                  </View>
+                  <Text style={styles.insightText}>{ins.text}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Mistake Alerts */}
+          {data.mistakes && data.mistakes.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionRow}>
+                <Ionicons name="warning-outline" size={14} color={colors.warning} />
+                <Text style={styles.sectionTitle}>Mistake Alerts</Text>
+              </View>
+              <View style={styles.mistakeCard}>
+                {data.mistakes.slice(0, 3).map((m, i) => (
+                  <View key={i}>
+                    {i > 0 && <View style={styles.mistakeDivider} />}
+                    <View style={styles.mistakeRow}>
+                      <MistakeSeverityDot severity={m.severity} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.mistakeLabel}>{m.label}</Text>
+                        <Text style={styles.mistakeDetail} numberOfLines={2}>{m.detail}</Text>
+                      </View>
+                      <View style={[styles.severityBadge, {
+                        backgroundColor: m.severity === 'high' ? colors.errorDim : m.severity === 'medium' ? colors.warningDim : 'rgba(113,113,122,0.12)',
+                      }]}>
+                        <Text style={[styles.severityText, {
+                          color: m.severity === 'high' ? colors.error : m.severity === 'medium' ? colors.warning : colors.foregroundSubtle,
+                        }]}>
+                          {m.severity}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
       )}
     </View>
   );
@@ -169,85 +271,211 @@ const styles = StyleSheet.create({
     color: colors.foregroundSubtle,
     marginTop: 2,
   },
-  refreshBtn: {
-    width: 36, height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  list: { paddingHorizontal: 16, paddingBottom: 24 },
-  row: {
+  aiTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 4,
+    backgroundColor: PURPLE_DIM,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: PURPLE_BORDER,
+  },
+  aiTagText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: '#A78BFA',
+  },
+  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 14 },
+  scoreCard: {
     backgroundColor: colors.surface,
     borderRadius: colors.radius,
-    padding: 16,
-  },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  symbolBadge: {
-    width: 44, height: 44,
-    borderRadius: 22,
+    padding: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 20,
+    borderWidth: 1,
+    borderColor: PURPLE_BORDER,
   },
-  symbolBadgeText: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 18,
-    color: '#FFFFFF',
+  scoreRight: { flex: 1, gap: 10 },
+  styleTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: PURPLE_DIM,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: PURPLE_BORDER,
   },
-  symbol: {
+  styleTagText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
+    fontSize: 12,
+    color: '#A78BFA',
+  },
+  miniStats: { flexDirection: 'row', alignItems: 'center' },
+  miniStat: { flex: 1, alignItems: 'center', gap: 2 },
+  miniStatVal: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
     color: colors.foreground,
   },
-  pair: {
+  miniStatLbl: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    color: colors.foregroundSubtle,
+  },
+  miniStatDivider: { width: 1, height: 24, backgroundColor: colors.border },
+  dnaLink: { alignSelf: 'flex-start' },
+  dnaLinkText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: '#A78BFA',
+  },
+  section: { gap: 8 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: colors.foreground,
+  },
+  insightCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  insightBadge: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.2)',
+    flexShrink: 0,
+  },
+  insightBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: colors.success,
+  },
+  insightText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: colors.foregroundMuted,
+    flex: 1,
+    lineHeight: 19,
+  },
+  mistakeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mistakeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 14,
+  },
+  mistakeDivider: { height: 1, backgroundColor: colors.border, marginLeft: 14 },
+  mistakeLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: colors.foreground,
+    marginBottom: 2,
+  },
+  mistakeDetail: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     color: colors.foregroundSubtle,
-    marginTop: 2,
+    lineHeight: 17,
   },
-  rowRight: { alignItems: 'flex-end', gap: 6 },
-  price: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
-    color: colors.foreground,
-  },
-  changeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
+  severityBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
-  change: {
+  severityText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 10,
+    textTransform: 'capitalize',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 40,
+  },
+  guestIcon: {
+    width: 80, height: 80,
+    borderRadius: 40,
+    backgroundColor: PURPLE_DIM,
+    borderWidth: 1,
+    borderColor: PURPLE_BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  guestTitle: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
+    fontSize: 18,
+    color: colors.foreground,
+    textAlign: 'center',
+    lineHeight: 25,
   },
-  separator: { height: 8 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  guestSub: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: colors.foregroundSubtle,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 17,
+    color: colors.foreground,
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: colors.foregroundSubtle,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   loadingText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: colors.foregroundSubtle,
   },
-  emptyText: {
-    fontFamily: 'Inter_400Regular',
+  signInBtn: {
+    marginTop: 8,
+    backgroundColor: PURPLE,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  signInText: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
-    color: colors.foregroundSubtle,
+    color: '#FFFFFF',
   },
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    marginTop: 4,
+  ctaBtn: {
+    marginTop: 8,
+    backgroundColor: PURPLE,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  retryText: {
-    fontFamily: 'Inter_500Medium',
+  ctaBtnText: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
-    color: colors.foreground,
+    color: '#FFFFFF',
   },
+  bottomSpacer: { height: 12 },
 });

@@ -91,9 +91,11 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>App</Text>
           <View style={styles.card}>
-            <Row icon="bar-chart-outline" label="My Backtests" onPress={() => router.push('/(tabs)/backtests')} />
+            <Row icon="bar-chart-outline" label="Strategy Lab" onPress={() => router.push('/(tabs)/backtests')} />
             <View style={styles.divider} />
-            <Row icon="sparkles-outline" label="AI Assistant" onPress={() => router.push('/(tabs)/ai')} />
+            <Row icon="search-outline" label="Research" onPress={() => router.push('/(tabs)/ai')} />
+            <View style={styles.divider} />
+            <Row icon="analytics-outline" label="Trader DNA" onPress={() => router.push('/(tabs)/trader-dna')} />
           </View>
         </View>
 

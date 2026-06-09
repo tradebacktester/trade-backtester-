@@ -72,7 +72,7 @@ export default function BacktestsScreen() {
     <View style={[styles.container, { paddingTop: topInset }]}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.heading}>Backtests</Text>
+          <Text style={styles.heading}>Strategy Lab</Text>
           <Text style={styles.subheading}>
             {data?.length ?? 0} results
           </Text>

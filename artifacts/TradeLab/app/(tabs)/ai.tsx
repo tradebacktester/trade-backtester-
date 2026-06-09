@@ -76,10 +76,10 @@ export default function AIScreen() {
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
         <View style={styles.header}>
-          <Text style={styles.heading}>AI Assistant</Text>
+          <Text style={styles.heading}>Research</Text>
         </View>
         <View style={styles.center}>
-          <Ionicons name="sparkles-outline" size={48} color={colors.foregroundSubtle} />
+          <Ionicons name="search-outline" size={48} color={colors.foregroundSubtle} />
           <Text style={styles.emptyTitle}>Sign in to chat with AI</Text>
           <TouchableOpacity onPress={() => router.push('/login')} style={styles.signInBtn}>
             <Text style={styles.signInText}>Sign In</Text>
@@ -97,8 +97,8 @@ export default function AIScreen() {
     >
       <View style={[styles.container, { paddingTop: topInset }]}>
         <View style={styles.header}>
-          <Text style={styles.heading}>AI Assistant</Text>
-          <Text style={styles.subheading}>Powered by Groq</Text>
+          <Text style={styles.heading}>Research</Text>
+          <Text style={styles.subheading}>AI Trading Assistant · Powered by Groq</Text>
         </View>
 
         {messages.length === 0 ? (
