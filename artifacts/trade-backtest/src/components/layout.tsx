@@ -6,8 +6,8 @@ import {
   Brain, X, BookOpen,
   Shield, LogIn, LogOut, Users, Crown, CreditCard, Wrench, Store,
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
-  UserCircle, Calculator, Play, Search, ChevronDown, MoreHorizontal,
-  Cpu, Globe,
+  UserCircle, Calculator, Play, Search, ChevronDown,
+  Cpu, Globe, Plus, Layers, TestTube,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -35,8 +35,7 @@ const SECTIONS = [
       { title: "AI Assistant",   url: "/ai",          icon: Bot,        desc: "AI-powered trading coach" },
       { title: "Market News",    url: "/news",         icon: Newspaper,  desc: "Live market news & events" },
       { title: "Calculator",     url: "/calculator",   icon: Calculator, desc: "Position & risk calculator" },
-      { title: "Marketplace",    url: "/marketplace",  icon: Store,      desc: "Community strategies" },
-      { title: "Community",      url: "/community",    icon: Users,      desc: "Trader community & posts" },
+      { title: "Marketplace",    url: "/marketplace",  icon: Store,      desc: "Community strategy store" },
     ],
   },
   {
@@ -45,13 +44,15 @@ const SECTIONS = [
     icon: FlaskConical,
     primary: "/strategies",
     items: [
-      { title: "Strategies",       url: "/strategies",            icon: Target,   desc: "Build & manage strategies" },
-      { title: "Backtests",        url: "/backtests",             icon: BookOpen, desc: "Historical backtesting" },
-      { title: "Batch Backtest",   url: "/backtests/batch",       icon: Activity, desc: "Multi-strategy runs" },
-      { title: "Strategy Builder", url: "/backtests/builder",     icon: Cpu,      desc: "Visual drag-and-drop builder" },
-      { title: "AI Builder",       url: "/strategies/ai-builder", icon: Bot,      desc: "AI-powered strategy creation" },
-      { title: "Stress Test",      url: "/stress-test",           icon: Zap,      desc: "Monte Carlo stress testing" },
-      { title: "Strategy DNA",     url: "/strategy-dna",          icon: Dna,      desc: "Deep strategy analysis" },
+      { title: "All Strategies",   url: "/strategies",            icon: Layers,    desc: "Build & manage strategies" },
+      { title: "New Strategy",     url: "/strategies/new",        icon: Plus,      desc: "Create a new strategy" },
+      { title: "AI Builder",       url: "/strategies/ai-builder", icon: Bot,       desc: "AI-powered strategy creation" },
+      { title: "All Backtests",    url: "/backtests",             icon: BookOpen,  desc: "Historical backtesting results" },
+      { title: "New Backtest",     url: "/backtests/new",         icon: Plus,      desc: "Run a new backtest" },
+      { title: "Batch Backtest",   url: "/backtests/batch",       icon: Layers,    desc: "Multi-strategy batch runs" },
+      { title: "Strategy Builder", url: "/backtests/builder",     icon: Cpu,       desc: "Visual drag-and-drop builder" },
+      { title: "Stress Test",      url: "/stress-test",           icon: Zap,       desc: "Monte Carlo stress testing" },
+      { title: "Strategy DNA",     url: "/strategy-dna",          icon: Dna,       desc: "Deep strategy analysis" },
     ],
   },
   {
@@ -81,13 +82,14 @@ const SECTIONS = [
 
 /* ── Route → section mapping ───────────────────────────────────────── */
 const ROUTE_SECTION: Record<string, string> = {
-  "/chart": "trade", "/demo": "trade", "/tools": "trade",
-  "/ai": "research", "/news": "research", "/calculator": "research", "/marketplace": "research",
-  "/community": "research",
-  "/strategies": "strategy-lab", "/backtests": "strategy-lab",
+  "/chart": "trade",       "/demo": "trade",       "/tools": "trade",
+  "/ai": "research",       "/news": "research",    "/calculator": "research",
+  "/marketplace": "research",
+  "/strategies": "strategy-lab",  "/backtests": "strategy-lab",
   "/stress-test": "strategy-lab", "/strategy-dna": "strategy-lab",
-  "/analytics": "trader-dna", "/psych-match": "trader-dna",
-  "/profile": "trader-dna", "/trader-dna": "trader-dna",
+  "/analytics": "trader-dna",     "/psych-match": "trader-dna",
+  "/profile": "trader-dna",       "/trader-dna": "trader-dna",
+  "/community": "community",      "/pricing": "community",
 };
 
 function getActiveSection(location: string): string | null {
@@ -97,33 +99,34 @@ function getActiveSection(location: string): string | null {
   return null;
 }
 
-/* ── Mobile dock items (5 primary + 1 overflow) ────────────────────── */
+/* ── Mobile dock — exactly 5 primary items ─────────────────────────── */
+// Home item opens the overflow sheet (community, account, theme, auth)
 const DOCK_ITEMS = [
-  { title: "Trade",        url: "/chart",      icon: CandlestickChart, sectionId: "trade" },
-  { title: "Research",     url: "/ai",         icon: Search,           sectionId: "research" },
-  { title: "Home",         url: "/dashboard",  icon: LayoutDashboard,  sectionId: null, home: true },
-  { title: "Strategy",     url: "/strategies", icon: FlaskConical,     sectionId: "strategy-lab" },
-  { title: "DNA",          url: "/trader-dna", icon: Dna,              sectionId: "trader-dna" },
-  { title: "More",         url: null,          icon: MoreHorizontal,   sectionId: null, more: true },
+  { title: "Trade",    url: "/chart",      icon: CandlestickChart, sectionId: "trade" },
+  { title: "Research", url: "/ai",         icon: Search,           sectionId: "research" },
+  { title: "Home",     url: null,          icon: LayoutDashboard,  sectionId: null,         home: true },
+  { title: "Strategy", url: "/strategies", icon: FlaskConical,     sectionId: "strategy-lab" },
+  { title: "DNA",      url: "/trader-dna", icon: Dna,              sectionId: "trader-dna" },
 ] as const;
 
-/* ── Sheet sections ─────────────────────────────────────────────────── */
-const SHEET_SECTIONS = [
+/* ── Home sheet sections (overflow hub, replaces 6th dock slot) ─────── */
+const HOME_SHEET_SECTIONS = [
   {
-    label: "Explore",
+    label: "Navigate",
     items: [
-      { title: "Community",  url: "/community",   icon: Users },
-      { title: "Marketplace",url: "/marketplace", icon: Store },
-      { title: "Pricing",    url: "/pricing",     icon: Crown },
+      { title: "Dashboard",   url: "/dashboard",   icon: LayoutDashboard },
+      { title: "Community",   url: "/community",   icon: Users },
+      { title: "Marketplace", url: "/marketplace", icon: Store },
+      { title: "Pricing",     url: "/pricing",     icon: Crown },
     ],
   },
   {
     label: "Account",
     items: [
-      { title: "Profile",    url: "/profile",     icon: UserCircle },
-      { title: "Billing",    url: "/billing",     icon: CreditCard },
-      { title: "Settings",   url: "/settings",    icon: Settings },
-      { title: "Admin",      url: "/admin",       icon: Shield },
+      { title: "Profile",  url: "/profile",  icon: UserCircle },
+      { title: "Billing",  url: "/billing",  icon: CreditCard },
+      { title: "Settings", url: "/settings", icon: Settings },
+      { title: "Admin",    url: "/admin",    icon: Shield },
     ],
   },
 ] as const;
@@ -132,7 +135,7 @@ const SHEET_SECTIONS = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [hoverSection, setHoverSection] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [homeSheetOpen, setHomeSheetOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -142,15 +145,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const activeSection = getActiveSection(location);
   const isDashboard = location === "/" || location === "/dashboard";
 
-  /* Close dropdown on navigation */
-  useEffect(() => { setSheetOpen(false); setHoverSection(null); }, [location]);
+  useEffect(() => { setHomeSheetOpen(false); setHoverSection(null); }, [location]);
 
   function isItemActive(url: string) {
     if (url === "/dashboard") return isDashboard;
     return location === url || location.startsWith(url + "/");
   }
 
-  /* Hover menu helpers — delayed close to allow cursor to reach menu */
+  /* Hover menu helpers */
   function handleSectionEnter(id: string) {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     setHoverSection(id);
@@ -171,7 +173,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* ── DESKTOP TOP NAV ──────────────────────────────────────────── */}
       <header className="glass-nav fixed top-0 inset-x-0 z-50 hidden md:flex items-center h-[56px]">
 
-        {/* Logo → Home */}
+        {/* Logo */}
         <Link href="/dashboard">
           <span className="flex items-center gap-2.5 px-5 cursor-pointer select-none flex-shrink-0">
             <div className="h-7 w-7 rounded-xl overflow-hidden flex-shrink-0" style={{
@@ -189,7 +191,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="w-px h-4 mx-2 flex-shrink-0" style={{ background: "var(--nav-border)" }} />
 
-        {/* Section nav — hover opens dropdown, click navigates to primary */}
+        {/* Section nav — click navigates to primary, hover opens dropdown */}
         <nav className="flex-1 flex items-center justify-center gap-0.5 px-2">
           {SECTIONS.map((section) => {
             const isActiveSection = activeSection === section.id;
@@ -201,7 +203,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 onMouseEnter={() => handleSectionEnter(section.id)}
                 onMouseLeave={handleSectionLeave}
               >
-                {/* Section label — navigates to primary route */}
+                {/* Clicking navigates to primary route */}
                 <Link href={section.primary}>
                   <span
                     className="flex items-center gap-1.5 cursor-pointer select-none"
@@ -230,7 +232,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </span>
                 </Link>
 
-                {/* Dropdown mega-menu — appears on hover */}
+                {/* Hover dropdown mega-menu */}
                 {isOpen && (
                   <div
                     className="glass-panel absolute top-[calc(100%+6px)] rounded-2xl p-2 scale-in"
@@ -238,7 +240,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       zIndex: 200,
                       left: "50%",
                       transform: "translateX(-50%)",
-                      minWidth: section.items.length > 4 ? "440px" : "280px",
+                      minWidth: section.items.length > 5 ? "480px" : "280px",
                     }}
                     onMouseEnter={handleMenuEnter}
                     onMouseLeave={handleMenuLeave}
@@ -247,7 +249,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
                       {section.label}
                     </div>
-                    <div className={section.items.length > 4 ? "grid grid-cols-2 gap-0.5" : "flex flex-col gap-0.5"}>
+                    <div className={section.items.length > 5 ? "grid grid-cols-2 gap-0.5" : "flex flex-col gap-0.5"}>
                       {section.items.map((item) => {
                         const active = isItemActive(item.url);
                         return (
@@ -329,10 +331,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 background: isItemActive("/profile") ? "var(--nav-active-bg)" : "transparent",
                 color: isItemActive("/profile") ? "var(--nav-active-color)" : "var(--nav-dim-color)",
               }}>
-                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0" style={{
-                  background: "linear-gradient(135deg, #6366f1, #a855f7)",
-                  color: "white",
-                }}>
+                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)", color: "white" }}>
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <span className="text-[12px] font-medium">{user.name.split(" ")[0]}</span>
@@ -372,50 +372,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* ── MOBILE FLOATING DOCK ─────────────────────────────────────── */}
+      {/* ── MOBILE FLOATING DOCK — exactly 5 items ───────────────────── */}
       <div className="tt-float-dock md:hidden">
         {DOCK_ITEMS.map((item) => {
           const isHome = 'home' in item && item.home === true;
-          const isMore = 'more' in item && item.more === true;
 
-          const active = isMore
-            ? false
-            : item.url
-              ? (isHome
-                  ? isDashboard
-                  : ('sectionId' in item && item.sectionId
-                      ? activeSection === item.sectionId
-                      : isItemActive(item.url!)))
-              : false;
+          // Active state
+          const active = isHome
+            ? homeSheetOpen || isDashboard
+            : (item.url
+                ? ('sectionId' in item && item.sectionId
+                    ? activeSection === item.sectionId
+                    : isItemActive(item.url))
+                : false);
 
-          const iconColor = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
+          const iconColor  = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
           const labelColor = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";
 
-          if (isMore) {
+          if (isHome) {
             return (
               <button
-                key="more"
-                onClick={() => setSheetOpen(true)}
-                className={`dock-item ${sheetOpen ? "dock-item-active" : ""}`}
-              >
-                <item.icon style={{ height: "18px", width: "18px", color: sheetOpen ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
-                <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: sheetOpen ? "var(--nav-active-color)" : "var(--nav-dim-color)" }}>
-                  More
-                </span>
-              </button>
-            );
-          }
-
-          return (
-            <Link key={item.title} href={item.url!}>
-              <div
+                key="home"
+                onClick={() => setHomeSheetOpen(true)}
                 className={`dock-item ${active ? "dock-item-active" : ""}`}
-                style={isHome ? { position: "relative" } : {}}
               >
-                {isHome && (
+                <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div style={{
                     position: "absolute",
-                    inset: "-3px -6px",
+                    inset: "-5px -10px",
                     borderRadius: "14px",
                     background: active
                       ? "var(--nav-active-bg)"
@@ -423,18 +407,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
                     zIndex: 0,
                   }} />
-                )}
-                <item.icon style={{
-                  height: isHome ? "20px" : "18px",
-                  width:  isHome ? "20px" : "18px",
-                  color: iconColor,
-                  position: "relative", zIndex: 1,
-                }} />
-                <span style={{
-                  fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em",
-                  color: labelColor, position: "relative", zIndex: 1,
-                  whiteSpace: "nowrap",
-                }}>
+                  <item.icon style={{ height: "20px", width: "20px", color: iconColor, position: "relative", zIndex: 1 }} />
+                </div>
+                <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: labelColor, marginTop: "2px" }}>
+                  {item.title}
+                </span>
+              </button>
+            );
+          }
+
+          return (
+            <Link key={item.title} href={item.url!}>
+              <div className={`dock-item ${active ? "dock-item-active" : ""}`}>
+                <item.icon style={{ height: "18px", width: "18px", color: iconColor }} />
+                <span style={{ fontSize: "9px", fontWeight: 600, letterSpacing: "0.03em", color: labelColor, whiteSpace: "nowrap" }}>
                   {item.title}
                 </span>
               </div>
@@ -443,13 +429,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         })}
       </div>
 
-      {/* ── MOBILE MORE SHEET ────────────────────────────────────────── */}
-      {sheetOpen && (
+      {/* ── MOBILE HOME SHEET (overflow hub) ─────────────────────────── */}
+      {homeSheetOpen && (
         <>
           <div
             className="fixed inset-0 z-[60] md:hidden fade-in"
             style={{ background: "rgba(0,0,0,0.6)" }}
-            onClick={() => setSheetOpen(false)}
+            onClick={() => setHomeSheetOpen(false)}
           />
           <div
             className="tt-slide-up fixed inset-x-0 z-[61] md:hidden"
@@ -472,16 +458,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* Sheet header */}
             <div className="flex items-center justify-between px-5 py-3">
               <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "var(--nav-dim-color)" }}>
-                More
+                Home
               </p>
               <div className="flex items-center gap-2">
-                {/* Theme toggle — accessible from sheet */}
+                {/* Theme toggle — accessible from mobile sheet */}
                 <button onClick={toggleTheme}
                   className="h-8 w-8 flex items-center justify-center rounded-full"
                   style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)" }}>
                   {isDark ? <Sun style={{ height: "13px", width: "13px" }} /> : <Moon style={{ height: "13px", width: "13px" }} />}
                 </button>
-                <button onClick={() => setSheetOpen(false)}
+                <button onClick={() => setHomeSheetOpen(false)}
                   className="h-8 w-8 flex items-center justify-center rounded-full"
                   style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)" }}>
                   <X style={{ height: "13px", width: "13px" }} />
@@ -492,7 +478,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* Auth row */}
             <div className="px-4 mb-3">
               {user ? (
-                <Link href="/profile" onClick={() => setSheetOpen(false)}>
+                <Link href="/profile" onClick={() => setHomeSheetOpen(false)}>
                   <div className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer"
                     style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: "1px solid var(--nav-border)" }}>
                     <div className="flex items-center gap-3">
@@ -505,17 +491,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         <p className="text-[10px]" style={{ color: "var(--nav-dim-color)" }}>{user.email}</p>
                       </div>
                     </div>
-                    <button onClick={(e) => { e.preventDefault(); signout(); setSheetOpen(false); }}
+                    <button onClick={(e) => { e.preventDefault(); signout(); setHomeSheetOpen(false); }}
                       className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl"
                       style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)" }}>
                       <LogOut style={{ height: "11px", width: "11px" }} />
-                      Sign Out
+                      Out
                     </button>
                   </div>
                 </Link>
               ) : (
                 <button
-                  onClick={() => { setShowAuthModal(true); setSheetOpen(false); }}
+                  onClick={() => { setShowAuthModal(true); setHomeSheetOpen(false); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl"
                   style={{
                     background: isDark ? "rgba(255,255,255,0.08)" : "hsl(var(--primary))",
@@ -530,9 +516,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            {/* Sectioned items */}
+            {/* Sectioned nav items */}
             <div className="px-4 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "50dvh" }}>
-              {SHEET_SECTIONS.map(section => (
+              {HOME_SHEET_SECTIONS.map(section => (
                 <div key={section.label}>
                   <div className="text-[9px] font-mono uppercase tracking-widest px-1 mb-1.5"
                     style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
@@ -542,7 +528,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     {section.items.map(item => {
                       const active = isItemActive(item.url);
                       return (
-                        <Link key={item.title} href={item.url} onClick={() => setSheetOpen(false)}>
+                        <Link key={item.title} href={item.url} onClick={() => setHomeSheetOpen(false)}>
                           <span
                             className="flex items-center gap-3.5 px-4 py-2.5 rounded-2xl cursor-pointer active:opacity-70"
                             style={{
