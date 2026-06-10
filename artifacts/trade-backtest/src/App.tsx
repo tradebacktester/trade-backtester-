@@ -45,6 +45,7 @@ import MarketplaceDetail from "@/pages/marketplace-detail";
 import TraderDnaPage from "@/pages/trader-dna/index";
 import AlertsPage from "@/pages/alerts";
 import TradingOsPage from "@/pages/trading-os";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 
 const ChartPage = lazy(() => import("@/pages/chart"));
 
@@ -166,6 +167,7 @@ function App() {
                     <Router />
                   </Layout>
                   <PolicyPopup />
+                  <OnboardingWizard />
                 </WouterRouter>
                 <Toaster />
               </TooltipProvider>

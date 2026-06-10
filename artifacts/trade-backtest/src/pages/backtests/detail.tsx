@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
-  ChevronDown, ChevronUp, BookOpen, BarChart3, LayoutDashboard, StickyNote,
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, BookOpen, BarChart3, LayoutDashboard, StickyNote,
   Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
   Brain, Sparkles, Waves, MonitorDot, Plus, Trash, Users2, Medal, Info,
 } from "lucide-react";
@@ -435,6 +435,46 @@ type OptResult = {
   results: Array<{ p1: number; p2: number; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number }>;
 };
 
+type RangeInput = { min: string; max: string; step: string };
+
+function buildRangeValues(paramName: string, custom: RangeInput): number[] {
+  const mn = parseFloat(custom.min);
+  const mx = parseFloat(custom.max);
+  const st = parseFloat(custom.step);
+  if (!isNaN(mn) && !isNaN(mx) && !isNaN(st) && st > 0 && mx > mn) {
+    const vals: number[] = [];
+    for (let v = mn; v <= mx + 1e-9; v += st) {
+      vals.push(parseFloat(v.toFixed(6)));
+      if (vals.length >= 20) break;
+    }
+    return vals;
+  }
+  return PARAM_RANGE_PRESETS[paramName] ?? [5, 10, 15, 20, 25, 30];
+}
+
+function RangeInputRow({ label, value, onChange }: { label: string; value: RangeInput; onChange: (v: RangeInput) => void }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-[10px] text-muted-foreground font-mono w-16 shrink-0">{label}</span>
+      {(["min", "max", "step"] as const).map(k => (
+        <div key={k} className="flex items-center gap-0.5">
+          <span className="text-[9px] text-muted-foreground uppercase">{k}</span>
+          <input
+            type="number"
+            value={value[k]}
+            onChange={e => onChange({ ...value, [k]: e.target.value })}
+            placeholder={k === "step" ? "step" : k}
+            className="w-16 text-xs bg-muted border border-border rounded px-1.5 py-1 text-foreground font-mono"
+          />
+        </div>
+      ))}
+      <span className="text-[9px] text-muted-foreground">
+        {(() => { const v = buildRangeValues("", value); return v.length > 0 && value.min !== "" ? `${v.length} pts` : "default"; })()}
+      </span>
+    </div>
+  );
+}
+
 function ParameterOptHeatmap({
   strategyId, symbol, startDate, endDate, initialCapital,
 }: {
@@ -443,11 +483,16 @@ function ParameterOptHeatmap({
   const [param1, setParam1] = useState("fastPeriod");
   const [param2, setParam2] = useState("slowPeriod");
   const [metric, setMetric] = useState<"totalReturn" | "sharpeRatio" | "winRate">("totalReturn");
+  const [p1Range, setP1Range] = useState<RangeInput>({ min: "", max: "", step: "" });
+  const [p2Range, setP2Range] = useState<RangeInput>({ min: "", max: "", step: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<OptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { token } = useAuth();
+
+  const p1Values = buildRangeValues(param1, p1Range);
+  const p2Values = buildRangeValues(param2, p2Range);
 
   const runOptimize = useCallback(async () => {
     if (param1 === param2) {
@@ -466,9 +511,9 @@ function ParameterOptHeatmap({
         body: JSON.stringify({
           strategyId, symbol, startDate, endDate, initialCapital,
           param1Name: param1,
-          param1Values: PARAM_RANGE_PRESETS[param1] ?? [5, 10, 15, 20, 25, 30],
+          param1Values: p1Values,
           param2Name: param2,
-          param2Values: PARAM_RANGE_PRESETS[param2] ?? [20, 30, 40, 50, 60, 70],
+          param2Values: p2Values,
         }),
       });
       if (!resp.ok) throw new Error("Optimization failed");
@@ -479,7 +524,7 @@ function ParameterOptHeatmap({
     } finally {
       setIsLoading(false);
     }
-  }, [param1, param2, strategyId, symbol, startDate, endDate, initialCapital, toast]);
+  }, [param1, param2, p1Values, p2Values, strategyId, symbol, startDate, endDate, initialCapital, toast]);
 
   const paramNames = Object.keys(PARAM_RANGE_PRESETS);
   const p1Vals = result?.param1Values ?? [];
@@ -531,6 +576,11 @@ function ParameterOptHeatmap({
               {isLoading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Running…</> : "Run Grid"}
             </Button>
           </div>
+          <div className="mt-3 space-y-1.5 border border-dashed border-border rounded-md px-3 py-2">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono mb-2">Custom ranges (leave blank to use defaults)</p>
+            <RangeInputRow label={param1} value={p1Range} onChange={setP1Range} />
+            <RangeInputRow label={param2} value={p2Range} onChange={setP2Range} />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -542,7 +592,7 @@ function ParameterOptHeatmap({
         )}
         {isLoading && (
           <div className="h-20 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />Running {PARAM_RANGE_PRESETS[param1]?.length ?? 6} × {PARAM_RANGE_PRESETS[param2]?.length ?? 6} combinations…
+            <Loader2 className="h-4 w-4 animate-spin" />Running {p1Values.length} × {p2Values.length} combinations…
           </div>
         )}
         {result && !isLoading && (
@@ -822,6 +872,8 @@ export default function BacktestDetail() {
   const [expandedTrade, setExpandedTrade] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<string>("entryDate");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [tradePage, setTradePage] = useState(1);
+  const TRADES_PER_PAGE = 100;
 
   const { data: backtest, isLoading } = useGetBacktest(id, {
     query: {
@@ -1148,6 +1200,13 @@ export default function BacktestDetail() {
         return sortDir * (av - bv);
       });
   }, [trades, tradeFilter, tradeSearch, sortKey, sortDir]);
+
+  useEffect(() => { setTradePage(1); }, [tradeSearch, tradeFilter, sortKey, sortDir]);
+
+  const pagedTrades = useMemo(
+    () => filteredTrades.slice((tradePage - 1) * TRADES_PER_PAGE, tradePage * TRADES_PER_PAGE),
+    [filteredTrades, tradePage, TRADES_PER_PAGE]
+  );
 
   function toggleSort(key: string) {
     if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1));
@@ -1867,7 +1926,7 @@ export default function BacktestDetail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredTrades.map((trade) => {
+                    {pagedTrades.map((trade) => {
                       const dur = differenceInDays(new Date(trade.exitDate), new Date(trade.entryDate));
                       const isWin = trade.pnl > 0;
                       const isExpanded = expandedTrade === trade.id;
@@ -1937,6 +1996,22 @@ export default function BacktestDetail() {
                     })}
                   </TableBody>
                 </Table>
+                {filteredTrades.length > TRADES_PER_PAGE && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {(tradePage - 1) * TRADES_PER_PAGE + 1}–{Math.min(tradePage * TRADES_PER_PAGE, filteredTrades.length)} of {filteredTrades.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" className="h-7 text-xs px-2" disabled={tradePage <= 1} onClick={() => setTradePage(p => p - 1)}>
+                        <ChevronLeft className="h-3 w-3 mr-1" />Prev
+                      </Button>
+                      <span className="text-xs font-mono text-muted-foreground">{tradePage}/{Math.ceil(filteredTrades.length / TRADES_PER_PAGE)}</span>
+                      <Button size="sm" variant="outline" className="h-7 text-xs px-2" disabled={tradePage * TRADES_PER_PAGE >= filteredTrades.length} onClick={() => setTradePage(p => p + 1)}>
+                        Next<ChevronRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-12 text-muted-foreground border border-dashed rounded-xl space-y-2">

@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { timingSafeEqual } from "crypto";
 import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable } from "@workspace/db";
 import { eq, and, desc, gt, lt, count as drizzleCount } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
@@ -67,6 +68,11 @@ router.post("/admin/login", async (req, res): Promise<void> => {
     const bufB = Buffer.from(b.padEnd(aLen, "\0").slice(0, aLen));
     return timingSafeEqual(bufA, bufB) && a === b;
   }
+
+  const ADMIN_ID = process.env["ADMIN_ID"] ?? "";
+  const ADMIN_PASSWORD = process.env["ADMIN_PASSWORD"] ?? "";
+  const ADMIN_ID_2 = process.env["ADMIN_ID_2"] ?? "";
+  const ADMIN_PASSWORD_2 = process.env["ADMIN_PASSWORD_2"] ?? "";
 
   const cred1Ok = ADMIN_ID.length > 0 && safeCmp(String(id), ADMIN_ID) && safeCmp(String(password), ADMIN_PASSWORD);
   const cred2Ok = ADMIN_ID_2.length > 0 && safeCmp(String(id2), ADMIN_ID_2) && safeCmp(String(password2), ADMIN_PASSWORD_2);

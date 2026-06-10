@@ -502,6 +502,10 @@ export default function CommunityPage() {
   const { adminToken } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const PAGE_SIZE = 20;
   const [error, setError] = useState("");
   const [reportingPost, setReportingPost] = useState<Post | null>(null);
   const [likedIds, setLikedIds] = useState<Set<number>>(() => {
@@ -513,13 +517,26 @@ export default function CommunityPage() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const fetchPosts = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setOffset(0);
     try {
-      const data = await apiFetch("/api/community") as Post[];
-      setPosts(data);
+      const data = await apiFetch(`/api/community?limit=${PAGE_SIZE}&offset=0`) as { posts: Post[]; hasMore: boolean };
+      setPosts(data.posts);
+      setHasMore(data.hasMore);
+      setOffset(PAGE_SIZE);
     } catch { setError("Could not load posts. Please try again."); }
     finally { setLoading(false); }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const data = await apiFetch(`/api/community?limit=${PAGE_SIZE}&offset=${offset}`) as { posts: Post[]; hasMore: boolean };
+      setPosts(prev => [...prev, ...data.posts]);
+      setHasMore(data.hasMore);
+      setOffset(prev => prev + PAGE_SIZE);
+    } catch { /* ignore */ }
+    finally { setLoadingMore(false); }
+  }, [offset]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
@@ -657,10 +674,39 @@ export default function CommunityPage() {
               <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Be the first to share a trading idea!</p>
             </div>
           ) : (
-            posts.map(post => (
-              <PostCard key={post.id} post={post} adminToken={adminToken} onDelete={handleAdminDelete}
-                onReport={setReportingPost} likedIds={likedIds} onLike={handleLike} />
-            ))
+            <>
+              {posts.map(post => (
+                <PostCard key={post.id} post={post} adminToken={adminToken} onDelete={handleAdminDelete}
+                  onReport={setReportingPost} likedIds={likedIds} onLike={handleLike} />
+              ))}
+              {hasMore && (
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="w-full py-3 rounded-2xl text-[13px] font-medium transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: "var(--glass-bg)",
+                    border: "1px solid var(--glass-border)",
+                    color: "hsl(var(--muted-foreground))",
+                    opacity: loadingMore ? 0.6 : 1,
+                  }}
+                >
+                  {loadingMore ? (
+                    <>
+                      <RefreshCw style={{ height: 13, width: 13 }} className="animate-spin" />
+                      Loading…
+                    </>
+                  ) : (
+                    "Load more posts"
+                  )}
+                </button>
+              )}
+              {!hasMore && posts.length > 0 && (
+                <p className="text-center text-[11px] py-2" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  All {posts.length} posts loaded
+                </p>
+              )}
+            </>
           )}
         </div>
 

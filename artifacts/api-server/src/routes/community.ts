@@ -44,15 +44,22 @@ function serializePost(p: typeof communityPostsTable.$inferSelect) {
 
 // ── Public routes ───────────────────────────────────────────────────────────
 
-// GET /community — list posts (newest first, not deleted)
-router.get("/community", async (_req, res): Promise<void> => {
+// GET /community — list posts (newest first, not deleted) with cursor-based pagination
+router.get("/community", async (req, res): Promise<void> => {
+  const PAGE_SIZE = 20;
+  const limit = Math.min(Math.max(parseInt(String(req.query["limit"] ?? PAGE_SIZE), 10) || PAGE_SIZE, 1), 50);
+  const offset = Math.max(parseInt(String(req.query["offset"] ?? "0"), 10) || 0, 0);
+
   const posts = await db
     .select()
     .from(communityPostsTable)
     .where(eq(communityPostsTable.isDeleted, false))
     .orderBy(desc(communityPostsTable.createdAt))
-    .limit(100);
-  res.json(posts.map(serializePost));
+    .limit(limit + 1)
+    .offset(offset);
+
+  const hasMore = posts.length > limit;
+  res.json({ posts: posts.slice(0, limit).map(serializePost), hasMore, offset, limit });
 });
 
 // POST /community — create a post (authentication required)

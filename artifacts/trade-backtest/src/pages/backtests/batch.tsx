@@ -285,7 +285,9 @@ export default function BatchBacktest() {
               {isRunning ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Running…
+                  {results.length > 0
+                    ? `Running ${results.filter(r => r.status === "complete" || r.status === "failed").length + 1} of ${results.length}…`
+                    : "Running…"}
                 </>
               ) : (
                 <>
@@ -294,6 +296,21 @@ export default function BatchBacktest() {
                 </>
               )}
             </Button>
+            {isRunning && results.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="h-1.5 w-full rounded-full overflow-hidden bg-muted">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-500"
+                    style={{
+                      width: `${(results.filter(r => r.status === "complete" || r.status === "failed").length / results.length) * 100}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] text-center text-muted-foreground font-mono">
+                  {results.filter(r => r.status === "complete" || r.status === "failed").length} / {results.length} complete
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
