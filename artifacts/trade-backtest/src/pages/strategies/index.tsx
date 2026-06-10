@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useListStrategies } from "@workspace/api-client-react";
 import {
   Plus, ArrowRight, TrendingUp, BarChart2,
-  Zap, Activity, Target, Layers, HardDrive, Wand2,
+  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell,
 } from "lucide-react";
 import { loadLocalStrategies, type LocalStrategy } from "./new";
 
@@ -175,6 +175,12 @@ function StrategyCard({
               <span className="block w-full py-2 px-3 rounded-xl text-xs font-medium text-center transition-all"
                 style={{ background: "hsl(var(--primary))", color: "#fff" }}>
                 {local ? "Run Backtest" : "View Details"}
+              </span>
+            </Link>
+            <Link href={`/alerts?from=strategy&symbol=${encodeURIComponent(symbol)}`} title="Create Alert">
+              <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.2)", color: "hsl(265,89%,65%)" }}>
+                <Bell className="h-4 w-4" />
               </span>
             </Link>
             <Link href={local ? "/backtests/new" : `/strategies/${id}`}>

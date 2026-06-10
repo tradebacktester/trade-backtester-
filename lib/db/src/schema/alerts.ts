@@ -32,7 +32,7 @@ export interface DrawingAlertGeometry {
 export interface AlertConditionSpec {
   indicatorId: string;
   outputKey: string;
-  operator: "crossAbove" | "crossBelow" | "gt" | "lt" | "eq" | "enters" | "exits" | "signal" | "touch" | "breakAbove" | "breakBelow" | "enterZone" | "exitZone";
+  operator: "crossAbove" | "crossBelow" | "gt" | "lt" | "eq" | "enters" | "exits" | "signal" | "touch" | "breakAbove" | "breakBelow" | "enterZone" | "exitZone" | "fibLevel";
   targetValue?: number;
   targetIndicatorId?: string;
   targetOutputKey?: string;

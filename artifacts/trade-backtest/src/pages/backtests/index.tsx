@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   Play, Cpu, TrendingUp, TrendingDown, Activity,
   Trash2, ChevronRight, Search, MoreVertical, BookOpen,
-  PenLine,
+  PenLine, Bell,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -320,6 +320,13 @@ export default function Journal() {
                             onClick={() => setMenuId(null)}>
                             <ChevronRight className="h-3.5 w-3.5" />
                             View results
+                          </Link>
+                          <Link href={`/alerts?from=backtest&id=${bt.id}&symbol=${encodeURIComponent(bt.symbol ?? "")}`}
+                            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs transition-all hover:bg-white/5"
+                            style={{ color: "hsl(265,89%,65%)" }}
+                            onClick={() => setMenuId(null)}>
+                            <Bell className="h-3.5 w-3.5" />
+                            Create Alert
                           </Link>
                           <button
                             onClick={() => handleDelete(bt.id)}

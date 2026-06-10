@@ -211,11 +211,28 @@ export default function AlertsPage() {
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  function openCreate() {
+  function openCreate(overrides?: { type?: AlertRow["type"]; symbol?: string }) {
     setEditingAlert(null);
-    setForm({ name: "", type: "price", symbol: "BTCUSDT", timeframe: "1d", conditions: [emptyCondition()], deliveryChannels: ["in_app"], triggerOnce: false });
+    setForm({ name: "", type: overrides?.type ?? "price", symbol: overrides?.symbol ?? "BTCUSDT", timeframe: "1d", conditions: [emptyCondition()], deliveryChannels: ["in_app"], triggerOnce: false });
     setShowDialog(true);
   }
+
+  // Handle ?from= query params to pre-fill the dialog from strategy/backtest/drawing links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get("from");
+    const type = params.get("type") as AlertRow["type"] | null;
+    const sym = params.get("symbol");
+    if (from || type) {
+      const preType: AlertRow["type"] = type ?? (from === "drawing" ? "drawing" : "price");
+      const preSym = sym ?? "BTCUSDT";
+      setForm(prev => ({ ...prev, type: preType, symbol: preSym }));
+      setShowDialog(true);
+      // Clear params without reloading
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openEdit(a: AlertRow) {
     setEditingAlert(a);
@@ -302,22 +319,41 @@ export default function AlertsPage() {
     }
   }
 
-  // ── Condition helpers ────────────────────────────────────────────────────────
-  function addCondition() {
-    setForm(prev => ({ ...prev, conditions: [...prev.conditions, emptyCondition("AND")] }));
+  // ── Condition helpers (group-aware) ──────────────────────────────────────────
+  // Conditions within the same groupId are AND-ed; groups are OR-ed against each other.
+
+  function addConditionToGroup(groupId: number) {
+    setForm(prev => ({ ...prev, conditions: [...prev.conditions, { ...emptyCondition("AND"), groupId }] }));
+  }
+
+  function addGroup() {
+    const ids = form.conditions.map(c => c.groupId ?? 0);
+    const nextGroupId = ids.length > 0 ? Math.max(...ids) + 1 : 1;
+    setForm(prev => ({ ...prev, conditions: [...prev.conditions, { ...emptyCondition("AND"), groupId: nextGroupId }] }));
   }
 
   function removeCondition(idx: number) {
-    setForm(prev => ({ ...prev, conditions: prev.conditions.filter((_, i) => i !== idx) }));
+    setForm(prev => {
+      const next = prev.conditions.filter((_, i) => i !== idx);
+      return { ...prev, conditions: next.length > 0 ? next : [emptyCondition("AND")] };
+    });
   }
 
   function updateCondition(idx: number, patch: Partial<AlertCondition>) {
     setForm(prev => ({ ...prev, conditions: prev.conditions.map((c, i) => i === idx ? { ...c, ...patch } : c) }));
   }
 
-  function toggleLogicOp(idx: number) {
-    const curr = form.conditions[idx]?.logicOp ?? "AND";
-    updateCondition(idx, { logicOp: curr === "AND" ? "OR" : "AND" });
+  // Groups derived from conditions
+  function getGroups(): { groupId: number; conditions: { cond: AlertCondition; globalIdx: number }[] }[] {
+    const map = new Map<number, { cond: AlertCondition; globalIdx: number }[]>();
+    form.conditions.forEach((cond, idx) => {
+      const gid = cond.groupId ?? 0;
+      if (!map.has(gid)) map.set(gid, []);
+      map.get(gid)!.push({ cond, globalIdx: idx });
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([groupId, conditions]) => ({ groupId, conditions }));
   }
 
   // ── Plan gate check ──────────────────────────────────────────────────────────
@@ -384,7 +420,7 @@ export default function AlertsPage() {
                 style={{ background: "hsl(0,80%,60%)", color: "#fff" }}>{unreadCount}</span>
             )}
           </button>
-          <Button onClick={openCreate} size="sm" className="flex items-center gap-1.5">
+          <Button onClick={() => openCreate()} size="sm" className="flex items-center gap-1.5">
             <Plus className="h-3.5 w-3.5" />
             New Alert
           </Button>
@@ -464,7 +500,7 @@ export default function AlertsPage() {
             <p className="font-medium" style={{ color: "var(--text-primary)" }}>No alerts yet</p>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Create your first alert to start monitoring the market</p>
           </div>
-          <Button onClick={openCreate} size="sm"><Plus className="h-3.5 w-3.5 mr-1.5" />New Alert</Button>
+          <Button onClick={() => openCreate()} size="sm"><Plus className="h-3.5 w-3.5 mr-1.5" />New Alert</Button>
         </div>
       ) : (
         <div className="space-y-2">
@@ -647,10 +683,13 @@ export default function AlertsPage() {
                 </div>
               </div>
 
-              {/* Condition builder */}
+              {/* Condition builder — grouped (AND within group, OR between groups) */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Conditions</label>
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Conditions</label>
+                    <span className="ml-2 text-[9px] font-mono uppercase tracking-widest opacity-50" style={{ color: "var(--text-muted)" }}>AND within group · OR between groups</span>
+                  </div>
                   <div className="flex items-center gap-2">
                     {isElite && (
                       <button onClick={aiSuggest} disabled={aiLoading}
@@ -660,86 +699,127 @@ export default function AlertsPage() {
                         AI Suggest
                       </button>
                     )}
-                    <button onClick={addCondition}
+                    <button onClick={addGroup}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium"
-                      style={{ background: "var(--card-bg)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                      style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", color: "hsl(38,100%,60%)" }}>
                       <Plus className="h-3 w-3" />
-                      Add
+                      New Group
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  {form.conditions.map((cond, idx) => (
-                    <div key={idx}>
-                      {idx > 0 && (
-                        <div className="flex items-center gap-2 my-1">
-                          <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-                          <button onClick={() => toggleLogicOp(idx)}
-                            className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
-                            style={{ background: cond.logicOp === "AND" ? "rgba(34,197,94,0.12)" : "rgba(245,158,11,0.12)", color: cond.logicOp === "AND" ? "hsl(142,70%,50%)" : "hsl(38,100%,60%)", border: `1px solid ${cond.logicOp === "AND" ? "rgba(34,197,94,0.25)" : "rgba(245,158,11,0.25)"}` }}>
-                            {cond.logicOp}
-                          </button>
-                          <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-                        </div>
-                      )}
-                      <div className="flex items-start gap-1.5 p-2.5 rounded-xl"
-                        style={{ background: "var(--card-bg)", border: "1px solid var(--border)" }}>
-                        {/* Indicator selector */}
-                        <select value={`${cond.indicatorId}__${cond.outputKey}`}
-                          onChange={e => {
-                            const [iid, okey] = e.target.value.split("__");
-                            updateCondition(idx, { indicatorId: iid ?? "price", outputKey: okey ?? "close" });
-                          }}
-                          className="flex-1 px-2 py-1.5 rounded-lg text-xs min-w-0"
-                          style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                          {Object.entries(catalogByCategory).map(([cat, entries]) => (
-                            <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
-                              {entries.map(e => (
-                                <option key={e.key} value={`${e.indicatorId}__${e.outputKey}`}>{e.label}</option>
-                              ))}
-                            </optgroup>
-                          ))}
-                          {catalog.length === 0 && (
-                            <>
-                              <option value="price__close">Close Price</option>
-                              <option value="price__high">High Price</option>
-                              <option value="price__low">Low Price</option>
-                              <option value="price__open">Open Price</option>
-                              <option value="price__volume">Volume</option>
-                            </>
+                {/* Grouped condition list */}
+                {(() => {
+                  const groups = getGroups();
+                  return (
+                    <div className="space-y-3">
+                      {groups.map((grp, grpIdx) => (
+                        <div key={grp.groupId}>
+                          {/* OR separator between groups */}
+                          {grpIdx > 0 && (
+                            <div className="flex items-center gap-2 my-2">
+                              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+                              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase"
+                                style={{ background: "rgba(245,158,11,0.12)", color: "hsl(38,100%,60%)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                                OR
+                              </span>
+                              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+                            </div>
                           )}
-                        </select>
 
-                        {/* Operator */}
-                        <select value={cond.operator}
-                          onChange={e => updateCondition(idx, { operator: e.target.value })}
-                          className="px-2 py-1.5 rounded-lg text-xs"
-                          style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                          {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
-                        </select>
+                          {/* Group container */}
+                          <div className="rounded-xl p-2.5 space-y-2"
+                            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] font-mono uppercase tracking-widest"
+                                style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+                                Group {grpIdx + 1}
+                              </span>
+                              <button onClick={() => addConditionToGroup(grp.groupId)}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium"
+                                style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", color: "hsl(142,70%,50%)" }}>
+                                <Plus className="h-2.5 w-2.5" />
+                                AND
+                              </button>
+                            </div>
 
-                        {/* Value */}
-                        <input
-                          type="number"
-                          value={cond.targetValue ?? ""}
-                          onChange={e => updateCondition(idx, { targetValue: e.target.value ? Number(e.target.value) : undefined })}
-                          placeholder="Value"
-                          className="w-20 px-2 py-1.5 rounded-lg text-xs"
-                          style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
-                        />
+                            {grp.conditions.map(({ cond, globalIdx }, ciIdx) => (
+                              <div key={globalIdx}>
+                                {/* AND label between conditions within group */}
+                                {ciIdx > 0 && (
+                                  <div className="flex items-center gap-2 my-1.5">
+                                    <div className="flex-1 h-px" style={{ background: "rgba(34,197,94,0.15)" }} />
+                                    <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded"
+                                      style={{ background: "rgba(34,197,94,0.08)", color: "hsl(142,70%,50%)" }}>
+                                      AND
+                                    </span>
+                                    <div className="flex-1 h-px" style={{ background: "rgba(34,197,94,0.15)" }} />
+                                  </div>
+                                )}
 
-                        {form.conditions.length > 1 && (
-                          <button onClick={() => removeCondition(idx)}
-                            className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}>
-                            <X className="h-3 w-3" style={{ color: "hsl(0,80%,60%)" }} />
-                          </button>
-                        )}
-                      </div>
+                                {/* Condition row */}
+                                <div className="flex items-start gap-1.5 p-2 rounded-lg"
+                                  style={{ background: "var(--card-bg)", border: "1px solid var(--border)" }}>
+                                  {/* Indicator selector */}
+                                  <select value={`${cond.indicatorId}__${cond.outputKey}`}
+                                    onChange={e => {
+                                      const [iid, okey] = e.target.value.split("__");
+                                      updateCondition(globalIdx, { indicatorId: iid ?? "price", outputKey: okey ?? "close" });
+                                    }}
+                                    className="flex-1 px-2 py-1.5 rounded-lg text-xs min-w-0"
+                                    style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                                    {Object.entries(catalogByCategory).map(([cat, entries]) => (
+                                      <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+                                        {entries.map(e => (
+                                          <option key={e.key} value={`${e.indicatorId}__${e.outputKey}`}>{e.label}</option>
+                                        ))}
+                                      </optgroup>
+                                    ))}
+                                    {catalog.length === 0 && (
+                                      <>
+                                        <option value="price__close">Close Price</option>
+                                        <option value="price__high">High Price</option>
+                                        <option value="price__low">Low Price</option>
+                                        <option value="price__open">Open Price</option>
+                                        <option value="price__volume">Volume</option>
+                                      </>
+                                    )}
+                                  </select>
+
+                                  {/* Operator */}
+                                  <select value={cond.operator}
+                                    onChange={e => updateCondition(globalIdx, { operator: e.target.value })}
+                                    className="px-2 py-1.5 rounded-lg text-xs"
+                                    style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                                    {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+                                  </select>
+
+                                  {/* Value */}
+                                  <input
+                                    type="number"
+                                    value={cond.targetValue ?? ""}
+                                    onChange={e => updateCondition(globalIdx, { targetValue: e.target.value ? Number(e.target.value) : undefined })}
+                                    placeholder="Value"
+                                    className="w-20 px-2 py-1.5 rounded-lg text-xs"
+                                    style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                                  />
+
+                                  {form.conditions.length > 1 && (
+                                    <button onClick={() => removeCondition(globalIdx)}
+                                      className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                                      <X className="h-3 w-3" style={{ color: "hsl(0,80%,60%)" }} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
 
               {/* Delivery channels */}

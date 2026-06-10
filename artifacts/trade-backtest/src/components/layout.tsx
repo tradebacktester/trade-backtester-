@@ -300,6 +300,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Right controls */}
         <div className="flex items-center gap-1.5 pr-4 flex-shrink-0">
 
+          {/* Alert Engine bell — links to /alerts */}
+          <Link href="/alerts">
+            <span
+              className="relative flex items-center justify-center"
+              title="Alert Engine"
+              style={{
+                width: "32px", height: "32px", borderRadius: "9px",
+                border: `1px solid ${isItemActive("/alerts") ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+                background: isItemActive("/alerts") ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+                color: isItemActive("/alerts") ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                cursor: "pointer",
+                display: "flex",
+              }}
+            >
+              <Bell style={{ height: "13px", width: "13px" }} />
+            </span>
+          </Link>
+
           {/* Settings link */}
           <Link href="/settings">
             <span

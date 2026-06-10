@@ -311,54 +311,72 @@ export interface CatalogEntry {
   description: string;
   unit?: string;
   minPlan: "free" | "pro" | "elite";
+  supportedOperators: string[];
 }
+
+// Operator sets used by catalog entries
+const OPS_THRESHOLD = ["gt", "lt", "eq", "enters", "exits"];
+const OPS_CROSS     = ["crossAbove", "crossBelow", ...OPS_THRESHOLD];
+const OPS_SIGNAL    = ["signal"];
+const OPS_DRAWING   = ["touch", "breakAbove", "breakBelow", "enterZone", "exitZone", "fibLevel"];
 
 export function getIndicatorCatalog(): CatalogEntry[] {
   return [
-    { key: "price_close",  indicatorId: "price", outputKey: "close",  label: "Close Price",   category: "price",      description: "Candle closing price",           minPlan: "free"  },
-    { key: "price_open",   indicatorId: "price", outputKey: "open",   label: "Open Price",    category: "price",      description: "Candle opening price",           minPlan: "free"  },
-    { key: "price_high",   indicatorId: "price", outputKey: "high",   label: "High Price",    category: "price",      description: "Candle high price",              minPlan: "free"  },
-    { key: "price_low",    indicatorId: "price", outputKey: "low",    label: "Low Price",     category: "price",      description: "Candle low price",               minPlan: "free"  },
-    { key: "price_volume", indicatorId: "price", outputKey: "volume", label: "Volume",        category: "volume",     description: "Trading volume",                 minPlan: "free"  },
+    { key: "price_close",  indicatorId: "price", outputKey: "close",  label: "Close Price",   category: "price",      description: "Candle closing price",           minPlan: "free",  supportedOperators: OPS_CROSS },
+    { key: "price_open",   indicatorId: "price", outputKey: "open",   label: "Open Price",    category: "price",      description: "Candle opening price",           minPlan: "free",  supportedOperators: OPS_CROSS },
+    { key: "price_high",   indicatorId: "price", outputKey: "high",   label: "High Price",    category: "price",      description: "Candle high price",              minPlan: "free",  supportedOperators: OPS_CROSS },
+    { key: "price_low",    indicatorId: "price", outputKey: "low",    label: "Low Price",     category: "price",      description: "Candle low price",               minPlan: "free",  supportedOperators: OPS_CROSS },
+    { key: "price_volume", indicatorId: "price", outputKey: "volume", label: "Volume",        category: "volume",     description: "Trading volume",                 minPlan: "free",  supportedOperators: OPS_THRESHOLD },
 
-    { key: "sma_10_value",  indicatorId: "sma_10",  outputKey: "value", label: "SMA 10",   category: "trend", description: "Simple moving average (10)",   minPlan: "pro" },
-    { key: "sma_20_value",  indicatorId: "sma_20",  outputKey: "value", label: "SMA 20",   category: "trend", description: "Simple moving average (20)",   minPlan: "pro" },
-    { key: "sma_50_value",  indicatorId: "sma_50",  outputKey: "value", label: "SMA 50",   category: "trend", description: "Simple moving average (50)",   minPlan: "pro" },
-    { key: "sma_100_value", indicatorId: "sma_100", outputKey: "value", label: "SMA 100",  category: "trend", description: "Simple moving average (100)",  minPlan: "pro" },
-    { key: "sma_200_value", indicatorId: "sma_200", outputKey: "value", label: "SMA 200",  category: "trend", description: "Simple moving average (200)",  minPlan: "pro" },
+    { key: "sma_10_value",  indicatorId: "sma_10",  outputKey: "value", label: "SMA 10",   category: "trend", description: "Simple moving average (10)",   minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "sma_20_value",  indicatorId: "sma_20",  outputKey: "value", label: "SMA 20",   category: "trend", description: "Simple moving average (20)",   minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "sma_50_value",  indicatorId: "sma_50",  outputKey: "value", label: "SMA 50",   category: "trend", description: "Simple moving average (50)",   minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "sma_100_value", indicatorId: "sma_100", outputKey: "value", label: "SMA 100",  category: "trend", description: "Simple moving average (100)",  minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "sma_200_value", indicatorId: "sma_200", outputKey: "value", label: "SMA 200",  category: "trend", description: "Simple moving average (200)",  minPlan: "pro", supportedOperators: OPS_CROSS },
 
-    { key: "ema_9_value",   indicatorId: "ema_9",   outputKey: "value", label: "EMA 9",    category: "trend", description: "Exponential moving average (9)",   minPlan: "pro" },
-    { key: "ema_20_value",  indicatorId: "ema_20",  outputKey: "value", label: "EMA 20",   category: "trend", description: "Exponential moving average (20)",  minPlan: "pro" },
-    { key: "ema_50_value",  indicatorId: "ema_50",  outputKey: "value", label: "EMA 50",   category: "trend", description: "Exponential moving average (50)",  minPlan: "pro" },
-    { key: "ema_100_value", indicatorId: "ema_100", outputKey: "value", label: "EMA 100",  category: "trend", description: "Exponential moving average (100)", minPlan: "pro" },
-    { key: "ema_200_value", indicatorId: "ema_200", outputKey: "value", label: "EMA 200",  category: "trend", description: "Exponential moving average (200)", minPlan: "pro" },
+    { key: "ema_9_value",   indicatorId: "ema_9",   outputKey: "value", label: "EMA 9",    category: "trend", description: "Exponential moving average (9)",   minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "ema_20_value",  indicatorId: "ema_20",  outputKey: "value", label: "EMA 20",   category: "trend", description: "Exponential moving average (20)",  minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "ema_50_value",  indicatorId: "ema_50",  outputKey: "value", label: "EMA 50",   category: "trend", description: "Exponential moving average (50)",  minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "ema_100_value", indicatorId: "ema_100", outputKey: "value", label: "EMA 100",  category: "trend", description: "Exponential moving average (100)", minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "ema_200_value", indicatorId: "ema_200", outputKey: "value", label: "EMA 200",  category: "trend", description: "Exponential moving average (200)", minPlan: "pro", supportedOperators: OPS_CROSS },
 
-    { key: "rsi_7_value",  indicatorId: "rsi_7",  outputKey: "value", label: "RSI (7)",  category: "momentum", description: "Relative Strength Index 7-period",  unit: "%", minPlan: "pro" },
-    { key: "rsi_14_value", indicatorId: "rsi_14", outputKey: "value", label: "RSI (14)", category: "momentum", description: "Relative Strength Index 14-period", unit: "%", minPlan: "pro" },
-    { key: "rsi_21_value", indicatorId: "rsi_21", outputKey: "value", label: "RSI (21)", category: "momentum", description: "Relative Strength Index 21-period", unit: "%", minPlan: "pro" },
+    { key: "rsi_7_value",  indicatorId: "rsi_7",  outputKey: "value", label: "RSI (7)",  category: "momentum", description: "Relative Strength Index 7-period",  unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "rsi_14_value", indicatorId: "rsi_14", outputKey: "value", label: "RSI (14)", category: "momentum", description: "Relative Strength Index 14-period", unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "rsi_21_value", indicatorId: "rsi_21", outputKey: "value", label: "RSI (21)", category: "momentum", description: "Relative Strength Index 21-period", unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
 
-    { key: "macd_12_26_9_macd",      indicatorId: "macd_12_26_9", outputKey: "macd",      label: "MACD Line",      category: "momentum", description: "MACD line (12,26,9)",       minPlan: "pro" },
-    { key: "macd_12_26_9_signal",    indicatorId: "macd_12_26_9", outputKey: "signal",    label: "MACD Signal",    category: "momentum", description: "MACD signal line (9 EMA)",  minPlan: "pro" },
-    { key: "macd_12_26_9_histogram", indicatorId: "macd_12_26_9", outputKey: "histogram", label: "MACD Histogram", category: "momentum", description: "MACD histogram divergence", minPlan: "pro" },
+    { key: "macd_12_26_9_macd",      indicatorId: "macd_12_26_9", outputKey: "macd",      label: "MACD Line",      category: "momentum", description: "MACD line (12,26,9)",       minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "macd_12_26_9_signal",    indicatorId: "macd_12_26_9", outputKey: "signal",    label: "MACD Signal",    category: "momentum", description: "MACD signal line (9 EMA)",  minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "macd_12_26_9_histogram", indicatorId: "macd_12_26_9", outputKey: "histogram", label: "MACD Histogram", category: "momentum", description: "MACD histogram divergence", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
 
-    { key: "bb_20_2_upper", indicatorId: "bb_20_2", outputKey: "upper", label: "BB Upper",  category: "volatility", description: "Bollinger Band upper (20,2)", minPlan: "pro" },
-    { key: "bb_20_2_mid",   indicatorId: "bb_20_2", outputKey: "mid",   label: "BB Middle", category: "volatility", description: "Bollinger Band middle SMA",   minPlan: "pro" },
-    { key: "bb_20_2_lower", indicatorId: "bb_20_2", outputKey: "lower", label: "BB Lower",  category: "volatility", description: "Bollinger Band lower (20,2)", minPlan: "pro" },
+    { key: "bb_20_2_upper", indicatorId: "bb_20_2", outputKey: "upper", label: "BB Upper",  category: "volatility", description: "Bollinger Band upper (20,2)", minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "bb_20_2_mid",   indicatorId: "bb_20_2", outputKey: "mid",   label: "BB Middle", category: "volatility", description: "Bollinger Band middle SMA",   minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "bb_20_2_lower", indicatorId: "bb_20_2", outputKey: "lower", label: "BB Lower",  category: "volatility", description: "Bollinger Band lower (20,2)", minPlan: "pro", supportedOperators: OPS_CROSS },
 
-    { key: "atr_14_value",    indicatorId: "atr_14",    outputKey: "value", label: "ATR (14)",         category: "volatility", description: "Average True Range 14-period",       minPlan: "pro" },
-    { key: "stochrsi_14_k",   indicatorId: "stochrsi_14", outputKey: "k", label: "StochRSI %K",      category: "momentum",   description: "Stochastic RSI %K line",             unit: "%", minPlan: "pro" },
-    { key: "stochrsi_14_d",   indicatorId: "stochrsi_14", outputKey: "d", label: "StochRSI %D",      category: "momentum",   description: "Stochastic RSI %D signal",           unit: "%", minPlan: "pro" },
-    { key: "vwap_value",      indicatorId: "vwap",      outputKey: "value", label: "VWAP",             category: "volume",     description: "Volume-Weighted Average Price",      minPlan: "pro" },
-    { key: "adx_14_value",    indicatorId: "adx_14",    outputKey: "value", label: "ADX (14)",         category: "trend",      description: "Average Directional Index strength", unit: "%", minPlan: "pro" },
-    { key: "adx_14_plus_di",  indicatorId: "adx_14",    outputKey: "plus_di",  label: "ADX +DI",     category: "trend",      description: "Positive directional indicator",     unit: "%", minPlan: "pro" },
-    { key: "adx_14_minus_di", indicatorId: "adx_14",    outputKey: "minus_di", label: "ADX -DI",     category: "trend",      description: "Negative directional indicator",     unit: "%", minPlan: "pro" },
-    { key: "supertrend_10_3_value",     indicatorId: "supertrend_10_3", outputKey: "value",     label: "Supertrend Value",     category: "trend",      description: "Supertrend support/resistance level", minPlan: "pro" },
-    { key: "supertrend_10_3_direction", indicatorId: "supertrend_10_3", outputKey: "direction", label: "Supertrend Direction",  category: "trend",      description: "Supertrend direction: 1=bull, -1=bear", minPlan: "pro" },
-    { key: "stoch_14_3_k",    indicatorId: "stoch_14_3", outputKey: "k", label: "Stochastic %K",     category: "momentum",   description: "Stochastic oscillator %K",           unit: "%", minPlan: "pro" },
-    { key: "stoch_14_3_d",    indicatorId: "stoch_14_3", outputKey: "d", label: "Stochastic %D",     category: "momentum",   description: "Stochastic oscillator %D signal",    unit: "%", minPlan: "pro" },
-    { key: "volume_sma_20_value", indicatorId: "volume_sma_20", outputKey: "value", label: "Volume SMA (20)", category: "volume", description: "20-period volume simple moving average", minPlan: "pro" },
+    { key: "atr_14_value",    indicatorId: "atr_14",    outputKey: "value", label: "ATR (14)",         category: "volatility", description: "Average True Range 14-period",       minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "stochrsi_14_k",   indicatorId: "stochrsi_14", outputKey: "k",  label: "StochRSI %K",      category: "momentum",   description: "Stochastic RSI %K line",             unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "stochrsi_14_d",   indicatorId: "stochrsi_14", outputKey: "d",  label: "StochRSI %D",      category: "momentum",   description: "Stochastic RSI %D signal",           unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "vwap_value",      indicatorId: "vwap",      outputKey: "value", label: "VWAP",             category: "volume",     description: "Volume-Weighted Average Price",      minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "adx_14_value",    indicatorId: "adx_14",    outputKey: "value", label: "ADX (14)",         category: "trend",      description: "Average Directional Index strength", unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "adx_14_plus_di",  indicatorId: "adx_14",    outputKey: "plus_di",  label: "ADX +DI",     category: "trend",      description: "Positive directional indicator",     unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "adx_14_minus_di", indicatorId: "adx_14",    outputKey: "minus_di", label: "ADX -DI",     category: "trend",      description: "Negative directional indicator",     unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "supertrend_10_3_value",     indicatorId: "supertrend_10_3", outputKey: "value",     label: "Supertrend Value",     category: "trend",      description: "Supertrend support/resistance level",   minPlan: "pro", supportedOperators: OPS_CROSS },
+    { key: "supertrend_10_3_direction", indicatorId: "supertrend_10_3", outputKey: "direction", label: "Supertrend Direction",  category: "trend",      description: "Supertrend direction: 1=bull, -1=bear", minPlan: "pro", supportedOperators: OPS_SIGNAL },
+    { key: "stoch_14_3_k",    indicatorId: "stoch_14_3", outputKey: "k", label: "Stochastic %K",     category: "momentum",   description: "Stochastic oscillator %K",           unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "stoch_14_3_d",    indicatorId: "stoch_14_3", outputKey: "d", label: "Stochastic %D",     category: "momentum",   description: "Stochastic oscillator %D signal",    unit: "%", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
+    { key: "volume_sma_20_value", indicatorId: "volume_sma_20", outputKey: "value", label: "Volume SMA (20)", category: "volume", description: "20-period volume simple moving average", minPlan: "pro", supportedOperators: OPS_THRESHOLD },
   ];
 }
+
+export const DRAWING_CATALOG_ENTRY: CatalogEntry = {
+  key: "drawing_price",
+  indicatorId: "drawing",
+  outputKey: "price",
+  label: "Drawing Tool",
+  category: "drawing",
+  description: "Price alert attached to a drawing (hline, trendline, rect, fib, vline)",
+  minPlan: "pro",
+  supportedOperators: OPS_DRAWING,
+};
 
 export function getIndicatorCatalogByCategory(): Record<string, CatalogEntry[]> {
   const catalog = getIndicatorCatalog();

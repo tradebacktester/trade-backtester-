@@ -321,15 +321,15 @@ export default function ChartPage() {
   const pendingTradeRef = useRef<(() => void) | null>(null);
   const coachingRef = useRef<{ mistakes: TradeMistake[] } | null>(null);
 
-  async function fetchAiPreTradeCheck(side: "long" | "short", price: number) {
-    if (!token) return;
+  async function fetchAiPreTradeCheck(side: "long" | "short", price: number): Promise<{ warningLevel: string; matchedPatterns: { label: string; count: number; avgPnlPct: number }[]; avgLossOnMatch: number; tip: string | null; hasEnoughHistory: boolean } | null> {
+    if (!token) return null;
     try {
       const r = await fetch(`${API_BASE}/api/ai/pre-trade-check`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ symbol, side, entryPrice: price, leverage: chartLeverage, timeframe: interval }),
       });
-      if (!r.ok) return;
+      if (!r.ok) return null;
       const d = await r.json() as {
         warningLevel?: string;
         matchedPatterns?: { label: string; count: number; avgPnlPct: number }[];
@@ -337,15 +337,18 @@ export default function ChartPage() {
         tip?: string | null;
         hasEnoughHistory?: boolean;
       };
-      if (d.hasEnoughHistory && d.warningLevel && d.warningLevel !== "none") {
-        setAiPreTrade({
-          tip: d.tip ?? null,
-          warningLevel: d.warningLevel,
-          matchedPatterns: d.matchedPatterns ?? [],
-          avgLossOnMatch: d.avgLossOnMatch ?? 0,
-        });
+      const result = {
+        warningLevel: d.warningLevel ?? "none",
+        matchedPatterns: d.matchedPatterns ?? [],
+        avgLossOnMatch: d.avgLossOnMatch ?? 0,
+        tip: d.tip ?? null,
+        hasEnoughHistory: d.hasEnoughHistory ?? false,
+      };
+      if (result.hasEnoughHistory && result.warningLevel !== "none") {
+        setAiPreTrade({ tip: result.tip, warningLevel: result.warningLevel, matchedPatterns: result.matchedPatterns, avgLossOnMatch: result.avgLossOnMatch });
       }
-    } catch { /* non-blocking */ }
+      return result;
+    } catch { return null; }
   }
 
   // Similarity score: how closely does a known losing pattern apply to the current trade?
@@ -612,7 +615,7 @@ export default function ChartPage() {
       applyMarkers(); return;
     }
     if (position?.side === "long") return;
-    // Market order — show warning only when a HIGH/MEDIUM mistake pattern is detected (≥60% similarity)
+    // Market order — ALWAYS run pre-trade DNA check before executing
     if (!priceOverride) {
       const snapEquity = equity; const snapLev = chartLeverage;
       const execLong = () => {
@@ -626,22 +629,40 @@ export default function ChartPage() {
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
       };
+      // Compute local coaching similarity
       const coaching = coachingRef.current;
+      let topLocal: { m: TradeMistake; score: number } | undefined;
       if (coaching && coaching.mistakes.length > 0) {
         const total = coaching.mistakes.length;
         const scored = coaching.mistakes
           .map(m => ({ m, score: computeMistakeSimilarity(m, snapLev, total) }))
           .sort((a, b) => b.score - a.score);
-        const top = scored[0];
-        if (top && top.score >= 60) {
-          pendingTradeRef.current = execLong;
-          setAiPreTrade(null);
-          setTradeWarn({ side: "long", price: exitPrice, mistake: top.m, similarity: top.score });
-          fetchAiPreTradeCheck("long", exitPrice);
-          return;
-        }
+        topLocal = scored[0];
       }
-      execLong();
+      if (topLocal && topLocal.score >= 60) {
+        // Local heuristic triggers — show modal; API check updates DNA panel when resolved
+        pendingTradeRef.current = execLong;
+        setAiPreTrade(null);
+        setTradeWarn({ side: "long", price: exitPrice, mistake: topLocal.m, similarity: topLocal.score });
+        fetchAiPreTradeCheck("long", exitPrice);
+        return;
+      }
+      // No local trigger — ALWAYS run API check before executing; if API warns, gate via modal
+      pendingTradeRef.current = execLong;
+      setAiPreTrade(null);
+      fetchAiPreTradeCheck("long", exitPrice).then(apiResult => {
+        if (apiResult && apiResult.hasEnoughHistory && apiResult.warningLevel !== "none") {
+          const syntheticMistake: TradeMistake = {
+            label: `DNA Risk — ${apiResult.warningLevel === "warning" ? "High-Risk Pattern" : "Caution Pattern"}`,
+            severity: apiResult.warningLevel,
+            detail: apiResult.tip ?? `Matched ${apiResult.matchedPatterns.length} losing pattern(s). Avg loss: ${apiResult.avgLossOnMatch.toFixed(1)}%`,
+          };
+          setTradeWarn({ side: "long", price: exitPrice, mistake: syntheticMistake, similarity: Math.min(99, Math.round(apiResult.avgLossOnMatch * 8)) });
+        } else {
+          // Neither source triggered — auto-execute
+          pendingTradeRef.current?.(); pendingTradeRef.current = null;
+        }
+      });
       return;
     }
     // Limit/stop order (priceOverride set) — execute immediately
@@ -672,7 +693,7 @@ export default function ChartPage() {
       applyMarkers(); return;
     }
     if (currentPos?.side === "short") return;
-    // Market open — show warning only when a HIGH/MEDIUM mistake pattern is detected (≥60% similarity)
+    // Market open — ALWAYS run pre-trade DNA check before executing
     if (!pos) {
       const snapEquity = equity; const snapLev = chartLeverage;
       const execShort = () => {
@@ -686,22 +707,40 @@ export default function ChartPage() {
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
       };
+      // Compute local coaching similarity
       const coaching2 = coachingRef.current;
+      let topLocal2: { m: TradeMistake; score: number } | undefined;
       if (coaching2 && coaching2.mistakes.length > 0) {
         const total2 = coaching2.mistakes.length;
         const scored2 = coaching2.mistakes
           .map(m => ({ m, score: computeMistakeSimilarity(m, snapLev, total2) }))
           .sort((a, b) => b.score - a.score);
-        const top2 = scored2[0];
-        if (top2 && top2.score >= 60) {
-          pendingTradeRef.current = execShort;
-          setAiPreTrade(null);
-          setTradeWarn({ side: "short", price: exitPrice, mistake: top2.m, similarity: top2.score });
-          fetchAiPreTradeCheck("short", exitPrice);
-          return;
-        }
+        topLocal2 = scored2[0];
       }
-      execShort();
+      if (topLocal2 && topLocal2.score >= 60) {
+        // Local heuristic triggers — show modal; API check updates DNA panel when resolved
+        pendingTradeRef.current = execShort;
+        setAiPreTrade(null);
+        setTradeWarn({ side: "short", price: exitPrice, mistake: topLocal2.m, similarity: topLocal2.score });
+        fetchAiPreTradeCheck("short", exitPrice);
+        return;
+      }
+      // No local trigger — ALWAYS run API check before executing; if API warns, gate via modal
+      pendingTradeRef.current = execShort;
+      setAiPreTrade(null);
+      fetchAiPreTradeCheck("short", exitPrice).then(apiResult => {
+        if (apiResult && apiResult.hasEnoughHistory && apiResult.warningLevel !== "none") {
+          const syntheticMistake: TradeMistake = {
+            label: `DNA Risk — ${apiResult.warningLevel === "warning" ? "High-Risk Pattern" : "Caution Pattern"}`,
+            severity: apiResult.warningLevel,
+            detail: apiResult.tip ?? `Matched ${apiResult.matchedPatterns.length} losing pattern(s). Avg loss: ${apiResult.avgLossOnMatch.toFixed(1)}%`,
+          };
+          setTradeWarn({ side: "short", price: exitPrice, mistake: syntheticMistake, similarity: Math.min(99, Math.round(apiResult.avgLossOnMatch * 8)) });
+        } else {
+          // Neither source triggered — auto-execute
+          pendingTradeRef.current?.(); pendingTradeRef.current = null;
+        }
+      });
       return;
     }
     const units = (equity * chartLeverage) / exitPrice;
@@ -2008,6 +2047,25 @@ export default function ChartPage() {
               onToolChange={setActiveTool}
               layerHandle={drawingHandle}
             />
+
+            {/* Drawing → Alert shortcut */}
+            <a
+              href={`/alerts?type=drawing&symbol=${encodeURIComponent(symbol)}`}
+              title="Create drawing alert"
+              style={{
+                position: "absolute", bottom: "12px", left: "56px", zIndex: 20,
+                display: "flex", alignItems: "center", gap: "4px",
+                padding: "4px 8px", borderRadius: "8px",
+                background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)",
+                color: "hsl(265,89%,65%)", fontSize: "10px", fontFamily: "monospace",
+                textDecoration: "none", cursor: "pointer",
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              Add Alert
+            </a>
             <DrawingLayer
               chartRef={chartRef}
               seriesRef={candleSeriesRef}
