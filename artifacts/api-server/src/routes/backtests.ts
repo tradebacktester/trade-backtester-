@@ -10,7 +10,7 @@ import {
   GetBacktestTradesParams,
   GetEquityCurveParams,
 } from "@workspace/api-zod";
-import { runBacktest, generatePriceData, type OHLCVBar } from "../lib/backtest-engine";
+import { runBacktest, runWalkForward, generatePriceData, type OHLCVBar } from "../lib/backtest-engine";
 
 // ── Real Binance historical data ─────────────────────────────────────────────
 
@@ -560,6 +560,69 @@ router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> 
     ? `Parameter values were truncated to 8 per dimension (received: ${param1Name}=${param1Values.length}, ${param2Name}=${param2Values.length})`
     : undefined;
   res.json({ param1Name, param1Values: p1Vals, param2Name, param2Values: p2Vals, results, warning: truncationWarning });
+});
+
+router.get("/backtests/:id/walk-forward", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [row] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, id), eq(backtestsTable.userId, userId)));
+  if (!row) { res.status(404).json({ error: "Backtest not found" }); return; }
+
+  const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, row.strategyId));
+  if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
+
+  const trainRatio = Math.min(0.9, Math.max(0.5, parseFloat(String(req.query["trainRatio"] ?? "0.7"))));
+
+  const realBars = await fetchBinanceHistorical(row.symbol, row.startDate, row.endDate);
+  const priceData = realBars ?? undefined;
+
+  const result = runWalkForward(
+    row.symbol,
+    strategy.type,
+    strategy.parameters as Record<string, unknown>,
+    row.startDate,
+    row.endDate,
+    Number(row.initialCapital),
+    Number(row.commission ?? 0),
+    Number(row.slippage ?? 0),
+    priceData,
+    strategy.timeframe ?? "1d",
+    trainRatio,
+  );
+
+  res.json({
+    trainRatio: result.trainRatio,
+    splitDate: result.splitDate,
+    combined: result.combined,
+    inSample: {
+      totalReturn: result.inSample.totalReturn,
+      annualizedReturn: result.inSample.annualizedReturn,
+      sharpeRatio: result.inSample.sharpeRatio,
+      maxDrawdown: result.inSample.maxDrawdown,
+      winRate: result.inSample.winRate,
+      totalTrades: result.inSample.totalTrades,
+      profitFactor: result.inSample.profitFactor,
+      expectancy: result.inSample.expectancy,
+      sqn: result.inSample.sqn,
+      finalCapital: result.inSample.finalCapital,
+      equityCurve: result.inSample.equityCurve.filter((_, i, a) => i % Math.max(1, Math.ceil(a.length / 200)) === 0 || i === a.length - 1),
+    },
+    outOfSample: {
+      totalReturn: result.outOfSample.totalReturn,
+      annualizedReturn: result.outOfSample.annualizedReturn,
+      sharpeRatio: result.outOfSample.sharpeRatio,
+      maxDrawdown: result.outOfSample.maxDrawdown,
+      winRate: result.outOfSample.winRate,
+      totalTrades: result.outOfSample.totalTrades,
+      profitFactor: result.outOfSample.profitFactor,
+      expectancy: result.outOfSample.expectancy,
+      sqn: result.outOfSample.sqn,
+      finalCapital: result.outOfSample.finalCapital,
+      equityCurve: result.outOfSample.equityCurve.filter((_, i, a) => i % Math.max(1, Math.ceil(a.length / 200)) === 0 || i === a.length - 1),
+    },
+  });
 });
 
 function computeYearlyReturnsFromTrades(

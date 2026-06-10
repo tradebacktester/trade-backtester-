@@ -72,6 +72,22 @@ export interface BacktestResult {
   slippagePct: number;
   expectancy: number;
   sqn: number;
+  timeInMarket: number;
+}
+
+export interface WalkForwardResult {
+  inSample: BacktestResult;
+  outOfSample: BacktestResult;
+  trainRatio: number;
+  splitDate: string;
+  combined: {
+    totalReturn: number;
+    sharpeRatio: number;
+    maxDrawdown: number;
+    winRate: number;
+    totalTrades: number;
+    consistencyScore: number;
+  };
 }
 
 function sma(prices: number[], period: number): (number | null)[] {
@@ -575,7 +591,7 @@ export function runBacktest(
     sharpeRatio: 0, sortinoRatio: 0, calmarRatio: 0, winRate: 0, totalTrades: 0,
     profitFactor: 0, avgWin: 0, avgLoss: 0, avgRR: 0, consecutiveWins: 0, consecutiveLosses: 0,
     avgTradeDuration: 0, bestTrade: 0, worstTrade: 0, monthlyReturns: [], yearlyReturns: [],
-    benchmarkReturn: 0, commissionPct, slippagePct, expectancy: 0, sqn: 0,
+    benchmarkReturn: 0, commissionPct, slippagePct, expectancy: 0, sqn: 0, timeInMarket: 0,
   };
   if (bars.length < 50) return empty;
 
@@ -822,12 +838,86 @@ export function runBacktest(
     sqn = stdPnl > 0 ? (Math.sqrt(pnls.length) * meanPnl) / stdPnl : 0;
   }
 
+  // Time in market: % of all bars where at least one position was open
+  const barsInMarket = new Set<number>();
+  for (let si = 0; si < signals.length; si++) {
+    const entryIdx = signals[si].entries[0];
+    const exitIdx  = signals[si].exits[0];
+    for (let bi = entryIdx; bi <= exitIdx && bi < bars.length; bi++) barsInMarket.add(bi);
+  }
+  const timeInMarket = bars.length > 0 ? (barsInMarket.size / bars.length) * 100 : 0;
+
   return {
     trades, equityCurve, finalCapital, totalReturn, annualizedReturn, maxDrawdown,
     sharpeRatio, sortinoRatio, calmarRatio, winRate, totalTrades: trades.length,
     profitFactor, avgWin, avgLoss, avgRR, consecutiveWins: maxConsWins, consecutiveLosses: maxConsLosses,
     avgTradeDuration, bestTrade, worstTrade, monthlyReturns, yearlyReturns,
-    benchmarkReturn, commissionPct, slippagePct, expectancy, sqn,
+    benchmarkReturn, commissionPct, slippagePct, expectancy, sqn, timeInMarket,
+  };
+}
+
+export function runWalkForward(
+  symbol: string,
+  strategyType: string,
+  parameters: Record<string, unknown>,
+  startDate: string,
+  endDate: string,
+  initialCapital: number,
+  commissionPct = 0,
+  slippagePct = 0,
+  priceData?: OHLCVBar[],
+  timeframe = "1d",
+  trainRatio = 0.7
+): WalkForwardResult {
+  const bars = (priceData && priceData.length >= 50) ? priceData : generatePriceData(symbol, startDate, endDate, timeframe);
+
+  const splitIdx = Math.floor(bars.length * trainRatio);
+  const splitDate = bars[splitIdx]?.date ?? endDate;
+
+  const isBars = bars.slice(0, splitIdx);
+  const oosBars = bars.slice(splitIdx);
+
+  const isStartDate = bars[0]?.date ?? startDate;
+  const isEndDate   = bars[splitIdx - 1]?.date ?? splitDate;
+  const oosEndDate  = bars[bars.length - 1]?.date ?? endDate;
+
+  const inSample = isBars.length >= 50
+    ? runBacktest(symbol, strategyType, parameters, isStartDate, isEndDate, initialCapital, commissionPct, slippagePct, isBars, timeframe)
+    : runBacktest(symbol, strategyType, parameters, isStartDate, isEndDate, initialCapital, commissionPct, slippagePct, undefined, timeframe);
+
+  const oosCapital = inSample.finalCapital > 0 ? inSample.finalCapital : initialCapital;
+  const outOfSample = oosBars.length >= 50
+    ? runBacktest(symbol, strategyType, parameters, splitDate, oosEndDate, oosCapital, commissionPct, slippagePct, oosBars, timeframe)
+    : runBacktest(symbol, strategyType, parameters, splitDate, oosEndDate, oosCapital, commissionPct, slippagePct, undefined, timeframe);
+
+  const allTrades = inSample.totalTrades + outOfSample.totalTrades;
+  const combinedWinners = [
+    ...inSample.trades.filter(t => t.pnl > 0),
+    ...outOfSample.trades.filter(t => t.pnl > 0),
+  ];
+  const combinedWinRate = allTrades > 0 ? (combinedWinners.length / allTrades) * 100 : 0;
+  const combinedTotalReturn = ((outOfSample.finalCapital - initialCapital) / initialCapital) * 100;
+
+  // Consistency score: how close OOS Sharpe is to IS Sharpe (1 = perfect, 0 = total degradation)
+  const isS = inSample.sharpeRatio;
+  const oosS = outOfSample.sharpeRatio;
+  const consistencyScore = isS > 0
+    ? Math.max(0, Math.min(1, oosS / isS))
+    : oosS >= 0 ? 0.5 : 0;
+
+  return {
+    inSample,
+    outOfSample,
+    trainRatio,
+    splitDate,
+    combined: {
+      totalReturn: combinedTotalReturn,
+      sharpeRatio: outOfSample.sharpeRatio,
+      maxDrawdown: Math.max(inSample.maxDrawdown, outOfSample.maxDrawdown),
+      winRate: combinedWinRate,
+      totalTrades: allTrades,
+      consistencyScore,
+    },
   };
 }
 

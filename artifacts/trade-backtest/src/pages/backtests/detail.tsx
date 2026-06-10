@@ -19,6 +19,7 @@ import {
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, BookOpen, BarChart3, LayoutDashboard, StickyNote,
   Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
   Brain, Sparkles, Waves, MonitorDot, Plus, Trash, Users2, Medal, Info,
+  SplitSquareHorizontal, Shuffle, Target,
 } from "lucide-react";
 import { computeOverfittingScore, overfitRating } from "@/lib/overfitting";
 import {
@@ -933,6 +934,25 @@ export default function BacktestDetail() {
   const [eventError, setEventError] = useState<string | null>(null);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
+  type WFPeriod = {
+    totalReturn: number; annualizedReturn: number; sharpeRatio: number;
+    maxDrawdown: number; winRate: number; totalTrades: number; profitFactor: number;
+    expectancy: number; sqn: number; finalCapital: number;
+    equityCurve: { date: string; value: number; drawdown: number }[];
+  };
+  type WFResult = {
+    trainRatio: number; splitDate: string;
+    combined: { totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number; totalTrades: number; consistencyScore: number };
+    inSample: WFPeriod; outOfSample: WFPeriod;
+  };
+  const [wfData, setWfData] = useState<WFResult | null>(null);
+  const [wfError, setWfError] = useState<string | null>(null);
+  const [isLoadingWf, setIsLoadingWf] = useState(false);
+  const [wfTrainRatio, setWfTrainRatio] = useState(0.7);
+
+  const [mcSims, setMcSims] = useState<number[][]>([]);
+  const [mcLoading, setMcLoading] = useState(false);
+
   const handleShare = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -1092,6 +1112,50 @@ export default function BacktestDetail() {
     }
   }
 
+  async function handleLoadWalkForward(ratio = wfTrainRatio) {
+    if (!id) return;
+    setIsLoadingWf(true);
+    setWfError(null);
+    setWfData(null);
+    try {
+      const token = localStorage.getItem("tt_token") ?? "";
+      const resp = await fetch(`${API_BASE}/api/backtests/${id}/walk-forward?trainRatio=${ratio}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error ?? "Walk-forward failed");
+      setWfData(data);
+    } catch (e: unknown) {
+      setWfError(e instanceof Error ? e.message : "Walk-forward failed");
+    } finally {
+      setIsLoadingWf(false);
+    }
+  }
+
+  function runMonteCarlo() {
+    if (!trades || trades.length < 5) return;
+    setMcLoading(true);
+    setTimeout(() => {
+      const N_SIMS = 500;
+      const N_STEPS = trades.length;
+      const initialCap = backtest?.initialCapital ?? 10000;
+      const pnls = trades.map(t => t.pnl);
+      const simResults: number[][] = [];
+      for (let s = 0; s < N_SIMS; s++) {
+        const path: number[] = [initialCap];
+        let cap = initialCap;
+        for (let i = 0; i < N_STEPS; i++) {
+          const idx = Math.floor(Math.random() * pnls.length);
+          cap += pnls[idx];
+          path.push(Math.max(0, cap));
+        }
+        simResults.push(path);
+      }
+      setMcSims(simResults);
+      setMcLoading(false);
+    }, 10);
+  }
+
   // ─── Compute Analytics ─────────────────────────────────────────────────────
 
   const analytics = useMemo(() => {
@@ -1177,11 +1241,22 @@ export default function BacktestDetail() {
       : Math.min(100, ((1 - edgePerUnit) / (1 + edgePerUnit)) ** 50 * 100);
     const riskOfRuin = Math.round(rorRaw * 10) / 10;
 
+    // Expected Value per trade: avgWin% × winRate − avgLoss% × lossRate
+    const lossRate = 1 - p;
+    const evPerTrade = avgWin * p - avgLoss * lossRate;
+
+    // Time in market: sum of holding durations / total backtest days
+    const backtestDays = backtest.startDate && backtest.endDate
+      ? Math.max(1, differenceInDays(new Date(backtest.endDate), new Date(backtest.startDate)))
+      : 365;
+    const totalHoldingDays = trades.reduce((s, t) => s + Math.max(0, differenceInDays(new Date(t.exitDate), new Date(t.entryDate))), 0);
+    const timeInMarket = Math.min(100, (totalHoldingDays / backtestDays) * 100);
+
     return {
       winRate, avgWin, avgLoss, avgRR, maxWins, maxLosses,
       avgDuration, bestTrade, worstTrade, monthlyReturns, distribution,
       grossProfit, grossLoss, totalWinners: winners.length, totalLosers: losers.length,
-      expectancy, sqn, riskOfRuin,
+      expectancy, sqn, riskOfRuin, evPerTrade, timeInMarket,
     };
   }, [trades, backtest]);
 
@@ -1349,16 +1424,18 @@ export default function BacktestDetail() {
           {/* Tab list */}
           <Tabs.List className="flex gap-1 p-1 rounded-xl bg-muted/30 border border-border mb-6 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
             {[
-              { value: "overview", label: "Overview", Icon: LayoutDashboard },
-              { value: "analytics", label: "Analytics", Icon: BarChart3 },
-              { value: "peers",    label: "Peer Ranking", Icon: Users2 },
-              { value: "journal",  label: "Trade Journal", Icon: BookOpen },
-              { value: "calendar", label: "P&L Calendar", Icon: CalendarDays },
-              { value: "autopsy",  label: "AI Autopsy",     Icon: Brain },
-              { value: "narrative",label: "Story Mode",      Icon: Sparkles },
-              { value: "events",   label: "Event Impact",    Icon: Activity },
-              { value: "regime",   label: "Regime Analysis", Icon: Waves },
-              { value: "live",     label: "Live Monitor",    Icon: MonitorDot },
+              { value: "overview",      label: "Overview",        Icon: LayoutDashboard },
+              { value: "analytics",     label: "Analytics",       Icon: BarChart3 },
+              { value: "walk-forward",  label: "Walk-Forward",    Icon: SplitSquareHorizontal },
+              { value: "monte-carlo",   label: "Monte Carlo",     Icon: Shuffle },
+              { value: "peers",         label: "Peer Ranking",    Icon: Users2 },
+              { value: "journal",       label: "Trade Journal",   Icon: BookOpen },
+              { value: "calendar",      label: "P&L Calendar",   Icon: CalendarDays },
+              { value: "autopsy",       label: "AI Autopsy",      Icon: Brain },
+              { value: "narrative",     label: "Story Mode",      Icon: Sparkles },
+              { value: "events",        label: "Event Impact",    Icon: Activity },
+              { value: "regime",        label: "Regime Analysis", Icon: Waves },
+              { value: "live",          label: "Live Monitor",    Icon: MonitorDot },
             ].map(({ value, label, Icon }) => (
               <Tabs.Trigger
                 key={value}
@@ -1488,6 +1565,24 @@ export default function BacktestDetail() {
                   sub="system quality"
                   accent={analytics.sqn >= 2 ? "#22c55e" : analytics.sqn >= 1 ? "#f59e0b" : "#ef4444"}
                   tooltip="System Quality Number (Van Tharp). Below 1: poor. 1–2: acceptable. 2–3: good. 3+: excellent."
+                />
+              )}
+              {analytics && (
+                <StatBox
+                  label="Expected Value"
+                  value={`${analytics.evPerTrade >= 0 ? "+" : ""}${analytics.evPerTrade.toFixed(2)}%`}
+                  sub="per trade (EV)"
+                  accent={analytics.evPerTrade >= 0 ? "#22c55e" : "#ef4444"}
+                  tooltip="Average return per trade weighted by outcome probability: (avgWin% × winRate) − (avgLoss% × lossRate). Positive EV means the strategy has mathematical edge."
+                />
+              )}
+              {analytics && (
+                <StatBox
+                  label="Time in Market"
+                  value={`${analytics.timeInMarket.toFixed(1)}%`}
+                  sub="of backtest period"
+                  accent="#6366f1"
+                  tooltip="Percentage of the total backtest period where at least one position was held. Lower values mean the strategy spends more time in cash."
                 />
               )}
               {analytics && trades && trades.length >= 10 && (
@@ -1868,6 +1963,337 @@ export default function BacktestDetail() {
                 )}
               </>
             )}
+          </Tabs.Content>
+
+          {/* ── TAB: Walk-Forward ───────────────────────────────────── */}
+          <Tabs.Content value="walk-forward" className="space-y-6 tab-transition">
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <SplitSquareHorizontal className="h-4 w-4 text-primary" />
+                  Walk-Forward Analysis
+                </CardTitle>
+                <CardDescription>
+                  Splits the backtest into an In-Sample (training) and Out-of-Sample (test) period.
+                  A consistent strategy performs similarly in both halves.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Training split:</span>
+                    {[0.6, 0.7, 0.8].map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setWfTrainRatio(r)}
+                        className="px-3 py-1 rounded-lg text-xs font-mono font-medium border transition-all"
+                        style={wfTrainRatio === r
+                          ? { background: "rgba(0,229,255,0.12)", borderColor: "rgba(0,229,255,0.3)", color: "hsl(190,90%,65%)" }
+                          : { background: "transparent", borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
+                      >
+                        {Math.round(r * 100)}%/{Math.round((1 - r) * 100)}%
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleLoadWalkForward(wfTrainRatio)}
+                    disabled={isLoadingWf}
+                    className="h-8"
+                  >
+                    {isLoadingWf ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <SplitSquareHorizontal className="h-3.5 w-3.5 mr-1.5" />}
+                    Run Walk-Forward
+                  </Button>
+                </div>
+
+                {wfError && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">{wfError}</div>
+                )}
+
+                {wfData && (() => {
+                  const cs = wfData.combined.consistencyScore;
+                  const csColor = cs >= 0.7 ? "#22c55e" : cs >= 0.4 ? "#f59e0b" : "#ef4444";
+                  const csLabel = cs >= 0.7 ? "Consistent" : cs >= 0.4 ? "Moderate" : "Degraded";
+                  return (
+                    <div className="space-y-6">
+                      {/* Consistency badge */}
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+                        style={{ background: `${csColor}10`, borderColor: `${csColor}30` }}>
+                        <Target className="h-4 w-4 flex-shrink-0" style={{ color: csColor }} />
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: csColor }}>
+                            OOS Consistency: {(cs * 100).toFixed(0)}% — {csLabel}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Split date: <span className="font-mono">{wfData.splitDate}</span> · IS: {Math.round(wfData.trainRatio * 100)}% of bars · OOS: {Math.round((1 - wfData.trainRatio) * 100)}% of bars
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* IS vs OOS metrics table */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {(["inSample", "outOfSample"] as const).map(key => {
+                          const d = wfData[key];
+                          const isIS = key === "inSample";
+                          return (
+                            <div key={key} className="rounded-xl border p-4 space-y-3"
+                              style={{ borderColor: isIS ? "rgba(99,102,241,0.3)" : "rgba(0,229,255,0.3)", background: isIS ? "rgba(99,102,241,0.04)" : "rgba(0,229,255,0.04)" }}>
+                              <h3 className="text-sm font-semibold" style={{ color: isIS ? "#a5b4fc" : "hsl(190,90%,65%)" }}>
+                                {isIS ? "In-Sample (Training)" : "Out-of-Sample (Test)"}
+                              </h3>
+                              <div className="grid grid-cols-2 gap-2">
+                                {[
+                                  { label: "Total Return", value: `${d.totalReturn >= 0 ? "+" : ""}${d.totalReturn.toFixed(2)}%`, color: d.totalReturn >= 0 ? "#22c55e" : "#ef4444" },
+                                  { label: "Sharpe Ratio", value: d.sharpeRatio.toFixed(2), color: d.sharpeRatio > 1 ? "#22c55e" : d.sharpeRatio > 0 ? "#f59e0b" : "#ef4444" },
+                                  { label: "Max Drawdown", value: `-${d.maxDrawdown.toFixed(2)}%`, color: "#ef4444" },
+                                  { label: "Win Rate", value: `${d.winRate.toFixed(1)}%`, color: d.winRate >= 50 ? "#22c55e" : "#f59e0b" },
+                                  { label: "Profit Factor", value: d.profitFactor === 999 ? "∞" : d.profitFactor.toFixed(2), color: d.profitFactor > 1 ? "#22c55e" : "#ef4444" },
+                                  { label: "Total Trades", value: String(d.totalTrades), color: undefined },
+                                  { label: "Expectancy", value: `$${d.expectancy >= 0 ? "+" : ""}${d.expectancy.toFixed(2)}`, color: d.expectancy >= 0 ? "#22c55e" : "#ef4444" },
+                                  { label: "Final Capital", value: `$${d.finalCapital.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, color: undefined },
+                                ].map(({ label, value, color }) => (
+                                  <div key={label} className="p-2 rounded-lg bg-muted/20">
+                                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</div>
+                                    <div className="text-sm font-mono font-bold mt-0.5" style={color ? { color } : {}}>{value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Equity curves overlay */}
+                      {(wfData.inSample.equityCurve.length > 1 || wfData.outOfSample.equityCurve.length > 1) && (() => {
+                        const isNorm = wfData.inSample.equityCurve.map(p => ({
+                          date: p.date,
+                          isValue: p.value,
+                        }));
+                        const oosNorm = wfData.outOfSample.equityCurve.map(p => ({
+                          date: p.date,
+                          oosValue: p.value,
+                        }));
+                        const combined = [
+                          ...isNorm.map(p => ({ date: p.date, isValue: p.isValue, oosValue: undefined as number | undefined })),
+                          ...oosNorm.map(p => ({ date: p.date, isValue: undefined as number | undefined, oosValue: p.oosValue })),
+                        ].sort((a, b) => a.date.localeCompare(b.date));
+                        return (
+                          <Card className="border-border">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Equity Curves: IS vs OOS</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="h-[240px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <ComposedChart data={combined} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                    <XAxis dataKey="date" fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={v => { try { return format(new Date(v), "MMM yy"); } catch { return v; } }} minTickGap={40} />
+                                    <YAxis fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} domain={["auto","auto"]} />
+                                    <RechartsTooltip
+                                      contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem", fontSize: 11 }}
+                                      formatter={(v: number, name: string) => [fmtUSD(v), name === "isValue" ? "In-Sample" : "Out-of-Sample"]}
+                                    />
+                                    <Line type="monotone" dataKey="isValue" stroke="#a5b4fc" strokeWidth={2} dot={false} name="isValue" connectNulls={false} />
+                                    <Line type="monotone" dataKey="oosValue" stroke="hsl(190,90%,65%)" strokeWidth={2} dot={false} name="oosValue" connectNulls={false} strokeDasharray="5 3" />
+                                  </ComposedChart>
+                                </ResponsiveContainer>
+                              </div>
+                              <div className="flex items-center gap-4 mt-2 text-[11px]">
+                                <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded" style={{ background: "#a5b4fc" }} />In-Sample</span>
+                                <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4" style={{ background: "hsl(190,90%,65%)", borderTop: "2px dashed hsl(190,90%,65%)" }} />Out-of-Sample</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })()}
+                    </div>
+                  );
+                })()}
+
+                {!wfData && !isLoadingWf && (
+                  <div className="py-12 text-center text-muted-foreground text-sm">
+                    <SplitSquareHorizontal className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                    <p>Click <strong>Run Walk-Forward</strong> to test how well the strategy generalises beyond its training data.</p>
+                    <p className="text-xs mt-1 opacity-70">A good strategy should show similar performance in both IS and OOS periods.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </Tabs.Content>
+
+          {/* ── TAB: Monte Carlo ─────────────────────────────────────── */}
+          <Tabs.Content value="monte-carlo" className="space-y-6 tab-transition">
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Shuffle className="h-4 w-4 text-primary" />
+                  Monte Carlo Simulation
+                </CardTitle>
+                <CardDescription>
+                  Resamples your actual trades 500 times in random order to show the distribution of possible outcomes.
+                  This reveals if your results were partly due to luck in trade sequencing.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    onClick={runMonteCarlo}
+                    disabled={mcLoading || !trades || trades.length < 5}
+                    className="h-8"
+                  >
+                    {mcLoading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      : <Shuffle className="h-3.5 w-3.5 mr-1.5" />}
+                    Run 500 Simulations
+                  </Button>
+                  {mcSims.length > 0 && (
+                    <button onClick={() => setMcSims([])} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>
+                  )}
+                  {!trades || trades.length < 5 ? (
+                    <span className="text-xs text-muted-foreground">Need at least 5 trades</span>
+                  ) : null}
+                </div>
+
+                {mcSims.length > 0 && (() => {
+                  const N = mcSims[0].length - 1;
+                  const finalVals = mcSims.map(s => s[N]);
+                  finalVals.sort((a, b) => a - b);
+                  const p10 = finalVals[Math.floor(finalVals.length * 0.1)];
+                  const p50 = finalVals[Math.floor(finalVals.length * 0.5)];
+                  const p90 = finalVals[Math.floor(finalVals.length * 0.9)];
+                  const initialCap = backtest.initialCapital;
+                  const pctRuined = (finalVals.filter(v => v < initialCap * 0.5).length / finalVals.length) * 100;
+                  const pctProfit = (finalVals.filter(v => v > initialCap).length / finalVals.length) * 100;
+
+                  // Build percentile paths from simulations for chart
+                  const pathsPercentile = [0.1, 0.5, 0.9].map(pct => {
+                    const idx = Math.floor(mcSims.length * pct);
+                    const sorted = [...mcSims].sort((a, b) => a[N] - b[N]);
+                    return sorted[Math.min(idx, sorted.length - 1)];
+                  });
+
+                  const chartData = Array.from({ length: N + 1 }, (_, i) => ({
+                    trade: i,
+                    p10: pathsPercentile[0][i],
+                    p50: pathsPercentile[1][i],
+                    p90: pathsPercentile[2][i],
+                  }));
+
+                  // Histogram of final values (20 buckets)
+                  const minV = finalVals[0], maxV = finalVals[finalVals.length - 1];
+                  const bucketSize = (maxV - minV) / 20 || 1;
+                  const histBuckets: { value: number; count: number; isProfitable: boolean }[] = [];
+                  for (let i = 0; i < 20; i++) {
+                    const lo = minV + i * bucketSize;
+                    const hi = lo + bucketSize;
+                    histBuckets.push({
+                      value: lo + bucketSize / 2,
+                      count: finalVals.filter(v => v >= lo && v < hi).length,
+                      isProfitable: lo >= initialCap,
+                    });
+                  }
+
+                  return (
+                    <div className="space-y-5">
+                      {/* Summary stats */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { label: "P10 Outcome", value: fmtUSD(p10), sub: `${((p10 - initialCap) / initialCap * 100).toFixed(1)}%`, color: p10 >= initialCap ? "#22c55e" : "#ef4444" },
+                          { label: "P50 Median", value: fmtUSD(p50), sub: `${((p50 - initialCap) / initialCap * 100).toFixed(1)}%`, color: p50 >= initialCap ? "#22c55e" : "#ef4444" },
+                          { label: "P90 Outcome", value: fmtUSD(p90), sub: `${((p90 - initialCap) / initialCap * 100).toFixed(1)}%`, color: "#22c55e" },
+                          { label: "% Profitable", value: `${pctProfit.toFixed(1)}%`, sub: `${pctRuined.toFixed(1)}% ruined (−50%)`, color: pctProfit >= 50 ? "#22c55e" : "#ef4444" },
+                        ].map(({ label, value, sub, color }) => (
+                          <div key={label} className="p-3 rounded-xl border border-border bg-card">
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">{label}</div>
+                            <div className="text-base font-bold font-mono" style={{ color }}>{value}</div>
+                            <div className="text-[11px] text-muted-foreground">{sub}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Percentile equity paths */}
+                      <Card className="border-border">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Equity Path Distribution (P10 / P50 / P90)</CardTitle>
+                          <CardDescription className="text-xs">Each path represents a random resequencing of your actual trades</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[240px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart data={chartData} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
+                                <defs>
+                                  <linearGradient id="mcGrad90" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
+                                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                <XAxis dataKey="trade" fontSize={10} stroke="hsl(var(--muted-foreground))" label={{ value: "Trade #", position: "insideBottom", offset: -2, fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                                <YAxis fontSize={10} stroke="hsl(var(--muted-foreground))" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} domain={["auto","auto"]} />
+                                <RechartsTooltip
+                                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem", fontSize: 11 }}
+                                  formatter={(v: number, name: string) => [fmtUSD(v), name === "p10" ? "P10 (worst 10%)" : name === "p50" ? "P50 (median)" : "P90 (best 90%)"]}
+                                />
+                                <ReferenceLine y={initialCap} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 2" strokeWidth={1} />
+                                <Area type="monotone" dataKey="p90" stroke="#22c55e" fill="url(#mcGrad90)" strokeWidth={1.5} dot={false} fillOpacity={1} />
+                                <Line type="monotone" dataKey="p50" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="p10" stroke="#ef4444" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="flex items-center gap-5 mt-2 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded" style={{ background: "#22c55e" }} />P90</span>
+                            <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded" style={{ background: "#f59e0b" }} />P50 median</span>
+                            <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4" style={{ background: "#ef4444", borderTop: "2px dashed #ef4444" }} />P10</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Final equity histogram */}
+                      <Card className="border-border">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Distribution of Final Capital (500 sims)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[180px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={histBuckets} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                                <XAxis dataKey="value" fontSize={9} stroke="hsl(var(--muted-foreground))" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                                <YAxis fontSize={10} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                                <ReferenceLine x={initialCap} stroke="rgba(255,255,255,0.3)" strokeDasharray="3 2" />
+                                <RechartsTooltip
+                                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", borderRadius: "0.5rem", fontSize: 11 }}
+                                  formatter={(v: number) => [v, "Simulations"]}
+                                  labelFormatter={v => `~${fmtUSD(Number(v))}`}
+                                />
+                                <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+                                  {histBuckets.map((b, i) => (
+                                    <Cell key={i} fill={b.isProfitable ? "#22c55e" : "#ef4444"} fillOpacity={0.75} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                            Green = profitable (above initial capital) · Red = loss · Dashed line = break-even
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  );
+                })()}
+
+                {mcSims.length === 0 && !mcLoading && (
+                  <div className="py-12 text-center text-muted-foreground text-sm">
+                    <Shuffle className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                    <p>Click <strong>Run 500 Simulations</strong> to see how your returns hold up under different trade orderings.</p>
+                    <p className="text-xs mt-1 opacity-70">If the P10/P90 spread is very wide, your results may depend heavily on trade sequence luck.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </Tabs.Content>
 
           {/* ── TAB: Peer Ranking ────────────────────────────────────── */}
