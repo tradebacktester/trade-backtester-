@@ -10,8 +10,11 @@ import {
 } from "@workspace/db";
 import type { AlertConditionSpec } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
-import { isIndicatorKeySupported } from "../lib/indicator-snapshot";
+import { isIndicatorKeySupported, getIndicatorCatalog } from "../lib/indicator-snapshot";
+import OpenAI from "openai";
+import pino from "pino";
 
+const logger = pino({ level: "info" });
 const JWT_SECRET = process.env.JWT_SECRET ?? "";
 
 function extractUserId(req: Request): number | null {
@@ -36,12 +39,21 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+function groqClient(): OpenAI {
+  const apiKey = process.env.GROQ_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+  return new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
+}
+
 const VALID_ALERT_TYPES = ["price", "indicator", "drawing", "strategy", "ai", "dna"] as const;
 type AlertType = (typeof VALID_ALERT_TYPES)[number];
-const VALID_OPERATORS = ["crossAbove", "crossBelow", "gt", "lt", "eq", "enters", "exits", "signal"] as const;
+const VALID_OPERATORS = [
+  "crossAbove", "crossBelow", "gt", "lt", "eq", "enters", "exits", "signal",
+  "touch", "breakAbove", "breakBelow", "enterZone", "exitZone",
+] as const;
 
 const CROSS_OPERATORS = new Set(["crossAbove", "crossBelow"]);
 const THRESHOLD_OPERATORS = new Set(["gt", "lt", "eq", "enters", "exits"]);
+const DRAWING_OPERATORS = new Set(["touch", "breakAbove", "breakBelow", "enterZone", "exitZone"]);
 
 interface CreateAlertBody {
   name: string;
@@ -64,6 +76,14 @@ interface UpdateAlertBody {
   triggerOnce?: boolean;
 }
 
+function isDrawingCondition(cond: Record<string, unknown>): boolean {
+  return (
+    cond["drawingId"] !== undefined ||
+    cond["drawingEvent"] !== undefined ||
+    (typeof cond["indicatorId"] === "string" && cond["indicatorId"] === "drawing")
+  );
+}
+
 function validateCondition(c: unknown): string | null {
   if (!c || typeof c !== "object") return "Condition must be an object";
   const cond = c as Record<string, unknown>;
@@ -82,6 +102,10 @@ function validateCondition(c: unknown): string | null {
     return `condition.operator must be one of: ${VALID_OPERATORS.join(", ")}`;
   }
   if (logicOp !== "AND" && logicOp !== "OR") return "condition.logicOp must be AND or OR";
+
+  if (isDrawingCondition(cond)) {
+    return null;
+  }
 
   if (!isIndicatorKeySupported(indicatorId as string, outputKey as string)) {
     return `condition indicator "${indicatorId}_${outputKey}" is not supported. Use one of the documented indicator keys.`;
@@ -244,7 +268,7 @@ async function syncConditionRows(alertId: number, conditions: AlertConditionSpec
   await db.insert(alertConditionsTable).values(
     conditions.map((c) => ({
       alertId,
-      conditionType: c.targetIndicatorId ? "indicator_cross" : c.targetValue !== undefined ? "price_level" : "indicator",
+      conditionType: c.drawingId ? "drawing" : c.targetIndicatorId ? "indicator_cross" : c.targetValue !== undefined ? "price_level" : "indicator",
       indicatorId: c.indicatorId,
       outputKey: c.outputKey,
       operator: c.operator,
@@ -261,6 +285,19 @@ const router: IRouter = Router();
 
 router.use("/alerts", requireAuth);
 
+router.get("/alerts/catalog", (_req, res: Response): void => {
+  const catalog = getIndicatorCatalog();
+  const categories = [
+    { id: "price", label: "Price", icon: "DollarSign" },
+    { id: "trend", label: "Trend", icon: "TrendingUp" },
+    { id: "momentum", label: "Momentum", icon: "Zap" },
+    { id: "volatility", label: "Volatility", icon: "Activity" },
+    { id: "volume", label: "Volume", icon: "BarChart2" },
+    { id: "drawing", label: "Drawing Tools", icon: "Pencil" },
+  ];
+  res.json({ catalog, categories });
+});
+
 router.get("/alerts", async (_req, res: Response): Promise<void> => {
   const userId = res.locals["userId"] as number;
   const alerts = await db
@@ -269,14 +306,19 @@ router.get("/alerts", async (_req, res: Response): Promise<void> => {
     .where(eq(alertsTable.userId, userId))
     .orderBy(desc(alertsTable.createdAt));
 
-  res.json(
-    alerts.map((a) => ({
+  const planSlug = await getUserPlanSlug(userId);
+  const limits = ALERT_PLAN_LIMITS[planSlug] ?? ALERT_PLAN_LIMITS["free"]!;
+
+  res.json({
+    alerts: alerts.map((a) => ({
       ...a,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
       lastTriggeredAt: a.lastTriggeredAt?.toISOString() ?? null,
     })),
-  );
+    planSlug,
+    limits,
+  });
 });
 
 router.post("/alerts", async (req: Request, res: Response): Promise<void> => {
@@ -488,6 +530,79 @@ router.patch("/alerts/notifications/:id/read", async (req: Request, res: Respons
     );
 
   res.json({ success: true });
+});
+
+router.post("/alerts/ai-suggest", async (req: Request, res: Response): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const planSlug = await getUserPlanSlug(userId);
+
+  if (planSlug === "free") {
+    res.status(403).json({ error: "AI alert suggestions require a Pro or Elite plan." });
+    return;
+  }
+
+  const b = req.body as Record<string, unknown>;
+  const symbol = typeof b["symbol"] === "string" ? b["symbol"] : "BTCUSDT";
+  const timeframe = typeof b["timeframe"] === "string" ? b["timeframe"] : "1d";
+  const alertType = typeof b["alertType"] === "string" ? b["alertType"] : "indicator";
+  const context = typeof b["context"] === "string" ? b["context"] : "";
+
+  const catalog = getIndicatorCatalog()
+    .filter(e => e.category !== "drawing")
+    .slice(0, 20)
+    .map(e => `${e.key}: ${e.label} (${e.category})`).join("\n");
+
+  const systemPrompt = `You are an expert algorithmic trading alert designer. Your job is to suggest 2-3 precise, actionable alert conditions for a trader.
+Available indicator keys:
+${catalog}
+
+Respond ONLY with valid JSON in this format:
+{
+  "name": "<concise alert name>",
+  "rationale": "<1-2 sentence explanation of why these conditions are useful>",
+  "conditions": [
+    {
+      "indicatorId": "<indicatorId from catalog>",
+      "outputKey": "<outputKey from catalog>",
+      "operator": "crossAbove|crossBelow|gt|lt|eq",
+      "targetValue": <number or null>,
+      "targetIndicatorId": "<optional>",
+      "targetOutputKey": "<optional>",
+      "logicOp": "AND|OR",
+      "groupId": 0
+    }
+  ]
+}`;
+
+  const userMsg = `Symbol: ${symbol}, Timeframe: ${timeframe}, Alert type: ${alertType}${context ? `, Context: ${context}` : ""}. Suggest smart alert conditions.`;
+
+  try {
+    const client = groqClient();
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMsg },
+      ],
+      max_tokens: 500,
+      temperature: 0.6,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    let suggestion: Record<string, unknown> = {};
+    try { suggestion = JSON.parse(raw); } catch { suggestion = {}; }
+
+    if (!Array.isArray(suggestion["conditions"]) || (suggestion["conditions"] as unknown[]).length === 0) {
+      res.status(500).json({ error: "AI returned an empty suggestion. Please try again." });
+      return;
+    }
+
+    res.json(suggestion);
+  } catch (err) {
+    logger.error(err, "alerts/ai-suggest error");
+    res.status(500).json({ error: "AI service temporarily unavailable." });
+  }
 });
 
 router.get("/alerts/stream", requireAuth, (req: Request, res: Response): void => {

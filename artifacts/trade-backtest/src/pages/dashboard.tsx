@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Percent, Target, Shield,
   Clock, BarChart2, Zap, Activity, ArrowUpRight, Play,
   Brain, CandlestickChart, Cpu, Globe, Bitcoin, Gauge,
-  MessageCircle, Send, X, Bot, Sparkles, AlertTriangle, ChevronDown,
+  MessageCircle, Send, X, Bot, Sparkles, AlertTriangle, ChevronDown, Bell, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API_BASE } from "@/lib/api-config";
@@ -84,6 +84,70 @@ type CoachingData = {
   insights: CoachingInsight[];
   hasData: boolean;
 };
+
+/* ── Alert Engine Card (dashboard widget) ────────────────────────── */
+function AlertEngineCard() {
+  const { token } = useAuth();
+  const [stats, setStats] = useState<{ total: number; active: number; unread: number; planSlug: string; maxAlerts: number } | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/api/alerts`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then((d: any) => setStats({ total: d.total ?? 0, active: d.active ?? 0, unread: d.unreadNotifications ?? 0, planSlug: d.planSlug ?? "free", maxAlerts: d.maxAlerts ?? 5 }))
+      .catch(() => {});
+  }, [token]);
+
+  if (!token) return null;
+  const CYAN = "hsl(188,100%,42%)";
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid rgba(0,210,210,0.18)", boxShadow: "var(--shadow-card)" }}>
+      <div className="flex items-center gap-3 px-5 py-3.5" style={{ borderBottom: "1px solid rgba(0,210,210,0.10)" }}>
+        <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(0,210,210,0.10)", border: "1px solid rgba(0,210,210,0.22)" }}>
+          <Bell className="h-3.5 w-3.5" style={{ color: CYAN }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] font-bold" style={{ color: "hsl(var(--foreground))" }}>Alert Engine</span>
+          <span className="text-[10px] font-mono ml-2" style={{ color: "hsl(var(--muted-foreground))" }}>
+            Multi-condition smart alerts
+          </span>
+        </div>
+        {stats && stats.unread > 0 && (
+          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+            style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>
+            {stats.unread} new
+          </span>
+        )}
+        <Link href="/alerts">
+          <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70 flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }}>
+            Manage <ArrowUpRight className="h-3 w-3" />
+          </span>
+        </Link>
+      </div>
+      <div className="px-5 py-3 flex items-center gap-4">
+        {[
+          { label: "Total Alerts",  value: stats?.total  ?? "—", color: CYAN },
+          { label: "Active",        value: stats?.active ?? "—", color: "#22c55e" },
+          { label: "Notifications", value: stats?.unread ?? "—", color: stats && stats.unread > 0 ? "#ef4444" : "hsl(var(--muted-foreground))" },
+          { label: "Plan",          value: stats?.planSlug ? stats.planSlug.charAt(0).toUpperCase() + stats.planSlug.slice(1) : "—", color: stats?.planSlug === "elite" ? "#f59e0b" : stats?.planSlug === "pro" ? "#a855f7" : "hsl(var(--muted-foreground))" },
+        ].map(s => (
+          <div key={s.label} className="flex flex-col items-center flex-1">
+            <span className="text-base font-bold font-mono" style={{ color: s.color }}>{String(s.value)}</span>
+            <span className="text-[9px] font-mono uppercase tracking-wider mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>{s.label}</span>
+          </div>
+        ))}
+        <Link href="/alerts">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-[11px] font-semibold transition-all hover:opacity-80 flex-shrink-0"
+            style={{ background: "rgba(0,210,210,0.10)", border: "1px solid rgba(0,210,210,0.22)", color: CYAN }}>
+            <Plus className="h-3 w-3" /> New Alert
+          </button>
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 /* ── Daily Coach Card (compact dashboard widget) ─────────────────── */
 function DailyCoachCard() {
@@ -1027,6 +1091,9 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-4 pb-4 page-enter">
+
+      {/* Alert Engine Card */}
+      <AlertEngineCard />
 
       {/* Daily Coach Card */}
       <DailyCoachCard />

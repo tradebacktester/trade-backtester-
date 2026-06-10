@@ -317,8 +317,25 @@ export default function ChartPage() {
   // Live trade warning modal (pattern-based — only shown when a mistake is detected)
   type TradeMistake = { label: string; severity: string; detail: string };
   const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number; mistake: TradeMistake; similarity: number } | null>(null);
+  const [aiPreTrade, setAiPreTrade] = useState<{ tip: string; riskLevel: string; warnings: string[] } | null>(null);
   const pendingTradeRef = useRef<(() => void) | null>(null);
   const coachingRef = useRef<{ mistakes: TradeMistake[] } | null>(null);
+
+  async function fetchAiPreTradeCheck(side: "long" | "short", price: number) {
+    if (!token) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/ai/pre-trade-check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ symbol, side, entryPrice: price, leverage: chartLeverage, timeframe: interval }),
+      });
+      if (!r.ok) return;
+      const d = await r.json() as { tip?: string; riskLevel?: string; warnings?: string[]; hasEnoughHistory?: boolean };
+      if (d.hasEnoughHistory && d.tip) {
+        setAiPreTrade({ tip: d.tip, riskLevel: d.riskLevel ?? "medium", warnings: d.warnings ?? [] });
+      }
+    } catch { /* non-blocking */ }
+  }
 
   // Similarity score: how closely does a known losing pattern apply to the current trade?
   // HIGH severity → 72 base (above 60% gate); MEDIUM → 60 (at gate); LOW → 30 (below gate).
@@ -607,7 +624,9 @@ export default function ChartPage() {
         const top = scored[0];
         if (top && top.score >= 60) {
           pendingTradeRef.current = execLong;
+          setAiPreTrade(null);
           setTradeWarn({ side: "long", price: exitPrice, mistake: top.m, similarity: top.score });
+          fetchAiPreTradeCheck("long", exitPrice);
           return;
         }
       }
@@ -665,7 +684,9 @@ export default function ChartPage() {
         const top2 = scored2[0];
         if (top2 && top2.score >= 60) {
           pendingTradeRef.current = execShort;
+          setAiPreTrade(null);
           setTradeWarn({ side: "short", price: exitPrice, mistake: top2.m, similarity: top2.score });
+          fetchAiPreTradeCheck("short", exitPrice);
           return;
         }
       }
@@ -1403,6 +1424,15 @@ export default function ChartPage() {
                 <p className="text-[11px] font-mono font-semibold mb-1" style={{ color: "hsl(38,95%,65%)" }}>{tradeWarn.mistake.label}</p>
                 <p className="text-[11px] font-mono leading-relaxed" style={{ color: "hsl(220,14%,65%)" }}>{tradeWarn.mistake.detail}</p>
               </div>
+              {aiPreTrade?.tip && (
+                <div className="rounded-xl p-3 mt-2" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Sparkles className="h-3 w-3 flex-shrink-0" style={{ color: "hsl(265,89%,65%)" }} />
+                    <p className="text-[10px] font-mono font-semibold uppercase tracking-wider" style={{ color: "hsl(265,89%,65%)" }}>DNA Coach Tip</p>
+                  </div>
+                  <p className="text-[11px] font-mono leading-relaxed" style={{ color: "hsl(265,50%,80%)" }}>{aiPreTrade.tip}</p>
+                </div>
+              )}
             </div>
             <div className="px-6 py-3 flex flex-col gap-1.5">
               {[

@@ -7,7 +7,7 @@ import {
   Shield, LogIn, LogOut, Users, Crown, CreditCard, Wrench, Store,
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
   UserCircle, Calculator, Play, Search, ChevronDown,
-  Cpu, Globe, Plus, Layers, TestTube,
+  Cpu, Globe, Plus, Layers, TestTube, Bell,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -23,6 +23,7 @@ const SECTIONS = [
     items: [
       { title: "Live Charts",    url: "/chart",   icon: CandlestickChart, desc: "Advanced charting & analysis" },
       { title: "Paper Trading",  url: "/demo",    icon: Play,             desc: "Simulated trading practice" },
+      { title: "Alert Engine",   url: "/alerts",  icon: Bell,             desc: "Multi-condition smart alerts" },
       { title: "Tools",          url: "/tools",   icon: Wrench,           desc: "Drawing & analysis tools" },
     ],
   },
@@ -82,7 +83,7 @@ const SECTIONS = [
 
 /* ── Route → section mapping ───────────────────────────────────────── */
 const ROUTE_SECTION: Record<string, string> = {
-  "/chart": "trade",       "/demo": "trade",       "/tools": "trade",
+  "/chart": "trade",       "/demo": "trade",       "/tools": "trade",   "/alerts": "trade",
   "/ai": "research",       "/news": "research",    "/calculator": "research",
   "/marketplace": "research",
   "/strategies": "strategy-lab",  "/backtests": "strategy-lab",
