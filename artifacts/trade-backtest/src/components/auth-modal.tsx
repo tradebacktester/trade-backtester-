@@ -253,26 +253,38 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
                   {showPw ? <EyeOff style={{ height: "13px", width: "13px" }} /> : <Eye style={{ height: "13px", width: "13px" }} />}
                 </button>
               </div>
-              {tab === "signup" && password.length > 0 && (
-                <div className="mt-2">
-                  <div className="flex gap-1 mb-1">
+              {tab === "signup" && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-1">
                     {[1, 2, 3, 4].map(i => (
                       <div
                         key={i}
-                        className="h-1 flex-1 rounded-full transition-colors duration-200"
-                        style={{ background: pwStrength.score >= i ? pwStrength.color : "hsl(var(--border))" }}
+                        className="h-1 flex-1 rounded-full transition-all duration-200"
+                        style={{ background: password.length > 0 && pwStrength.score >= i ? pwStrength.color : "hsl(var(--border))" }}
                       />
                     ))}
                   </div>
-                  <span className="text-[10px] font-medium" style={{ color: pwStrength.color }}>
-                    {pwStrength.label}
-                  </span>
+                  {password.length > 0 && (
+                    <span className="text-[10px] font-medium" style={{ color: pwStrength.color }}>
+                      {pwStrength.label}
+                    </span>
+                  )}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 pt-0.5">
+                    {[
+                      { label: "6+ characters",    met: password.length >= 6 },
+                      { label: "Uppercase letter",  met: /[A-Z]/.test(password) },
+                      { label: "Number",            met: /[0-9]/.test(password) },
+                      { label: "Special character", met: /[^a-zA-Z0-9]/.test(password) },
+                    ].map(r => (
+                      <div key={r.label} className="flex items-center gap-1.5 text-[10px]"
+                        style={{ color: r.met ? "#22c55e" : "hsl(var(--muted-foreground))" }}>
+                        <div className="h-1.5 w-1.5 rounded-full shrink-0 transition-colors duration-150"
+                          style={{ background: r.met ? "#22c55e" : "hsl(var(--border))" }} />
+                        {r.label}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-              {tab === "signup" && password.length === 0 && (
-                <p className="text-[10px] mt-1.5" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  Must be at least 6 characters
-                </p>
               )}
             </div>
 

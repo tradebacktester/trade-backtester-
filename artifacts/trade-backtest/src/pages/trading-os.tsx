@@ -6,7 +6,7 @@ import {
   Bot, BarChart2, Activity, Trophy, Heart, BookOpen, Sparkles, ChevronRight,
   RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Star, Award, Flame,
   DollarSign, Eye, Ghost, Swords, FileText, Telescope, ArrowUpRight,
-  ArrowDownRight, Minus, AlertCircle, Play, Calculator, Users2,
+  ArrowDownRight, Minus, AlertCircle, Play, Calculator, Users2, ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -912,14 +912,23 @@ function ReportTab({ token }: { token: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold" style={{ color: C.text }}>Personal Hedge Fund Report</h2>
           <p className="text-xs" style={{ color: C.sub }}>Institutional-grade weekly performance analysis</p>
         </div>
-        <button onClick={reload} className="p-2 rounded-xl hover:opacity-70" style={GLASS}>
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} style={{ color: C.sub }} />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={reload} className="p-2 rounded-xl hover:opacity-70" style={GLASS}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} style={{ color: C.sub }} />
+          </button>
+          <Link href="/trading-os/report">
+            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:opacity-80"
+              style={{ background: `${C.purple}20`, color: C.purple, border: `1px solid ${C.purple}40` }}>
+              <ExternalLink className="h-3.5 w-3.5" />
+              Full Page
+            </button>
+          </Link>
+        </div>
       </div>
 
       {loading ? (

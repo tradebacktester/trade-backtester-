@@ -874,6 +874,7 @@ export default function BacktestDetail() {
   const [sortKey, setSortKey] = useState<string>("entryDate");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [tradePage, setTradePage] = useState(1);
+  const [equityLegendOpen, setEquityLegendOpen] = useState(true);
   const TRADES_PER_PAGE = 100;
 
   const { data: backtest, isLoading } = useGetBacktest(id, {
@@ -1703,9 +1704,44 @@ export default function BacktestDetail() {
 
             {/* Equity curve */}
             <Card className="glass-card border-0">
-              <CardHeader>
-                <CardTitle>Equity Curve</CardTitle>
-                <CardDescription>Portfolio value over time with drawdown overlay</CardDescription>
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle>Equity Curve</CardTitle>
+                    <CardDescription>Portfolio value over time with drawdown overlay</CardDescription>
+                  </div>
+                  <button
+                    onClick={() => setEquityLegendOpen(v => !v)}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-muted shrink-0 mt-0.5"
+                    style={{ color: "hsl(var(--muted-foreground))" }}
+                    title={equityLegendOpen ? "Hide legend" : "Show legend"}
+                  >
+                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${equityLegendOpen ? "" : "-rotate-90"}`} />
+                  </button>
+                </div>
+                {equityLegendOpen && (
+                  <div className="flex items-center gap-5 pt-2 flex-wrap">
+                    {[
+                      { label: "Equity", color: "hsl(var(--primary))", dashed: false, area: true },
+                      { label: "Buy & Hold", color: "#6366f1", dashed: true, area: false },
+                      { label: "Drawdown", color: "#ef4444", dashed: false, area: true },
+                    ].map(s => (
+                      <div key={s.label} className="flex items-center gap-1.5 text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
+                        <svg width="22" height="10" style={{ flexShrink: 0 }}>
+                          {s.area ? (
+                            <>
+                              <rect x="0" y="5" width="22" height="5" fill={s.color} fillOpacity={0.25} />
+                              <line x1="0" y1="5" x2="22" y2="5" stroke={s.color} strokeWidth="1.5" />
+                            </>
+                          ) : (
+                            <line x1="0" y1="5" x2="22" y2="5" stroke={s.color} strokeWidth="1.5" strokeDasharray="5 3" />
+                          )}
+                        </svg>
+                        {s.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {isLoadingEquity ? (
