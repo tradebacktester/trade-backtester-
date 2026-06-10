@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, numeric, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, numeric, integer, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const marketplaceListingsTable = pgTable("marketplace_listings", {
   id: serial("id").primaryKey(),
@@ -25,7 +25,9 @@ export const marketplaceVotesTable = pgTable("marketplace_votes", {
   listingId: integer("listing_id").notNull(),
   userId: integer("user_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("marketplace_votes_user_listing_idx").on(t.userId, t.listingId),
+]);
 
 export type MarketplaceListing = typeof marketplaceListingsTable.$inferSelect;
 export type MarketplaceVote = typeof marketplaceVotesTable.$inferSelect;

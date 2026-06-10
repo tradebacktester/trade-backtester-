@@ -291,7 +291,7 @@ router.delete("/marketplace/:id", requireAuth, async (req, res): Promise<void> =
   res.json({ success: true });
 });
 
-// POST /marketplace/:id/vote — upvote a listing (auth required, one vote per user)
+// POST /marketplace/:id/vote — upvote a listing (auth required, one vote per user, idempotent)
 router.post("/marketplace/:id/vote", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
   const id = parseInt(req.params["id"] as string, 10);
@@ -308,41 +308,25 @@ router.post("/marketplace/:id/vote", requireAuth, async (req, res): Promise<void
     res.status(400).json({ error: "You cannot vote on your own listing." }); return;
   }
 
-  const existingVote = await db
-    .select()
-    .from(marketplaceVotesTable)
-    .where(and(
-      eq(marketplaceVotesTable.listingId, id),
-      eq(marketplaceVotesTable.userId, userId),
-    ));
+  // Attempt insert; the unique index on (userId, listingId) silently ignores duplicates.
+  const inserted = await db
+    .insert(marketplaceVotesTable)
+    .values({ listingId: id, userId })
+    .onConflictDoNothing()
+    .returning({ id: marketplaceVotesTable.id });
 
-  if (existingVote.length > 0) {
-    await db
-      .delete(marketplaceVotesTable)
-      .where(and(
-        eq(marketplaceVotesTable.listingId, id),
-        eq(marketplaceVotesTable.userId, userId),
-      ));
-
+  // Only increment the counter when a new vote row was actually created.
+  let updatedListing = listing;
+  if (inserted.length > 0) {
     const [updated] = await db
       .update(marketplaceListingsTable)
-      .set({ votes: sql`GREATEST(0, ${marketplaceListingsTable.votes} - 1)` })
+      .set({ votes: sql`${marketplaceListingsTable.votes} + 1` })
       .where(eq(marketplaceListingsTable.id, id))
       .returning();
-
-    res.json({ voted: false, votes: updated!.votes });
-    return;
+    updatedListing = updated!;
   }
 
-  await db.insert(marketplaceVotesTable).values({ listingId: id, userId });
-
-  const [updated] = await db
-    .update(marketplaceListingsTable)
-    .set({ votes: sql`${marketplaceListingsTable.votes} + 1` })
-    .where(eq(marketplaceListingsTable.id, id))
-    .returning();
-
-  res.json({ voted: true, votes: updated!.votes });
+  res.json({ voted: true, votes: updatedListing.votes });
 });
 
 // POST /marketplace/:id/backtest-stats — refresh real backtest stats on a listing (auth: listing owner)
