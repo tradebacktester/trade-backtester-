@@ -177,7 +177,7 @@ function StrategyCard({
                 {local ? "Run Backtest" : "View Details"}
               </span>
             </Link>
-            <Link href={`/alerts?from=strategy&symbol=${encodeURIComponent(symbol)}`} title="Create Alert">
+            <Link href={`/alerts?from=strategy&symbol=${encodeURIComponent(symbol)}&strategyId=${id}&strategyType=${encodeURIComponent(type)}&strategyName=${encodeURIComponent(name)}`} title="Create Alert from Strategy">
               <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.2)", color: "hsl(265,89%,65%)" }}>
                 <Bell className="h-4 w-4" />

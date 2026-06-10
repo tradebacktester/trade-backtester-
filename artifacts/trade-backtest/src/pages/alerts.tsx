@@ -62,6 +62,35 @@ interface Notification {
   triggeredAt: string;
 }
 
+interface UserStrategy {
+  id: number;
+  name: string;
+  type: string;
+  symbol: string;
+  timeframe: string;
+  parameters?: Record<string, unknown>;
+}
+
+interface SessionStat { label: string; winRate: number; trades: number; avgPnlPct: number }
+interface DnaSuggestedAlert { name: string; description: string; conditions: AlertCondition[]; reasoning: string }
+
+interface DnaAnalysis {
+  totalTrades: number;
+  avgWinRate: number;
+  avgReturn: number;
+  avgDrawdown: number;
+  traderStyle: string;
+  preferredSide: string;
+  riskProfile: string;
+  sessionStats: SessionStat[];
+  bestSession: SessionStat | null;
+  worstSession: SessionStat | null;
+  topMistakes: { label: string; count: number }[];
+  bestStrategy: { type: string; avgWinRate: number; avgReturn: number } | null;
+  suggestedAlerts: DnaSuggestedAlert[];
+  backtestCount: number;
+}
+
 const OPERATORS = [
   { value: "crossAbove",  label: "Crosses Above" },
   { value: "crossBelow",  label: "Crosses Below" },
@@ -147,6 +176,12 @@ export default function AlertsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "history" | "all">("active");
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default");
+
+  const [strategies, setStrategies] = useState<UserStrategy[]>([]);
+  const [strategyLoading, setStrategyLoading] = useState(false);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<number | null>(null);
+  const [dnaData, setDnaData] = useState<DnaAnalysis | null>(null);
+  const [dnaLoading, setDnaLoading] = useState(false);
 
   // ── Form state ───────────────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -240,11 +275,25 @@ export default function AlertsPage() {
     const from = params.get("from");
     const type = params.get("type") as AlertRow["type"] | null;
     const sym = params.get("symbol");
+    const stratId = params.get("strategyId");
+    const stratType = params.get("strategyType");
+    const stratName = params.get("strategyName");
     if (from || type) {
-      const preType: AlertRow["type"] = type ?? (from === "drawing" ? "drawing" : "price");
+      let preType: AlertRow["type"] =
+        type ?? (from === "drawing" ? "drawing" : from === "strategy" ? "strategy" : "price");
       const preSym = sym ?? "BTCUSDT";
       setForm(prev => ({ ...prev, type: preType, symbol: preSym }));
       setShowDialog(true);
+      // Auto-load strategy conditions if strategyId + strategyType present
+      if (from === "strategy" && stratId && stratType) {
+        setTimeout(() => {
+          const fakeStrategy: UserStrategy = {
+            id: Number(stratId), name: stratName ?? stratType,
+            type: stratType, symbol: preSym, timeframe: "1d",
+          };
+          loadFromStrategy(fakeStrategy);
+        }, 300);
+      }
       // Clear params without reloading
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -314,6 +363,51 @@ export default function AlertsPage() {
     setNotifPermission(result);
     if (result === "granted") toast({ title: "Browser notifications enabled" });
     else toast({ title: "Notifications blocked", description: "Allow notifications in your browser settings.", variant: "destructive" });
+  }
+
+  // ── Load strategies for Strategy Alert picker ───────────────────────────────
+  useEffect(() => {
+    if (form.type === "strategy" && token && strategies.length === 0 && !strategyLoading) {
+      fetch(`${API_BASE}/api/strategies`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { strategies?: UserStrategy[] } | null) => { if (d) setStrategies(d.strategies ?? []); })
+        .catch(() => {});
+    }
+    if (form.type === "dna" && token && !dnaData && !dnaLoading) {
+      setDnaLoading(true);
+      fetch(`${API_BASE}/api/alerts/dna-analysis`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then((d: DnaAnalysis | null) => { if (d) setDnaData(d); })
+        .catch(() => {})
+        .finally(() => setDnaLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.type, token]);
+
+  async function loadFromStrategy(strategy: UserStrategy) {
+    if (!token) return;
+    setStrategyLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/from-strategy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ strategyType: strategy.type, parameters: strategy.parameters ?? {}, symbol: form.symbol, name: strategy.name }),
+      });
+      const d = await res.json() as { name?: string; conditions?: AlertCondition[]; error?: string };
+      if (!res.ok || d.error) { toast({ title: d.error ?? "Failed to load strategy", variant: "destructive" }); return; }
+      if (d.conditions?.length) {
+        setSelectedStrategyId(strategy.id);
+        setForm(prev => ({ ...prev, name: d.name ?? prev.name, conditions: d.conditions! }));
+        toast({ title: "Strategy conditions loaded", description: `${d.conditions.length} condition(s) applied from "${strategy.name}"` });
+      }
+    } finally {
+      setStrategyLoading(false);
+    }
+  }
+
+  function applyDnaSuggestion(suggested: DnaSuggestedAlert) {
+    setForm(prev => ({ ...prev, name: suggested.name, conditions: suggested.conditions, type: "dna" }));
+    toast({ title: "DNA alert applied", description: suggested.reasoning.slice(0, 80) + "…" });
   }
 
   async function aiSuggest() {
@@ -699,6 +793,136 @@ export default function AlertsPage() {
                   </select>
                 </div>
               </div>
+
+              {/* ── Strategy Picker (type === "strategy") ──────────────────── */}
+              {form.type === "strategy" && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Pick a Strategy</label>
+                    <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>auto-fills conditions below</span>
+                  </div>
+                  {strategies.length === 0 ? (
+                    <div className="flex items-center gap-2 px-3 py-3 rounded-xl text-xs"
+                      style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.15)", color: "var(--text-muted)" }}>
+                      <Layers className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "hsl(270,90%,65%)" }} />
+                      No saved strategies found — create one in the Strategies page first.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                      {strategies.map(s => {
+                        const active = selectedStrategyId === s.id;
+                        return (
+                          <button key={s.id} onClick={() => loadFromStrategy(s)} disabled={strategyLoading}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                            style={{
+                              background: active ? "rgba(139,92,246,0.12)" : "var(--card-bg)",
+                              border: `1px solid ${active ? "rgba(139,92,246,0.4)" : "var(--border)"}`,
+                            }}>
+                            <div className="h-6 w-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.2)" }}>
+                              <Layers className="h-3 w-3" style={{ color: "hsl(270,90%,65%)" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate" style={{ color: active ? "hsl(270,90%,75%)" : "var(--text-primary)" }}>{s.name}</p>
+                              <p className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{s.type} · {s.symbol} · {s.timeframe}</p>
+                            </div>
+                            {active && <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "hsl(270,90%,65%)" }} />}
+                            {strategyLoading && selectedStrategyId !== s.id && <RefreshCw className="h-3 w-3 animate-spin flex-shrink-0 opacity-40" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── DNA Suggested Alerts (type === "dna") ─────────────────── */}
+              {form.type === "dna" && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium flex items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
+                      <Dna className="h-3.5 w-3.5" style={{ color: "hsl(180,90%,50%)" }} />
+                      DNA-Powered Alert Suggestions
+                    </label>
+                    <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>based on your trade history</span>
+                  </div>
+                  {dnaLoading ? (
+                    <div className="flex items-center gap-2 px-3 py-4 rounded-xl text-xs"
+                      style={{ background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)", color: "var(--text-muted)" }}>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" style={{ color: "hsl(180,90%,50%)" }} />
+                      Analysing your trade DNA…
+                    </div>
+                  ) : !dnaData ? (
+                    <div className="px-3 py-3 rounded-xl text-xs" style={{ background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)", color: "var(--text-muted)" }}>
+                      Not enough data yet — run some backtests to unlock DNA insights.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Profile snapshot */}
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        {[
+                          { label: "Style", value: dnaData.traderStyle },
+                          { label: "Win Rate", value: `${dnaData.avgWinRate}%` },
+                          { label: "Risk", value: dnaData.riskProfile },
+                        ].map(s => (
+                          <div key={s.label} className="rounded-xl px-2 py-1.5 text-center"
+                            style={{ background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)" }}>
+                            <p className="text-[9px] font-mono uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+                            <p className="text-xs font-bold font-mono" style={{ color: "hsl(180,90%,60%)" }}>{s.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Session bars */}
+                      {dnaData.sessionStats.length > 0 && (
+                        <div className="rounded-xl px-3 py-2.5 mb-2"
+                          style={{ background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)" }}>
+                          <p className="text-[9px] font-mono uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Session Performance</p>
+                          {dnaData.sessionStats.map(s => (
+                            <div key={s.label} className="mb-1.5">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="text-[10px] font-mono" style={{ color: "var(--text-secondary)" }}>{s.label}</span>
+                                <span className="text-[10px] font-mono font-bold" style={{ color: s.winRate >= 50 ? "hsl(142,70%,50%)" : "hsl(0,80%,60%)" }}>{s.winRate.toFixed(0)}%</span>
+                              </div>
+                              <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                                <div className="h-full rounded-full transition-all duration-700"
+                                  style={{ width: `${s.winRate}%`, background: s.winRate >= 50 ? "hsl(142,70%,50%)" : "hsl(0,80%,60%)" }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Suggested alerts */}
+                      {dnaData.suggestedAlerts.length === 0 ? (
+                        <p className="text-xs text-center py-2" style={{ color: "var(--text-muted)" }}>Run more backtests to unlock personalized DNA alert suggestions.</p>
+                      ) : (
+                        <>
+                          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Suggested for You</p>
+                          {dnaData.suggestedAlerts.map((s, i) => (
+                            <div key={i} className="rounded-xl p-3 space-y-2"
+                              style={{ background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.15)" }}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-xs font-semibold" style={{ color: "hsl(180,90%,65%)" }}>{s.name}</p>
+                                  <p className="text-[10px] font-mono mt-0.5" style={{ color: "var(--text-muted)" }}>{s.description}</p>
+                                </div>
+                                <button onClick={() => applyDnaSuggestion(s)}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-shrink-0"
+                                  style={{ background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.25)", color: "hsl(180,90%,60%)" }}>
+                                  <Check className="h-2.5 w-2.5" />
+                                  Use
+                                </button>
+                              </div>
+                              <p className="text-[10px] font-mono leading-relaxed" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
+                                💡 {s.reasoning}
+                              </p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Condition builder — grouped (AND within group, OR between groups) */}
               <div>

@@ -652,6 +652,236 @@ Respond ONLY with valid JSON in this format:
   }
 });
 
+// ── Strategy type → alert conditions mapper ─────────────────────────────────
+
+function mapStrategyToConditions(stratType: string, params: Record<string, unknown>): AlertConditionSpec[] {
+  const c = (indicatorId: string, outputKey: string, operator: string, targetValue?: number, targetIndicatorId?: string, targetOutputKey?: string): AlertConditionSpec => ({
+    indicatorId, outputKey, operator,
+    ...(targetValue !== undefined ? { targetValue } : {}),
+    ...(targetIndicatorId ? { targetIndicatorId } : {}),
+    ...(targetOutputKey ? { targetOutputKey } : {}),
+    logicOp: "AND", groupId: 0,
+  });
+
+  const closestSMA = (p: number) => ([10, 20, 50, 100, 200] as number[]).reduce((a, b) => Math.abs(b - p) < Math.abs(a - p) ? b : a);
+  const closestEMA = (p: number) => ([9, 20, 50, 100, 200] as number[]).reduce((a, b) => Math.abs(b - p) < Math.abs(a - p) ? b : a);
+  const closestRSI = (p: number) => ([7, 14, 21] as number[]).reduce((a, b) => Math.abs(b - p) < Math.abs(a - p) ? b : a);
+
+  const fp = Number(params["fastPeriod"] ?? 20);
+  const sp = Number(params["slowPeriod"] ?? 50);
+  const period = Number(params["period"] ?? 14);
+  const oversold = Number(params["oversold"] ?? 30);
+  const overbought = Number(params["overbought"] ?? 70);
+
+  switch (stratType) {
+    case "sma_crossover":
+      return [c(`sma_${closestSMA(fp)}`, "value", "crossAbove", undefined, `sma_${closestSMA(sp)}`, "value")];
+    case "ema_crossover":
+      return [c(`ema_${closestEMA(fp)}`, "value", "crossAbove", undefined, `ema_${closestEMA(sp)}`, "value")];
+    case "rsi":
+      return [c(`rsi_${closestRSI(period)}`, "value", "crossAbove", oversold)];
+    case "macd":
+      return [c("macd_12_26_9", "macd", "crossAbove", undefined, "macd_12_26_9", "signal")];
+    case "macd_rsi":
+      return [
+        c("macd_12_26_9", "macd", "crossAbove", undefined, "macd_12_26_9", "signal"),
+        { ...c("rsi_14", "value", "lt", overbought), groupId: 0 },
+      ];
+    case "bollinger_bands":
+    case "bollinger_reversal":
+      return [c("price", "close", "crossAbove", undefined, "bb_20_2", "lower")];
+    case "super_trend":
+      return [c("supertrend_10_3", "direction", "signal")];
+    case "vwap":
+      return [c("price", "close", "crossAbove", undefined, "vwap", "value")];
+    case "golden_cross":
+      return [c("sma_50", "value", "crossAbove", undefined, "sma_200", "value")];
+    case "trend_following":
+      return [
+        c("ema_20", "value", "crossAbove", undefined, "ema_50", "value"),
+        { ...c("adx_14", "value", "gt", 25), groupId: 0 },
+      ];
+    case "breakout":
+    case "turtle_trading":
+    case "donchian_breakout":
+    case "orb":
+    default:
+      return [c("price", "close", "crossAbove", undefined, "sma_20", "value")];
+  }
+}
+
+// ── POST /alerts/from-strategy ───────────────────────────────────────────────
+
+router.post("/alerts/from-strategy", async (req: Request, res: Response): Promise<void> => {
+  const userId = res.locals["userId"] as number | undefined;
+  if (!userId) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const planSlug = await getUserPlanSlug(userId);
+  if (planSlug === "free") { res.status(403).json({ error: "Strategy alerts require a Pro plan." }); return; }
+
+  const b = req.body as Record<string, unknown>;
+  const strategyType = typeof b["strategyType"] === "string" ? b["strategyType"] : "breakout";
+  const params = (b["parameters"] as Record<string, unknown>) ?? {};
+  const symbol = typeof b["symbol"] === "string" ? b["symbol"] : "BTCUSDT";
+  const strategyName = typeof b["name"] === "string" ? b["name"] : strategyType;
+
+  const conditions = mapStrategyToConditions(strategyType, params);
+  const name = `${strategyName} Signal — ${symbol}`;
+
+  res.json({ name, conditions, strategyType });
+});
+
+// ── GET /alerts/dna-analysis ─────────────────────────────────────────────────
+
+router.get("/alerts/dna-analysis", async (req: Request, res: Response): Promise<void> => {
+  const userId = res.locals["userId"] as number | undefined;
+  if (!userId) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  try {
+    const profile = await extractTraderProfile(userId);
+
+    const sessionStats = profile.sessionStats ?? [];
+    const sorted = [...sessionStats].sort((a, b) => b.winRate - a.winRate);
+    const bestSession = sorted[0] ?? null;
+    const worstSession = sorted[sorted.length - 1] ?? null;
+    const bestStrategy = (profile.strategyStats ?? []).slice().sort((a, b) => b.avgWinRate - a.avgWinRate)[0] ?? null;
+
+    let riskProfile: "conservative" | "moderate" | "aggressive" = "moderate";
+    if (profile.avgDrawdown > 20) riskProfile = "aggressive";
+    else if (profile.avgDrawdown < 10) riskProfile = "conservative";
+
+    const suggestedAlerts: Array<{ name: string; description: string; conditions: AlertConditionSpec[]; reasoning: string }> = [];
+
+    if (bestSession && bestSession.trades >= 2) {
+      const sessionCond: AlertConditionSpec =
+        bestSession.label.includes("London")
+          ? { indicatorId: "price", outputKey: "close", operator: "crossAbove", targetIndicatorId: "vwap", targetOutputKey: "value", logicOp: "AND", groupId: 0 }
+          : bestSession.label.includes("New York")
+          ? { indicatorId: "macd_12_26_9", outputKey: "macd", operator: "crossAbove", targetIndicatorId: "macd_12_26_9", targetOutputKey: "signal", logicOp: "AND", groupId: 0 }
+          : { indicatorId: "rsi_14", outputKey: "value", operator: "crossAbove", targetValue: 30, logicOp: "AND", groupId: 0 };
+
+      suggestedAlerts.push({
+        name: `${bestSession.label} Momentum Alert`,
+        description: `Fires at ${bestSession.label} momentum setups — your best session at ${bestSession.winRate.toFixed(0)}% win rate`,
+        conditions: [sessionCond],
+        reasoning: `Your ${bestSession.label} trades have a ${bestSession.winRate.toFixed(0)}% win rate across ${bestSession.trades} trades. This alert catches momentum entries in your strongest window.`,
+      });
+    }
+
+    if (worstSession && worstSession.label !== bestSession?.label && worstSession.trades >= 2) {
+      suggestedAlerts.push({
+        name: `Avoid ${worstSession.label} (RSI OB Guard)`,
+        description: `Warns when RSI is overbought during ${worstSession.label} — your weakest session`,
+        conditions: [{ indicatorId: "rsi_14", outputKey: "value", operator: "gt", targetValue: 70, logicOp: "AND", groupId: 0 }],
+        reasoning: `You lose ${(100 - worstSession.winRate).toFixed(0)}% of trades in ${worstSession.label}. This alert fires on overbought conditions to help you avoid chasing in your weakest window.`,
+      });
+    }
+
+    if (profile.journalMistakes?.[0] && profile.journalMistakes[0].count >= 2) {
+      const topMistake = profile.journalMistakes[0];
+      suggestedAlerts.push({
+        name: `"${topMistake.label}" Guard`,
+        description: `Behavioral guard for your #1 mistake: "${topMistake.label}" (${topMistake.count}× in journal)`,
+        conditions: [{ indicatorId: "adx_14", outputKey: "value", operator: "lt", targetValue: 20, logicOp: "AND", groupId: 0 }],
+        reasoning: `You've logged "${topMistake.label}" ${topMistake.count} times. This alert fires when the ADX shows weak trend — a common context for this mistake.`,
+      });
+    }
+
+    if (profile.preferredSide === "long" || profile.preferredSide === "mixed") {
+      suggestedAlerts.push({
+        name: "Supertrend Bull Flip",
+        description: "Fires when Supertrend flips bullish — catches your preferred long-side entries",
+        conditions: [{ indicatorId: "supertrend_10_3", outputKey: "direction", operator: "signal", logicOp: "AND", groupId: 0 }],
+        reasoning: `You prefer ${profile.preferredSide} setups. This alert fires on bullish Supertrend flips so you never miss a trend-start entry.`,
+      });
+    }
+
+    res.json({
+      totalTrades: profile.totalTrades,
+      avgWinRate: Math.round(profile.avgWinRate * 10) / 10,
+      avgReturn: Math.round(profile.avgReturn * 10) / 10,
+      avgDrawdown: Math.round(profile.avgDrawdown * 10) / 10,
+      avgSharpe: Math.round(profile.avgSharpe * 100) / 100,
+      traderStyle: profile.traderStyle,
+      preferredSide: profile.preferredSide,
+      riskProfile,
+      sessionStats,
+      bestSession,
+      worstSession,
+      topMistakes: profile.journalMistakes ?? [],
+      bestStrategy,
+      topSymbols: profile.topSymbols ?? [],
+      strategyStats: profile.strategyStats ?? [],
+      suggestedAlerts,
+      backtestCount: profile.backtestCount,
+    });
+  } catch (err) {
+    logger.error(err, "alerts/dna-analysis error");
+    res.status(500).json({ error: "Failed to load DNA analysis." });
+  }
+});
+
+// ── POST /alerts/behavior-check ──────────────────────────────────────────────
+
+router.post("/alerts/behavior-check", async (req: Request, res: Response): Promise<void> => {
+  const userId = res.locals["userId"] as number | undefined;
+  if (!userId) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const b = req.body as Record<string, unknown>;
+  const symbol = typeof b["symbol"] === "string" ? b["symbol"] : "";
+  const side   = typeof b["side"] === "string" ? b["side"] : "long";
+
+  try {
+    const profile = await extractTraderProfile(userId);
+    const allTrades = [...(profile.winningTrades ?? []), ...(profile.losingTrades ?? [])];
+
+    const symbolTrades = symbol ? allTrades.filter(t => t.symbol === symbol) : [];
+    const symbolWins   = symbolTrades.filter(t => t.pnl > 0).length;
+    const symbolWinRate = symbolTrades.length > 0 ? (symbolWins / symbolTrades.length) * 100 : 50;
+
+    const sideTrades = allTrades.filter(t => t.side === side);
+    const sideWins   = sideTrades.filter(t => t.pnl > 0).length;
+    const sideWinRate = sideTrades.length > 0 ? (sideWins / sideTrades.length) * 100 : 50;
+
+    const patterns: string[] = [];
+    let warningScore = 0;
+
+    if (symbolTrades.length >= 3 && symbolWinRate < 40) {
+      patterns.push(`Low win rate on ${symbol}: ${symbolWinRate.toFixed(0)}% across ${symbolTrades.length} trades`);
+      warningScore += 2;
+    }
+    if (sideTrades.length >= 5 && sideWinRate < 40) {
+      patterns.push(`Poor ${side} performance: ${sideWinRate.toFixed(0)}% win rate across ${sideTrades.length} trades`);
+      warningScore += 1;
+    }
+    if ((profile.journalMistakes?.[0]?.count ?? 0) >= 3) {
+      const m = profile.journalMistakes![0]!;
+      patterns.push(`Recurring mistake: "${m.label}" (${m.count}× in journal)`);
+      warningScore += 1;
+    }
+
+    const warningLevel: "none" | "low" | "medium" | "high" =
+      warningScore >= 3 ? "high" : warningScore >= 2 ? "medium" : warningScore >= 1 ? "low" : "none";
+
+    const message =
+      warningLevel === "high"   ? `High risk: ${patterns[0] ?? "Multiple losing patterns detected"}.` :
+      warningLevel === "medium" ? `Moderate risk: ${patterns[0] ?? "Pattern match found"}.` :
+      warningLevel === "low"    ? `Low risk: minor pattern match — proceed with caution.` :
+      "No major risk patterns detected for this setup.";
+
+    res.json({
+      warningLevel, message, patterns,
+      symbolWinRate: Math.round(symbolWinRate * 10) / 10,
+      sideWinRate: Math.round(sideWinRate * 10) / 10,
+      symbolTradeCount: symbolTrades.length,
+      sideTradeCount: sideTrades.length,
+    });
+  } catch (err) {
+    logger.error(err, "alerts/behavior-check error");
+    res.status(500).json({ error: "Failed to run behavior check." });
+  }
+});
+
 router.get("/alerts/stream", (req: Request, res: Response): void => {
   // EventSource cannot send headers — accept token via query param for SSE only
   let userId: number | null = null;

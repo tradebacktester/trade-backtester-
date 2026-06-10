@@ -573,6 +573,188 @@ function AiMarketPulse() {
   );
 }
 
+/* ── Trader DNA Command Center ────────────────────────────────────── */
+interface DnaProfile {
+  totalTrades: number; avgWinRate: number; avgReturn: number; avgDrawdown: number;
+  traderStyle: string; preferredSide: string; riskProfile: string;
+  sessionStats: { label: string; winRate: number; trades: number }[];
+  bestSession: { label: string; winRate: number } | null;
+  worstSession: { label: string; winRate: number } | null;
+  topMistakes: { label: string; count: number }[];
+  bestStrategy: { type: string; avgWinRate: number } | null;
+  backtestCount: number;
+}
+
+function TraderDNACommandCenter() {
+  const { token } = useAuth();
+  const [data, setData] = useState<DnaProfile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    setLoading(true);
+    fetch(`${API_BASE}/api/alerts/dna-analysis`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: DnaProfile | null) => { if (d) setData(d); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  if (!token) return null;
+
+  const riskColor = (r: string) =>
+    r === "aggressive" ? C.negative : r === "conservative" ? C.positive : C.amber;
+
+  const SEV_COLORS = ["hsl(0,80%,60%)", "hsl(25,95%,60%)", "hsl(38,100%,60%)"];
+
+  return (
+    <div
+      className="specular-card relative overflow-hidden rounded-3xl"
+      style={{ ...CARD, boxShadow: "var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+    >
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 60% 80% at 100% 0%, rgba(0,229,255,0.045) 0%, transparent 65%)" }} />
+
+      <div className="relative p-5 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.2)" }}>
+              <Brain className="h-4 w-4" style={{ color: "hsl(180,90%,60%)" }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold" style={{ color: C.text }}>Trader DNA Command Center</p>
+              <p className="text-[10px] font-mono" style={{ color: C.muted }}>Behavioral intelligence from your trade history</p>
+            </div>
+          </div>
+          <Link href="/alerts?from=dna&type=dna">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all"
+              style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.2)", color: "hsl(180,90%,60%)" }}>
+              <Bell className="h-3 w-3" />
+              DNA Alert
+            </span>
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-3 gap-2">
+            {[0, 1, 2].map(i => <Skel key={i} className="h-16" />)}
+          </div>
+        ) : !data || data.totalTrades === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <Brain className="h-8 w-8 opacity-15" style={{ color: C.muted }} />
+            <p className="text-sm font-mono" style={{ color: C.muted }}>Run backtests to unlock DNA insights</p>
+            <Link href="/backtests/new">
+              <Button variant="outline" size="sm" className="mt-1">Run First Backtest</Button>
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* Profile stats row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+              {[
+                { label: "Trader Style", value: data.traderStyle, color: "hsl(210,90%,65%)" },
+                { label: "Preferred Side", value: data.preferredSide.charAt(0).toUpperCase() + data.preferredSide.slice(1), color: "hsl(142,70%,50%)" },
+                { label: "Avg Win Rate", value: `${data.avgWinRate}%`, color: data.avgWinRate >= 50 ? C.positive : C.negative },
+                { label: "Risk Profile", value: data.riskProfile.charAt(0).toUpperCase() + data.riskProfile.slice(1), color: riskColor(data.riskProfile) },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl px-3 py-2.5 glass-shine"
+                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                  <p className="text-[9px] font-mono uppercase tracking-wider mb-1" style={{ color: C.muted }}>{s.label}</p>
+                  <p className="text-xs font-bold font-mono" style={{ color: s.color }}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Session performance */}
+            {data.sessionStats.length > 0 && (
+              <div className="mb-4 rounded-2xl p-3"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                <p className="text-[9px] font-mono uppercase tracking-widest mb-3" style={{ color: C.muted }}>Session Win Rates</p>
+                <div className="space-y-2">
+                  {data.sessionStats.map(s => {
+                    const isBest = s.label === data.bestSession?.label;
+                    const isWorst = s.label === data.worstSession?.label;
+                    const barColor = isBest ? C.positive : isWorst ? C.negative : C.amber;
+                    return (
+                      <div key={s.label}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono" style={{ color: C.sub }}>{s.label}</span>
+                            {isBest && <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full" style={{ background: `${C.positive}15`, color: C.positive, border: `1px solid ${C.positive}30` }}>BEST</span>}
+                            {isWorst && <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full" style={{ background: `${C.negative}15`, color: C.negative, border: `1px solid ${C.negative}30` }}>AVOID</span>}
+                          </div>
+                          <span className="text-[11px] font-mono font-bold" style={{ color: barColor }}>{s.winRate.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${Math.min(100, s.winRate)}%`, background: barColor, boxShadow: `0 0 6px ${barColor}60` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Top mistakes + expand */}
+            {data.topMistakes.length > 0 && (
+              <>
+                <button onClick={() => setExpanded(v => !v)}
+                  className="flex items-center gap-1.5 text-[11px] font-mono w-full mb-2 hover:opacity-80"
+                  style={{ color: C.negative }}>
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {data.topMistakes.length} recurring mistake{data.topMistakes.length !== 1 ? "s" : ""} detected
+                  <ChevronDown className="h-3 w-3 ml-auto" style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                </button>
+                {expanded && (
+                  <div className="space-y-2">
+                    {data.topMistakes.map((m, i) => (
+                      <div key={m.label} className="flex items-start gap-2.5 px-3 py-2 rounded-xl"
+                        style={{ background: `${SEV_COLORS[i] ?? C.amber}08`, border: `1px solid ${SEV_COLORS[i] ?? C.amber}22` }}>
+                        <div className="h-1.5 w-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: SEV_COLORS[i] ?? C.amber }} />
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold" style={{ color: SEV_COLORS[i] ?? C.amber }}>{m.label}</p>
+                          <p className="text-[10px] font-mono" style={{ color: C.muted }}>Logged {m.count}× in trading journal</p>
+                        </div>
+                        <Link href={`/alerts?from=strategy&type=dna`}>
+                          <span className="text-[9px] font-mono px-2 py-1 rounded-lg cursor-pointer transition-all"
+                            style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.2)", color: "hsl(180,90%,60%)" }}>
+                            Guard →
+                          </span>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Best strategy */}
+            {data.bestStrategy && (
+              <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl"
+                style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)" }}>
+                <Zap className="h-3.5 w-3.5 flex-shrink-0" style={{ color: C.positive }} />
+                <p className="text-[11px] font-mono" style={{ color: C.sub }}>
+                  Best strategy: <strong style={{ color: C.positive }}>{data.bestStrategy.type}</strong> — {data.bestStrategy.avgWinRate.toFixed(0)}% avg win rate
+                </p>
+                <Link href="/alerts?from=strategy&type=strategy" className="ml-auto flex-shrink-0">
+                  <span className="text-[9px] font-mono px-2 py-1 rounded-lg cursor-pointer"
+                    style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", color: C.positive }}>
+                    Alert →
+                  </span>
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Stat card ────────────────────────────────────────────────────── */
 function StatCard({
   icon: Icon, label, value, accent, isLoading = false,
@@ -1254,6 +1436,9 @@ export default function Dashboard() {
         <StatCard icon={DollarSign}  label="Best Trade"     accent={C.positive} value={isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—"} isLoading={isLoading} />
         <StatCard icon={Activity}    label="Total Trades"   value={isLoading ? null : (summary?.totalTrades ?? 0)} isLoading={isLoading} />
       </div>
+
+      {/* Trader DNA Command Center */}
+      <TraderDNACommandCenter />
 
       {/* Middle row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
