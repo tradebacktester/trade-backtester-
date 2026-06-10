@@ -681,7 +681,7 @@ export default function AlertsPage() {
       {/* ── Notification panel ────────────────────────────────────────── */}
       {showNotifPanel && (
         <div className="fixed inset-y-0 right-0 z-50 flex flex-col w-80 shadow-2xl md:top-[56px]"
-          style={{ background: "var(--bg-primary)", borderLeft: "1px solid var(--border)" }}>
+          style={{ background: "hsl(var(--background))", borderLeft: "1px solid var(--border)" }}>
           <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--border)" }}>
             <h3 className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Notifications</h3>
             <button onClick={() => setShowNotifPanel(false)}>
@@ -722,7 +722,7 @@ export default function AlertsPage() {
           style={{ background: "rgba(0,0,0,0.6)" }}
           onClick={e => { if (e.target === e.currentTarget) setShowDialog(false); }}>
           <div className="w-full max-w-xl rounded-3xl shadow-2xl flex flex-col"
-            style={{ background: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+            style={{ background: "hsl(var(--background))", border: "1px solid var(--border)" }}>
 
             {/* Dialog header */}
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>

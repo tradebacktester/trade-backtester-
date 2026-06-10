@@ -128,17 +128,25 @@ export function loadIndicators(): IndicatorConfig[] {
   try {
     const raw = localStorage.getItem(INDICATORS_KEY);
     if (!raw) return DEFAULT_INDICATORS;
-    const saved = JSON.parse(raw) as { id: IndicatorId; enabled: boolean }[];
+    const saved = JSON.parse(raw) as { id: IndicatorId; enabled: boolean; period?: number; color?: string }[];
     return DEFAULT_INDICATORS.map(def => {
       const s = saved.find(x => x.id === def.id);
-      return s ? { ...def, enabled: s.enabled } : def;
+      if (!s) return def;
+      return {
+        ...def,
+        enabled: s.enabled,
+        period: s.period ?? def.period,
+        color: s.color ?? def.color,
+      };
     });
   } catch { return DEFAULT_INDICATORS; }
 }
 
 export function persistIndicators(indicators: IndicatorConfig[]) {
   try {
-    localStorage.setItem(INDICATORS_KEY, JSON.stringify(indicators.map(i => ({ id: i.id, enabled: i.enabled }))));
+    localStorage.setItem(INDICATORS_KEY, JSON.stringify(
+      indicators.map(i => ({ id: i.id, enabled: i.enabled, period: i.period, color: i.color }))
+    ));
   } catch { /* ignore */ }
 }
 

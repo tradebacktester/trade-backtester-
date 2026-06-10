@@ -6,3 +6,9 @@ id = "ia_C-FSulmOAbZKwXN84Q"
 uri = "file://AUDIT_REPORT.md"
 type = "text"
 title = "Trade Lab — Comprehensive Audit Report"
+
+[[outputs]]
+id = "PifX0z_YDPHSjFkbAI4iF"
+uri = "file://.local/tasks/beta-test-report.md"
+type = "text"
+title = "Trade Lab — 100 Beta Tester Simulation Report"

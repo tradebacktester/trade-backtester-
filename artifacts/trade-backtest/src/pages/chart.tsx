@@ -41,7 +41,7 @@ import {
   StepBack, StepForward, Clapperboard, X, TrendingUp, TrendingDown,
   RotateCcw, BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
   Flame, Bell, BellOff, ArrowLeftRight, BookOpen, List,
-  CalendarClock, Triangle, Sparkles,
+  CalendarClock, Triangle, Sparkles, SlidersHorizontal,
   Sun, Moon, Keyboard, Maximize2, Minimize2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -207,6 +207,24 @@ function updatePtBalance(balance: number) {
     const acc = JSON.parse(localStorage.getItem("pt_account") || "null") as Record<string, unknown> | null;
     if (acc) localStorage.setItem("pt_account", JSON.stringify({ ...acc, balance }));
   } catch {}
+}
+
+function hslToHex(hsl: string): string {
+  const m = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+  if (!m) return "#888888";
+  const h = Number(m[1]) / 360, s = Number(m[2]) / 100, l = Number(m[3]) / 100;
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const r = Math.round(hue2rgb(p, q, h + 1/3) * 255);
+  const g = Math.round(hue2rgb(p, q, h) * 255);
+  const b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 function calcHeikinAshi(bars: { time: number; open: number; high: number; low: number; close: number }[]) {
@@ -394,6 +412,7 @@ export default function ChartPage() {
   // Indicators
   const [indicators, setIndicators] = useState<IndicatorConfig[]>(loadIndicators);
   const [showIndicators, setShowIndicators] = useState(false);
+  const [expandedIndicator, setExpandedIndicator] = useState<string | null>(null);
 
   // Multi-TF
   const [showMultiTf, setShowMultiTf] = useState(false);
@@ -832,7 +851,7 @@ export default function ChartPage() {
         if (e.key === "s" || e.key === "S") { const bar = sortedKlinesRef.current[replayIndexRef.current - 1]; if (bar) handleSell(bar, positionRef.current ?? undefined); }
       }
       if (e.key === "?" || (e.key === "/" && e.shiftKey)) setShowShortcuts(v => !v);
-      if (e.key === "Escape") { setShowShortcuts(false); if (replayMode) exitReplay(); }
+      if (e.key === "Escape") { setShowShortcuts(false); if (replayMode) exitReplay(); setActiveTool("cursor"); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -1625,12 +1644,43 @@ export default function ChartPage() {
                   )}
                 </div>
                 {indicators.filter(i => i.isOverlay).map(ind => (
-                  <button key={ind.id} onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}
-                    className="flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-mono transition-all"
-                    style={ind.enabled ? { background: "rgba(255,255,255,0.06)", color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }}>
-                    <div className="flex items-center gap-2"><div className="w-2.5 h-0.5 rounded" style={{ background: ind.color }} />{ind.label}</div>
-                    {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
-                  </button>
+                  <div key={ind.id}>
+                    <div className="flex items-center rounded-lg px-2 py-1.5 transition-all"
+                      style={ind.enabled ? { background: "rgba(255,255,255,0.06)" } : {}}>
+                      <button className="flex items-center gap-2 flex-1 text-xs font-mono text-left transition-all"
+                        style={ind.enabled ? { color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }}
+                        onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}>
+                        <div className="w-2.5 h-0.5 rounded shrink-0" style={{ background: ind.color }} />
+                        {ind.label}
+                      </button>
+                      <div className="flex items-center gap-1">
+                        {ind.enabled && (
+                          <button onClick={e => { e.stopPropagation(); setExpandedIndicator(expandedIndicator === ind.id ? null : ind.id); }}
+                            className="p-0.5 rounded transition-all"
+                            style={{ color: expandedIndicator === ind.id ? "hsl(190,90%,60%)" : "hsl(220,14%,40%)" }}>
+                            <SlidersHorizontal className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                        {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
+                      </div>
+                    </div>
+                    {expandedIndicator === ind.id && ind.enabled && (
+                      <div className="flex items-center gap-2 px-2 pb-1.5 pt-1" onClick={e => e.stopPropagation()}>
+                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Period</label>
+                        <input type="number" min={1} max={500} value={ind.period}
+                          onChange={e => {
+                            const v = Math.max(1, Math.min(500, Number(e.target.value) || 1));
+                            setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, period: v } : i));
+                          }}
+                          className="w-14 text-xs font-mono text-center rounded px-1 py-0.5"
+                          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "hsl(220,14%,80%)" }} />
+                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Color</label>
+                        <input type="color" value={hslToHex(ind.color)}
+                          onChange={e => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, color: e.target.value } : i))}
+                          style={{ width: 22, height: 22, padding: 1, borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", cursor: "pointer" }} />
+                      </div>
+                    )}
+                  </div>
                 ))}
                 <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.08)" }} />
                 <div className="flex items-center justify-between px-1 mb-1">
@@ -1640,12 +1690,43 @@ export default function ChartPage() {
                   )}
                 </div>
                 {indicators.filter(i => !i.isOverlay).map(ind => (
-                  <button key={ind.id} onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}
-                    className="flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-mono transition-all"
-                    style={ind.enabled ? { background: "rgba(255,255,255,0.06)", color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }}>
-                    <div className="flex items-center gap-2"><div className="w-2.5 h-0.5 rounded" style={{ background: ind.color }} />{ind.label}</div>
-                    {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
-                  </button>
+                  <div key={ind.id}>
+                    <div className="flex items-center rounded-lg px-2 py-1.5 transition-all"
+                      style={ind.enabled ? { background: "rgba(255,255,255,0.06)" } : {}}>
+                      <button className="flex items-center gap-2 flex-1 text-xs font-mono text-left transition-all"
+                        style={ind.enabled ? { color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }}
+                        onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}>
+                        <div className="w-2.5 h-0.5 rounded shrink-0" style={{ background: ind.color }} />
+                        {ind.label}
+                      </button>
+                      <div className="flex items-center gap-1">
+                        {ind.enabled && (
+                          <button onClick={e => { e.stopPropagation(); setExpandedIndicator(expandedIndicator === ind.id ? null : ind.id); }}
+                            className="p-0.5 rounded transition-all"
+                            style={{ color: expandedIndicator === ind.id ? "hsl(190,90%,60%)" : "hsl(220,14%,40%)" }}>
+                            <SlidersHorizontal className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                        {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
+                      </div>
+                    </div>
+                    {expandedIndicator === ind.id && ind.enabled && (
+                      <div className="flex items-center gap-2 px-2 pb-1.5 pt-1" onClick={e => e.stopPropagation()}>
+                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Period</label>
+                        <input type="number" min={1} max={500} value={ind.period}
+                          onChange={e => {
+                            const v = Math.max(1, Math.min(500, Number(e.target.value) || 1));
+                            setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, period: v } : i));
+                          }}
+                          className="w-14 text-xs font-mono text-center rounded px-1 py-0.5"
+                          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "hsl(220,14%,80%)" }} />
+                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Color</label>
+                        <input type="color" value={hslToHex(ind.color)}
+                          onChange={e => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, color: e.target.value } : i))}
+                          style={{ width: 22, height: 22, padding: 1, borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", cursor: "pointer" }} />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -2048,24 +2129,22 @@ export default function ChartPage() {
               layerHandle={drawingHandle}
             />
 
-            {/* Drawing → Alert shortcut */}
-            <a
-              href={`/alerts?type=drawing&symbol=${encodeURIComponent(symbol)}`}
-              title="Create drawing alert"
-              style={{
-                position: "absolute", bottom: "12px", left: "56px", zIndex: 20,
-                display: "flex", alignItems: "center", gap: "4px",
-                padding: "4px 8px", borderRadius: "8px",
-                background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)",
-                color: "hsl(265,89%,65%)", fontSize: "10px", fontFamily: "monospace",
-                textDecoration: "none", cursor: "pointer",
-              }}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              Add Alert
-            </a>
+            {/* Escape-to-deselect hint */}
+            {activeTool !== "cursor" && (
+              <div
+                style={{
+                  position: "absolute", bottom: "12px", left: "56px", zIndex: 20,
+                  display: "flex", alignItems: "center", gap: "5px",
+                  padding: "4px 8px", borderRadius: "8px",
+                  background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.12)",
+                  color: "hsl(220,14%,65%)", fontSize: "10px", fontFamily: "monospace",
+                  pointerEvents: "none",
+                }}
+              >
+                <kbd style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "4px", padding: "1px 4px", fontSize: "9px" }}>Esc</kbd>
+                to deselect
+              </div>
+            )}
             <DrawingLayer
               chartRef={chartRef}
               seriesRef={candleSeriesRef}

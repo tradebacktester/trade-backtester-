@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { AuthModal } from "@/components/auth-modal";
 import { Link } from "wouter";
 import { Lock } from "lucide-react";
 import {
@@ -853,9 +854,12 @@ export default function AiAssistant() {
     document.querySelector(".tt-main")?.scrollTo({ top: 0, behavior: "instant" });
   }, [tab]);
 
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   if (!token) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
+        <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
         <div className="flex flex-col items-center gap-4 text-center max-w-sm">
           <div className="h-16 w-16 rounded-2xl flex items-center justify-center"
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
@@ -870,18 +874,16 @@ export default function AiAssistant() {
             </p>
           </div>
           <div className="flex gap-3 w-full">
-            <Link href="/auth/signin" className="flex-1">
-              <button className="w-full h-10 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}>
-                Sign In
-              </button>
-            </Link>
-            <Link href="/auth/signup" className="flex-1">
-              <button className="w-full h-10 rounded-xl text-sm font-semibold transition-all"
-                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(var(--foreground))" }}>
-                Create Account
-              </button>
-            </Link>
+            <button className="flex-1 h-10 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
+              onClick={() => setShowAuthModal(true)}>
+              Sign In
+            </button>
+            <button className="flex-1 h-10 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(var(--foreground))" }}
+              onClick={() => setShowAuthModal(true)}>
+              Create Account
+            </button>
           </div>
         </div>
       </div>
