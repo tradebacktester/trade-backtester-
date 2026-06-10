@@ -246,7 +246,7 @@ export function calcBB(bars: KlineBar[], period: number): {
   for (let i = period - 1; i < bars.length; i++) {
     const slice = bars.slice(i - period + 1, i + 1).map(b => b.close);
     const avg = slice.reduce((s, v) => s + v, 0) / period;
-    const variance = slice.reduce((s, v) => s + (v - avg) ** 2, 0) / period;
+    const variance = slice.reduce((s, v) => s + (v - avg) ** 2, 0) / (period - 1);
     const std = Math.sqrt(variance);
     middle.push({ time: bars[i].time, value: avg });
     upper.push({ time: bars[i].time, value: avg + 2 * std });

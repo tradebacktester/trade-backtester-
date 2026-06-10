@@ -486,7 +486,7 @@ function runStrategy(
       if (i < period - 1) return null;
       const slice = closes.slice(i - period + 1, i + 1);
       const mean = slice.reduce((a, b) => a + b, 0) / period;
-      const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / period;
+      const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / (period - 1);
       return (mid[i] ?? 0) - stdDev * Math.sqrt(variance);
     });
     let inTrade = false, entryIdx = -1;
