@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
+import { AuthModal } from "@/components/auth-modal";
 import {
   Brain, Zap, Target, Shield, TrendingUp, TrendingDown, AlertTriangle,
   Bot, BarChart2, Activity, Trophy, Heart, BookOpen, Sparkles, ChevronRight,
@@ -1226,20 +1227,28 @@ function TwinTab({ token }: { token: string }) {
 ══════════════════════════════════════════════════════════════════════════ */
 export default function TradingOsPage() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const { token, user } = useAuth();
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="text-center max-w-sm">
-          <Brain className="h-12 w-12 mx-auto mb-4" style={{ color: C.purple }} />
-          <h2 className="text-xl font-bold mb-2" style={{ color: C.text }}>AI Trader Operating System</h2>
-          <p className="text-sm mb-5" style={{ color: C.sub }}>Sign in to access your personal AI trading mentor</p>
-          <Link href="/auth/signin" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm" style={{ background: C.purple, color: "#fff" }}>
-            Sign In <ChevronRight className="h-4 w-4" />
-          </Link>
+      <>
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <div className="text-center max-w-sm">
+            <Brain className="h-12 w-12 mx-auto mb-4" style={{ color: C.purple }} />
+            <h2 className="text-xl font-bold mb-2" style={{ color: C.text }}>AI Trader Operating System</h2>
+            <p className="text-sm mb-5" style={{ color: C.sub }}>Sign in to access your personal AI trading mentor</p>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm"
+              style={{ background: C.purple, color: "#fff" }}
+            >
+              Sign In <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </div>
+        <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      </>
     );
   }
 

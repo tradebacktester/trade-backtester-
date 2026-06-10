@@ -655,7 +655,7 @@ Respond ONLY with valid JSON in this format:
 // ── Strategy type → alert conditions mapper ─────────────────────────────────
 
 function mapStrategyToConditions(stratType: string, params: Record<string, unknown>): AlertConditionSpec[] {
-  const c = (indicatorId: string, outputKey: string, operator: string, targetValue?: number, targetIndicatorId?: string, targetOutputKey?: string): AlertConditionSpec => ({
+  const c = (indicatorId: string, outputKey: string, operator: AlertConditionSpec["operator"], targetValue?: number, targetIndicatorId?: string, targetOutputKey?: string): AlertConditionSpec => ({
     indicatorId, outputKey, operator,
     ...(targetValue !== undefined ? { targetValue } : {}),
     ...(targetIndicatorId ? { targetIndicatorId } : {}),

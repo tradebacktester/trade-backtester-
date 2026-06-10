@@ -25,3 +25,6 @@
 - [Mobile backdrop-filter GPU corruption](mobile-backdrop-filter.md) — Android Chrome artifacts/ghost lines caused by backdrop-filter + compositing layers; disable all backdrop-filter on ≤767px with solid bg fallbacks.
 - [Expo pnpm monorepo setup](expo-pnpm-setup.md) — gotchas when adding Expo SDK 56 to a pnpm workspace; typedRoutes crash; correct package versions; CI=1 flag; port conflicts; metro.config.js required.
 - [AI Trader OS architecture](trading-os-arch.md) — 10-feature AI OS at /trading-os; backend at /api/trading-os/*; wouter Link must NOT wrap <a> children — use className directly on <Link>.
+- [Auth guard screens](auth-guard-screens.md) — pages that gate-keep with !token must render AuthModal inline (not Link to /auth/signin — no such route); add useState+AuthModal import to the component directly.
+- [Admin login route](admin-login-route.md) — /admin/login route must be explicit in App.tsx Router; /admin redirects to /admin/login (not /dashboard); AdminLogin component was imported but unregistered — caused 404.
+- [AlertConditionSpec operator type](alert-condition-operator-type.md) — helper functions that build AlertConditionSpec objects must type the operator param as AlertConditionSpec["operator"], not string; passing string causes TS2322 on the discriminated union.

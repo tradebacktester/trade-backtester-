@@ -143,7 +143,8 @@ function Router() {
       <Route path="/pricing" component={PricingPage} />
       <Route path="/billing" component={BillingPage} />
 
-      <Route path="/admin" component={() => <Redirect to="/dashboard" />} />
+      <Route path="/admin" component={() => <Redirect to="/admin/login" />} />
+      <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/panel" component={AdminPanelGuard} />
       
       <Route component={NotFound} />
