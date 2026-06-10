@@ -287,6 +287,33 @@ export default function ChartPage() {
   const [pendingChartOrders, setPendingChartOrders] = useState<PendingChartOrder[]>([]);
   const entryPriceLineRef = useRef<import("lightweight-charts").IPriceLine | null>(null);
 
+  // Ghost Mode state — compares proposed trade against personal history
+  type GhostResult = {
+    hasHistory: boolean; similarityScore: number; winRate: number;
+    avgReturn: number; avgDrawdown: number; similarTrades: number;
+    closestMatch: { symbol: string; side: string; pnlPercent: number; durationDays: number } | null;
+    message?: string;
+  };
+  const [ghostResult, setGhostResult] = useState<GhostResult | null>(null);
+  const [ghostLoading, setGhostLoading] = useState(false);
+  const [ghostSide, setGhostSide] = useState<"long" | "short">("long");
+  const [ghostOpen, setGhostOpen] = useState(false);
+
+  async function runGhostMode(side: "long" | "short") {
+    if (!token) return;
+    setGhostLoading(true); setGhostResult(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/ai/ghost-mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ symbol, side }),
+      });
+      const d = await r.json() as GhostResult;
+      setGhostResult(d);
+    } catch { /**/ }
+    finally { setGhostLoading(false); }
+  }
+
   // Live trade warning modal (pattern-based — only shown when a mistake is detected)
   type TradeMistake = { label: string; severity: string; detail: string };
   const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number; mistake: TradeMistake; similarity: number } | null>(null);
@@ -2152,6 +2179,65 @@ export default function ChartPage() {
               </div>
               {currentBar && <p className="text-[10px] text-center font-mono" style={{ color: "hsl(220,14%,35%)" }}>price ${fmt(currentBar.close)}</p>}
 
+              {/* ── Ghost Mode mini widget (live panel) ── */}
+              {token && !position && (
+                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
+                  <button type="button" onClick={() => setGhostOpen(v => !v)}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
+                    style={{ color: ghostOpen ? "#8b5cf6" : "hsl(220,14%,38%)", background: "transparent" }}>
+                    <Sparkles className="h-2.5 w-2.5 flex-shrink-0" />Ghost Mode
+                    <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
+                  </button>
+                  {ghostOpen && (
+                    <div className="px-2.5 pb-2.5 flex flex-col gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex gap-1 pt-2">
+                        {(["long","short"] as const).map(s => (
+                          <button key={s} type="button" onClick={() => { setGhostSide(s); setGhostResult(null); }}
+                            className="flex-1 py-1 rounded text-[9px] font-mono font-semibold capitalize transition-all"
+                            style={ghostSide === s
+                              ? { background: s === "long" ? "rgba(52,211,153,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${s === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`, color: s === "long" ? "hsl(150,90%,60%)" : "hsl(0,85%,62%)" }
+                              : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }}>
+                            {s}
+                          </button>
+                        ))}
+                        <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
+                          className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
+                          style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6" }}>
+                          {ghostLoading ? <span className="animate-spin text-[8px]">⟳</span> : "Run"}
+                        </button>
+                      </div>
+                      {ghostResult && ghostResult.hasHistory && (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>Similarity</span>
+                            <span className="text-[9px] font-mono font-bold" style={{ color: "#8b5cf6" }}>{ghostResult.similarityScore}%</span>
+                          </div>
+                          {[
+                            { label: "Win Rate",  value: `${ghostResult.winRate}%`,     color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
+                            { label: "Avg Return",value: `${ghostResult.avgReturn >= 0 ? "+" : ""}${ghostResult.avgReturn}%`, color: ghostResult.avgReturn >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
+                            { label: "Avg DD",    value: `-${ghostResult.avgDrawdown}%`, color: ghostResult.avgDrawdown <= 10 ? "hsl(150,90%,50%)" : ghostResult.avgDrawdown <= 20 ? "hsl(38,100%,55%)" : "hsl(0,85%,60%)" },
+                          ].map(row => (
+                            <div key={row.label} className="flex items-center justify-between">
+                              <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>{row.label}</span>
+                              <span className="text-[9px] font-mono font-bold" style={{ color: row.color }}>{row.value}</span>
+                            </div>
+                          ))}
+                          {ghostResult.closestMatch && (
+                            <div className="rounded px-2 py-1 mt-0.5"
+                              style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.18)" }}>
+                              <p className="text-[8px] font-mono" style={{ color: "#8b5cf6" }}>Closest: {ghostResult.closestMatch.symbol} {ghostResult.closestMatch.side.toUpperCase()} · {ghostResult.closestMatch.pnlPercent >= 0 ? "+" : ""}{ghostResult.closestMatch.pnlPercent}%</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {ghostResult && !ghostResult.hasHistory && (
+                        <p className="text-[9px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>{ghostResult.message ?? "No matching history."}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {pendingChartOrders.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                   <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>Pending ({pendingChartOrders.length})</p>
@@ -2236,6 +2322,56 @@ export default function ChartPage() {
                       <TrendingDown className="h-3.5 w-3.5" />{position?.side === "long" ? "CLOSE" : "SELL"}<span className="text-[9px] opacity-50">[S]</span>
                     </button>
                   </div>
+
+                  {/* ── Ghost Mode mini widget (replay panel) ── */}
+                  {token && !position && (
+                    <div className="mt-2 rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.07)"}` }}>
+                      <button type="button" onClick={() => setGhostOpen(v => !v)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
+                        style={{ color: ghostOpen ? "#8b5cf6" : "hsl(220,14%,38%)", background: "transparent" }}>
+                        <Sparkles className="h-2.5 w-2.5" />Ghost Mode
+                        <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
+                      </button>
+                      {ghostOpen && (
+                        <div className="px-2.5 pb-2.5 flex flex-col gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                          <div className="flex gap-1 pt-2">
+                            {(["long","short"] as const).map(s => (
+                              <button key={s} type="button" onClick={() => { setGhostSide(s); setGhostResult(null); }}
+                                className="flex-1 py-1 rounded text-[9px] font-mono font-semibold capitalize transition-all"
+                                style={ghostSide === s
+                                  ? { background: s === "long" ? "rgba(52,211,153,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${s === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`, color: s === "long" ? "hsl(150,90%,60%)" : "hsl(0,85%,62%)" }
+                                  : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }}>
+                                {s}
+                              </button>
+                            ))}
+                            <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
+                              className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
+                              style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6" }}>
+                              {ghostLoading ? "…" : "Run"}
+                            </button>
+                          </div>
+                          {ghostResult && ghostResult.hasHistory && (
+                            <div className="flex flex-col gap-1">
+                              {[
+                                { label: "Similarity", value: `${ghostResult.similarityScore}%`,  color: "#8b5cf6" },
+                                { label: "Win Rate",   value: `${ghostResult.winRate}%`,           color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
+                                { label: "Avg Return", value: `${ghostResult.avgReturn >= 0 ? "+" : ""}${ghostResult.avgReturn}%`, color: ghostResult.avgReturn >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
+                                { label: "Avg DD",     value: `-${ghostResult.avgDrawdown}%`,      color: ghostResult.avgDrawdown <= 10 ? "hsl(150,90%,50%)" : "hsl(0,85%,60%)" },
+                              ].map(row => (
+                                <div key={row.label} className="flex items-center justify-between">
+                                  <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>{row.label}</span>
+                                  <span className="text-[9px] font-mono font-bold" style={{ color: row.color }}>{row.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {ghostResult && !ghostResult.hasHistory && (
+                            <p className="text-[9px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>{ghostResult.message ?? "No matching history."}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

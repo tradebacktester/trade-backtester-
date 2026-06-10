@@ -556,6 +556,23 @@ function JournalTab() {
 const TWIN_SYMBOLS = ["BTCUSDT","ETHUSDT","SOLUSDT","AAPL","MSFT","TSLA","NVDA","EURUSD","GBPUSD","SPY","QQQ"];
 const TWIN_STRATEGIES = ["sma_crossover","ema_crossover","rsi","macd","bollinger_bands","super_trend","breakout","vwap"];
 
+type TwinProfileSessionStat = { label: string; wins: number; losses: number; trades: number; winRate: number; avgPnlPct: number };
+type TwinProfileSymbolStat  = { symbol: string; trades: number; winRate: number; avgReturn: number };
+
+type TwinProfileData = {
+  hasProfile: boolean;
+  traderStyle?: string;
+  preferredSide?: string;
+  avgWinRate?: number;
+  avgReturn?: number;
+  avgDrawdown?: number;
+  totalTrades?: number;
+  avgHoldingDays?: number;
+  sessionStats?: TwinProfileSessionStat[];
+  topSymbols?: TwinProfileSymbolStat[];
+  backtestCount?: number;
+};
+
 function TwinTab() {
   const { token } = useAuth();
   const [symbol, setSymbol] = useState("BTCUSDT");
@@ -573,8 +590,20 @@ function TwinTab() {
     preferredSide?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<TwinProfileData | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const PINK = "#ec4899";
+
+  useEffect(() => {
+    if (!token) return;
+    setProfileLoading(true);
+    fetch(`${API_BASE}/api/ai/twin-profile`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then((d: TwinProfileData) => setProfile(d))
+      .catch(() => { /* silently skip */ })
+      .finally(() => setProfileLoading(false));
+  }, [token]);
 
   async function analyze() {
     if (!token) return;
@@ -629,6 +658,139 @@ function TwinTab() {
           </div>
         </div>
       </div>
+
+      {/* ── Persistent Learned Profile ── */}
+      {profileLoading ? (
+        <div className="rounded-2xl p-5 flex items-center gap-3" style={CARD}>
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" style={{ color: PINK }} />
+          <p className="text-[11px] font-mono" style={{ color: C.muted }}>Loading your twin profile…</p>
+        </div>
+      ) : profile && profile.hasProfile ? (
+        <div className="rounded-2xl overflow-hidden" style={CARD}>
+          <div className="px-5 py-3 flex items-center gap-2"
+            style={{ borderBottom: "1px solid var(--glass-border)", background: "rgba(236,72,153,0.04)" }}>
+            <Dna className="h-3.5 w-3.5 flex-shrink-0" style={{ color: PINK }} />
+            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: PINK }}>Learned Profile</p>
+            <span className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+              style={{ background: "rgba(236,72,153,0.1)", border: "1px solid rgba(236,72,153,0.2)", color: PINK }}>
+              {profile.totalTrades} trades
+            </span>
+          </div>
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Entry Style */}
+            <div className="rounded-xl p-4 flex flex-col gap-2"
+              style={{ background: "rgba(236,72,153,0.05)", border: "1px solid rgba(236,72,153,0.15)" }}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Target className="h-3.5 w-3.5 flex-shrink-0" style={{ color: PINK }} />
+                <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: PINK }}>Entry Style</p>
+              </div>
+              <p className="text-sm font-semibold capitalize" style={{ color: C.text }}>
+                {profile.traderStyle ?? "Unknown"}
+              </p>
+              <span className="self-start text-[10px] font-mono px-1.5 py-0.5 rounded capitalize"
+                style={{ background: profile.preferredSide === "long" ? "rgba(34,197,94,0.12)" : profile.preferredSide === "short" ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.06)", border: `1px solid ${profile.preferredSide === "long" ? "rgba(34,197,94,0.25)" : profile.preferredSide === "short" ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.1)"}`, color: profile.preferredSide === "long" ? C.positive : profile.preferredSide === "short" ? C.negative : C.muted }}>
+                {profile.preferredSide ?? "neutral"} bias
+              </span>
+              <div className="flex flex-col gap-1 mt-1">
+                {[
+                  { label: "Win Rate",   value: `${(profile.avgWinRate ?? 0).toFixed(1)}%`, color: (profile.avgWinRate ?? 0) >= 50 ? C.positive : C.negative },
+                  { label: "Avg Return", value: `${(profile.avgReturn ?? 0) >= 0 ? "+" : ""}${(profile.avgReturn ?? 0).toFixed(1)}%`, color: (profile.avgReturn ?? 0) >= 0 ? C.positive : C.negative },
+                  { label: "Avg Hold",   value: `${(profile.avgHoldingDays ?? 0).toFixed(0)}d`, color: C.muted },
+                  { label: "Backtests",  value: `${profile.backtestCount ?? 0}`, color: C.muted },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between">
+                    <span className="text-[9px] font-mono" style={{ color: C.muted }}>{row.label}</span>
+                    <span className="text-[9px] font-mono font-bold" style={{ color: row.color }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Session Strengths */}
+            <div className="rounded-xl p-4 flex flex-col gap-2"
+              style={{ background: "rgba(168,85,247,0.05)", border: "1px solid rgba(168,85,247,0.15)" }}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Activity className="h-3.5 w-3.5 flex-shrink-0" style={{ color: C.purple }} />
+                <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: C.purple }}>Session Strengths</p>
+              </div>
+              {profile.sessionStats && profile.sessionStats.length > 0 ? (() => {
+                const ss = profile.sessionStats!;
+                const best = ss.reduce((a, b) => a.trades >= b.trades ? a : b);
+                const total = ss.reduce((s, x) => s + x.trades, 0) || 1;
+                return (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-semibold" style={{ color: C.text }}>
+                      {best.label}
+                      <span className="text-[10px] font-normal ml-1" style={{ color: C.muted }}>strongest</span>
+                    </p>
+                    {ss.map(s => {
+                      const pct = Math.round((s.trades / total) * 100);
+                      return (
+                        <div key={s.label} className="flex flex-col gap-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-mono" style={{ color: C.muted }}>{s.label}</span>
+                            <span className="text-[9px] font-mono" style={{ color: s.label === best.label ? C.purple : C.sub }}>{s.winRate.toFixed(0)}% WR · {s.trades}t</span>
+                          </div>
+                          <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.label === best.label ? C.purple : "rgba(168,85,247,0.3)", transition: "width 0.5s" }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })() : (
+                <p className="text-[10px] font-mono" style={{ color: C.muted }}>No session data yet.</p>
+              )}
+            </div>
+
+            {/* Risk Tendencies */}
+            <div className="rounded-xl p-4 flex flex-col gap-2"
+              style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.15)" }}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Shield className="h-3.5 w-3.5 flex-shrink-0" style={{ color: C.amber }} />
+                <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: C.amber }}>Risk Tendencies</p>
+              </div>
+              <p className="text-xs font-semibold" style={{ color: C.text }}>
+                {(profile.avgDrawdown ?? 0) <= 8 ? "Conservative" : (profile.avgDrawdown ?? 0) <= 18 ? "Moderate" : "Aggressive"}
+                <span className="text-[10px] font-normal ml-1" style={{ color: C.muted }}>risk profile</span>
+              </p>
+              <div className="flex flex-col gap-1">
+                {[
+                  { label: "Avg Drawdown", value: `-${(profile.avgDrawdown ?? 0).toFixed(1)}%`,   color: (profile.avgDrawdown ?? 0) <= 10 ? C.positive : (profile.avgDrawdown ?? 0) <= 20 ? C.amber : C.negative },
+                  { label: "Avg Return",   value: `${(profile.avgReturn ?? 0) >= 0 ? "+" : ""}${(profile.avgReturn ?? 0).toFixed(1)}%`, color: (profile.avgReturn ?? 0) >= 0 ? C.positive : C.negative },
+                  { label: "Avg Hold",     value: `${(profile.avgHoldingDays ?? 0).toFixed(0)}d`, color: C.muted },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center justify-between">
+                    <span className="text-[9px] font-mono" style={{ color: C.muted }}>{row.label}</span>
+                    <span className="text-[9px] font-mono font-bold" style={{ color: row.color }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+              {profile.topSymbols && profile.topSymbols.length > 0 && (
+                <div className="pt-2 mt-1 flex flex-wrap gap-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  {profile.topSymbols.slice(0, 4).map(sym => (
+                    <span key={sym.symbol} className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+                      style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", color: C.amber }}>
+                      {sym.symbol}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : profile && !profile.hasProfile ? (
+        <div className="rounded-2xl p-5 flex items-start gap-3" style={{ ...CARD, border: "1px solid rgba(236,72,153,0.15)" }}>
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: PINK }} />
+          <div>
+            <p className="text-[11px] font-semibold mb-0.5" style={{ color: C.text }}>Twin is learning</p>
+            <p className="text-[10px] font-mono" style={{ color: C.muted }}>
+              Complete at least 3 backtests to build your AI Twin's learned profile. Currently {profile.totalTrades ?? 0} trade{(profile.totalTrades ?? 0) !== 1 ? "s" : ""} on record.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {/* Setup form */}
       <div className="rounded-2xl p-5 flex flex-col gap-4" style={CARD}>

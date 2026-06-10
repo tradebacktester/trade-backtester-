@@ -1313,6 +1313,33 @@ router.post("/ai/ghost-mode", requireAuth, async (req, res) => {
   });
 });
 
+/* ─── Twin Profile (no LLM — raw profile data only) ─────────────────────── */
+router.get("/ai/twin-profile", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+  try {
+    const profile = await extractTraderProfile(userId);
+    const hasProfile = profile.totalTrades >= 3;
+    res.json({
+      hasProfile,
+      traderStyle: profile.traderStyle,
+      preferredSide: profile.preferredSide,
+      avgDrawdown: profile.avgDrawdown,
+      avgWinRate: profile.avgWinRate,
+      avgReturn: profile.avgReturn,
+      totalTrades: profile.totalTrades,
+      avgHoldingDays: profile.avgHoldingDays,
+      sessionStats: profile.sessionStats,
+      topSymbols: profile.topSymbols,
+      strategyStats: profile.strategyStats,
+      journalMistakes: profile.journalMistakes,
+      backtestCount: profile.backtestCount,
+    });
+  } catch (err) {
+    logger.error(err, "ai/twin-profile error");
+    res.status(500).json({ error: "Failed to load trader profile." });
+  }
+});
+
 /* ─── AI Trading Twin ─────────────────────────────────────────────────────── */
 router.post("/ai/twin-analysis", requireAuth, async (req, res) => {
   const userId = extractUserId(req)!;
