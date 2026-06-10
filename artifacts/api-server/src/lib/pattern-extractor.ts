@@ -130,7 +130,7 @@ export async function extractTraderProfile(userId: number): Promise<TraderProfil
 
   // Paper trades as flat trades
   const ptFlat: FlatTrade[] = paperTrades
-    .filter(t => t.status === "closed" && t.exitPrice != null)
+    .filter(t => t.exitPrice != null)
     .map(t => ({
       symbol: t.symbol,
       side: t.side,
