@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Response } from "express";
 import cors from "cors";
 import compression from "compression";
 import pinoHttp from "pino-http";
@@ -7,8 +7,88 @@ import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { createRateLimit } from "./lib/rate-limit";
+import { db, alertsTable, alertNotificationsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { getIndicatorSnapshot } from "./lib/indicator-snapshot";
+import { evaluateAlertConditions } from "./lib/alert-evaluator";
 
 const app: Express = express();
+
+const alertSseClients = new Map<number, Set<Response>>();
+(app as any)._alertSseClients = alertSseClients;
+
+function broadcastAlertNotification(userId: number, payload: object) {
+  const clients = alertSseClients.get(userId);
+  if (!clients) return;
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const res of clients) {
+    try { res.write(data); } catch { /* client disconnected */ }
+  }
+}
+
+async function runAlertEvaluationLoop() {
+  try {
+    const activeAlerts = await db
+      .select()
+      .from(alertsTable)
+      .where(eq(alertsTable.isActive, true));
+
+    if (activeAlerts.length === 0) return;
+
+    const snapshotCache = new Map<string, ReturnType<typeof getIndicatorSnapshot>>();
+
+    for (const alert of activeAlerts) {
+      const cacheKey = `${alert.symbol}:${alert.timeframe}`;
+      if (!snapshotCache.has(cacheKey)) {
+        try {
+          const snap = getIndicatorSnapshot(alert.symbol, alert.timeframe);
+          snapshotCache.set(cacheKey, snap);
+        } catch {
+          continue;
+        }
+      }
+
+      const snapshot = snapshotCache.get(cacheKey)!;
+      const conditions = (alert.conditions ?? []) as Parameters<typeof evaluateAlertConditions>[2];
+      const { triggered, message } = evaluateAlertConditions(alert.name, alert.symbol, conditions, snapshot);
+
+      if (!triggered) continue;
+
+      const [notification] = await db
+        .insert(alertNotificationsTable)
+        .values({
+          alertId: alert.id,
+          userId: alert.userId,
+          message,
+        })
+        .returning();
+
+      broadcastAlertNotification(alert.userId, {
+        type: "alert_triggered",
+        notification: {
+          ...notification!,
+          triggeredAt: notification!.triggeredAt.toISOString(),
+        },
+      });
+
+      if (alert.triggerOnce) {
+        await db
+          .update(alertsTable)
+          .set({ isActive: false, triggerCount: alert.triggerCount + 1, lastTriggeredAt: new Date() })
+          .where(and(eq(alertsTable.id, alert.id), eq(alertsTable.isActive, true)));
+      } else {
+        await db
+          .update(alertsTable)
+          .set({ triggerCount: alert.triggerCount + 1, lastTriggeredAt: new Date() })
+          .where(eq(alertsTable.id, alert.id));
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "Alert evaluation loop error");
+  }
+}
+
+setInterval(() => { runAlertEvaluationLoop().catch(() => {}); }, 30_000);
 
 // Gzip all responses — critical for mobile (3 MB JS → ~650 KB over the wire)
 app.use(compression());

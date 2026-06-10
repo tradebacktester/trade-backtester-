@@ -6,6 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './alert';
+export * from './alertConditionSpec';
+export * from './alertConditionSpecLogicOp';
+export * from './alertConditionSpecOperator';
+export * from './alertInput';
+export * from './alertInputType';
+export * from './alertNotification';
+export * from './alertType';
+export * from './alertUpdate';
+export * from './alertUpdateType';
 export * from './backtest';
 export * from './backtestDetail';
 export * from './backtestDetailStatus';
@@ -19,6 +29,7 @@ export * from './getKlinesInterval';
 export * from './getKlinesParams';
 export * from './healthStatus';
 export * from './listBacktestsParams';
+export * from './markAlertNotificationRead200';
 export * from './strategy';
 export * from './strategyInput';
 export * from './strategyInputParameters';

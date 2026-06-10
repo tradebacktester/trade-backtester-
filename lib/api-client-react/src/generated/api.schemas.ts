@@ -358,6 +358,133 @@ export interface BacktestSummary {
   topStrategy?: string | null;
 }
 
+export type AlertConditionSpecOperator = typeof AlertConditionSpecOperator[keyof typeof AlertConditionSpecOperator];
+
+
+export const AlertConditionSpecOperator = {
+  crossAbove: 'crossAbove',
+  crossBelow: 'crossBelow',
+  gt: 'gt',
+  lt: 'lt',
+  eq: 'eq',
+  enters: 'enters',
+  exits: 'exits',
+  signal: 'signal',
+} as const;
+
+export type AlertConditionSpecLogicOp = typeof AlertConditionSpecLogicOp[keyof typeof AlertConditionSpecLogicOp];
+
+
+export const AlertConditionSpecLogicOp = {
+  AND: 'AND',
+  OR: 'OR',
+} as const;
+
+export interface AlertConditionSpec {
+  indicatorId: string;
+  outputKey: string;
+  operator: AlertConditionSpecOperator;
+  targetValue?: number;
+  targetIndicatorId?: string;
+  targetOutputKey?: string;
+  logicOp: AlertConditionSpecLogicOp;
+  groupId?: number;
+}
+
+export type AlertType = typeof AlertType[keyof typeof AlertType];
+
+
+export const AlertType = {
+  price: 'price',
+  indicator: 'indicator',
+  drawing: 'drawing',
+  strategy: 'strategy',
+  ai: 'ai',
+  dna: 'dna',
+} as const;
+
+export interface Alert {
+  id: number;
+  userId: number;
+  name: string;
+  type: AlertType;
+  symbol: string;
+  timeframe: string;
+  conditions: AlertConditionSpec[];
+  deliveryChannels: string[];
+  isActive: boolean;
+  triggerOnce: boolean;
+  triggerCount: number;
+  /** @nullable */
+  lastTriggeredAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AlertInputType = typeof AlertInputType[keyof typeof AlertInputType];
+
+
+export const AlertInputType = {
+  price: 'price',
+  indicator: 'indicator',
+  drawing: 'drawing',
+  strategy: 'strategy',
+  ai: 'ai',
+  dna: 'dna',
+} as const;
+
+export interface AlertInput {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  type?: AlertInputType;
+  /** @minLength 1 */
+  symbol: string;
+  timeframe?: string;
+  /** @minItems 1 */
+  conditions: AlertConditionSpec[];
+  deliveryChannels?: string[];
+  triggerOnce?: boolean;
+}
+
+export type AlertUpdateType = typeof AlertUpdateType[keyof typeof AlertUpdateType];
+
+
+export const AlertUpdateType = {
+  price: 'price',
+  indicator: 'indicator',
+  drawing: 'drawing',
+  strategy: 'strategy',
+  ai: 'ai',
+  dna: 'dna',
+} as const;
+
+export interface AlertUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  type?: AlertUpdateType;
+  symbol?: string;
+  timeframe?: string;
+  conditions?: AlertConditionSpec[];
+  deliveryChannels?: string[];
+  isActive?: boolean;
+  triggerOnce?: boolean;
+}
+
+export interface AlertNotification {
+  id: number;
+  alertId: number;
+  userId: number;
+  message: string;
+  triggeredAt: string;
+  isRead: boolean;
+}
+
 export type GetKlinesParams = {
 symbol: string;
 interval: GetKlinesInterval;
@@ -383,5 +510,9 @@ export const GetKlinesInterval = {
 
 export type ListBacktestsParams = {
 strategyId?: number;
+};
+
+export type MarkAlertNotificationRead200 = {
+  success?: boolean;
 };
 

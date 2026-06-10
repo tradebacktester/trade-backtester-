@@ -368,7 +368,212 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List all alerts for the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createAlert
+      tags: [alerts]
+      summary: Create a new alert
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertInput"
+      responses:
+        "201":
+          description: Alert created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Plan limit exceeded or type not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /alerts/{id}:
+    patch:
+      operationId: updateAlert
+      tags: [alerts]
+      summary: Update or toggle an alert
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertUpdate"
+      responses:
+        "200":
+          description: Updated alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteAlert
+      tags: [alerts]
+      summary: Delete an alert
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /alerts/notifications:
+    get:
+      operationId: listAlertNotifications
+      tags: [alerts]
+      summary: List recent alert notifications for the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AlertNotification"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /alerts/notifications/{id}/read:
+    patch:
+      operationId: markAlertNotificationRead
+      tags: [alerts]
+      summary: Mark a notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /alerts/stream:
+    get:
+      operationId: streamAlertNotifications
+      tags: [alerts]
+      summary: SSE stream for real-time alert notifications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: SSE stream (text/event-stream)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     CandleBar:
       type: object
@@ -718,3 +923,140 @@ components:
                 type: number
               label:
                 type: string
+
+    AlertConditionSpec:
+      type: object
+      required: [indicatorId, outputKey, operator, logicOp]
+      properties:
+        indicatorId:
+          type: string
+        outputKey:
+          type: string
+        operator:
+          type: string
+          enum: [crossAbove, crossBelow, gt, lt, eq, enters, exits, signal]
+        targetValue:
+          type: number
+        targetIndicatorId:
+          type: string
+        targetOutputKey:
+          type: string
+        logicOp:
+          type: string
+          enum: [AND, OR]
+        groupId:
+          type: integer
+
+    Alert:
+      type: object
+      required: [id, userId, name, type, symbol, timeframe, conditions, deliveryChannels, isActive, triggerOnce, triggerCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [price, indicator, drawing, strategy, ai, dna]
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertConditionSpec"
+        deliveryChannels:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        triggerOnce:
+          type: boolean
+        triggerCount:
+          type: integer
+        lastTriggeredAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    AlertInput:
+      type: object
+      required: [name, symbol, conditions]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        type:
+          type: string
+          enum: [price, indicator, drawing, strategy, ai, dna]
+          default: price
+        symbol:
+          type: string
+          minLength: 1
+        timeframe:
+          type: string
+          default: 1d
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertConditionSpec"
+          minItems: 1
+        deliveryChannels:
+          type: array
+          items:
+            type: string
+          default: [in_app]
+        triggerOnce:
+          type: boolean
+          default: false
+
+    AlertUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        type:
+          type: string
+          enum: [price, indicator, drawing, strategy, ai, dna]
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertConditionSpec"
+        deliveryChannels:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        triggerOnce:
+          type: boolean
+
+    AlertNotification:
+      type: object
+      required: [id, alertId, userId, message, triggeredAt, isRead]
+      properties:
+        id:
+          type: integer
+        alertId:
+          type: integer
+        userId:
+          type: integer
+        message:
+          type: string
+        triggeredAt:
+          type: string
+        isRead:
+          type: boolean

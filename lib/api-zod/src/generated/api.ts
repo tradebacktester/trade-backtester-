@@ -334,3 +334,156 @@ export const GetEquityCurveResponseItem = zod.object({
 export const GetEquityCurveResponse = zod.array(GetEquityCurveResponseItem)
 
 
+/**
+ * @summary List all alerts for the authenticated user
+ */
+export const ListAlertsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "type": zod.enum(['price', 'indicator', 'drawing', 'strategy', 'ai', 'dna']),
+  "symbol": zod.string(),
+  "timeframe": zod.string(),
+  "conditions": zod.array(zod.object({
+  "indicatorId": zod.string(),
+  "outputKey": zod.string(),
+  "operator": zod.enum(['crossAbove', 'crossBelow', 'gt', 'lt', 'eq', 'enters', 'exits', 'signal']),
+  "targetValue": zod.number().optional(),
+  "targetIndicatorId": zod.string().optional(),
+  "targetOutputKey": zod.string().optional(),
+  "logicOp": zod.enum(['AND', 'OR']),
+  "groupId": zod.number().optional()
+})),
+  "deliveryChannels": zod.array(zod.string()),
+  "isActive": zod.boolean(),
+  "triggerOnce": zod.boolean(),
+  "triggerCount": zod.number(),
+  "lastTriggeredAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListAlertsResponse = zod.array(ListAlertsResponseItem)
+
+
+/**
+ * @summary Create a new alert
+ */
+export const createAlertBodyNameMax = 100;
+
+export const createAlertBodyTypeDefault = `price`;
+export const createAlertBodyTimeframeDefault = `1d`;
+export const createAlertBodyDeliveryChannelsDefault = [`in_app`];
+export const createAlertBodyTriggerOnceDefault = false;
+
+export const CreateAlertBody = zod.object({
+  "name": zod.string().min(1).max(createAlertBodyNameMax),
+  "type": zod.enum(['price', 'indicator', 'drawing', 'strategy', 'ai', 'dna']).default(createAlertBodyTypeDefault),
+  "symbol": zod.string().min(1),
+  "timeframe": zod.string().default(createAlertBodyTimeframeDefault),
+  "conditions": zod.array(zod.object({
+  "indicatorId": zod.string(),
+  "outputKey": zod.string(),
+  "operator": zod.enum(['crossAbove', 'crossBelow', 'gt', 'lt', 'eq', 'enters', 'exits', 'signal']),
+  "targetValue": zod.number().optional(),
+  "targetIndicatorId": zod.string().optional(),
+  "targetOutputKey": zod.string().optional(),
+  "logicOp": zod.enum(['AND', 'OR']),
+  "groupId": zod.number().optional()
+})).min(1),
+  "deliveryChannels": zod.array(zod.string()).default(createAlertBodyDeliveryChannelsDefault),
+  "triggerOnce": zod.boolean().default(createAlertBodyTriggerOnceDefault)
+})
+
+
+/**
+ * @summary Update or toggle an alert
+ */
+export const UpdateAlertParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateAlertBodyNameMax = 100;
+
+
+
+export const UpdateAlertBody = zod.object({
+  "name": zod.string().min(1).max(updateAlertBodyNameMax).optional(),
+  "type": zod.enum(['price', 'indicator', 'drawing', 'strategy', 'ai', 'dna']).optional(),
+  "symbol": zod.string().optional(),
+  "timeframe": zod.string().optional(),
+  "conditions": zod.array(zod.object({
+  "indicatorId": zod.string(),
+  "outputKey": zod.string(),
+  "operator": zod.enum(['crossAbove', 'crossBelow', 'gt', 'lt', 'eq', 'enters', 'exits', 'signal']),
+  "targetValue": zod.number().optional(),
+  "targetIndicatorId": zod.string().optional(),
+  "targetOutputKey": zod.string().optional(),
+  "logicOp": zod.enum(['AND', 'OR']),
+  "groupId": zod.number().optional()
+})).optional(),
+  "deliveryChannels": zod.array(zod.string()).optional(),
+  "isActive": zod.boolean().optional(),
+  "triggerOnce": zod.boolean().optional()
+})
+
+export const UpdateAlertResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "type": zod.enum(['price', 'indicator', 'drawing', 'strategy', 'ai', 'dna']),
+  "symbol": zod.string(),
+  "timeframe": zod.string(),
+  "conditions": zod.array(zod.object({
+  "indicatorId": zod.string(),
+  "outputKey": zod.string(),
+  "operator": zod.enum(['crossAbove', 'crossBelow', 'gt', 'lt', 'eq', 'enters', 'exits', 'signal']),
+  "targetValue": zod.number().optional(),
+  "targetIndicatorId": zod.string().optional(),
+  "targetOutputKey": zod.string().optional(),
+  "logicOp": zod.enum(['AND', 'OR']),
+  "groupId": zod.number().optional()
+})),
+  "deliveryChannels": zod.array(zod.string()),
+  "isActive": zod.boolean(),
+  "triggerOnce": zod.boolean(),
+  "triggerCount": zod.number(),
+  "lastTriggeredAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete an alert
+ */
+export const DeleteAlertParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List recent alert notifications for the authenticated user
+ */
+export const ListAlertNotificationsResponseItem = zod.object({
+  "id": zod.number(),
+  "alertId": zod.number(),
+  "userId": zod.number(),
+  "message": zod.string(),
+  "triggeredAt": zod.string(),
+  "isRead": zod.boolean()
+})
+export const ListAlertNotificationsResponse = zod.array(ListAlertNotificationsResponseItem)
+
+
+/**
+ * @summary Mark a notification as read
+ */
+export const MarkAlertNotificationReadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkAlertNotificationReadResponse = zod.object({
+  "success": zod.boolean().optional()
+})
+
+
