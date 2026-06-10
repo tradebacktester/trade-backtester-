@@ -226,8 +226,17 @@ export default function NewBacktest() {
         toast({ title: "Simulation running!", description: "Redirecting to your results…" });
         setLocation(`/backtests/${backtest.id}`);
       },
-      onError: (error: { data?: { error?: string } | null }) => {
-        toast({ title: "Error", description: error.data?.error || "Failed to start backtest", variant: "destructive" });
+      onError: (error: { data?: { error?: string; limitReached?: boolean } | null }) => {
+        const msg = error.data?.error || "Failed to start backtest";
+        const isLimit = error.data?.limitReached === true;
+        toast({
+          title: isLimit ? "Plan limit reached" : "Error",
+          description: isLimit
+            ? `${msg} Visit the Pricing page to upgrade.`
+            : msg,
+          variant: "destructive",
+        });
+        if (isLimit) setLocation("/pricing");
       },
     });
   }

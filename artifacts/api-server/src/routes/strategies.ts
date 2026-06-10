@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, avg, max, min, count, sql, and } from "drizzle-orm";
-import { db, strategiesTable, backtestsTable } from "@workspace/db";
+import { eq, avg, max, min, count, sql, and, gt, lt, inArray } from "drizzle-orm";
+import { db, strategiesTable, backtestsTable, tradesTable } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
 import {
   ListStrategiesResponseItem,
@@ -244,6 +244,31 @@ router.get("/strategies/:id/performance", requireAuth, async (req, res): Promise
     .from(backtestsTable)
     .where(sql`${backtestsTable.strategyId} = ${params.data.id} AND ${backtestsTable.status} = 'complete'`);
 
+  // Count winning and losing trades across all backtests for this strategy
+  const backtestIds = await db
+    .select({ id: backtestsTable.id })
+    .from(backtestsTable)
+    .where(sql`${backtestsTable.strategyId} = ${params.data.id} AND ${backtestsTable.status} = 'complete'`);
+
+  let profitTrades = 0;
+  let lossTrades = 0;
+  let totalTrades = 0;
+
+  if (backtestIds.length > 0) {
+    const ids = backtestIds.map(b => b.id);
+    const [tradeCounts] = await db
+      .select({
+        total: count(tradesTable.id),
+        profits: sql<string>`count(case when cast(${tradesTable.pnl} as numeric) > 0 then 1 end)`,
+        losses: sql<string>`count(case when cast(${tradesTable.pnl} as numeric) < 0 then 1 end)`,
+      })
+      .from(tradesTable)
+      .where(inArray(tradesTable.backtestId, ids));
+    totalTrades = Number(tradeCounts?.total ?? 0);
+    profitTrades = Number(tradeCounts?.profits ?? 0);
+    lossTrades = Number(tradeCounts?.losses ?? 0);
+  }
+
   res.json({
     strategyId: params.data.id,
     totalBacktests: perf?.totalBacktests ?? 0,
@@ -253,6 +278,9 @@ router.get("/strategies/:id/performance", requireAuth, async (req, res): Promise
     avgSharpe: Number(perf?.avgSharpe ?? 0),
     avgWinRate: Number(perf?.avgWinRate ?? 0),
     avgMaxDrawdown: Number(perf?.avgMaxDrawdown ?? 0),
+    totalTrades,
+    profitTrades,
+    lossTrades,
   });
 });
 

@@ -72,8 +72,8 @@ router.post("/admin/login", async (req, res): Promise<void> => {
   }
 
   const { id, password, id2, password2 } = req.body;
-  if (!id || !password || !id2 || !password2) {
-    res.status(400).json({ error: "Both authentication credentials are required" });
+  if (!id || !password) {
+    res.status(400).json({ error: "Admin ID and password are required" });
     return;
   }
 
@@ -90,7 +90,11 @@ router.post("/admin/login", async (req, res): Promise<void> => {
   const ADMIN_PASSWORD_2 = process.env["ADMIN_PASSWORD_2"] ?? "";
 
   const cred1Ok = ADMIN_ID.length > 0 && safeCmp(String(id), ADMIN_ID) && safeCmp(String(password), ADMIN_PASSWORD);
-  const cred2Ok = ADMIN_ID_2.length > 0 && safeCmp(String(id2), ADMIN_ID_2) && safeCmp(String(password2), ADMIN_PASSWORD_2);
+  // Secondary credentials are optional — only checked when ADMIN_ID_2 is configured
+  const hasSecondary = ADMIN_ID_2.length > 0;
+  const cred2Ok = !hasSecondary || (
+    safeCmp(String(id2 ?? ""), ADMIN_ID_2) && safeCmp(String(password2 ?? ""), ADMIN_PASSWORD_2)
+  );
 
   if (!cred1Ok || !cred2Ok) {
     res.status(401).json({ error: "Invalid admin credentials" });

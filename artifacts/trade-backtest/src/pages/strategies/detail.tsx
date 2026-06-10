@@ -99,6 +99,30 @@ export default function StrategyDetail() {
                   <div className="text-xs text-muted-foreground">Avg Sharpe</div>
                   <div className="text-lg font-mono font-bold">{performance.avgSharpe.toFixed(2)}</div>
                 </div>
+                {(performance as any).totalTrades > 0 && (
+                  <>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Total Trades</div>
+                      <div className="text-lg font-mono font-bold">{(performance as any).totalTrades}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Profitable</div>
+                      <div className="text-lg font-mono font-bold text-green-500">
+                        {(performance as any).profitTrades} <span className="text-xs text-muted-foreground font-normal">wins</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Losing</div>
+                      <div className="text-lg font-mono font-bold text-red-500">
+                        {(performance as any).lossTrades} <span className="text-xs text-muted-foreground font-normal">losses</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Avg Drawdown</div>
+                      <div className="text-lg font-mono font-bold text-yellow-500">{performance.avgMaxDrawdown.toFixed(1)}%</div>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">No performance data available.</div>

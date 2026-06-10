@@ -307,7 +307,11 @@ export default function AlertsPage() {
   }
 
   async function saveAlert() {
-    if (!token) return;
+    if (!token) {
+      toast({ title: "Sign in required", description: "Please sign in to create and manage alerts.", variant: "destructive" });
+      setShowDialog(false);
+      return;
+    }
     if (!form.name.trim()) { toast({ title: "Alert name is required", variant: "destructive" }); return; }
 
     const body = {

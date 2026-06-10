@@ -1072,7 +1072,9 @@ function PaperTradingSection() {
   useEffect(() => {
     load();
     window.addEventListener("focus", load);
-    return () => window.removeEventListener("focus", load);
+    // Also auto-refresh every 10 s so P&L stays current without requiring a tab switch
+    const interval = setInterval(load, 10_000);
+    return () => { window.removeEventListener("focus", load); clearInterval(interval); };
   }, []);
 
   if (!ptAccount) return null;

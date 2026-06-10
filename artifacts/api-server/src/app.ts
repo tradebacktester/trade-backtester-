@@ -103,11 +103,11 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://api.binance.com", "https://api.groq.com"],
-        fontSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", "https://api.binance.com", "https://api.groq.com", "wss://stream.binance.com:9443"],
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
         frameSrc: ["'none'"],
       },
     },
