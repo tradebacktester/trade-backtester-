@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useListStrategies, getListStrategiesQueryKey } from "@workspace/api-client-react";
 import {
   Plus, ArrowRight, TrendingUp, BarChart2,
-  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell, Copy, Loader2,
+  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell, Copy, Loader2, Download,
 } from "lucide-react";
 import { loadLocalStrategies, type LocalStrategy } from "./new";
 import { useQueryClient } from "@tanstack/react-query";
@@ -69,18 +69,39 @@ interface StrategyCardProps {
   name: string; description: string; type: string; timeframe: string; symbol: string;
   winRate?: number; sharpe?: number; id: string | number;
   sample?: boolean; local?: boolean;
+  params?: Record<string, unknown>;
   icon?: React.ElementType; color?: string; colorBg?: string; colorBorder?: string;
 }
 
 function StrategyCard({
   name, description, type, timeframe, symbol,
-  winRate, sharpe, id, sample, local,
+  winRate, sharpe, id, sample, local, params,
   icon: Icon = Layers,
   color = "hsl(190,90%,60%)", colorBg = "rgba(0,229,255,0.1)", colorBorder = "rgba(0,229,255,0.2)",
 }: StrategyCardProps) {
   const ts = typeStyle(type);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const queryClient = useQueryClient();
+
+  async function downloadJson(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (sample || local) return;
+    try {
+      const tok = localStorage.getItem("tt_token");
+      if (!tok) return;
+      const r = await fetch(`${API_BASE}/api/strategies/${id}`, { headers: { Authorization: `Bearer ${tok}` } });
+      if (!r.ok) return;
+      const data = await r.json() as Record<string, unknown>;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${String(data["name"] ?? name).replace(/\s+/g, "_")}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+  }
 
   async function duplicate(e: React.MouseEvent) {
     e.preventDefault();
@@ -171,6 +192,17 @@ function StrategyCard({
         </span>
       </div>
 
+      {params && Object.keys(params).length > 0 && (
+        <div className="px-4 sm:px-5 flex flex-wrap gap-1 mb-2">
+          {Object.entries(params).slice(0, 5).map(([k, v]) => (
+            <span key={k} className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              {k}: {typeof v === "number" ? Number(v) : String(v)}
+            </span>
+          ))}
+        </div>
+      )}
+
       {(winRate !== undefined || sharpe !== undefined) && (
         <div className="mx-4 sm:mx-5 mb-3 grid grid-cols-2 gap-2 rounded-xl p-2.5"
           style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.05)" }}>
@@ -230,6 +262,16 @@ function StrategyCard({
                 {isDuplicating
                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   : <Copy className="h-4 w-4" />}
+              </button>
+            )}
+            {!local && !sample && (
+              <button
+                onClick={downloadJson}
+                title="Export as JSON"
+                className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.2)", color: "hsl(142,70%,50%)" }}
+              >
+                <Download className="h-4 w-4" />
               </button>
             )}
             <Link href={local ? "/backtests/new" : `/strategies/${id}`}>
@@ -376,7 +418,7 @@ export default function Strategies() {
           ))
         ) : allOwn.length > 0 ? (
           allOwn.map(s => (
-            <StrategyCard key={s.id} {...s} />
+            <StrategyCard key={s.id} {...s} params={(s as unknown as Record<string, unknown>)?.parameters as Record<string, unknown> | undefined} />
           ))
         ) : (
           <div className="col-span-full rounded-2xl border p-10 flex flex-col items-center gap-4 text-center"

@@ -757,19 +757,34 @@ function TraderDNACommandCenter() {
 
 /* ── Stat card ────────────────────────────────────────────────────── */
 function StatCard({
-  icon: Icon, label, value, accent, isLoading = false,
+  icon: Icon, label, value, accent, isLoading = false, tooltip,
 }: {
   icon: React.ElementType; label: string; value: React.ReactNode;
-  accent?: string; isLoading?: boolean;
+  accent?: string; isLoading?: boolean; tooltip?: string;
 }) {
+  const [showTip, setShowTip] = React.useState(false);
   return (
-    <div className="specular-card relative overflow-hidden rounded-2xl p-5 flex flex-col gap-5"
-      style={{ ...CARD, transition: "box-shadow 0.30s cubic-bezier(0.34,1.56,0.64,1), border-color 0.22s ease, transform 0.30s cubic-bezier(0.34,1.56,0.64,1)" }}>
+    <div
+      className="specular-card relative overflow-hidden rounded-2xl p-5 flex flex-col gap-5"
+      style={{ ...CARD, transition: "box-shadow 0.30s cubic-bezier(0.34,1.56,0.64,1), border-color 0.22s ease, transform 0.30s cubic-bezier(0.34,1.56,0.64,1)" }}
+      onMouseEnter={() => setShowTip(true)}
+      onMouseLeave={() => setShowTip(false)}
+    >
       {/* Top edge specular gradient */}
       <div
         className="absolute top-0 left-[15%] right-[15%] h-px pointer-events-none"
         style={{ background: `linear-gradient(90deg, transparent, ${accent ?? "rgba(255,255,255,0.09)"} 50%, transparent)` }}
       />
+      {/* Tooltip */}
+      {tooltip && showTip && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none"
+          style={{ whiteSpace: "nowrap" }}>
+          <div className="text-[10px] font-mono px-2.5 py-1.5 rounded-lg"
+            style={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))", boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}>
+            {tooltip}
+          </div>
+        </div>
+      )}
       {/* Label row + icon */}
       <div className="flex items-center justify-between gap-2">
         <p className="apple-label">{label}</p>
@@ -995,7 +1010,7 @@ function RecentRow({ bt }: { bt: any }) {
             {bt.strategyName || `Strategy #${bt.strategyId}`}
           </p>
           <p className="text-[11px] font-mono" style={{ color: C.muted }}>
-            {bt.symbol} · {bt.startDate?.slice(0, 7)}
+            {(bt.symbol ?? "").replace(/^([A-Z]+)(USDT|USDC|BTC|ETH|BNB|USD)$/, "$1/$2")} · {bt.startDate?.slice(0, 7)}
           </p>
         </div>
         <div className="text-right flex-shrink-0">
@@ -1427,14 +1442,14 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        <StatCard icon={TrendingUp}  label="Best Return"    accent={C.positive} value={isLoading ? null : fmtPct(summary?.bestReturn)} isLoading={isLoading} />
-        <StatCard icon={Percent}     label="Avg Win Rate"   value={isLoading ? null : analytics ? `${analytics.avgWR.toFixed(1)}%` : "—"} isLoading={isLoading} />
-        <StatCard icon={Target}      label="Profit Factor"  value={isLoading ? null : analytics ? fmtNum(analytics.avgPF) : "—"} isLoading={isLoading} />
-        <StatCard icon={Zap}         label="Avg Sharpe"     value={isLoading ? null : analytics ? fmtNum(analytics.avgSharpe) : "—"} isLoading={isLoading} />
-        <StatCard icon={Clock}       label="Total Backtests" value={isLoading ? null : (summary?.totalBacktests ?? 0)} isLoading={isLoading} />
-        <StatCard icon={Shield}      label="Avg Drawdown"   accent={C.negative} value={isLoading ? null : analytics ? `-${Math.abs(analytics.avgDD).toFixed(1)}%` : "—"} isLoading={isLoading} />
-        <StatCard icon={DollarSign}  label="Best Trade"     accent={C.positive} value={isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—"} isLoading={isLoading} />
-        <StatCard icon={Activity}    label="Total Trades"   value={isLoading ? null : (summary?.totalTrades ?? 0)} isLoading={isLoading} />
+        <StatCard icon={TrendingUp}  label="Best Return"    accent={C.positive} value={isLoading ? null : fmtPct(summary?.bestReturn)} isLoading={isLoading} tooltip="Highest total return % across all completed backtests" />
+        <StatCard icon={Percent}     label="Avg Win Rate"   value={isLoading ? null : analytics ? `${analytics.avgWR.toFixed(1)}%` : "—"} isLoading={isLoading} tooltip="Average % of winning trades across all backtests" />
+        <StatCard icon={Target}      label="Profit Factor"  value={isLoading ? null : analytics ? fmtNum(analytics.avgPF) : "—"} isLoading={isLoading} tooltip="Gross profit ÷ gross loss — values >1.0 are profitable" />
+        <StatCard icon={Zap}         label="Avg Sharpe"     value={isLoading ? null : analytics ? fmtNum(analytics.avgSharpe) : "—"} isLoading={isLoading} tooltip="Risk-adjusted return — higher is better (>1.0 = good)" />
+        <StatCard icon={Clock}       label="Total Backtests" value={isLoading ? null : (summary?.totalBacktests ?? 0)} isLoading={isLoading} tooltip="Total number of backtests run on this account" />
+        <StatCard icon={Shield}      label="Avg Drawdown"   accent={C.negative} value={isLoading ? null : analytics ? `-${Math.abs(analytics.avgDD).toFixed(1)}%` : "—"} isLoading={isLoading} tooltip="Average max drawdown — worst peak-to-trough decline" />
+        <StatCard icon={DollarSign}  label="Best Trade"     accent={C.positive} value={isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—"} isLoading={isLoading} tooltip="Best total return across all your completed backtests" />
+        <StatCard icon={Activity}    label="Total Trades"   value={isLoading ? null : (summary?.totalTrades ?? 0)} isLoading={isLoading} tooltip="Total individual trades simulated across all backtests" />
       </div>
 
       {/* Trader DNA Command Center */}

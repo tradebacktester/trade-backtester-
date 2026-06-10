@@ -114,6 +114,7 @@ function formatBacktest(row: typeof backtestsTable.$inferSelect, strategyName?: 
     consecutiveWins: row.consecutiveWins,
     consecutiveLosses: row.consecutiveLosses,
     dataSource: row.dataSource ?? null,
+    notes: row.notes ?? null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
   };
@@ -287,6 +288,8 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
+  const notesRaw = typeof req.body.notes === "string" ? req.body.notes.slice(0, 2000) : null;
+
   const [backtest] = await db.insert(backtestsTable).values({
     userId,
     strategyId: parsed.data.strategyId,
@@ -296,6 +299,7 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     initialCapital: String(parsed.data.initialCapital),
     commission: String(commissionPct),
     slippage: String(slippagePct),
+    notes: notesRaw,
     status: "running",
   }).returning();
 
@@ -667,5 +671,18 @@ function computeYearlyReturnsFromTrades(
       return { year: yr, pct: months.reduce((s, m) => s + m.pct, 0), months };
     });
 }
+
+router.patch("/backtests/:id/notes", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const notes = typeof req.body.notes === "string" ? req.body.notes.slice(0, 2000) : null;
+  const [row] = await db.update(backtestsTable)
+    .set({ notes })
+    .where(and(eq(backtestsTable.id, id), eq(backtestsTable.userId, userId)))
+    .returning();
+  if (!row) { res.status(404).json({ error: "Backtest not found" }); return; }
+  res.json({ id: row.id, notes: row.notes });
+});
 
 export default router;

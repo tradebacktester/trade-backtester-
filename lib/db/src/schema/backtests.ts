@@ -28,6 +28,7 @@ export const backtestsTable = pgTable("backtests", {
   consecutiveWins: integer("consecutive_wins"),
   consecutiveLosses: integer("consecutive_losses"),
   dataSource: text("data_source"),
+  notes: text("notes"),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

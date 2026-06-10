@@ -652,6 +652,16 @@ export default function AlertsPage() {
                       Last triggered: {new Date(a.lastTriggeredAt).toLocaleString()}
                     </p>
                   )}
+                  {a.deliveryChannels.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1.5">
+                      {a.deliveryChannels.map(ch => (
+                        <span key={ch} className="text-[9px] font-mono px-1.5 py-0.5 rounded-md"
+                          style={{ background: "rgba(34,197,94,0.08)", color: "hsl(142,70%,50%)", border: "1px solid rgba(34,197,94,0.18)" }}>
+                          {ch === "in_app" ? "In-App" : ch === "browser" ? "Browser" : ch}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button onClick={() => toggleActive(a)} title={a.isActive ? "Pause alert" : "Resume alert"}

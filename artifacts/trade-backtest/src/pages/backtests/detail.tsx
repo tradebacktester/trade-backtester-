@@ -952,6 +952,29 @@ export default function BacktestDetail() {
 
   const [mcSims, setMcSims] = useState<number[][]>([]);
   const [mcLoading, setMcLoading] = useState(false);
+  const [backtestNotes, setBacktestNotes] = useState("");
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  useEffect(() => {
+    if (backtest) setBacktestNotes((backtest as unknown as Record<string, unknown>)?.notes as string ?? "");
+  }, [(backtest as unknown as Record<string, unknown>)?.id as number]);
+
+  async function handleSaveNotes() {
+    setSavingNotes(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/backtests/${id}/notes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
+        body: JSON.stringify({ notes: backtestNotes }),
+      });
+      if (!r.ok) throw new Error("Failed to save");
+      setEditingNotes(false);
+      toast({ title: "Notes saved" });
+    } catch {
+      toast({ title: "Error", description: "Failed to save notes", variant: "destructive" });
+    } finally { setSavingNotes(false); }
+  }
 
   const handleShare = useCallback(async () => {
     try {
@@ -1632,6 +1655,51 @@ export default function BacktestDetail() {
                 );
               })()}
             </div>
+
+            {/* Backtest Notes */}
+            <Card className="glass-card border-0">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <StickyNote className="h-4 w-4" />
+                    Notes
+                  </CardTitle>
+                  {!editingNotes ? (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditingNotes(true)}>
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditingNotes(false); setBacktestNotes((backtest as unknown as Record<string, unknown>)?.notes as string ?? ""); }}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" className="h-7 text-xs gap-1" onClick={handleSaveNotes} disabled={savingNotes}>
+                        {savingNotes && <Loader2 className="h-3 w-3 animate-spin" />}Save
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {editingNotes ? (
+                  <textarea
+                    value={backtestNotes}
+                    onChange={e => setBacktestNotes(e.target.value)}
+                    placeholder="Add notes about this backtest — what worked, what didn't, ideas to improve…"
+                    rows={3}
+                    maxLength={2000}
+                    className="w-full resize-y rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))", minHeight: 90 }}
+                  />
+                ) : backtestNotes ? (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "hsl(var(--muted-foreground))" }}>{backtestNotes}</p>
+                ) : (
+                  <button onClick={() => setEditingNotes(true)} className="text-xs transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    + Add notes about this backtest…
+                  </button>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Equity curve */}
             <Card className="glass-card border-0">

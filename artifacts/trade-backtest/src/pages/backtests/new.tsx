@@ -133,6 +133,7 @@ export default function NewBacktest() {
     parameters: Record<string, number>; reasoning: string;
   } | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [backtestNotes, setBacktestNotes] = useState("");
 
   const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies();
   const createBacktest = useCreateBacktest();
@@ -219,7 +220,7 @@ export default function NewBacktest() {
       ? { mode: "fixed_amount" as const, value: data.positionSizingValue ?? data.initialCapital * 0.95 }
       : { mode: "risk_pct" as const, value: data.positionSizingValue ?? 95 };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    createBacktest.mutate({ data: { strategyId: data.strategyId, symbol: data.symbol, startDate: data.startDate, endDate: data.endDate, initialCapital: data.initialCapital, commission: data.commission ?? 0, slippage: data.slippage ?? 0, positionSizing } as any }, {
+    createBacktest.mutate({ data: { strategyId: data.strategyId, symbol: data.symbol, startDate: data.startDate, endDate: data.endDate, initialCapital: data.initialCapital, commission: data.commission ?? 0, slippage: data.slippage ?? 0, positionSizing, notes: backtestNotes || undefined } as any }, {
       onSuccess: (backtest) => {
         queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
         toast({ title: "Simulation running!", description: "Redirecting to your results…" });
@@ -636,6 +637,22 @@ export default function NewBacktest() {
                   </div>
                 </div>
               )}
+
+              {/* Notes */}
+              <div className="pt-1">
+                <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  Notes <span style={{ fontWeight: 400 }}>(optional)</span>
+                </label>
+                <textarea
+                  value={backtestNotes}
+                  onChange={e => setBacktestNotes(e.target.value)}
+                  placeholder="Hypothesis, market conditions, or what you're testing…"
+                  rows={2}
+                  maxLength={2000}
+                  className="w-full rounded-xl px-3 py-2 text-[13px] resize-none outline-none transition-colors"
+                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
+                />
+              </div>
 
               {/* Submit */}
               <div className="pt-2">

@@ -9,6 +9,14 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+function formatSymbol(s: string): string {
+  const QUOTES = ["USDT", "USDC", "BUSD", "BTC", "ETH", "BNB", "USD"];
+  for (const q of QUOTES) {
+    if (s.endsWith(q) && s.length > q.length) return `${s.slice(0, s.length - q.length)}/${q}`;
+  }
+  return s;
+}
+
 function StatCard({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div
@@ -47,6 +55,7 @@ export default function Journal() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "wins" | "losses">("all");
+  const [sort, setSort] = useState<"date" | "return" | "sharpe" | "winrate">("date");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [menuId, setMenuId] = useState<number | null>(null);
 
@@ -59,6 +68,11 @@ export default function Journal() {
     const matchSearch = !q || (b.strategyName ?? "").toLowerCase().includes(q) || (b.symbol ?? "").toLowerCase().includes(q);
     const matchFilter = filter === "all" || (filter === "wins" && (b.totalReturn ?? 0) >= 0) || (filter === "losses" && (b.totalReturn ?? 0) < 0);
     return matchSearch && matchFilter;
+  }).sort((a, b) => {
+    if (sort === "return") return (b.totalReturn ?? -Infinity) - (a.totalReturn ?? -Infinity);
+    if (sort === "sharpe") return (b.sharpeRatio ?? -Infinity) - (a.sharpeRatio ?? -Infinity);
+    if (sort === "winrate") return (b.winRate ?? -Infinity) - (a.winRate ?? -Infinity);
+    return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
   });
 
   function handleDelete(id: number) {
@@ -176,6 +190,16 @@ export default function Journal() {
             </button>
           ))}
         </div>
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value as typeof sort)}
+          className="h-9 px-3 rounded-xl text-xs outline-none self-start sm:self-auto"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "hsl(218,14%,68%)" }}>
+          <option value="date">Latest</option>
+          <option value="return">Best return</option>
+          <option value="sharpe">Best Sharpe</option>
+          <option value="winrate">Best win rate</option>
+        </select>
       </div>
 
       {/* Journal cards */}
@@ -250,7 +274,7 @@ export default function Journal() {
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mb-3">
                       <span className="text-xs font-mono px-2 py-0.5 rounded-lg"
                         style={{ background: "rgba(255,255,255,0.05)", color: "hsl(218,12%,52%)" }}>
-                        {bt.symbol}
+                        {formatSymbol(bt.symbol ?? "")}
                       </span>
                       <span className="text-[11px]" style={{ color: "hsl(218,12%,36%)" }}>
                         {bt.startDate} → {bt.endDate}
