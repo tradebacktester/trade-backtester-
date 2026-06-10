@@ -1,6 +1,65 @@
 import type { AlertConditionSpec } from "@workspace/db";
 import type { IndicatorSnapshot } from "./indicator-snapshot";
 
+// ── Drawing geometry evaluation ──────────────────────────────────────────
+// DrawingGeometry is stored as JSONB on conditions created from drawing tools.
+// Supported shapes: horizontalLine { price }, priceZone { upper, lower },
+//   fibRetracement { high, low, levels: number[] }
+type DrawingGeometry =
+  | { type: "horizontalLine"; price: number }
+  | { type: "priceZone"; upper: number; lower: number }
+  | { type: "fibRetracement"; high: number; low: number; levels: number[] };
+
+const TOUCH_TOLERANCE_PCT = 0.003; // 0.3% band for "touch" events
+
+function evalDrawingOperator(
+  operator: string,
+  drawingEvent: string | undefined,
+  geometry: DrawingGeometry | null,
+  currPrice: number,
+  prevPrice: number,
+): boolean {
+  if (!geometry) return false;
+
+  const effectiveOp = drawingEvent ?? operator;
+
+  if (geometry.type === "horizontalLine") {
+    const level = geometry.price;
+    const band = level * TOUCH_TOLERANCE_PCT;
+    if (effectiveOp === "touch")       return Math.abs(currPrice - level) <= band;
+    if (effectiveOp === "breakAbove")  return prevPrice < level && currPrice > level + band;
+    if (effectiveOp === "breakBelow")  return prevPrice > level && currPrice < level - band;
+    return false;
+  }
+
+  if (geometry.type === "priceZone") {
+    const { upper, lower } = geometry;
+    const wasInside = prevPrice >= lower && prevPrice <= upper;
+    const isInside  = currPrice >= lower && currPrice <= upper;
+    if (effectiveOp === "touch")      return isInside;
+    if (effectiveOp === "enterZone")  return !wasInside && isInside;
+    if (effectiveOp === "exitZone")   return wasInside && !isInside;
+    if (effectiveOp === "breakAbove") return currPrice > upper && prevPrice <= upper;
+    if (effectiveOp === "breakBelow") return currPrice < lower && prevPrice >= lower;
+    return false;
+  }
+
+  if (geometry.type === "fibRetracement") {
+    const { high, low, levels } = geometry;
+    const range = high - low;
+    for (const level of levels) {
+      const fibPrice = low + range * level;
+      const band = fibPrice * TOUCH_TOLERANCE_PCT;
+      if (effectiveOp === "touch" && Math.abs(currPrice - fibPrice) <= band)     return true;
+      if (effectiveOp === "breakAbove" && prevPrice < fibPrice && currPrice > fibPrice + band) return true;
+      if (effectiveOp === "breakBelow" && prevPrice > fibPrice && currPrice < fibPrice - band) return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
 function resolveValue(
   key: string,
   snapshot: IndicatorSnapshot,
@@ -62,12 +121,34 @@ export function evaluateAlertConditions(
 
   const groupMap = new Map<number, { results: boolean[]; logicOp: "AND" | "OR" }>();
 
+  // Resolve current price from snapshot for drawing geometry evaluation
+  const currPrice = snapshot["price_close"]?.curr ?? null;
+  const prevPrice = snapshot["price_close"]?.prev ?? null;
+
   for (const cond of conditions) {
     const gid = cond.groupId ?? 0;
     if (!groupMap.has(gid)) {
       groupMap.set(gid, { results: [], logicOp: cond.logicOp });
     }
 
+    // ── Drawing condition ───────────────────────────────────────────
+    const isDrawing =
+      (cond as any).drawingId !== undefined ||
+      (cond as any).drawingEvent !== undefined ||
+      cond.indicatorId === "drawing";
+
+    if (isDrawing) {
+      const geometry = ((cond as any).drawingGeometry ?? null) as DrawingGeometry | null;
+      const drawingEvent = (cond as any).drawingEvent as string | undefined;
+      const result =
+        currPrice != null && prevPrice != null
+          ? evalDrawingOperator(cond.operator, drawingEvent, geometry, currPrice, prevPrice)
+          : false;
+      groupMap.get(gid)!.results.push(result);
+      continue;
+    }
+
+    // ── Indicator / price condition ─────────────────────────────────
     const indicatorKey = `${cond.indicatorId}_${cond.outputKey}`;
     const curr = resolveValue(indicatorKey, snapshot, "curr");
     const prev = resolveValue(indicatorKey, snapshot, "prev");

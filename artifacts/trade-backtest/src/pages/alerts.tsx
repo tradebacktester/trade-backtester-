@@ -249,7 +249,7 @@ export default function AlertsPage() {
   }
 
   async function aiSuggest() {
-    if (!token || !isPro && !isElite) return;
+    if (!token || !isElite) return;
     setAiLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/alerts/ai-suggest`, {
@@ -612,7 +612,7 @@ export default function AlertsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Conditions</label>
                   <div className="flex items-center gap-2">
-                    {(isPro || isElite) && (
+                    {isElite && (
                       <button onClick={aiSuggest} disabled={aiLoading}
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                         style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", color: "hsl(265,89%,65%)" }}>

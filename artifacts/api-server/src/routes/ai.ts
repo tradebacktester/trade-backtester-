@@ -1544,91 +1544,112 @@ Top strategies: ${profile.strategyStats.slice(0, 2).map(s => `${s.type} (avg ret
   }
 });
 
+// Deterministic pre-trade DNA pattern check — no LLM, pure DB math
 router.post("/ai/pre-trade-check", requireAuth, async (req, res) => {
   const userId = res.locals["userId"] as number;
-  if (!checkAiRateLimit(userId)) {
-    res.status(429).json({ error: "AI rate limit reached for today." });
-    return;
-  }
 
   const b = req.body as Record<string, unknown>;
-  const symbol = typeof b["symbol"] === "string" ? b["symbol"] : "";
-  const side = typeof b["side"] === "string" ? b["side"] : "long";
-  const entryPrice = typeof b["entryPrice"] === "number" ? b["entryPrice"] : null;
-  const leverage = typeof b["leverage"] === "number" ? b["leverage"] : 1;
-  const timeframe = typeof b["timeframe"] === "string" ? b["timeframe"] : "1d";
+  const symbol    = typeof b["symbol"]    === "string" ? b["symbol"]    : "";
+  const side      = typeof b["side"]      === "string" ? b["side"]      : "long";
+  const leverage  = typeof b["leverage"]  === "number" ? b["leverage"]  : 1;
+  void b["timeframe"]; // accepted in request but not used in deterministic path
 
   try {
-    const { extractTraderProfile } = await import("../lib/trader-dna");
     const profile = await extractTraderProfile(userId);
 
     if (!profile || profile.totalTrades < 3) {
       res.json({
-        riskLevel: "unknown",
-        score: 50,
-        warnings: [],
-        tip: "Complete more trades to enable pre-trade DNA warnings.",
+        warningLevel: "none",
+        matchedPatterns: [],
+        avgLossOnMatch: 0,
         hasEnoughHistory: false,
+        tip: "Complete more trades to enable pre-trade DNA warnings.",
       });
       return;
     }
 
-    const losingPatterns = profile.losingTrades.slice(0, 5).map(t =>
-      `${t.symbol} ${t.side} (${t.pnlPercent.toFixed(1)}%)`
-    ).join(", ");
+    // ── Match against losing trades with same symbol or side ──────────
+    interface MatchedPattern { label: string; count: number; avgPnlPct: number }
+    const matchedPatterns: MatchedPattern[] = [];
 
-    const winningPatterns = profile.winningTrades.slice(0, 5).map(t =>
-      `${t.symbol} ${t.side} (${t.pnlPercent.toFixed(1)}%)`
-    ).join(", ");
+    // Pattern 1: same symbol + same side losses
+    const symbolSideMatches = profile.losingTrades.filter(
+      t => t.symbol === symbol && t.side === side,
+    );
+    if (symbolSideMatches.length >= 2) {
+      const avgPnl = symbolSideMatches.reduce((s, t) => s + t.pnlPercent, 0) / symbolSideMatches.length;
+      matchedPatterns.push({
+        label: `${symbol} ${side} — historically loses`,
+        count: symbolSideMatches.length,
+        avgPnlPct: avgPnl,
+      });
+    }
 
-    const topMistakes = profile.journalMistakes.slice(0, 3).map(m =>
-      `${m.label} (severity: ${m.severity}, count: ${m.count})`
-    ).join("; ");
+    // Pattern 2: same side under same timeframe losses
+    const sideMatches = profile.losingTrades.filter(t => t.side === side);
+    const sideWins    = profile.winningTrades.filter(t => t.side === side);
+    const sideTotal   = sideMatches.length + sideWins.length;
+    if (sideTotal >= 5 && sideMatches.length / sideTotal > 0.65) {
+      const avgPnl = sideMatches.reduce((s, t) => s + t.pnlPercent, 0) / sideMatches.length;
+      matchedPatterns.push({
+        label: `${side} trades — ${Math.round((sideMatches.length / sideTotal) * 100)}% loss rate`,
+        count: sideMatches.length,
+        avgPnlPct: avgPnl,
+      });
+    }
 
-    const profileText = `
-Trader DNA:
-- Style: ${profile.traderStyle}, Preferred side: ${profile.preferredSide}
-- Win rate: ${profile.avgWinRate.toFixed(1)}%, Avg drawdown: ${profile.avgDrawdown.toFixed(1)}%
-- Recent losing trades: ${losingPatterns || "none"}
-- Recent winning trades: ${winningPatterns || "none"}
-- Top mistakes: ${topMistakes || "none identified"}
-- High leverage (≥5x) win rate: ${profile.sessionStats.find(s => s.label === "High Leverage")?.winRate.toFixed(0) ?? "unknown"}%
-Proposed trade: ${symbol} ${side}, entry ${entryPrice ?? "market"}, leverage ${leverage}x, timeframe ${timeframe}
-`;
+    // Pattern 3: high-leverage losses
+    if (leverage >= 5) {
+      const leverageMatches = profile.losingTrades.filter(t => (t as any).leverage >= 5 || leverage >= 5);
+      const highLevWinRate = profile.sessionStats.find(s => s.label === "High Leverage")?.winRate ?? null;
+      if (highLevWinRate !== null && highLevWinRate < 40) {
+        matchedPatterns.push({
+          label: `High leverage (≥5×) — ${highLevWinRate.toFixed(0)}% win rate`,
+          count: leverageMatches.length,
+          avgPnlPct: highLevWinRate - 100,
+        });
+      }
+    }
 
-    const systemPrompt = `You are a trading risk analyst and coach. Analyze whether this proposed trade matches the trader's historical DNA.
-Identify specific risk patterns, compare to their winning vs losing trade profile, and provide a concise warning if the trade looks like one they typically lose.
-Respond ONLY with valid JSON:
-{
-  "riskLevel": "low|medium|high",
-  "score": <0-100, 100=highest risk>,
-  "warnings": ["<warning 1>", "<warning 2>"],
-  "tip": "<one actionable pre-trade coaching tip based on their DNA>",
-  "hasEnoughHistory": true,
-  "matchesLosingPattern": <true|false>,
-  "patternDetail": "<brief explanation of which pattern this matches>"
-}`;
+    // ── Pattern 4: journal-listed recurring mistakes ──────────────────
+    const topMistakes = profile.journalMistakes.slice(0, 2);
+    for (const m of topMistakes) {
+      if (m.count >= 2) {
+        matchedPatterns.push({
+          label: `Recurring mistake: ${m.label}`,
+          count: m.count,
+          avgPnlPct: -15, // heuristic: journal-logged mistakes correlate with losses
+        });
+      }
+    }
 
-    const client = groqClient();
-    const completion = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: profileText },
-      ],
-      max_tokens: 400,
-      temperature: 0.55,
-      response_format: { type: "json_object" },
+    const avgLossOnMatch = matchedPatterns.length > 0
+      ? matchedPatterns.reduce((s, p) => s + p.avgPnlPct, 0) / matchedPatterns.length
+      : 0;
+
+    // ── warningLevel ─────────────────────────────────────────────────
+    const criticalCount = matchedPatterns.filter(p => p.avgPnlPct < -20).length;
+    const warningLevel =
+      criticalCount >= 2 || avgLossOnMatch < -25 ? "danger" :
+      matchedPatterns.length >= 2 || avgLossOnMatch < -10 ? "warning" :
+      matchedPatterns.length === 1 ? "caution" : "none";
+
+    // ── Tip: deterministic, based on strongest matched pattern ────────
+    const strongest = matchedPatterns.sort((a, b) => a.avgPnlPct - b.avgPnlPct)[0];
+    const tip = strongest
+      ? `Your DNA shows ${strongest.label}. Average loss on this pattern: ${strongest.avgPnlPct.toFixed(1)}%. Consider reducing position size or waiting for a cleaner setup.`
+      : null;
+
+    res.json({
+      warningLevel,
+      matchedPatterns,
+      avgLossOnMatch: Number(avgLossOnMatch.toFixed(2)),
+      hasEnoughHistory: true,
+      tip,
     });
-
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    let result: Record<string, unknown> = {};
-    try { result = JSON.parse(raw); } catch { result = {}; }
-    result.hasEnoughHistory = true;
-    res.json(result);
   } catch (err) {
     logger.error(err, "ai/pre-trade-check error");
-    res.status(500).json({ error: "AI service temporarily unavailable." });
+    res.status(500).json({ error: "Pre-trade check temporarily unavailable." });
   }
 });
 

@@ -317,7 +317,7 @@ export default function ChartPage() {
   // Live trade warning modal (pattern-based — only shown when a mistake is detected)
   type TradeMistake = { label: string; severity: string; detail: string };
   const [tradeWarn, setTradeWarn] = useState<{ side: "long" | "short"; price: number; mistake: TradeMistake; similarity: number } | null>(null);
-  const [aiPreTrade, setAiPreTrade] = useState<{ tip: string; riskLevel: string; warnings: string[] } | null>(null);
+  const [aiPreTrade, setAiPreTrade] = useState<{ tip: string | null; warningLevel: string; matchedPatterns: { label: string; count: number; avgPnlPct: number }[]; avgLossOnMatch: number } | null>(null);
   const pendingTradeRef = useRef<(() => void) | null>(null);
   const coachingRef = useRef<{ mistakes: TradeMistake[] } | null>(null);
 
@@ -330,9 +330,20 @@ export default function ChartPage() {
         body: JSON.stringify({ symbol, side, entryPrice: price, leverage: chartLeverage, timeframe: interval }),
       });
       if (!r.ok) return;
-      const d = await r.json() as { tip?: string; riskLevel?: string; warnings?: string[]; hasEnoughHistory?: boolean };
-      if (d.hasEnoughHistory && d.tip) {
-        setAiPreTrade({ tip: d.tip, riskLevel: d.riskLevel ?? "medium", warnings: d.warnings ?? [] });
+      const d = await r.json() as {
+        warningLevel?: string;
+        matchedPatterns?: { label: string; count: number; avgPnlPct: number }[];
+        avgLossOnMatch?: number;
+        tip?: string | null;
+        hasEnoughHistory?: boolean;
+      };
+      if (d.hasEnoughHistory && d.warningLevel && d.warningLevel !== "none") {
+        setAiPreTrade({
+          tip: d.tip ?? null,
+          warningLevel: d.warningLevel,
+          matchedPatterns: d.matchedPatterns ?? [],
+          avgLossOnMatch: d.avgLossOnMatch ?? 0,
+        });
       }
     } catch { /* non-blocking */ }
   }
@@ -1424,13 +1435,25 @@ export default function ChartPage() {
                 <p className="text-[11px] font-mono font-semibold mb-1" style={{ color: "hsl(38,95%,65%)" }}>{tradeWarn.mistake.label}</p>
                 <p className="text-[11px] font-mono leading-relaxed" style={{ color: "hsl(220,14%,65%)" }}>{tradeWarn.mistake.detail}</p>
               </div>
-              {aiPreTrade?.tip && (
+              {aiPreTrade && (aiPreTrade.tip || aiPreTrade.matchedPatterns.length > 0) && (
                 <div className="rounded-xl p-3 mt-2" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
-                  <div className="flex items-center gap-1.5 mb-1">
+                  <div className="flex items-center gap-1.5 mb-1.5">
                     <Sparkles className="h-3 w-3 flex-shrink-0" style={{ color: "hsl(265,89%,65%)" }} />
-                    <p className="text-[10px] font-mono font-semibold uppercase tracking-wider" style={{ color: "hsl(265,89%,65%)" }}>DNA Coach Tip</p>
+                    <p className="text-[10px] font-mono font-semibold uppercase tracking-wider" style={{ color: "hsl(265,89%,65%)" }}>
+                      DNA Analysis · {aiPreTrade.warningLevel.toUpperCase()}
+                    </p>
                   </div>
-                  <p className="text-[11px] font-mono leading-relaxed" style={{ color: "hsl(265,50%,80%)" }}>{aiPreTrade.tip}</p>
+                  {aiPreTrade.matchedPatterns.slice(0, 2).map((p, i) => (
+                    <div key={i} className="flex items-center justify-between mb-1">
+                      <p className="text-[10px] font-mono leading-snug" style={{ color: "hsl(265,40%,75%)" }}>• {p.label}</p>
+                      <p className="text-[10px] font-mono font-semibold flex-shrink-0 ml-2" style={{ color: p.avgPnlPct < 0 ? "hsl(0,85%,65%)" : "hsl(150,90%,65%)" }}>
+                        {p.avgPnlPct.toFixed(1)}%
+                      </p>
+                    </div>
+                  ))}
+                  {aiPreTrade.tip && (
+                    <p className="text-[10px] font-mono leading-relaxed mt-1" style={{ color: "hsl(265,50%,80%)" }}>{aiPreTrade.tip}</p>
+                  )}
                 </div>
               )}
             </div>

@@ -50,6 +50,7 @@ const VALID_OPERATORS = [
   "crossAbove", "crossBelow", "gt", "lt", "eq", "enters", "exits", "signal",
   "touch", "breakAbove", "breakBelow", "enterZone", "exitZone",
 ] as const;
+const VALID_DRAWING_EVENTS = ["touch", "breakAbove", "breakBelow", "enterZone", "exitZone", "fibLevel"] as const;
 
 const CROSS_OPERATORS = new Set(["crossAbove", "crossBelow"]);
 const THRESHOLD_OPERATORS = new Set(["gt", "lt", "eq", "enters", "exits"]);
@@ -104,6 +105,12 @@ function validateCondition(c: unknown): string | null {
   if (logicOp !== "AND" && logicOp !== "OR") return "condition.logicOp must be AND or OR";
 
   if (isDrawingCondition(cond)) {
+    if (cond["drawingEvent"] !== undefined && !VALID_DRAWING_EVENTS.includes(cond["drawingEvent"] as any)) {
+      return `condition.drawingEvent must be one of: ${VALID_DRAWING_EVENTS.join(", ")}`;
+    }
+    if (!DRAWING_OPERATORS.has(operator as string) && operator !== "signal") {
+      return `Drawing conditions must use a drawing operator: ${[...DRAWING_OPERATORS].join(", ")}`;
+    }
     return null;
   }
 
@@ -228,22 +235,20 @@ function validateUpdateAlert(body: unknown): { data: UpdateAlertBody } | { error
   };
 }
 
-const ALERT_PLAN_LIMITS: Record<string, { maxAlerts: number; allowedTypes: string[] }> = {
-  free: {
-    maxAlerts: 5,
-    allowedTypes: ["price"],
-  },
-  pro: {
-    maxAlerts: 100,
-    allowedTypes: ["price", "indicator", "drawing", "strategy"],
-  },
-  elite: {
-    maxAlerts: -1,
-    allowedTypes: ["price", "indicator", "drawing", "strategy", "ai", "dna"],
-  },
+// Fallback limits used only when subscription_plans.features does not contain the keys
+const FALLBACK_PLAN_LIMITS: Record<string, { maxAlerts: number; allowedTypes: string[] }> = {
+  free:  { maxAlerts: 5,   allowedTypes: ["price"] },
+  pro:   { maxAlerts: 100, allowedTypes: ["price", "indicator", "drawing", "strategy"] },
+  elite: { maxAlerts: -1,  allowedTypes: ["price", "indicator", "drawing", "strategy", "ai", "dna"] },
 };
 
-async function getUserPlanSlug(userId: number): Promise<string> {
+interface PlanInfo {
+  slug: string;
+  maxAlerts: number;
+  allowedTypes: string[];
+}
+
+async function getUserPlan(userId: number): Promise<PlanInfo> {
   const [activeSub] = await db
     .select({ planId: subscriptionsTable.planId })
     .from(subscriptionsTable)
@@ -251,15 +256,28 @@ async function getUserPlanSlug(userId: number): Promise<string> {
     .orderBy(desc(subscriptionsTable.createdAt))
     .limit(1);
 
-  if (!activeSub) return "free";
+  if (!activeSub) return { slug: "free", ...FALLBACK_PLAN_LIMITS["free"]! };
 
   const [plan] = await db
-    .select({ slug: subscriptionPlansTable.slug })
+    .select({ slug: subscriptionPlansTable.slug, features: subscriptionPlansTable.features })
     .from(subscriptionPlansTable)
     .where(eq(subscriptionPlansTable.id, activeSub.planId))
     .limit(1);
 
-  return plan?.slug ?? "free";
+  const slug = plan?.slug ?? "free";
+  const features = (plan?.features ?? {}) as Record<string, unknown>;
+  const fallback = FALLBACK_PLAN_LIMITS[slug] ?? FALLBACK_PLAN_LIMITS["free"]!;
+
+  return {
+    slug,
+    maxAlerts:    typeof features["maxAlerts"] === "number" ? features["maxAlerts"] : fallback.maxAlerts,
+    allowedTypes: Array.isArray(features["alertTypes"]) ? (features["alertTypes"] as string[]) : fallback.allowedTypes,
+  };
+}
+
+// Keep the old helper for callers that only need the slug
+async function getUserPlanSlug(userId: number): Promise<string> {
+  return (await getUserPlan(userId)).slug;
 }
 
 async function syncConditionRows(alertId: number, conditions: AlertConditionSpec[]): Promise<void> {
@@ -283,8 +301,7 @@ async function syncConditionRows(alertId: number, conditions: AlertConditionSpec
 
 const router: IRouter = Router();
 
-router.use("/alerts", requireAuth);
-
+// ── Public route (no auth) ────────────────────────────────────────────────
 router.get("/alerts/catalog", (_req, res: Response): void => {
   const catalog = getIndicatorCatalog();
   const categories = [
@@ -298,16 +315,23 @@ router.get("/alerts/catalog", (_req, res: Response): void => {
   res.json({ catalog, categories });
 });
 
+// ── All routes below require authentication ───────────────────────────────
+router.use("/alerts", requireAuth);
+
 router.get("/alerts", async (_req, res: Response): Promise<void> => {
   const userId = res.locals["userId"] as number;
-  const alerts = await db
-    .select()
-    .from(alertsTable)
-    .where(eq(alertsTable.userId, userId))
-    .orderBy(desc(alertsTable.createdAt));
 
-  const planSlug = await getUserPlanSlug(userId);
-  const limits = ALERT_PLAN_LIMITS[planSlug] ?? ALERT_PLAN_LIMITS["free"]!;
+  const [alerts, notifications, plan] = await Promise.all([
+    db.select().from(alertsTable).where(eq(alertsTable.userId, userId)).orderBy(desc(alertsTable.createdAt)),
+    db.select({ id: alertNotificationsTable.id, isRead: alertNotificationsTable.isRead })
+      .from(alertNotificationsTable)
+      .where(eq(alertNotificationsTable.userId, userId)),
+    getUserPlan(userId),
+  ]);
+
+  const total = alerts.length;
+  const active = alerts.filter(a => a.isActive).length;
+  const unreadNotifications = notifications.filter(n => !n.isRead).length;
 
   res.json({
     alerts: alerts.map((a) => ({
@@ -316,8 +340,12 @@ router.get("/alerts", async (_req, res: Response): Promise<void> => {
       updatedAt: a.updatedAt.toISOString(),
       lastTriggeredAt: a.lastTriggeredAt?.toISOString() ?? null,
     })),
-    planSlug,
-    limits,
+    planSlug: plan.slug,
+    maxAlerts: plan.maxAlerts,
+    allowedTypes: plan.allowedTypes,
+    total,
+    active,
+    unreadNotifications,
   });
 });
 
@@ -331,17 +359,16 @@ router.post("/alerts", async (req: Request, res: Response): Promise<void> => {
   }
 
   const data = parsed.data;
-  const planSlug = await getUserPlanSlug(userId);
-  const limits = ALERT_PLAN_LIMITS[planSlug] ?? ALERT_PLAN_LIMITS["free"]!;
+  const plan = await getUserPlan(userId);
 
-  if (!limits.allowedTypes.includes(data.type)) {
+  if (!plan.allowedTypes.includes(data.type)) {
     res.status(403).json({
       error: `Alert type "${data.type}" is not available on your current plan. Upgrade to access this feature.`,
     });
     return;
   }
 
-  if (planSlug === "free" && data.type === "price") {
+  if (plan.slug === "free" && data.type === "price") {
     const priceLevelError = validatePriceLevelConditions(data.conditions);
     if (priceLevelError) {
       res.status(403).json({ error: priceLevelError });
@@ -349,15 +376,15 @@ router.post("/alerts", async (req: Request, res: Response): Promise<void> => {
     }
   }
 
-  if (limits.maxAlerts !== -1) {
+  if (plan.maxAlerts !== -1) {
     const [countRow] = await db
       .select({ count: db.$count(alertsTable) })
       .from(alertsTable)
       .where(eq(alertsTable.userId, userId));
     const existing = Number(countRow?.count ?? 0);
-    if (existing >= limits.maxAlerts) {
+    if (existing >= plan.maxAlerts) {
       res.status(403).json({
-        error: `You have reached the maximum of ${limits.maxAlerts} alerts on your current plan. Upgrade for more.`,
+        error: `You have reached the maximum of ${plan.maxAlerts} alerts on your current plan. Upgrade for more.`,
       });
       return;
     }
@@ -415,11 +442,10 @@ router.patch("/alerts/:id", async (req: Request, res: Response): Promise<void> =
 
   const data = parsed.data;
 
-  const planSlug = await getUserPlanSlug(userId);
+  const plan = await getUserPlan(userId);
 
   if (data.type && data.type !== existing.type) {
-    const limits = ALERT_PLAN_LIMITS[planSlug] ?? ALERT_PLAN_LIMITS["free"]!;
-    if (!limits.allowedTypes.includes(data.type)) {
+    if (!plan.allowedTypes.includes(data.type)) {
       res.status(403).json({
         error: `Alert type "${data.type}" is not available on your current plan.`,
       });
@@ -429,7 +455,7 @@ router.patch("/alerts/:id", async (req: Request, res: Response): Promise<void> =
 
   if (data.conditions !== undefined) {
     const effectiveType = data.type ?? existing.type;
-    if (planSlug === "free" && effectiveType === "price") {
+    if (plan.slug === "free" && effectiveType === "price") {
       const priceLevelError = validatePriceLevelConditions(data.conditions);
       if (priceLevelError) {
         res.status(403).json({ error: priceLevelError });
@@ -536,8 +562,8 @@ router.post("/alerts/ai-suggest", async (req: Request, res: Response): Promise<v
   const userId = res.locals["userId"] as number;
   const planSlug = await getUserPlanSlug(userId);
 
-  if (planSlug === "free") {
-    res.status(403).json({ error: "AI alert suggestions require a Pro or Elite plan." });
+  if (planSlug !== "elite") {
+    res.status(403).json({ error: "AI alert suggestions require an Elite plan." });
     return;
   }
 
