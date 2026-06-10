@@ -1166,11 +1166,22 @@ export default function BacktestDetail() {
       sqn = stdPnl > 0 ? (Math.sqrt(pnls.length) * meanPnl) / stdPnl : 0;
     }
 
+    // Risk of Ruin — probability of losing 50% of capital at 2% fixed risk per trade
+    // edge = win_prob × R - loss_prob  (where R = avgWin / avgLoss reward-risk ratio)
+    // RoR  = ((1 - edge) / (1 + edge))^50  (50 units = 100% account / 2% risk)
+    const p = winRate / 100;
+    const rrRatio = avgLoss > 0 ? avgWin / avgLoss : (avgWin > 0 ? 10 : 0);
+    const edgePerUnit = p * rrRatio - (1 - p);
+    const rorRaw = edgePerUnit <= 0
+      ? 100
+      : Math.min(100, ((1 - edgePerUnit) / (1 + edgePerUnit)) ** 50 * 100);
+    const riskOfRuin = Math.round(rorRaw * 10) / 10;
+
     return {
       winRate, avgWin, avgLoss, avgRR, maxWins, maxLosses,
       avgDuration, bestTrade, worstTrade, monthlyReturns, distribution,
       grossProfit, grossLoss, totalWinners: winners.length, totalLosers: losers.length,
-      expectancy, sqn,
+      expectancy, sqn, riskOfRuin,
     };
   }, [trades, backtest]);
 
@@ -1477,6 +1488,15 @@ export default function BacktestDetail() {
                   sub="system quality"
                   accent={analytics.sqn >= 2 ? "#22c55e" : analytics.sqn >= 1 ? "#f59e0b" : "#ef4444"}
                   tooltip="System Quality Number (Van Tharp). Below 1: poor. 1–2: acceptable. 2–3: good. 3+: excellent."
+                />
+              )}
+              {analytics && trades && trades.length >= 10 && (
+                <StatBox
+                  label="Risk of Ruin"
+                  value={`${analytics.riskOfRuin.toFixed(1)}%`}
+                  sub="at 2% risk/trade"
+                  accent={analytics.riskOfRuin < 5 ? "#22c55e" : analytics.riskOfRuin < 25 ? "#f59e0b" : "#ef4444"}
+                  tooltip="Estimated probability of losing 50% of capital assuming a constant 2% risk per trade. Derived from your win rate and average reward-to-risk ratio using the gambler's ruin formula. Lower is better."
                 />
               )}
               {((backtest as any).consecutiveWins ?? 0) > 0 && (

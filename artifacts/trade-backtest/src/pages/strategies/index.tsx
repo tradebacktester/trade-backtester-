@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { useListStrategies } from "@workspace/api-client-react";
+import { useListStrategies, getListStrategiesQueryKey } from "@workspace/api-client-react";
 import {
   Plus, ArrowRight, TrendingUp, BarChart2,
-  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell,
+  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell, Copy, Loader2,
 } from "lucide-react";
 import { loadLocalStrategies, type LocalStrategy } from "./new";
+import { useQueryClient } from "@tanstack/react-query";
+import { API_BASE } from "@/lib/api-config";
 
 const SAMPLE_STRATEGIES = [
   {
@@ -77,6 +79,40 @@ function StrategyCard({
   color = "hsl(190,90%,60%)", colorBg = "rgba(0,229,255,0.1)", colorBorder = "rgba(0,229,255,0.2)",
 }: StrategyCardProps) {
   const ts = typeStyle(type);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const queryClient = useQueryClient();
+
+  async function duplicate(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isDuplicating || sample || local) return;
+    setIsDuplicating(true);
+    try {
+      const token = localStorage.getItem("tt_token");
+      if (!token) return;
+      const r = await fetch(`${API_BASE}/api/strategies/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) return;
+      const strategy = await r.json() as Record<string, unknown>;
+      await fetch(`${API_BASE}/api/strategies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: `Copy of ${strategy["name"] as string}`,
+          description: strategy["description"] ?? "",
+          type: strategy["type"],
+          symbol: strategy["symbol"],
+          timeframe: strategy["timeframe"],
+          params: strategy["params"] ?? {},
+        }),
+      });
+      await queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
+    } finally {
+      setIsDuplicating(false);
+    }
+  }
+
   return (
     <div
       className="rounded-2xl border flex flex-col transition-all duration-200 hover:translate-y-[-2px]"
@@ -183,6 +219,19 @@ function StrategyCard({
                 <Bell className="h-4 w-4" />
               </span>
             </Link>
+            {!local && (
+              <button
+                onClick={duplicate}
+                disabled={isDuplicating}
+                title="Duplicate strategy"
+                className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                style={{ background: "rgba(6,182,212,0.07)", border: "1px solid rgba(6,182,212,0.2)", color: "hsl(190,90%,65%)" }}
+              >
+                {isDuplicating
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Copy className="h-4 w-4" />}
+              </button>
+            )}
             <Link href={local ? "/backtests/new" : `/strategies/${id}`}>
               <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "hsl(220,14%,55%)" }}>

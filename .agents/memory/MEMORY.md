@@ -29,3 +29,5 @@
 - [Auth guard screens](auth-guard-screens.md) — pages that gate-keep with !token must render AuthModal inline (not Link to /auth/signin — no such route); add useState+AuthModal import to the component directly.
 - [Admin login route](admin-login-route.md) — /admin/login route must be explicit in App.tsx Router; /admin redirects to /admin/login (not /dashboard); AdminLogin component was imported but unregistered — caused 404.
 - [AlertConditionSpec operator type](alert-condition-operator-type.md) — helper functions that build AlertConditionSpec objects must type the operator param as AlertConditionSpec["operator"], not string; passing string causes TS2322 on the discriminated union.
+- [Lucide-react icon names](lucide-icon-names.md) — lucide-react@0.545.0 does NOT have Copy2; use Copy instead. Always verify icon names against the installed version before committing.
+- [Trading OS dashboard batch](trading-os-dashboard.md) — GET /api/trading-os/dashboard batches rank + health-score into one DB call (single extractTraderProfile); OverviewTab uses useOSFetch("dashboard") + useOSFetch("coach-briefing") — 2 calls instead of 3.

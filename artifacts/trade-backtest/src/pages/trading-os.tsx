@@ -103,12 +103,11 @@ type TabId = typeof TABS[number]["id"];
    FEATURE 1 — Overview: Health Score + Rank summary
 ══════════════════════════════════════════════════════════════════════════ */
 function OverviewTab({ token }: { token: string }) {
-  const health = useOSFetch<any>("health-score", token);
-  const rank   = useOSFetch<any>("rank", token);
-  const coach  = useOSFetch<any>("coach-briefing", token);
+  const dashboard = useOSFetch<any>("dashboard", token);
+  const coach     = useOSFetch<any>("coach-briefing", token);
 
-  const hs = health.data;
-  const rk = rank.data;
+  const hs = dashboard.data?.healthScore ?? null;
+  const rk = dashboard.data?.rank ?? null;
   const co = coach.data;
 
   return (
@@ -121,7 +120,7 @@ function OverviewTab({ token }: { token: string }) {
             <Heart className="h-4 w-4" style={{ color: C.red }} />
             <span className="text-xs font-mono uppercase tracking-widest" style={{ color: C.sub }}>Trader Health Score</span>
           </div>
-          {health.loading ? (
+          {dashboard.loading ? (
             <Skel className="h-24" />
           ) : hs ? (
             <>
@@ -160,7 +159,7 @@ function OverviewTab({ token }: { token: string }) {
             <Trophy className="h-4 w-4" style={{ color: C.amber }} />
             <span className="text-xs font-mono uppercase tracking-widest" style={{ color: C.sub }}>Trader Rank</span>
           </div>
-          {rank.loading ? (
+          {dashboard.loading ? (
             <Skel className="h-24" />
           ) : rk ? (
             <>

@@ -750,4 +750,82 @@ Respond ONLY with this exact JSON:
   }
 });
 
+/* ── GET /api/trading-os/dashboard ────────────────────────────────────────── */
+router.get("/trading-os/dashboard", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = res.locals["userId"] as number;
+    const profile = await extractTraderProfile(userId);
+
+    // ── Health Score ─────────────────────────────────────────────────────────
+    const recent         = profile.recentTrades.slice(0, 10);
+    const recentWins     = recent.filter(t => t.pnl > 0).length;
+    const recentWinRate  = recent.length > 0 ? (recentWins / recent.length) * 100 : 50;
+    const recentScore    = Math.round((recentWinRate / 100) * 30);
+    const journalScore   = profile.journalMistakes.length > 0 ? 16 : 8;
+    const totalMistakes  = profile.journalMistakes.reduce((s, m) => s + m.count, 0);
+    const mistakeScore   = Math.max(0, 20 - Math.min(20, totalMistakes * 2));
+    const riskScoreHS    = profile.avgDrawdown < 10 ? 15 : profile.avgDrawdown < 20 ? 10 : profile.avgDrawdown < 30 ? 5 : 2;
+    const sharpeScore    = profile.avgSharpe >= 1.5 ? 15 : profile.avgSharpe >= 1 ? 10 : profile.avgSharpe >= 0.5 ? 6 : 2;
+    const totalScore     = Math.min(100, recentScore + journalScore + Math.round(mistakeScore) + riskScoreHS + sharpeScore);
+    const recommendation =
+      totalScore >= 90 ? "In the zone. Trade at full confidence and size." :
+      totalScore >= 75 ? "Strong mental state. Proceed normally." :
+      totalScore >= 60 ? "Moderate form. Consider reducing position size 20%." :
+      totalScore >= 40 ? "Below average form. Trade cautiously or step back." :
+      "High risk day. Consider sitting today out entirely.";
+    const riskMultiplier = totalScore >= 75 ? 1.0 : totalScore >= 60 ? 0.8 : totalScore >= 40 ? 0.5 : 0.25;
+    const statusColor    = totalScore >= 75 ? "#22c55e" : totalScore >= 55 ? "#f59e0b" : "#ef4444";
+
+    // ── Rank ─────────────────────────────────────────────────────────────────
+    const { score: rankScore, breakdown: rankBreakdown } = computeRankScore(profile);
+    const currentRank = [...RANKS].filter(r => rankScore >= r.min).pop()!;
+    const nextRank    = RANKS.find(r => r.min > rankScore) ?? null;
+    const pctToNext   = nextRank
+      ? Math.round(((rankScore - currentRank.min) / (nextRank.min - currentRank.min)) * 100)
+      : 100;
+    const achievements = [
+      { id: "first_bt",   label: "First Backtest", earned: profile.backtestCount >= 1,                               icon: "🚀" },
+      { id: "ten_bt",     label: "10 Backtests",    earned: profile.backtestCount >= 10,                             icon: "📊" },
+      { id: "win50",      label: "50% Win Rate",    earned: profile.avgWinRate >= 50,                                icon: "🎯" },
+      { id: "win65",      label: "65% Win Rate",    earned: profile.avgWinRate >= 65,                                icon: "🔥" },
+      { id: "risk10",     label: "Low Drawdown",    earned: profile.avgDrawdown > 0 && profile.avgDrawdown < 10,     icon: "🛡" },
+      { id: "journaled",  label: "Journaled Trades",earned: profile.journalMistakes.length > 0,                      icon: "📝" },
+      { id: "sharpe1",    label: "Sharpe > 1",      earned: profile.avgSharpe >= 1,                                  icon: "⚡" },
+      { id: "consistent", label: "3+ Strategies",   earned: profile.strategyStats.length >= 3,                      icon: "💡" },
+    ];
+
+    res.json({
+      healthScore: {
+        score:             Math.round(totalScore),
+        recommendation,
+        riskMultiplier,
+        statusColor,
+        breakdown: {
+          recentPerformance:  recentScore,
+          journalConsistency: journalScore,
+          mistakeDiscipline:  Math.round(mistakeScore),
+          riskControl:        riskScoreHS,
+          sharpeQuality:      sharpeScore,
+        },
+        recentWinRate:    Math.round(recentWinRate * 10) / 10,
+        recentTradeCount: recent.length,
+      },
+      rank: {
+        score: rankScore, breakdown: rankBreakdown, achievements,
+        rank: currentRank, nextRank, pctToNext,
+        profile: {
+          totalTrades:   profile.totalTrades,
+          avgWinRate:    Math.round(profile.avgWinRate * 10) / 10,
+          avgDrawdown:   Math.round(profile.avgDrawdown * 10) / 10,
+          traderStyle:   profile.traderStyle,
+          backtestCount: profile.backtestCount,
+        },
+      },
+    });
+  } catch (err) {
+    logger.error(err, "trading-os/dashboard error");
+    res.status(500).json({ error: "Failed to load dashboard." });
+  }
+});
+
 export default router;
