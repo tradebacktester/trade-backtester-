@@ -1394,9 +1394,13 @@ export default function BacktestDetail() {
               <StatBox label="Total Trades" value={backtest.totalTrades ?? "—"} />
               <StatBox
                 label="Profit Factor"
-                value={backtest.profitFactor != null ? (backtest.profitFactor >= 999 ? "∞" : fmtNum(backtest.profitFactor)) : "—"}
+                value={backtest.profitFactor != null ? (backtest.profitFactor === 999 ? "∞" : fmtNum(backtest.profitFactor)) : "—"}
                 accent={backtest.profitFactor != null && backtest.profitFactor > 1 ? "#22c55e" : "#ef4444"}
-                tooltip="Total gross profit divided by total gross loss. Above 1.0 means you made more than you lost overall. Above 1.5 is considered strong."
+                tooltip={
+                  backtest.profitFactor != null && backtest.profitFactor === 999
+                    ? "No losing trades recorded in this backtest period — every closed trade was profitable."
+                    : "Total gross profit divided by total gross loss. Above 1.0 means you made more than you lost overall. Above 1.5 is considered strong."
+                }
               />
               {analytics && (
                 <StatBox

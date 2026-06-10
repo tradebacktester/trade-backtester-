@@ -695,9 +695,11 @@ export function runBacktest(
 
   const finalCapital = capital;
   const totalReturn = ((finalCapital - initialCapital) / initialCapital) * 100;
-  const startMs = new Date(startDate).getTime();
-  const endMs = new Date(endDate).getTime();
-  const years = Math.max((endMs - startMs) / (365.25 * 24 * 3600 * 1000), 1 / 365);
+  // Use actual bars processed (weekends excluded by generator) to compute true elapsed trading days.
+  // This avoids inflating annualized return for low-frequency strategies with lots of idle time.
+  const barsPerDay = BARS_PER_DAY[timeframe] ?? 1;
+  const actualTradingDays = bars.length / barsPerDay;
+  const years = Math.max(actualTradingDays / 252, 1 / 252);
   // Guard against negative/zero capital: NaN from Math.pow of negative base
   const ratio = initialCapital > 0 ? finalCapital / initialCapital : 0;
   let annualizedReturn: number;
