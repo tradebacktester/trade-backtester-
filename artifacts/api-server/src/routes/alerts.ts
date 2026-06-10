@@ -316,8 +316,11 @@ router.get("/alerts/catalog", (_req, res: Response): void => {
   res.json({ catalog, categories });
 });
 
-// ── All routes below require authentication ───────────────────────────────
-router.use("/alerts", requireAuth);
+// ── Auth middleware — all /alerts/* except stream (stream does its own JWT check) ──
+router.use("/alerts", (req: Request, res: Response, next: NextFunction): void => {
+  if (req.path === "/stream") { next(); return; }
+  requireAuth(req, res, next);
+});
 
 router.get("/alerts", async (_req, res: Response): Promise<void> => {
   const userId = res.locals["userId"] as number;

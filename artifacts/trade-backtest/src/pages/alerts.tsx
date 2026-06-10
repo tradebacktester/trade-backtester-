@@ -63,14 +63,31 @@ interface Notification {
 }
 
 const OPERATORS = [
-  { value: "crossAbove", label: "Crosses Above" },
-  { value: "crossBelow", label: "Crosses Below" },
-  { value: "gt", label: "Greater Than (>)" },
-  { value: "lt", label: "Less Than (<)" },
-  { value: "eq", label: "Equals (=)" },
-  { value: "enters", label: "Enters Zone" },
-  { value: "exits", label: "Exits Zone" },
+  { value: "crossAbove",  label: "Crosses Above" },
+  { value: "crossBelow",  label: "Crosses Below" },
+  { value: "gt",          label: "Greater Than (>)" },
+  { value: "lt",          label: "Less Than (<)" },
+  { value: "eq",          label: "Equals (=)" },
+  { value: "enters",      label: "Enters Zone" },
+  { value: "exits",       label: "Exits Zone" },
+  { value: "signal",      label: "Fires Signal" },
+  { value: "touch",       label: "Touches Line" },
+  { value: "breakAbove",  label: "Breaks Above" },
+  { value: "breakBelow",  label: "Breaks Below" },
+  { value: "enterZone",   label: "Enters Drawing Zone" },
+  { value: "exitZone",    label: "Exits Drawing Zone" },
+  { value: "fibLevel",    label: "Hits Fib Level" },
 ];
+
+// Operators valid for drawing-type conditions
+const DRAWING_OPERATORS = new Set(["touch", "breakAbove", "breakBelow", "enterZone", "exitZone", "fibLevel"]);
+
+// Returns the operator list relevant for the selected indicator category
+function operatorsForEntry(indicatorId: string): typeof OPERATORS {
+  if (indicatorId === "drawing") return OPERATORS.filter(o => DRAWING_OPERATORS.has(o.value));
+  if (indicatorId === "supertrend_10_3") return OPERATORS.filter(o => o.value === "signal" || !DRAWING_OPERATORS.has(o.value));
+  return OPERATORS.filter(o => !DRAWING_OPERATORS.has(o.value) && o.value !== "signal");
+}
 
 const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d", "1w"];
 
@@ -786,12 +803,12 @@ export default function AlertsPage() {
                                     )}
                                   </select>
 
-                                  {/* Operator */}
+                                  {/* Operator — filtered by indicator category */}
                                   <select value={cond.operator}
                                     onChange={e => updateCondition(globalIdx, { operator: e.target.value })}
                                     className="px-2 py-1.5 rounded-lg text-xs"
                                     style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                                    {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+                                    {operatorsForEntry(cond.indicatorId).map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
                                   </select>
 
                                   {/* Value */}
