@@ -44,6 +44,7 @@ import MarketplacePage from "@/pages/marketplace";
 import MarketplaceDetail from "@/pages/marketplace-detail";
 import TraderDnaPage from "@/pages/trader-dna/index";
 import AlertsPage from "@/pages/alerts";
+import TradingOsPage from "@/pages/trading-os";
 
 const ChartPage = lazy(() => import("@/pages/chart"));
 
@@ -134,6 +135,7 @@ function Router() {
       <Route path="/psych-match" component={PsychMatchPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/trader-dna" component={TraderDnaPage} />
+      <Route path="/trading-os" component={TradingOsPage} />
       <Route path="/alerts" component={AlertsPage} />
       <Route path="/research" component={() => <Redirect to="/ai" />} />
 

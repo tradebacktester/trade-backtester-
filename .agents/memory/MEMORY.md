@@ -24,3 +24,4 @@
 - [setAuthTokenGetter timing](auth-token-getter-timing.md) — must call setAuthTokenGetter() at module level in auth-context.tsx, NOT inside useEffect; useEffect runs after children mount so queries fire before the getter is registered, causing 401s on first load.
 - [Mobile backdrop-filter GPU corruption](mobile-backdrop-filter.md) — Android Chrome artifacts/ghost lines caused by backdrop-filter + compositing layers; disable all backdrop-filter on ≤767px with solid bg fallbacks.
 - [Expo pnpm monorepo setup](expo-pnpm-setup.md) — gotchas when adding Expo SDK 56 to a pnpm workspace; typedRoutes crash; correct package versions; CI=1 flag; port conflicts; metro.config.js required.
+- [AI Trader OS architecture](trading-os-arch.md) — 10-feature AI OS at /trading-os; backend at /api/trading-os/*; wouter Link must NOT wrap <a> children — use className directly on <Link>.

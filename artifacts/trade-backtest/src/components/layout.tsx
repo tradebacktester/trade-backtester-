@@ -60,11 +60,12 @@ const SECTIONS = [
     id: "trader-dna",
     label: "Trader DNA",
     icon: Dna,
-    primary: "/trader-dna",
+    primary: "/trading-os",
     items: [
-      { title: "Overview",     url: "/trader-dna",  icon: Globe,      desc: "Your full trader profile" },
+      { title: "AI Trader OS",  url: "/trading-os",  icon: Brain,      desc: "AI coaching, rank, ghost, FOMO & more" },
+      { title: "DNA Overview",  url: "/trader-dna",  icon: Dna,        desc: "Your full trader profile" },
       { title: "Analytics",    url: "/analytics",   icon: BarChart2,  desc: "Performance analytics" },
-      { title: "Psych Match",  url: "/psych-match", icon: Brain,      desc: "Psychology profiling" },
+      { title: "Psych Match",  url: "/psych-match", icon: Bot,        desc: "Psychology profiling" },
       { title: "Profile",      url: "/profile",     icon: UserCircle, desc: "Account & preferences" },
     ],
   },
@@ -90,6 +91,7 @@ const ROUTE_SECTION: Record<string, string> = {
   "/stress-test": "strategy-lab", "/strategy-dna": "strategy-lab",
   "/analytics": "trader-dna",     "/psych-match": "trader-dna",
   "/profile": "trader-dna",       "/trader-dna": "trader-dna",
+  "/trading-os": "trader-dna",
   "/community": "community",      "/pricing": "community",
 };
 
