@@ -1627,10 +1627,8 @@ router.post("/ai/pre-trade-check", requireAuth, async (req, res) => {
       ? matchedPatterns.reduce((s, p) => s + p.avgPnlPct, 0) / matchedPatterns.length
       : 0;
 
-    // ── warningLevel ─────────────────────────────────────────────────
-    const criticalCount = matchedPatterns.filter(p => p.avgPnlPct < -20).length;
+    // ── warningLevel: only none | caution | warning ───────────────────
     const warningLevel =
-      criticalCount >= 2 || avgLossOnMatch < -25 ? "danger" :
       matchedPatterns.length >= 2 || avgLossOnMatch < -10 ? "warning" :
       matchedPatterns.length === 1 ? "caution" : "none";
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useSubscription } from "@/lib/subscription-context";
 import { API_BASE } from "@/lib/api-config";
+import { PremiumBanner } from "@/components/premium-gate";
 import {
   Bell, BellOff, Plus, Trash2, Edit2, Sparkles, Activity,
   TrendingUp, Zap, BarChart2, DollarSign, Dna, Layers, Pencil,
@@ -173,6 +174,39 @@ export default function AlertsPage() {
   useEffect(() => {
     if ("Notification" in window) setNotifPermission(Notification.permission);
   }, []);
+
+  // ── SSE listener: receive real-time alert_fired events ──────────────────────
+  const sseRef = useRef<EventSource | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    const es = new EventSource(`${API_BASE}/api/alerts/stream?token=${encodeURIComponent(token)}`);
+    sseRef.current = es;
+
+    es.addEventListener("alert_fired", (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as { alertName?: string; message?: string };
+        // Refresh notifications badge
+        load();
+        // Browser notification if permission granted
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          new Notification(data.alertName ?? "Alert Fired", {
+            body: data.message ?? "One of your Trade Lab alerts was triggered.",
+            icon: "/favicon.ico",
+          });
+        }
+      } catch { /* ignore malformed event */ }
+    });
+
+    es.onerror = () => {
+      es.close();
+      sseRef.current = null;
+    };
+
+    return () => {
+      es.close();
+      sseRef.current = null;
+    };
+  }, [token, load]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -585,6 +619,12 @@ export default function AlertsPage() {
                     );
                   })}
                 </div>
+                {/* Plan gate banners — shown below type grid when selected type is locked */}
+                {form.type !== "price" && !canUseType(form.type) && (
+                  <div className="mt-3">
+                    <PremiumBanner requiredPlan={TYPE_META[form.type]?.minPlan === "elite" ? "elite" : "pro"} />
+                  </div>
+                )}
               </div>
 
               {/* Symbol + Timeframe */}

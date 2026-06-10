@@ -397,14 +397,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           const isSignin = 'signin' in item && item.signin === true;
 
           // Active state
+          const itemUrl = ('url' in item ? (item as { url: string | null }).url : null);
           const active = isHome
             ? homeSheetOpen || isDashboard
             : isSignin
               ? showAuthModal
-              : (item.url
+              : (itemUrl
                   ? ('sectionId' in item && item.sectionId
                       ? activeSection === item.sectionId
-                      : isItemActive(item.url))
+                      : isItemActive(itemUrl))
                   : false);
 
           const iconColor  = active ? "var(--nav-active-color)" : "var(--nav-dim-color)";

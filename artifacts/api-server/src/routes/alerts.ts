@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import type { AlertConditionSpec } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
+import { extractTraderProfile } from "../lib/pattern-extractor";
 import { isIndicatorKeySupported, getIndicatorCatalog } from "../lib/indicator-snapshot";
 import OpenAI from "openai";
 import pino from "pino";
@@ -48,13 +49,13 @@ const VALID_ALERT_TYPES = ["price", "indicator", "drawing", "strategy", "ai", "d
 type AlertType = (typeof VALID_ALERT_TYPES)[number];
 const VALID_OPERATORS = [
   "crossAbove", "crossBelow", "gt", "lt", "eq", "enters", "exits", "signal",
-  "touch", "breakAbove", "breakBelow", "enterZone", "exitZone",
+  "touch", "breakAbove", "breakBelow", "enterZone", "exitZone", "fibLevel",
 ] as const;
 const VALID_DRAWING_EVENTS = ["touch", "breakAbove", "breakBelow", "enterZone", "exitZone", "fibLevel"] as const;
 
 const CROSS_OPERATORS = new Set(["crossAbove", "crossBelow"]);
 const THRESHOLD_OPERATORS = new Set(["gt", "lt", "eq", "enters", "exits"]);
-const DRAWING_OPERATORS = new Set(["touch", "breakAbove", "breakBelow", "enterZone", "exitZone"]);
+const DRAWING_OPERATORS = new Set(["touch", "breakAbove", "breakBelow", "enterZone", "exitZone", "fibLevel"]);
 
 interface CreateAlertBody {
   name: string;
@@ -380,7 +381,7 @@ router.post("/alerts", async (req: Request, res: Response): Promise<void> => {
     const [countRow] = await db
       .select({ count: db.$count(alertsTable) })
       .from(alertsTable)
-      .where(eq(alertsTable.userId, userId));
+      .where(and(eq(alertsTable.userId, userId), eq(alertsTable.isActive, true)));
     const existing = Number(countRow?.count ?? 0);
     if (existing >= plan.maxAlerts) {
       res.status(403).json({
@@ -573,19 +574,36 @@ router.post("/alerts/ai-suggest", async (req: Request, res: Response): Promise<v
   const alertType = typeof b["alertType"] === "string" ? b["alertType"] : "indicator";
   const context = typeof b["context"] === "string" ? b["context"] : "";
 
+  // ── Trader DNA context (Elite feature — personalise suggestions) ────
+  let dnaContext = "";
+  try {
+    const profile = await extractTraderProfile(userId);
+    const topMistakes = (profile.journalMistakes ?? []).slice(0, 3).map(m => `• ${m.label} (${m.count}x)`).join("\n");
+    const topStrategies = (profile.strategyStats ?? []).slice(0, 2).map(s => `• ${s.type} (win rate ${s.avgWinRate.toFixed(0)}%)`).join("\n");
+    const tradeStyle = profile.traderStyle ?? "";
+    const preferredSide = profile.preferredSide ?? "mixed";
+    if (topMistakes || topStrategies) {
+      dnaContext = `\n\nTrader DNA (personalise suggestions to this trader's history):
+Trade style: ${tradeStyle || "unknown"}, preferred side: ${preferredSide}
+Top mistakes: ${topMistakes || "none recorded"}
+Best-performing strategies: ${topStrategies || "none recorded"}
+Use this DNA to suggest alerts that guard against the trader's known weaknesses and reinforce their winning setups.`;
+    }
+  } catch { /* best-effort — proceed without DNA if unavailable */ }
+
   const catalog = getIndicatorCatalog()
     .filter(e => e.category !== "drawing")
     .slice(0, 20)
     .map(e => `${e.key}: ${e.label} (${e.category})`).join("\n");
 
-  const systemPrompt = `You are an expert algorithmic trading alert designer. Your job is to suggest 2-3 precise, actionable alert conditions for a trader.
+  const systemPrompt = `You are an expert algorithmic trading alert designer. Suggest 2-3 precise, actionable alert conditions tailored to the trader's history.
 Available indicator keys:
-${catalog}
+${catalog}${dnaContext}
 
 Respond ONLY with valid JSON in this format:
 {
   "name": "<concise alert name>",
-  "rationale": "<1-2 sentence explanation of why these conditions are useful>",
+  "rationale": "<1-2 sentence explanation personalised to this trader's DNA>",
   "conditions": [
     {
       "indicatorId": "<indicatorId from catalog>",
@@ -600,7 +618,7 @@ Respond ONLY with valid JSON in this format:
   ]
 }`;
 
-  const userMsg = `Symbol: ${symbol}, Timeframe: ${timeframe}, Alert type: ${alertType}${context ? `, Context: ${context}` : ""}. Suggest smart alert conditions.`;
+  const userMsg = `Symbol: ${symbol}, Timeframe: ${timeframe}, Alert type: ${alertType}${context ? `, Context: ${context}` : ""}. Suggest smart alert conditions that match this trader's strengths and guard against their weaknesses.`;
 
   try {
     const client = groqClient();
@@ -631,8 +649,23 @@ Respond ONLY with valid JSON in this format:
   }
 });
 
-router.get("/alerts/stream", requireAuth, (req: Request, res: Response): void => {
-  const userId = res.locals["userId"] as number;
+router.get("/alerts/stream", (req: Request, res: Response): void => {
+  // EventSource cannot send headers — accept token via query param for SSE only
+  let userId: number | null = null;
+  const queryToken = (req.query as Record<string, string>)["token"];
+  if (queryToken && JWT_SECRET) {
+    try {
+      const payload = verifyJwt(queryToken, JWT_SECRET);
+      userId = typeof payload?.id === "number" ? payload.id : null;
+    } catch { /* invalid token */ }
+  }
+  if (!userId) {
+    userId = extractUserId(req);
+  }
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

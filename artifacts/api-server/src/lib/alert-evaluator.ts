@@ -2,20 +2,22 @@ import type { AlertConditionSpec } from "@workspace/db";
 import type { IndicatorSnapshot } from "./indicator-snapshot";
 
 // ── Drawing geometry evaluation ──────────────────────────────────────────
-// DrawingGeometry is stored as JSONB on conditions created from drawing tools.
-// Supported shapes: horizontalLine { price }, priceZone { upper, lower },
-//   fibRetracement { high, low, levels: number[] }
-type DrawingGeometry =
-  | { type: "horizontalLine"; price: number }
-  | { type: "priceZone"; upper: number; lower: number }
-  | { type: "fibRetracement"; high: number; low: number; levels: number[] };
+// Matches the DrawingAlertGeometry schema in lib/db/src/schema/alerts.ts:
+//   hline   → price1 = price level
+//   trendline → price1, price2 = upper/lower bounds (used as range)
+//   rect    → price1 = upper bound, price2 = lower bound
+//   fib     → price1 = high, price2 = low, fibLevel = specific ratio (0.236 etc.)
+//             drawingEvent: "fibLevel" means trigger on ANY fib level within band
+//   vline   → time-based; cannot be evaluated from price alone → always false
+import type { DrawingAlertGeometry } from "@workspace/db";
 
-const TOUCH_TOLERANCE_PCT = 0.003; // 0.3% band for "touch" events
+const STD_FIB_LEVELS = [0.236, 0.382, 0.5, 0.618, 0.786];
+const TOUCH_TOLERANCE_PCT = 0.003; // 0.3% band
 
 function evalDrawingOperator(
   operator: string,
   drawingEvent: string | undefined,
-  geometry: DrawingGeometry | null,
+  geometry: DrawingAlertGeometry | null,
   currPrice: number,
   prevPrice: number,
 ): boolean {
@@ -23,17 +25,22 @@ function evalDrawingOperator(
 
   const effectiveOp = drawingEvent ?? operator;
 
-  if (geometry.type === "horizontalLine") {
-    const level = geometry.price;
-    const band = level * TOUCH_TOLERANCE_PCT;
+  // ── Horizontal line ────────────────────────────────────────────────
+  if (geometry.type === "hline") {
+    const level = geometry.price1 ?? 0;
+    if (!level) return false;
+    const band = Math.abs(level) * TOUCH_TOLERANCE_PCT;
     if (effectiveOp === "touch")       return Math.abs(currPrice - level) <= band;
     if (effectiveOp === "breakAbove")  return prevPrice < level && currPrice > level + band;
     if (effectiveOp === "breakBelow")  return prevPrice > level && currPrice < level - band;
     return false;
   }
 
-  if (geometry.type === "priceZone") {
-    const { upper, lower } = geometry;
+  // ── Trendline / rectangle (price zone) ────────────────────────────
+  if (geometry.type === "trendline" || geometry.type === "rect") {
+    const upper = Math.max(geometry.price1 ?? 0, geometry.price2 ?? 0);
+    const lower = Math.min(geometry.price1 ?? 0, geometry.price2 ?? 0);
+    if (!upper || !lower) return false;
     const wasInside = prevPrice >= lower && prevPrice <= upper;
     const isInside  = currPrice >= lower && currPrice <= upper;
     if (effectiveOp === "touch")      return isInside;
@@ -44,18 +51,29 @@ function evalDrawingOperator(
     return false;
   }
 
-  if (geometry.type === "fibRetracement") {
-    const { high, low, levels } = geometry;
+  // ── Fibonacci retracement ─────────────────────────────────────────
+  if (geometry.type === "fib") {
+    const high = geometry.price1 ?? 0;
+    const low  = geometry.price2 ?? 0;
+    if (!high || !low || high <= low) return false;
     const range = high - low;
-    for (const level of levels) {
-      const fibPrice = low + range * level;
+
+    // If a specific fib level ratio is stored, use only that level;
+    // otherwise iterate standard Fibonacci levels.
+    const levels = geometry.fibLevel != null ? [geometry.fibLevel] : STD_FIB_LEVELS;
+
+    for (const ratio of levels) {
+      const fibPrice = low + range * ratio;
       const band = fibPrice * TOUCH_TOLERANCE_PCT;
-      if (effectiveOp === "touch" && Math.abs(currPrice - fibPrice) <= band)     return true;
+      if ((effectiveOp === "touch" || effectiveOp === "fibLevel") && Math.abs(currPrice - fibPrice) <= band) return true;
       if (effectiveOp === "breakAbove" && prevPrice < fibPrice && currPrice > fibPrice + band) return true;
       if (effectiveOp === "breakBelow" && prevPrice > fibPrice && currPrice < fibPrice - band) return true;
     }
     return false;
   }
+
+  // ── Vertical line — time-based, cannot evaluate from price snapshot ─
+  if (geometry.type === "vline") return false;
 
   return false;
 }
@@ -138,7 +156,7 @@ export function evaluateAlertConditions(
       cond.indicatorId === "drawing";
 
     if (isDrawing) {
-      const geometry = ((cond as any).drawingGeometry ?? null) as DrawingGeometry | null;
+      const geometry = ((cond as any).drawingGeometry ?? null) as DrawingAlertGeometry | null;
       const drawingEvent = (cond as any).drawingEvent as string | undefined;
       const result =
         currPrice != null && prevPrice != null
