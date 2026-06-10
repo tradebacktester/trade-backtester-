@@ -4,6 +4,10 @@ import { and, eq } from "drizzle-orm";
 import { verifyJwt } from "../lib/jwt";
 import { logger } from "../lib/logger";
 
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]*>/g, "").replace(/&[a-z]+;/gi, " ").trim();
+}
+
 const JWT_SECRET = process.env.JWT_SECRET ?? "";
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
@@ -80,13 +84,13 @@ router.put("/backtests/:backtestId/journal/:tradeId", requireAuth, async (req, r
       return;
     }
     const {
-      note = "",
-      tags = [],
-      session = "",
-      emotionPre = "",
-      emotionPost = "",
+      note: rawNote = "",
+      tags: rawTags = [],
+      session: rawSession = "",
+      emotionPre: rawEmotionPre = "",
+      emotionPost: rawEmotionPost = "",
       confidence = 0,
-      mistakes = [],
+      mistakes: rawMistakes = [],
     } = req.body as {
       note?: string;
       tags?: string[];
@@ -96,6 +100,13 @@ router.put("/backtests/:backtestId/journal/:tradeId", requireAuth, async (req, r
       confidence?: number;
       mistakes?: string[];
     };
+
+    const note       = stripHtml(String(rawNote));
+    const tags       = rawTags.map((t) => stripHtml(String(t)));
+    const session    = stripHtml(String(rawSession));
+    const emotionPre = stripHtml(String(rawEmotionPre));
+    const emotionPost= stripHtml(String(rawEmotionPost));
+    const mistakes   = rawMistakes.map((m) => stripHtml(String(m)));
 
     const now = new Date();
     const [entry] = await db

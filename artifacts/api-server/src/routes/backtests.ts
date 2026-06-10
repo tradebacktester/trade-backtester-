@@ -465,20 +465,29 @@ router.get("/backtests/:id/trades", requireAuth, async (req, res): Promise<void>
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, params.data.id), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
-  const trades = await db.select().from(tradesTable).where(eq(tradesTable.backtestId, params.data.id)).orderBy(tradesTable.entryDate);
+
+  const limit  = Math.min(Math.max(parseInt(String(req.query["limit"]  ?? "2000"), 10) || 2000, 1), 2000);
+  const offset = Math.max(parseInt(String(req.query["offset"] ?? "0"),   10) || 0, 0);
+
+  const trades = await db.select().from(tradesTable)
+    .where(eq(tradesTable.backtestId, params.data.id))
+    .orderBy(tradesTable.entryDate)
+    .limit(limit)
+    .offset(offset);
+
   res.json(trades.map((t) => ({
-    id: t.id,
-    backtestId: t.backtestId,
-    symbol: t.symbol,
-    side: t.side,
-    entryDate: t.entryDate,
-    exitDate: t.exitDate,
-    entryPrice: Number(t.entryPrice),
-    exitPrice: Number(t.exitPrice),
-    quantity: Number(t.quantity),
-    pnl: Number(t.pnl),
-    pnlPercent: Number(t.pnlPercent),
-  })));
+      id: t.id,
+      backtestId: t.backtestId,
+      symbol: t.symbol,
+      side: t.side,
+      entryDate: t.entryDate,
+      exitDate: t.exitDate,
+      entryPrice: Number(t.entryPrice),
+      exitPrice: Number(t.exitPrice),
+      quantity: Number(t.quantity),
+      pnl: Number(t.pnl),
+      pnlPercent: Number(t.pnlPercent),
+    })));
 });
 
 router.get("/backtests/:id/equity", requireAuth, async (req, res): Promise<void> => {

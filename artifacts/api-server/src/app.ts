@@ -113,25 +113,36 @@ app.use(
   }),
 );
 
-// CORS — in production restrict to explicitly allowed origins.
-// Set ALLOWED_ORIGINS as a comma-separated list of allowed origins in your
-// Railway / Replit environment, e.g.:
-//   ALLOWED_ORIGINS=https://my-app.vercel.app,https://my-custom-domain.com
-// Leave unset (or set to "*") only for local development.
+// CORS — always restricts to an explicit allow-list.
+// In dev, falls back to the Replit dev domain so the proxied preview works.
+// Set ALLOWED_ORIGINS as a comma-separated list to add extra origins, e.g.:
+//   ALLOWED_ORIGINS=https://my-app.replit.app,https://my-custom-domain.com
 const rawOrigins = process.env["ALLOWED_ORIGINS"] ?? "";
-const allowedOrigins = rawOrigins
+const configuredOrigins = rawOrigins
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+
+// Always include the Replit dev domain so the in-editor preview never breaks.
+const replitDevDomain = process.env["REPLIT_DEV_DOMAIN"]
+  ? `https://${process.env["REPLIT_DEV_DOMAIN"]}`
+  : null;
+const allowedOrigins = [
+  ...configuredOrigins,
+  ...(replitDevDomain ? [replitDevDomain] : []),
+];
 
 app.use(
   cors({
     origin(requestOrigin, callback) {
       // Allow server-to-server requests (no Origin header) and same-origin
       if (!requestOrigin) return callback(null, true);
-      // No restriction configured → open (dev / Replit only)
-      if (allowedOrigins.length === 0) return callback(null, true);
+      // Matched against explicit allow-list only — never open wildcard
       if (allowedOrigins.includes(requestOrigin)) return callback(null, true);
+      // In development, also allow localhost variants
+      if (process.env["NODE_ENV"] !== "production" &&
+          (requestOrigin.startsWith("http://localhost:") || requestOrigin.startsWith("http://127.0.0.1:")))
+        return callback(null, true);
       callback(new Error(`CORS: origin '${requestOrigin}' not allowed`));
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
