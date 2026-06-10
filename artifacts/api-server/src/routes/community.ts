@@ -1,44 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db, communityPostsTable, communityReportsTable, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, desc, and, gt, sql } from "drizzle-orm";
-import { createHmac, timingSafeEqual } from "crypto";
 import { verifyJwt } from "../lib/jwt";
+import { verifyAdminToken } from "../lib/admin-auth";
 
 const router: IRouter = Router();
-
-const ADMIN_ID = process.env.ADMIN_ID ?? "";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
-const ADMIN_ID_2 = process.env.ADMIN_ID_2 ?? "";
-const ADMIN_PASSWORD_2 = process.env.ADMIN_PASSWORD_2 ?? "";
-// MUST match the HMAC_SECRET in admin.ts exactly — same 4-credential derivation
-const HMAC_SECRET = `${ADMIN_ID}:${ADMIN_PASSWORD}:${ADMIN_ID_2}:${ADMIN_PASSWORD_2}`;
-
-function makeAdminToken(): string {
-  return createHmac("sha256", HMAC_SECRET).update("admin-session-v1").digest("hex");
-}
-function verifyAdminToken(token: string): boolean {
-  if (!ADMIN_ID || !ADMIN_PASSWORD) return false;
-  const expected = makeAdminToken();
-  try {
-    return token.length === expected.length && timingSafeEqual(Buffer.from(token), Buffer.from(expected));
-  } catch {
-    return false;
-  }
-}
-
-const postRateLimit = new Map<string, { count: number; resetAt: number }>();
-
-function checkPostRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const rec = postRateLimit.get(ip);
-  if (!rec || now >= rec.resetAt) {
-    postRateLimit.set(ip, { count: 1, resetAt: now + 60_000 });
-    return true;
-  }
-  if (rec.count >= 5) return false;
-  rec.count++;
-  return true;
-}
 
 // ── HTML sanitization ────────────────────────────────────────────────────────
 function stripHtml(text: string): string {
@@ -110,12 +76,6 @@ router.post("/community", async (req, res): Promise<void> => {
     ? payload.email.split("@")[0]!.replace(/[.+_-]+/g, " ").trim()
     : "";
   const authorName = rawName.length >= 2 ? rawName : "User";
-
-  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
-  if (!checkPostRateLimit(ip)) {
-    res.status(429).json({ error: "Too many posts. Please wait before posting again." });
-    return;
-  }
 
   // DB-based per-user rate limit: max 5 posts per minute
   const oneMinuteAgo = new Date(Date.now() - 60_000);
@@ -221,16 +181,27 @@ router.post("/community/:id/like", async (req, res): Promise<void> => {
   res.json(serializePost(updated!));
 });
 
-// POST /community/:id/report — report a post
+// POST /community/:id/report — report a post (authentication required)
 router.post("/community/:id/report", async (req, res): Promise<void> => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader || !process.env.JWT_SECRET) {
+    res.status(401).json({ error: "You must be signed in to report posts." });
+    return;
+  }
+  const authToken = authHeader.replace("Bearer ", "").trim();
+  const payload = verifyJwt(authToken, process.env.JWT_SECRET);
+  if (!payload || typeof payload.id !== "number") {
+    res.status(401).json({ error: "You must be signed in to report posts." });
+    return;
+  }
+  const reporterName = typeof payload.email === "string"
+    ? payload.email.split("@")[0]!.replace(/[.+_-]+/g, " ").trim() || "User"
+    : "User";
+
   const postId = parseInt(req.params["id"] as string, 10);
   if (isNaN(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { reporterName, reason } = req.body as { reporterName?: string; reason?: string };
-  if (!reporterName || reporterName.trim().length < 2) {
-    res.status(400).json({ error: "Please provide your name." });
-    return;
-  }
+  const { reason } = req.body as { reason?: string };
   if (!reason || reason.trim().length < 5) {
     res.status(400).json({ error: "Please provide a reason (at least 5 characters)." });
     return;
@@ -242,7 +213,7 @@ router.post("/community/:id/report", async (req, res): Promise<void> => {
 
   const [report] = await db.insert(communityReportsTable).values({
     postId,
-    reporterName: reporterName.trim(),
+    reporterName,
     reason: reason.trim(),
     status: "pending",
   }).returning();

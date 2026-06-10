@@ -255,6 +255,12 @@ export default function Journal() {
                       <span className="text-[11px]" style={{ color: "hsl(218,12%,36%)" }}>
                         {bt.startDate} → {bt.endDate}
                       </span>
+                      {(bt as any).dataSource === "simulated" && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border"
+                          style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.22)", color: "hsl(38,95%,60%)" }}>
+                          SIM
+                        </span>
+                      )}
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border"
                         style={bt.status === "complete"
                           ? { background: "rgba(34,197,94,0.07)", borderColor: "rgba(34,197,94,0.18)", color: "hsl(150,76%,52%)" }

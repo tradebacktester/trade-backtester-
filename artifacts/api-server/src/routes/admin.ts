@@ -1,14 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { createHmac, timingSafeEqual } from "crypto";
 import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable } from "@workspace/db";
 import { eq, and, desc, gt, lt, count as drizzleCount } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
-
-const ADMIN_ID = process.env.ADMIN_ID ?? "";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
-const ADMIN_ID_2 = process.env.ADMIN_ID_2 ?? "";
-const ADMIN_PASSWORD_2 = process.env.ADMIN_PASSWORD_2 ?? "";
-const HMAC_SECRET = `${ADMIN_ID}:${ADMIN_PASSWORD}:${ADMIN_ID_2}:${ADMIN_PASSWORD_2}`;
+import { makeAdminToken, verifyAdminToken } from "../lib/admin-auth";
 
 const DEFAULT_POLICIES = [
   { slug: "privacy_policy", title: "Privacy Policy", content: "We collect information you provide when signing up, including name and email. This data is used solely to manage your account and is never sold to third parties. You may request deletion of your data at any time." },
@@ -21,23 +15,6 @@ const DEFAULT_POLICIES = [
   { slug: "account_deletion_policy", title: "Account Deletion Policy", content: "You may request account deletion at any time by contacting support or using the account settings page. Upon deletion, your personal data will be permanently removed within 30 days, subject to any legal retention requirements. Deleted accounts cannot be recovered." },
   { slug: "ai_disclosure", title: "AI Disclosure", content: "This platform uses artificial intelligence models to provide market analysis, pattern recognition, and trading insights. AI-generated content is experimental, may contain errors, and should not be relied upon as the sole basis for any financial decision. Always consult a qualified financial professional before making investment decisions." },
 ];
-
-function makeAdminToken(): string {
-  return createHmac("sha256", HMAC_SECRET).update("admin-session-v1").digest("hex");
-}
-
-function verifyAdminToken(token: string): boolean {
-  if (!ADMIN_ID || !ADMIN_PASSWORD) return false;
-  const expected = makeAdminToken();
-  try {
-    return (
-      token.length === expected.length &&
-      timingSafeEqual(Buffer.from(token), Buffer.from(expected))
-    );
-  } catch {
-    return false;
-  }
-}
 
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   const token = req.headers["x-admin-token"] as string | undefined;

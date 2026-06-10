@@ -907,20 +907,24 @@ router.get("/ai/coaching-insights", requireAuth, async (req, res) => {
       .limit(100),
   ]);
 
-  if (backtests.length === 0) {
+  if (backtests.length < 3) {
     res.json({
       traderScore: 0,
       traderStyle: "Undefined",
       traderStyleColor: "#6b7280",
       avgHoldingDays: 0,
-      backtestCount: 0,
+      backtestCount: backtests.length,
       avgWinRate: 0,
       avgSharpe: 0,
       avgDrawdown: 0,
       avgProfitFactor: 0,
       journalMistakes: [],
       mistakes: [],
-      tips: ["Run your first backtest to get personalized coaching insights."],
+      tips: [
+        backtests.length === 0
+          ? "Run your first backtest to get personalized coaching insights."
+          : `Run ${3 - backtests.length} more backtest${3 - backtests.length > 1 ? "s" : ""} to unlock personalized coaching insights.`,
+      ],
       hasData: false,
     });
     return;

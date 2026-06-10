@@ -1303,13 +1303,13 @@ export default function BacktestDetail() {
 
           {/* ── TAB 1: Overview ─────────────────────────────────────── */}
           <Tabs.Content value="overview" className="space-y-6 tab-transition">
-            {/* Simulated data warning */}
-            {(backtest as any).dataSource === "simulated" && /USDT$/i.test(backtest.symbol) && (
+            {/* Simulated data warning — shown for all simulated backtests */}
+            {(backtest as any).dataSource === "simulated" && (
               <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
                 style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.25)" }}>
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: "hsl(38,95%,58%)" }} />
                 <p className="text-xs" style={{ color: "hsl(38,95%,70%)" }}>
-                  Could not fetch live market data for <strong>{backtest.symbol}</strong> — results are based on <strong>simulated price data</strong> and may not reflect actual market conditions.
+                  <strong>Simulated data</strong> — results for <strong>{backtest.symbol}</strong> are based on algorithmically generated price data and may not reflect actual market conditions.
                 </p>
               </div>
             )}
