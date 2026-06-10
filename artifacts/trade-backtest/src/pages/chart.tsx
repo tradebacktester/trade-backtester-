@@ -438,6 +438,8 @@ export default function ChartPage() {
   // Volume Profile
   const [showVPVR, setShowVPVR] = useState(false);
   const [vpvrBuckets, setVpvrBuckets] = useState<{ price: number; volume: number; pct: number }[]>([]);
+  const [vpvrOpacity, setVpvrOpacity] = useState(0.4);
+  const [showVpvrSettings, setShowVpvrSettings] = useState(false);
 
   // Go to date
   const [goToDate, setGoToDate] = useState("");
@@ -478,6 +480,9 @@ export default function ChartPage() {
   const isSyncingRef       = useRef(false);
   const replayIndexRef     = useRef(replayIndex);
   const positionRef        = useRef(position);
+  const haDataRef          = useRef<{ time: number; open: number; high: number; low: number; close: number }[]>([]);
+  const replayFedIndexRef  = useRef(0);
+  const prevKlinesRef      = useRef<typeof klines>(null);
   useEffect(() => { replayIndexRef.current = replayIndex; }, [replayIndex]);
   useEffect(() => { positionRef.current = position; }, [position]);
 
@@ -929,7 +934,50 @@ export default function ChartPage() {
     if (!klines || !candleSeriesRef.current || !volumeSeriesRef.current || !chart) return;
     const sortedData = [...klines].sort((a, b) => a.time - b.time);
     sortedKlinesRef.current = sortedData;
+
+    // Cache full HA once whenever klines actually change — replay slices this
+    // cache to avoid re-seeding HA open from raw OHLC on every tick.
+    if (klines !== prevKlinesRef.current) {
+      haDataRef.current = calcHeikinAshi(sortedData);
+      prevKlinesRef.current = klines;
+    }
+
     const slice = replayMode ? sortedData.slice(0, replayIndex) : sortedData;
+
+    // ── Incremental replay update (fixes freeze at 10×) ─────────────
+    // If we are in replay mode and the index advanced by exactly one bar since
+    // the last full setData call, push a single update() instead of rewriting
+    // the whole growing slice.
+    const isIncrementalTick =
+      replayMode &&
+      replayIndex > 0 &&
+      replayIndex === replayFedIndexRef.current + 1 &&
+      (chartType === "candlestick" || chartType === "hollow" || chartType === "heikin_ashi");
+
+    if (isIncrementalTick) {
+      const newBar = sortedData[replayIndex - 1];
+      if (newBar) {
+        // Volume
+        volumeSeriesRef.current.update({
+          time: newBar.time as Time,
+          value: newBar.volume,
+          color: newBar.close >= newBar.open ? "hsla(150,90%,50%,0.3)" : "hsla(0,85%,60%,0.3)",
+        });
+        // Candle / HA
+        if (chartType === "heikin_ashi") {
+          const haBar = haDataRef.current[replayIndex - 1];
+          if (haBar) candleSeriesRef.current.update({ time: haBar.time as Time, open: haBar.open, high: haBar.high, low: haBar.low, close: haBar.close });
+        } else {
+          candleSeriesRef.current.update({ time: newBar.time as Time, open: newBar.open, high: newBar.high, low: newBar.low, close: newBar.close });
+        }
+        replayFedIndexRef.current = replayIndex;
+        if (showVPVR) setVpvrBuckets(calcVolumeProfile(slice));
+        return;
+      }
+    }
+
+    // ── Full setData path ────────────────────────────────────────────
+    replayFedIndexRef.current = replayIndex;
 
     volumeSeriesRef.current.setData(slice.map(k => ({
       time: k.time as Time, value: k.volume,
@@ -949,7 +997,9 @@ export default function ChartPage() {
       candleSeriesRef.current.setData(slice.map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
     } else if (chartType === "heikin_ashi") {
       candleSeriesRef.current.applyOptions({ upColor: "hsl(150,90%,52%)", downColor: "hsl(0,85%,58%)", borderUpColor: "hsl(150,90%,52%)", borderDownColor: "hsl(0,85%,58%)", wickUpColor: "hsl(150,80%,45%)", wickDownColor: "hsl(0,75%,50%)" });
-      candleSeriesRef.current.setData(calcHeikinAshi(slice).map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
+      // Slice the pre-computed HA cache so the open is always derived from the
+      // full history — avoids re-seeding from raw bar 0 on each replay tick.
+      candleSeriesRef.current.setData(haDataRef.current.slice(0, slice.length).map(k => ({ time: k.time as Time, open: k.open, high: k.high, low: k.low, close: k.close })));
     } else {
       candleSeriesRef.current.setData([]);
       if (altSeriesRef.current) { try { chart.removeSeries(altSeriesRef.current); } catch { /* ignore */ } altSeriesRef.current = null; }
@@ -1792,11 +1842,34 @@ export default function ChartPage() {
           </button>
 
           {/* VPVR */}
-          <button onClick={() => setShowVPVR(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={showVPVR ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <Layers className="h-3.5 w-3.5" /> <span className="hidden sm:inline">VPVR</span>
-          </button>
+          <div className="relative flex items-center">
+            <button onClick={() => { setShowVPVR(v => !v); setShowVpvrSettings(false); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-l-lg border-y border-l transition-all"
+              style={showVPVR ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+              <Layers className="h-3.5 w-3.5" /> <span className="hidden sm:inline">VPVR</span>
+            </button>
+            <button onClick={() => setShowVpvrSettings(v => !v)}
+              className="flex items-center justify-center px-1.5 py-1.5 text-xs rounded-r-lg border transition-all"
+              style={showVpvrSettings ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,55%)" }}
+              title="VPVR opacity">
+              <SlidersHorizontal className="h-3 w-3" />
+            </button>
+            {showVpvrSettings && (
+              <div className="absolute top-full left-0 mt-1.5 z-50 rounded-xl p-3 shadow-xl flex flex-col gap-2" style={{ background: "rgba(10,12,18,0.97)", border: "1px solid rgba(52,211,153,0.25)", minWidth: 180 }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,60%)" }}>Opacity</span>
+                  <span className="text-[10px] font-mono font-semibold" style={{ color: "hsl(150,90%,65%)" }}>{Math.round(vpvrOpacity * 100)}%</span>
+                </div>
+                <input
+                  type="range" min={10} max={100} step={5}
+                  value={Math.round(vpvrOpacity * 100)}
+                  onChange={e => setVpvrOpacity(Number(e.target.value) / 100)}
+                  className="w-full accent-emerald-400 cursor-pointer"
+                  style={{ height: 4 }}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Watchlist */}
           <button onClick={() => setShowWatchlist(v => !v)}
@@ -2176,7 +2249,9 @@ export default function ChartPage() {
                 <svg width="80" height="100%" viewBox={`0 0 80 ${vpvrBuckets.length * 10}`} preserveAspectRatio="none" style={{ display: "block" }}>
                   {vpvrBuckets.map((b, i) => (
                     <rect key={i} x={80 - b.pct * 0.6} y={i * 10} width={b.pct * 0.6} height={9}
-                      fill={b.pct > 70 ? "hsla(38,100%,55%,0.6)" : "hsla(190,90%,55%,0.35)"} />
+                      fill={b.pct > 70
+                        ? `hsla(38,100%,55%,${vpvrOpacity})`
+                        : `hsla(190,90%,55%,${vpvrOpacity * 0.58})`} />
                   ))}
                 </svg>
               </div>
