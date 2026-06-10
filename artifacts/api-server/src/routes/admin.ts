@@ -1,9 +1,24 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
-import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable } from "@workspace/db";
+import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable, adminAuditLogTable } from "@workspace/db";
 import { eq, and, desc, gt, lt, count as drizzleCount } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
 import { makeAdminToken, verifyAdminToken } from "../lib/admin-auth";
+
+// S-16: Write an immutable audit log entry for every admin action
+async function auditLog(
+  action: string,
+  adminId: string,
+  targetUserId?: number | null,
+  details?: Record<string, unknown>,
+): Promise<void> {
+  await db.insert(adminAuditLogTable).values({
+    action,
+    adminId,
+    targetUserId: targetUserId ?? null,
+    details: details ?? null,
+  });
+}
 
 const DEFAULT_POLICIES = [
   { slug: "privacy_policy", title: "Privacy Policy", content: "We collect information you provide when signing up, including name and email. This data is used solely to manage your account and is never sold to third parties. You may request deletion of your data at any time." },
@@ -83,6 +98,7 @@ router.post("/admin/login", async (req, res): Promise<void> => {
   }
 
   await db.delete(adminAttemptsTable).where(eq(adminAttemptsTable.ip, ip));
+  await auditLog("admin_login", String(id));
   res.json({ token: makeAdminToken() });
 });
 
@@ -106,6 +122,8 @@ router.post("/admin/users/:id/ban", requireAdmin, async (req, res): Promise<void
     .where(eq(usersTable.id, userId))
     .returning();
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  const adminToken = req.headers["x-admin-token"] as string;
+  await auditLog(banned === false ? "user_unban" : "user_ban", adminToken.slice(0, 8) + "…", userId, { reason });
   res.json({ id: updated.id, banned: updated.banned, bannedReason: updated.bannedReason });
 });
 
@@ -219,6 +237,8 @@ router.post("/admin/grant-premium", requireAdmin, async (req, res): Promise<void
     currentPeriodEnd: periodEnd,
   }).returning();
 
+  const adminToken = req.headers["x-admin-token"] as string;
+  await auditLog("grant_premium", adminToken.slice(0, 8) + "…", userId, { planId, months: months ?? 1 });
   res.status(201).json({ ...sub, currentPeriodStart: sub!.currentPeriodStart?.toISOString(), currentPeriodEnd: sub!.currentPeriodEnd?.toISOString(), createdAt: sub!.createdAt.toISOString() });
 });
 
@@ -229,6 +249,8 @@ router.patch("/admin/subscriptions/:id/revoke", requireAdmin, async (req, res): 
     .where(eq(subscriptionsTable.id, id))
     .returning();
   if (!updated) { res.status(404).json({ error: "Subscription not found" }); return; }
+  const adminToken = req.headers["x-admin-token"] as string;
+  await auditLog("revoke_subscription", adminToken.slice(0, 8) + "…", updated.userId, { subscriptionId: id });
   res.json({ success: true });
 });
 

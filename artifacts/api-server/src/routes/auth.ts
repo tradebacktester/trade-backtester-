@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
-import { db, usersTable, authAttemptsTable } from "@workspace/db";
+import { db, usersTable, authAttemptsTable, authFailuresTable } from "@workspace/db";
 import { eq, gt, lt, count as drizzleCount, and as drizzleAnd } from "drizzle-orm";
 import { signJwt } from "../lib/jwt";
 
@@ -19,6 +19,22 @@ async function checkAuthRateLimit(ip: string): Promise<boolean> {
   const fiveMinutesAgo = new Date(Date.now() - 300_000);
   await db.delete(authAttemptsTable).where(lt(authAttemptsTable.createdAt, fiveMinutesAgo));
   return true;
+}
+
+// ── Account lockout after 10 failed signin attempts in 15 min (S-19) ─────────
+async function recordAuthFailure(ip: string): Promise<void> {
+  await db.insert(authFailuresTable).values({ ip });
+  const pruneOlderThan = new Date(Date.now() - 30 * 60_000);
+  await db.delete(authFailuresTable).where(lt(authFailuresTable.createdAt, pruneOlderThan));
+}
+
+async function isLockedOut(ip: string): Promise<boolean> {
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60_000);
+  const [{ cnt }] = await db
+    .select({ cnt: drizzleCount(authFailuresTable.id) })
+    .from(authFailuresTable)
+    .where(drizzleAnd(eq(authFailuresTable.ip, ip), gt(authFailuresTable.createdAt, fifteenMinutesAgo)));
+  return cnt >= 10;
 }
 function getAuthIp(req: import("express").Request): string {
   return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
@@ -74,7 +90,15 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 });
 
 router.post("/auth/signin", async (req, res): Promise<void> => {
-  if (!await checkAuthRateLimit(getAuthIp(req))) {
+  const ip = getAuthIp(req);
+
+  // S-19: Block IPs with ≥10 failed attempts in the last 15 minutes
+  if (await isLockedOut(ip)) {
+    res.status(429).json({ error: "Too many failed login attempts. Please try again in 15 minutes." });
+    return;
+  }
+
+  if (!await checkAuthRateLimit(ip)) {
     res.status(429).json({ error: "Too many requests. Please try again later." });
     return;
   }
@@ -85,6 +109,8 @@ router.post("/auth/signin", async (req, res): Promise<void> => {
   }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
   if (!user || !verifyPassword(password, user.passwordHash)) {
+    // Record the failure for lockout tracking
+    await recordAuthFailure(ip);
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }

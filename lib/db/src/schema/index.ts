@@ -21,3 +21,6 @@ export * from "./coach_cache";
 export * from "./alerts";
 export * from "./alert_conditions";
 export * from "./alert_notifications";
+export * from "./admin_audit_log";
+export * from "./auth_failures";
+export * from "./rate_limit_log";

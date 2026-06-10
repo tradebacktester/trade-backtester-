@@ -214,6 +214,12 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // S-17: Symbol validation — alphanumeric + /_.-, max 20 chars
+  if (!/^[A-Za-z0-9/_.\-]{1,20}$/.test(parsed.data.symbol)) {
+    res.status(400).json({ error: "symbol must be 1–20 characters: letters, digits, /, _, ., - only" });
+    return;
+  }
+
   if (new Date(parsed.data.startDate) >= new Date(parsed.data.endDate)) {
     res.status(400).json({ error: "startDate must be before endDate" });
     return;

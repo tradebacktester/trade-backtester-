@@ -1,6 +1,7 @@
 import express, { type Express, type Response } from "express";
 import cors from "cors";
 import compression from "compression";
+import helmet from "helmet";
 import pinoHttp from "pino-http";
 import path from "path";
 import fs from "fs";
@@ -89,6 +90,30 @@ async function runAlertEvaluationLoop() {
 }
 
 setInterval(() => { runAlertEvaluationLoop().catch(() => {}); }, 30_000);
+
+// ── Security headers (S-12) ───────────────────────────────────────────────────
+// helmet() sets X-Frame-Options, X-Content-Type-Options, HSTS, Referrer-Policy,
+// Permissions-Policy, and more. CSP is configured to allow the same-origin Vite
+// frontend and the Recharts/LW-charts inline styles.
+// CSRF NOTE (S-13): This API uses Bearer JWT tokens in Authorization headers,
+// not cookies, so CSRF is not applicable — browsers enforce same-origin policy
+// on reading responses regardless of how a cross-site request was triggered.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://api.binance.com", "https://api.groq.com"],
+        fontSrc: ["'self'", "data:"],
+        frameSrc: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 
 // Gzip all responses — critical for mobile (3 MB JS → ~650 KB over the wire)
 app.use(compression());

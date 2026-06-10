@@ -45,6 +45,15 @@ const REQUIRED_PARAMS: Record<StrategyType, string[]> = {
   turtle_trading:    ["entryPeriod", "exitPeriod"],
 };
 
+// S-17: Symbol allowlist — alphanumeric, /, _, ., - only; max 20 chars
+const SYMBOL_RE = /^[A-Za-z0-9/_.\-]{1,20}$/;
+function validateSymbol(symbol: string): string | null {
+  if (!SYMBOL_RE.test(symbol)) {
+    return "symbol must be 1–20 characters: letters, digits, /, _, ., - only";
+  }
+  return null;
+}
+
 function validateStrategyParams(type: StrategyType, params: Record<string, unknown>): string | null {
   const required = REQUIRED_PARAMS[type];
   if (!required) return null;
@@ -114,12 +123,15 @@ router.post("/strategies", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const symbolErr = validateSymbol(parsed.data.symbol);
+  if (symbolErr) { res.status(400).json({ error: symbolErr }); return; }
+
   const [row] = await db.insert(strategiesTable).values({
     userId,
     name: stripHtml(parsed.data.name),
     description: parsed.data.description != null ? stripHtml(parsed.data.description) : null,
     type: parsed.data.type,
-    symbol: parsed.data.symbol,
+    symbol: parsed.data.symbol.toUpperCase(),
     timeframe: parsed.data.timeframe,
     parameters: parsed.data.parameters as Record<string, unknown>,
   }).returning();
@@ -161,11 +173,16 @@ router.patch("/strategies/:id", requireAuth, async (req, res): Promise<void> => 
     res.status(400).json({ error: messages });
     return;
   }
+  if (parsed.data.symbol !== undefined) {
+    const symbolErr = validateSymbol(parsed.data.symbol);
+    if (symbolErr) { res.status(400).json({ error: symbolErr }); return; }
+  }
+
   const updateData: Partial<typeof strategiesTable.$inferInsert> = {};
   if (parsed.data.name !== undefined) updateData.name = stripHtml(parsed.data.name);
   if (parsed.data.description !== undefined) updateData.description = parsed.data.description != null ? stripHtml(parsed.data.description) : null;
   if (parsed.data.type !== undefined) updateData.type = parsed.data.type;
-  if (parsed.data.symbol !== undefined) updateData.symbol = parsed.data.symbol;
+  if (parsed.data.symbol !== undefined) updateData.symbol = parsed.data.symbol.toUpperCase();
   if (parsed.data.timeframe !== undefined) updateData.timeframe = parsed.data.timeframe;
   if (parsed.data.parameters !== undefined) updateData.parameters = parsed.data.parameters as Record<string, unknown>;
 

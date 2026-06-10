@@ -5,6 +5,7 @@ import {
   marketplaceListingsTable, marketplaceVotesTable,
 } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
+import { checkDbRateLimit } from "../lib/rate-limit";
 import type { Request, Response, NextFunction } from "express";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "";
@@ -306,6 +307,12 @@ router.post("/marketplace/:id/vote", requireAuth, async (req, res): Promise<void
 
   if (listing.userId === userId) {
     res.status(400).json({ error: "You cannot vote on your own listing." }); return;
+  }
+
+  // S-20: DB-based rate limit — max 10 votes per user per minute (survives restarts)
+  const allowed = await checkDbRateLimit(`vote:${userId}`, 10, 60_000);
+  if (!allowed) {
+    res.status(429).json({ error: "You are voting too quickly. Please wait a moment." }); return;
   }
 
   // Attempt insert; the unique index on (userId, listingId) silently ignores duplicates.
