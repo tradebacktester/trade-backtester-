@@ -1,7 +1,6 @@
 // ── Professional Drawing Layer — TradingView-style ────────────────────────────
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
-import * as fabricModule from "fabric";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Fab = any;
@@ -40,12 +39,19 @@ interface Props {
   onHandleReady?: (h: DrawingLayerHandle) => void;
 }
 
-// ── Fabric (npm package — no CDN) ─────────────────────────────────────────────
+// ── Fabric (local static bundle — no external CDN) ────────────────────────────
+let _fabP: Promise<void> | null = null;
 function ensureFabric(): Promise<void> {
-  if (!(window as any).fabric) {
-    (window as any).fabric = fabricModule;
-  }
-  return Promise.resolve();
+  if ((window as any).fabric) return Promise.resolve();
+  if (_fabP) return _fabP;
+  _fabP = new Promise<void>((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "/fabric.min.js";
+    s.onload = () => res();
+    s.onerror = () => rej(new Error("Failed to load fabric"));
+    document.head.appendChild(s);
+  });
+  return _fabP;
 }
 
 // ── Coord helpers ─────────────────────────────────────────────────────────────
