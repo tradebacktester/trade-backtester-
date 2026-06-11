@@ -181,7 +181,12 @@ export function DrawingToolbar({ activeTool, onToolChange, layerHandle }: Props)
   }
 
   return (
-    <div style={{ position:"absolute", left:8, top:8, bottom:8, zIndex:50, display:"flex", flexDirection:"column", gap:5, pointerEvents:"all", overflowY:"auto", scrollbarWidth:"none" }}>
+    <div
+      style={{ position:"absolute", left:8, top:8, bottom:8, zIndex:50, display:"flex", flexDirection:"column", gap:5, pointerEvents:"all", overflowY:"auto", scrollbarWidth:"none" }}
+      onTouchStart={e => e.stopPropagation()}
+      onTouchEnd={e => e.stopPropagation()}
+      onTouchMove={e => e.stopPropagation()}
+    >
 
       {/* Floating tooltip */}
       {tooltip && (

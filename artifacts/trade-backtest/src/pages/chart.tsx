@@ -2237,7 +2237,6 @@ export default function ChartPage() {
             <div ref={chartContainerRef} className="absolute inset-0" />
 
             {/* ── Drawing tools overlay ──────────────────────────── */}
-            <ErrorBoundary fallback={<></>}>
             <DrawingToolbar
               activeTool={activeTool}
               onToolChange={setActiveTool}
@@ -2260,6 +2259,7 @@ export default function ChartPage() {
                 to deselect
               </div>
             )}
+            <ErrorBoundary fallback={null}>
             <DrawingLayer
               chartRef={chartRef}
               seriesRef={candleSeriesRef}
