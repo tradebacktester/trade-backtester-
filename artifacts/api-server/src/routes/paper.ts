@@ -50,8 +50,8 @@ router.get("/paper/trades", requireAuth, async (req, res): Promise<void> => {
     entryTime: r.entryTime,
     exitTime: r.exitTime,
     status: "closed",
-    openedAt: new Date(r.entryTime * 1000).toISOString(),
-    closedAt: new Date(r.exitTime * 1000).toISOString(),
+    openedAt: new Date((r.entryTime > 1e10 ? r.entryTime : r.entryTime * 1000)).toISOString(),
+    closedAt: new Date((r.exitTime > 1e10 ? r.exitTime : r.exitTime * 1000)).toISOString(),
     createdAt: r.createdAt,
   })));
 });

@@ -180,8 +180,8 @@ async function savePtTrade(
   const normalized = {
     ...trade,
     status: "closed",
-    openedAt: new Date(trade.entryTime).toISOString(),
-    closedAt: new Date(trade.exitTime).toISOString(),
+    openedAt: new Date(trade.entryTime * 1000).toISOString(),
+    closedAt: new Date(trade.exitTime * 1000).toISOString(),
   };
   // Persist to server first for logged-in users; only update localStorage on success
   const token = localStorage.getItem("tt_token");
@@ -659,7 +659,7 @@ export default function ChartPage() {
       const pnl = position.units * (position.price - exitPrice);
       const pnlPct = (pnl / position.capitalAtEntry) * 100;
       const newEquity = position.capitalAtEntry + pnl;
-      const trade = { id: Date.now(), entryPrice: position.price, entryTime: position.time * 1000, exitPrice, exitTime: bar.time * 1000, units: position.units, pnl, pnlPct, side: "short" as const, symbol };
+      const trade = { id: Date.now(), entryPrice: position.price, entryTime: position.time, exitPrice, exitTime: bar.time, units: position.units, pnl, pnlPct, side: "short" as const, symbol };
       setTrades(prev => [...prev, trade]); setPosition(null); setEquity(newEquity);
       savePtTrade(trade, (msg) => toast({ variant: "destructive", title: "Save failed", description: msg })); updatePtBalance(newEquity);
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
@@ -737,7 +737,7 @@ export default function ChartPage() {
       const pnl = currentPos.units * (exitPrice - currentPos.price);
       const pnlPct = (pnl / currentPos.capitalAtEntry) * 100;
       const newEquity = currentPos.capitalAtEntry + pnl;
-      const trade = { id: Date.now(), entryPrice: currentPos.price, entryTime: currentPos.time * 1000, exitPrice, exitTime: bar.time * 1000, units: currentPos.units, pnl, pnlPct, side: "long" as const, symbol };
+      const trade = { id: Date.now(), entryPrice: currentPos.price, entryTime: currentPos.time, exitPrice, exitTime: bar.time, units: currentPos.units, pnl, pnlPct, side: "long" as const, symbol };
       setTrades(prev => [...prev, trade]); setPosition(null); setEquity(newEquity);
       savePtTrade(trade, (msg) => toast({ variant: "destructive", title: "Save failed", description: msg })); updatePtBalance(newEquity);
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
