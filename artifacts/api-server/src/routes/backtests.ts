@@ -11,6 +11,7 @@ import {
   GetEquityCurveParams,
 } from "@workspace/api-zod";
 import { runBacktest, runWalkForward, generatePriceData, type OHLCVBar } from "../lib/backtest-engine";
+import { fetchYahooHistory, isYahooSupported } from "../lib/yahoo-finance";
 
 // ── Real Binance historical data ─────────────────────────────────────────────
 
@@ -310,10 +311,37 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   }).returning();
 
   try {
-    // Try to fetch real Binance historical data for crypto symbols
-    const realBars = await fetchBinanceHistorical(
+    // Try Binance first (crypto), then Yahoo Finance (stocks, forex, indices, commodities)
+    let realBars: OHLCVBar[] | null = await fetchBinanceHistorical(
       parsed.data.symbol, parsed.data.startDate, parsed.data.endDate
     );
+
+    if (!realBars) {
+      if (isYahooSupported(parsed.data.symbol)) {
+        try {
+          const yahooData = await fetchYahooHistory(
+            parsed.data.symbol, parsed.data.startDate, parsed.data.endDate
+          );
+          if (yahooData.length >= 20) {
+            realBars = yahooData;
+          } else {
+            await db.update(backtestsTable).set({ status: "failed" }).where(eq(backtestsTable.id, backtest.id));
+            res.status(422).json({ error: `Real market data for ${parsed.data.symbol} returned too few bars (${yahooData.length}) for the requested date range. Minimum 20 bars required — try extending the date range.` });
+            return;
+          }
+        } catch (yfErr) {
+          await db.update(backtestsTable).set({ status: "failed" }).where(eq(backtestsTable.id, backtest.id));
+          const yfMsg = yfErr instanceof Error ? yfErr.message : "unknown error";
+          res.status(422).json({ error: `Real market data unavailable for ${parsed.data.symbol}: ${yfMsg}` });
+          return;
+        }
+      } else {
+        // Unknown / unsupported symbol — no real data available
+        await db.update(backtestsTable).set({ status: "failed" }).where(eq(backtestsTable.id, backtest.id));
+        res.status(422).json({ error: `No real market data source for "${parsed.data.symbol}". Supported: crypto (e.g. BTCUSDT), US stocks (e.g. AAPL), forex (e.g. EURUSD), indices (e.g. SPX500), commodities (e.g. XAUUSD).` });
+        return;
+      }
+    }
 
     // positionSizing is an optional extension sent by the frontend beyond the generated Zod schema
     const psRaw = req.body.positionSizing as { mode?: string; value?: number } | undefined;
@@ -330,7 +358,7 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       parsed.data.initialCapital,
       commissionPct,
       slippagePct,
-      realBars ?? undefined,
+      realBars,
       strategy.timeframe ?? "1d",
       positionSizing,
     );
@@ -400,7 +428,7 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       profitFactor: String(result.profitFactor),
       consecutiveWins: result.consecutiveWins,
       consecutiveLosses: result.consecutiveLosses,
-      dataSource: (realBars && realBars.length >= 50) ? "real" : "simulated",
+      dataSource: "real",
     }).where(eq(backtestsTable.id, backtest.id)).returning();
 
     // Return full detail including yearlyReturns (computed, not stored in DB)
@@ -512,9 +540,11 @@ router.get("/backtests/:id/equity", requireAuth, async (req, res): Promise<void>
   // Prefer real Binance data so the benchmark matches what the backtest used.
   let benchmarkMap = new Map<string, number>();
   try {
-    const realBars = await fetchBinanceHistorical(bt.symbol, bt.startDate, bt.endDate);
-    const bars = realBars ?? generatePriceData(bt.symbol, bt.startDate, bt.endDate);
-    if (bars.length > 0) {
+    let bars: OHLCVBar[] | null = await fetchBinanceHistorical(bt.symbol, bt.startDate, bt.endDate);
+    if (!bars && isYahooSupported(bt.symbol)) {
+      try { bars = await fetchYahooHistory(bt.symbol, bt.startDate, bt.endDate); } catch { /* ignore */ }
+    }
+    if (bars && bars.length > 0) {
       const initialCapital = Number(bt.initialCapital);
       const firstPrice = bars[0].open;
       const benchmarkQty = (initialCapital * 0.95) / firstPrice;
@@ -542,6 +572,30 @@ router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> 
   const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, strategyId));
   if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
 
+  // Fetch real price data once, reuse for all grid combinations
+  let optimizeBars: OHLCVBar[] | undefined;
+  const binanceOptBars = await fetchBinanceHistorical(symbol, startDate, endDate);
+  if (binanceOptBars) {
+    optimizeBars = binanceOptBars;
+  } else if (isYahooSupported(symbol)) {
+    try {
+      const yfBars = await fetchYahooHistory(symbol, startDate, endDate);
+      if (yfBars.length >= 20) {
+        optimizeBars = yfBars;
+      } else {
+        res.status(422).json({ error: `Real market data for ${symbol} returned too few bars (${yfBars.length}) for optimization. Minimum 20 bars required — try extending the date range.` });
+        return;
+      }
+    } catch (yfErr) {
+      const yfMsg = yfErr instanceof Error ? yfErr.message : "unknown error";
+      res.status(422).json({ error: `Real market data unavailable for ${symbol}: ${yfMsg}` });
+      return;
+    }
+  } else {
+    res.status(422).json({ error: `No real market data source for "${symbol}". Optimization requires real historical data.` });
+    return;
+  }
+
   const baseParams = strategy.parameters as Record<string, unknown>;
   const results: Array<{ p1: number; p2: number; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number }> = [];
 
@@ -554,7 +608,7 @@ router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> 
     for (const p2 of p2Vals) {
       try {
         const params = { ...baseParams, [param1Name]: p1, [param2Name]: p2 };
-        const result = runBacktest(symbol, strategy.type, params, startDate, endDate, Number(initialCapital), 0, 0);
+        const result = runBacktest(symbol, strategy.type, params, startDate, endDate, Number(initialCapital), 0, 0, optimizeBars);
         results.push({
           p1, p2,
           totalReturn: result.totalReturn,
@@ -585,8 +639,28 @@ router.get("/backtests/:id/walk-forward", requireAuth, async (req, res): Promise
 
   const trainRatio = Math.min(0.9, Math.max(0.5, parseFloat(String(req.query["trainRatio"] ?? "0.7"))));
 
-  const realBars = await fetchBinanceHistorical(row.symbol, row.startDate, row.endDate);
-  const priceData = realBars ?? undefined;
+  let priceData: OHLCVBar[] | undefined;
+  const binanceBars = await fetchBinanceHistorical(row.symbol, row.startDate, row.endDate);
+  if (binanceBars) {
+    priceData = binanceBars;
+  } else if (isYahooSupported(row.symbol)) {
+    try {
+      const yfBars = await fetchYahooHistory(row.symbol, row.startDate, row.endDate);
+      if (yfBars.length >= 20) {
+        priceData = yfBars;
+      } else {
+        res.status(422).json({ error: `Real market data for ${row.symbol} returned too few bars (${yfBars.length}) for walk-forward analysis. Minimum 20 bars required.` });
+        return;
+      }
+    } catch (yfErr) {
+      const yfMsg = yfErr instanceof Error ? yfErr.message : "unknown error";
+      res.status(503).json({ error: `Real market data unavailable for ${row.symbol}: ${yfMsg}` });
+      return;
+    }
+  } else {
+    res.status(422).json({ error: `No real market data source for "${row.symbol}". Walk-forward analysis requires real historical data.` });
+    return;
+  }
 
   const result = runWalkForward(
     row.symbol,
@@ -680,7 +754,7 @@ function computeYearlyReturnsFromTrades(
 
 router.patch("/backtests/:id/notes", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params["id"]), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const notes = typeof req.body.notes === "string" ? req.body.notes.slice(0, 2000) : null;
   const [row] = await db.update(backtestsTable)

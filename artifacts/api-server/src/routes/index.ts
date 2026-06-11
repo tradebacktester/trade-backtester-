@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import strategiesRouter from "./strategies";
 import backtestsRouter from "./backtests";
 import chartRouter from "./chart";
+import marketRouter from "./market";
 import newsRouter from "./news";
 import aiRouter from "./ai";
 import authRouter from "./auth";
@@ -20,6 +21,7 @@ import tradingOsRouter from "./trading-os";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(marketRouter);
 // superpowersRouter must be mounted BEFORE strategiesRouter so that
 // GET /strategies/dna is matched here (literal) and not swallowed by
 // GET /strategies/:id (param) in strategiesRouter.

@@ -87,30 +87,30 @@ const SYMBOLS = [
   { value: "BTCPERP",  label: "BTC Perp",  category: "Futures",     sim: true,  basePrice: 67500  },
   { value: "ETHPERP",  label: "ETH Perp",  category: "Futures",     sim: true,  basePrice: 3530   },
   { value: "SOLPERP",  label: "SOL Perp",  category: "Futures",     sim: true,  basePrice: 183    },
-  { value: "EURUSD",   label: "EUR/USD",   category: "Forex",       sim: true,  basePrice: 1.0825 },
-  { value: "GBPUSD",   label: "GBP/USD",   category: "Forex",       sim: true,  basePrice: 1.2685 },
-  { value: "USDJPY",   label: "USD/JPY",   category: "Forex",       sim: true,  basePrice: 153.45 },
-  { value: "AUDUSD",   label: "AUD/USD",   category: "Forex",       sim: true,  basePrice: 0.6530 },
-  { value: "USDCAD",   label: "USD/CAD",   category: "Forex",       sim: true,  basePrice: 1.3680 },
-  { value: "USDCHF",   label: "USD/CHF",   category: "Forex",       sim: true,  basePrice: 0.9020 },
-  { value: "NZDUSD",   label: "NZD/USD",   category: "Forex",       sim: true,  basePrice: 0.5985 },
-  { value: "EURGBP",   label: "EUR/GBP",   category: "Forex",       sim: true,  basePrice: 0.8535 },
-  { value: "SPX500",   label: "S&P 500",   category: "Indices",     sim: true,  basePrice: 5280   },
-  { value: "NAS100",   label: "Nasdaq 100",category: "Indices",     sim: true,  basePrice: 18420  },
-  { value: "DOW30",    label: "Dow Jones", category: "Indices",     sim: true,  basePrice: 39500  },
-  { value: "UK100",    label: "FTSE 100",  category: "Indices",     sim: true,  basePrice: 8320   },
-  { value: "GER40",    label: "DAX 40",    category: "Indices",     sim: true,  basePrice: 18700  },
-  { value: "JPN225",   label: "Nikkei 225",category: "Indices",     sim: true,  basePrice: 38200  },
-  { value: "XAUUSD",   label: "Gold",      category: "Commodities", sim: true,  basePrice: 2320   },
-  { value: "XAGUSD",   label: "Silver",    category: "Commodities", sim: true,  basePrice: 27.4   },
-  { value: "WTIUSD",   label: "WTI Oil",   category: "Commodities", sim: true,  basePrice: 82.5   },
-  { value: "NATGAS",   label: "Nat. Gas",  category: "Commodities", sim: true,  basePrice: 2.1    },
-  { value: "AAPL",     label: "Apple",     category: "Stocks",      sim: true,  basePrice: 178    },
-  { value: "TSLA",     label: "Tesla",     category: "Stocks",      sim: true,  basePrice: 185    },
-  { value: "NVDA",     label: "Nvidia",    category: "Stocks",      sim: true,  basePrice: 880    },
-  { value: "MSFT",     label: "Microsoft", category: "Stocks",      sim: true,  basePrice: 420    },
-  { value: "AMZN",     label: "Amazon",    category: "Stocks",      sim: true,  basePrice: 188    },
-  { value: "GOOGL",    label: "Alphabet",  category: "Stocks",      sim: true,  basePrice: 170    },
+  { value: "EURUSD",   label: "EUR/USD",   category: "Forex",       sim: false, basePrice: 1.0825 },
+  { value: "GBPUSD",   label: "GBP/USD",   category: "Forex",       sim: false, basePrice: 1.2685 },
+  { value: "USDJPY",   label: "USD/JPY",   category: "Forex",       sim: false, basePrice: 153.45 },
+  { value: "AUDUSD",   label: "AUD/USD",   category: "Forex",       sim: false, basePrice: 0.6530 },
+  { value: "USDCAD",   label: "USD/CAD",   category: "Forex",       sim: false, basePrice: 1.3680 },
+  { value: "USDCHF",   label: "USD/CHF",   category: "Forex",       sim: false, basePrice: 0.9020 },
+  { value: "NZDUSD",   label: "NZD/USD",   category: "Forex",       sim: false, basePrice: 0.5985 },
+  { value: "EURGBP",   label: "EUR/GBP",   category: "Forex",       sim: false, basePrice: 0.8535 },
+  { value: "SPX500",   label: "S&P 500",   category: "Indices",     sim: false, basePrice: 5280   },
+  { value: "NAS100",   label: "Nasdaq 100",category: "Indices",     sim: false, basePrice: 18420  },
+  { value: "DOW30",    label: "Dow Jones", category: "Indices",     sim: false, basePrice: 39500  },
+  { value: "UK100",    label: "FTSE 100",  category: "Indices",     sim: false, basePrice: 8320   },
+  { value: "GER40",    label: "DAX 40",    category: "Indices",     sim: false, basePrice: 18700  },
+  { value: "JPN225",   label: "Nikkei 225",category: "Indices",     sim: false, basePrice: 38200  },
+  { value: "XAUUSD",   label: "Gold",      category: "Commodities", sim: false, basePrice: 2320   },
+  { value: "XAGUSD",   label: "Silver",    category: "Commodities", sim: false, basePrice: 27.4   },
+  { value: "WTIUSD",   label: "WTI Oil",   category: "Commodities", sim: false, basePrice: 82.5   },
+  { value: "NATGAS",   label: "Nat. Gas",  category: "Commodities", sim: false, basePrice: 2.1    },
+  { value: "AAPL",     label: "Apple",     category: "Stocks",      sim: false, basePrice: 178    },
+  { value: "TSLA",     label: "Tesla",     category: "Stocks",      sim: false, basePrice: 185    },
+  { value: "NVDA",     label: "Nvidia",    category: "Stocks",      sim: false, basePrice: 880    },
+  { value: "MSFT",     label: "Microsoft", category: "Stocks",      sim: false, basePrice: 420    },
+  { value: "AMZN",     label: "Amazon",    category: "Stocks",      sim: false, basePrice: 188    },
+  { value: "GOOGL",    label: "Alphabet",  category: "Stocks",      sim: false, basePrice: 170    },
 ] as const;
 
 const INTERVALS = [
@@ -1669,7 +1669,7 @@ export default function ChartPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>{isSim ? `${displayCategory} · Sim` : "Binance · Live"}</span>
+            <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>{isSim ? `${displayCategory} · Sim` : displayCategory === "Crypto" ? "Binance · Live" : "Yahoo Finance · Delayed"}</span>
             <button
               onClick={toggleFullscreen}
               title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}

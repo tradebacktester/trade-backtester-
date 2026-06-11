@@ -494,7 +494,7 @@ Top mistake pattern: ${topMistake ? `"${topMistake.label}" recurring ${topMistak
 Best strategy type: ${profile.strategyStats[0]?.type ?? "N/A"} (${profile.strategyStats[0]?.avgWinRate.toFixed(0) ?? "?"}% avg win rate)
 Top symbol: ${profile.topSymbols[0]?.symbol ?? "N/A"} (${profile.topSymbols[0]?.winRate.toFixed(0) ?? "?"}% win rate)`;
 
-    const systemPrompt = `You are an elite personal trading coach who combines the precision of a hedge fund manager with the psychological insight of a sports performance coach. You know this trader's complete history. Be direct, specific, and motivating — never generic.
+    const systemPrompt = `You are an elite personal trading coach who combines the precision of a hedge fund manager with the psychological insight of a sports performance coach. You know this trader's complete history. Be direct, specific, and motivating — never generic. All performance statistics are derived from real historical market data (Binance for crypto, Yahoo Finance for stocks/forex/indices/commodities).
 
 Respond ONLY with this exact JSON (no markdown, no extra text):
 {

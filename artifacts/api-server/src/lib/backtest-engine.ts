@@ -173,6 +173,13 @@ const BARS_PER_DAY: Record<string, number> = {
   "1m": 1440, "5m": 288, "15m": 96, "30m": 48, "1h": 24, "2h": 12, "4h": 6, "1d": 1,
 };
 
+/**
+ * @internal DEV/TESTING UTILITY ONLY
+ * Geometric Brownian Motion price simulator. Must NOT be called from production
+ * backtest routes — all supported symbols have a real data source (Binance / Yahoo Finance).
+ * Only valid for sim chart symbols (category: "Futures") and as a last-resort fallback
+ * in the optimizer when real data is unavailable for an unrecognized symbol.
+ */
 export function generatePriceData(symbol: string, startDate: string, endDate: string, timeframe = "1d"): OHLCVBar[] {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -584,7 +591,13 @@ export function runBacktest(
   timeframe = "1d",
   positionSizing?: PositionSizing
 ): BacktestResult {
-  const bars = (priceData && priceData.length >= 50) ? priceData : generatePriceData(symbol, startDate, endDate, timeframe);
+  if (!priceData || priceData.length < 20) {
+    throw new Error(
+      `Insufficient price data for ${symbol}: ${priceData?.length ?? 0} bars available (minimum 20 required). ` +
+      `Ensure real market data is fetched before calling runBacktest.`
+    );
+  }
+  const bars = priceData;
   const empty: BacktestResult = {
     trades: [], equityCurve: [{ date: startDate, value: initialCapital, drawdown: 0, benchmark: initialCapital }],
     finalCapital: initialCapital, totalReturn: 0, annualizedReturn: 0, maxDrawdown: 0,
@@ -869,7 +882,12 @@ export function runWalkForward(
   timeframe = "1d",
   trainRatio = 0.7
 ): WalkForwardResult {
-  const bars = (priceData && priceData.length >= 50) ? priceData : generatePriceData(symbol, startDate, endDate, timeframe);
+  if (!priceData || priceData.length < 20) {
+    throw new Error(
+      `Insufficient price data for walk-forward analysis on ${symbol}: ${priceData?.length ?? 0} bars available (minimum 20 required).`
+    );
+  }
+  const bars = priceData;
 
   const splitIdx = Math.floor(bars.length * trainRatio);
   const splitDate = bars[splitIdx]?.date ?? endDate;

@@ -143,7 +143,7 @@ const SYSTEM_PROMPT = `You are an expert trading and financial markets educator.
 - Market dynamics (liquidity, volatility, market structure)
 - Financial instruments (crypto, forex, stocks, indices, commodities, futures)
 - Fundamental analysis concepts
-Keep responses concise but informative (2–4 paragraphs max). Use clear examples where helpful. Do not give specific investment advice or price predictions.`;
+All backtests on this platform use real historical market data: Binance for crypto assets, Yahoo Finance for stocks, forex, indices, and commodities. Keep responses concise but informative (2–4 paragraphs max). Use clear examples where helpful. Do not give specific investment advice or price predictions.`;
 
 // Apply plan-level daily limit to all AI routes (scoped to /ai/* only)
 router.use("/ai", requirePlanAiAccess);
@@ -240,7 +240,7 @@ router.post("/ai/autopsy", requireAuth, async (req, res) => {
     `  • ${t.side.toUpperCase()} | Entry: ${t.entryDate} @ $${t.entryPrice.toFixed(2)} → Exit: ${t.exitDate} @ $${t.exitPrice.toFixed(2)} | P&L: ${t.pnl >= 0 ? "+" : ""}${t.pnlPercent.toFixed(2)}% ($${t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)})`
   ).join("\n");
 
-  const systemPrompt = `You are an elite quantitative trading analyst and compelling financial storyteller. Write a rich, specific narrative autopsy of a backtest — like a hedge fund PM reviewing results with a junior analyst. Use the actual numbers. Be honest about weaknesses. 4–5 paragraphs.`;
+  const systemPrompt = `You are an elite quantitative trading analyst and compelling financial storyteller. Write a rich, specific narrative autopsy of a backtest — like a hedge fund PM reviewing results with a junior analyst. Use the actual numbers. Be honest about weaknesses. 4–5 paragraphs. Note: all performance data is derived from real historical market prices (Binance for crypto, Yahoo Finance for stocks/forex/indices/commodities).`;
 
   const userPrompt = `Write a trade autopsy narrative for this backtest:
 
@@ -525,7 +525,7 @@ Chapter 2 — "The Campaign": Walk through how the strategy played out month by 
 Chapter 3 — "Moments of Truth": Narrate the best and worst trades — what market conditions caused them.  
 Chapter 4 — "The Verdict": Give an honest, sharp assessment of whether this strategy has a real edge.
 
-Use vivid language but stay factually grounded in the exact numbers provided. Keep it to ~500 words total.`;
+Use vivid language but stay factually grounded in the exact numbers provided. Keep it to ~500 words total. Note: all results are based on real historical market prices (Binance for crypto, Yahoo Finance for stocks/forex/indices/commodities).`;
 
   const userPrompt = `Write a backtest narrative story for:
 

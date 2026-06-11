@@ -76,8 +76,9 @@ export function useBinancePrices(symbols: string[]): Record<string, BinanceTicke
 
 /**
  * Subscribe to live price for a single chart symbol.
- * Uses real Binance WebSocket for USDT pairs; falls back to simulated random-walk for
- * non-Binance symbols (forex, indices, stocks, futures).
+ * - Binance USDT pairs: real WebSocket stream
+ * - Non-Binance (stocks, forex, indices, commodities): polls /api/market/quote every 15s
+ * - Sim symbols: random-walk fallback (isSim=true)
  */
 export function useBinanceLivePrice(symbol: string, isSim: boolean, fallback: number): number {
   const [price, setPrice] = useState(fallback);
@@ -90,34 +91,60 @@ export function useBinanceLivePrice(symbol: string, isSim: boolean, fallback: nu
   useEffect(() => {
     mountedRef.current = true;
 
-    if (isSim || !isBinanceSymbol(symbol)) {
+    if (isSim) {
       const id = setInterval(() => {
         setPrice(p => Math.max(0.0001, p + (Math.random() - 0.5) * 0.0018 * p));
       }, 300);
       return () => { mountedRef.current = false; clearInterval(id); };
     }
 
-    function connect() {
-      if (!mountedRef.current) return;
-      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@miniTicker`);
-      wsRef.current = ws;
-      ws.onmessage = (e) => {
-        try {
-          const d = JSON.parse(e.data as string) as { c?: string };
-          if (d.c) setPrice(parseFloat(d.c));
-        } catch { /* ignore */ }
+    if (isBinanceSymbol(symbol)) {
+      function connect() {
+        if (!mountedRef.current) return;
+        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@miniTicker`);
+        wsRef.current = ws;
+        ws.onmessage = (e) => {
+          try {
+            const d = JSON.parse(e.data as string) as { c?: string };
+            if (d.c) setPrice(parseFloat(d.c));
+          } catch { /* ignore */ }
+        };
+        ws.onclose = () => {
+          if (mountedRef.current) timerRef.current = setTimeout(connect, 3000);
+        };
+        ws.onerror = () => ws.close();
+      }
+
+      connect();
+      return () => {
+        mountedRef.current = false;
+        if (timerRef.current) clearTimeout(timerRef.current);
+        wsRef.current?.close();
       };
-      ws.onclose = () => {
-        if (mountedRef.current) timerRef.current = setTimeout(connect, 3000);
-      };
-      ws.onerror = () => ws.close();
     }
 
-    connect();
+    // Non-Binance: poll /api/market/quote every 15 seconds
+    let cancelled = false;
+
+    async function fetchQuote() {
+      try {
+        const resp = await fetch(`/api/market/quote?symbol=${encodeURIComponent(symbol)}`);
+        if (resp.ok) {
+          const data = await resp.json() as { price?: number };
+          if (!cancelled && typeof data.price === "number" && data.price > 0) {
+            setPrice(data.price);
+          }
+        }
+      } catch { /* ignore network errors */ }
+    }
+
+    fetchQuote();
+    const pollId = setInterval(fetchQuote, 15_000);
+
     return () => {
+      cancelled = true;
       mountedRef.current = false;
-      if (timerRef.current) clearTimeout(timerRef.current);
-      wsRef.current?.close();
+      clearInterval(pollId);
     };
   }, [symbol, isSim]);
 
