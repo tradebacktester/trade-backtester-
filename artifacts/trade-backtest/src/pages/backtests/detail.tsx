@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { CandleLoader } from "@/components/candle-loader";
 import { motion } from "framer-motion";
 import { useRoute, Link, useLocation } from "wouter";
 import {
@@ -750,7 +751,7 @@ function PeerRankingTab({ backtestId }: { backtestId: number }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#6366f1" }} />
+        <CandleLoader size="lg" text="Loading backtest…" />
       </div>
     );
   }
@@ -1431,7 +1432,7 @@ export default function BacktestDetail() {
       {isRunning ? (
         <Card className="border-border">
           <CardContent className="py-12 flex flex-col items-center justify-center space-y-4">
-            <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            <CandleLoader size="lg" />
             <h3 className="text-lg font-medium">Running Simulation...</h3>
             <p className="text-sm text-muted-foreground">This may take a few moments.</p>
           </CardContent>
@@ -3029,8 +3030,8 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      <div className="flex flex-col items-center justify-center py-16 gap-4">
+        <CandleLoader size="md" />
         <p className="text-sm text-muted-foreground">Classifying market regimes (SMA50 + volatility)…</p>
       </div>
     );

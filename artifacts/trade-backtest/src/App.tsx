@@ -11,6 +11,7 @@ import { SubscriptionProvider } from "@/lib/subscription-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { PolicyPopup } from "@/components/policy-popup";
 import { useToast } from "@/hooks/use-toast";
+import { CandleLoader } from "@/components/candle-loader";
 
 // Pages (eager)
 import Dashboard from "@/pages/dashboard";
@@ -94,7 +95,7 @@ function AdminPanelGuard() {
 function ChartFallback() {
   return (
     <div className="flex items-center justify-center h-full w-full">
-      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <CandleLoader size="md" />
     </div>
   );
 }

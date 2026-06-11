@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { CandleLoader } from "@/components/candle-loader";
 import { Link, useLocation } from "wouter";
 import {
   Store, TrendingUp, ChevronRight, Award, Search, Filter,
@@ -421,7 +422,7 @@ export default function MarketplacePage() {
       {/* Listings */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#6366f1" }} />
+          <CandleLoader size="lg" text="Loading strategies…" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-3">

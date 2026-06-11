@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { CandleLoader } from "@/components/candle-loader";
 import { Link, useRoute, useLocation } from "wouter";
 import {
   ArrowLeft, ThumbsUp, BarChart2, Loader2, Sparkles, AlertCircle,
@@ -143,7 +144,7 @@ export default function MarketplaceDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#6366f1" }} />
+        <CandleLoader size="lg" />
       </div>
     );
   }
