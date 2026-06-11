@@ -48,6 +48,7 @@ import { useAuth } from "@/lib/auth-context";
 import { PositionOverlay } from "@/components/position-overlay";
 import { DrawingLayer, type DrawingLayerHandle } from "@/components/drawing-layer";
 import { DrawingToolbar } from "@/components/drawing-toolbar";
+import { ErrorBoundary } from "@/components/error-boundary";
 import {
   calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic,
   calcIchimoku, calcSupertrend, calcParabolicSAR,
@@ -2236,6 +2237,7 @@ export default function ChartPage() {
             <div ref={chartContainerRef} className="absolute inset-0" />
 
             {/* ── Drawing tools overlay ──────────────────────────── */}
+            <ErrorBoundary fallback={<></>}>
             <DrawingToolbar
               activeTool={activeTool}
               onToolChange={setActiveTool}
@@ -2268,6 +2270,7 @@ export default function ChartPage() {
               interval={interval}
               onHandleReady={setDrawingHandle}
             />
+            </ErrorBoundary>
 
             {/* Position drawing tool overlay */}
             <PositionOverlay

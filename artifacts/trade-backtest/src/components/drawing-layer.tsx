@@ -550,7 +550,24 @@ class DrawingController {
   }
   private _posKey() { return `dl_pos_${this.symbol}_${this.interval}`; }
   private _savePosns() { try { localStorage.setItem(this._posKey(), JSON.stringify(this.positions)); } catch {} }
-  private _loadPosns() { try { const r=localStorage.getItem(this._posKey()); if(r){ this.positions=JSON.parse(r); this.onPositions(this.positions); } } catch {} }
+  private _loadPosns() {
+    try {
+      const r = localStorage.getItem(this._posKey());
+      if (r) {
+        const parsed: unknown[] = JSON.parse(r);
+        // Validate each position — reject corrupt/old-format entries that
+        // are missing required numeric fields to prevent render crashes.
+        this.positions = parsed.filter((p): p is PosDraw =>
+          typeof p === "object" && p !== null &&
+          typeof (p as PosDraw).id === "string" &&
+          typeof (p as PosDraw).entry === "number" && !isNaN((p as PosDraw).entry) &&
+          typeof (p as PosDraw).stop === "number"   && !isNaN((p as PosDraw).stop) &&
+          typeof (p as PosDraw).target === "number" && !isNaN((p as PosDraw).target),
+        );
+        this.onPositions(this.positions);
+      }
+    } catch {}
+  }
 
   // ── Remove ───────────────────────────────────────────────────────────────────
   private _rmObj(obj: FObj) {
@@ -703,20 +720,25 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
   const [showSettings, setShowSettings] = useState(false);
   const drag = useRef<{ field: "entry"|"stop"|"target"; startY: number; startPrice: number } | null>(null);
 
+  // ── Null-guard pos fields — old localStorage data may be missing fields ──
+  const safeEntry  = pos.entry  ?? 0;
+  const safeStop   = pos.stop   ?? 0;
+  const safeTarget = pos.target ?? 0;
+
   // ── Pixel positions ────────────────────────────────────────────────────────
-  const ey = series ? (p2y(series, pos.entry)  ?? -999) : -999;
-  const sy = series ? (p2y(series, pos.stop)   ?? -999) : -999;
-  const ty = series ? (p2y(series, pos.target) ?? -999) : -999;
+  const ey = series ? (p2y(series, safeEntry)  ?? -999) : -999;
+  const sy = series ? (p2y(series, safeStop)   ?? -999) : -999;
+  const ty = series ? (p2y(series, safeTarget) ?? -999) : -999;
   if (ey < -200 || ey > containerH + 200) return null;
 
   const isLong = pos.kind === "long";
 
   // ── Metrics ────────────────────────────────────────────────────────────────
-  const risk      = Math.abs(pos.entry - pos.stop);
-  const reward    = Math.abs(pos.target - pos.entry);
+  const risk      = Math.abs(safeEntry - safeStop);
+  const reward    = Math.abs(safeTarget - safeEntry);
   const rr        = risk > 0 ? (reward / risk).toFixed(2) : "–";
-  const riskPctPx = risk   > 0 ? ((risk   / pos.entry) * 100).toFixed(2) : "0";
-  const rewPctPx  = reward > 0 ? ((reward / pos.entry) * 100).toFixed(2) : "0";
+  const riskPctPx = risk   > 0 && safeEntry > 0 ? ((risk   / safeEntry) * 100).toFixed(2) : "0";
+  const rewPctPx  = reward > 0 && safeEntry > 0 ? ((reward / safeEntry) * 100).toFixed(2) : "0";
   const acctSz    = pos.accountSize ?? 10000;
   const riskPct   = pos.riskPct    ?? 1;
   const riskUsd   = acctSz * riskPct / 100;
@@ -790,7 +812,7 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
         <div style={handleS(tpC)} onMouseDown={startDrag("target")} onTouchStart={startDrag("target")}>
           <svg width="14" height="8" viewBox="0 0 14 8"><path d="M1 4h12M7 1l3 3-3 3" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
         </div>
-        <span style={lbl(tpC, 44)}>TP {pos.target.toFixed(pos.target > 10 ? 2 : 4)} +{rewPctPx}%</span>
+        <span style={lbl(tpC, 44)}>TP {safeTarget.toFixed(safeTarget > 10 ? 2 : 4)} +{rewPctPx}%</span>
         <span style={lblGhost(tpC, "30%")}>{fmt(rewUsd)} profit</span>
         <span style={{ ...lbl(tpC + "cc", "auto"), right: 8 }}>R:R 1:{rr}</span>
       </div>
@@ -800,7 +822,7 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
         <div style={handleS(enC)} onMouseDown={startDrag("entry")} onTouchStart={startDrag("entry")}>
           <svg width="14" height="8" viewBox="0 0 14 8"><path d="M1 4h12" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
         </div>
-        <span style={lbl(enC, 44)}>{isLong ? "▲ Long" : "▼ Short"} {pos.entry.toFixed(pos.entry > 10 ? 2 : 4)}</span>
+        <span style={lbl(enC, 44)}>{isLong ? "▲ Long" : "▼ Short"} {safeEntry.toFixed(safeEntry > 10 ? 2 : 4)}</span>
         <span style={lblGhost(enC, "30%")}>
           {posSize > 0 ? `${posSize.toFixed(4)} units · ${fmt(riskUsd)} risk (${riskPct}%)` : `${fmt(acctSz)} account`}
         </span>
@@ -832,7 +854,7 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
               transform={isLong ? "rotate(180 7 4)" : ""} />
           </svg>
         </div>
-        <span style={lbl(slC, 44)}>SL {pos.stop.toFixed(pos.stop > 10 ? 2 : 4)} -{riskPctPx}%</span>
+        <span style={lbl(slC, 44)}>SL {safeStop.toFixed(safeStop > 10 ? 2 : 4)} -{riskPctPx}%</span>
         <span style={lblGhost(slC, "30%")}>{fmt(riskUsd)} max loss</span>
       </div>
 

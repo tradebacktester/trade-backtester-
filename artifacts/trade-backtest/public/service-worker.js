@@ -1,5 +1,5 @@
-const CACHE_NAME = "trade-lab-v2";
-const API_CACHE_NAME = "trade-lab-api-v2";
+const CACHE_NAME = "trade-lab-v3";
+const API_CACHE_NAME = "trade-lab-api-v3";
 
 const PRECACHE_ASSETS = [
   "/",
