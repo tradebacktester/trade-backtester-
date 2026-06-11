@@ -728,7 +728,21 @@ router.post("/alerts/from-strategy", async (req: Request, res: Response): Promis
   const conditions = mapStrategyToConditions(strategyType, params);
   const name = `${strategyName} Signal — ${symbol}`;
 
-  res.json({ name, conditions, strategyType });
+  // Detect period snapping for SMA/EMA crossover types
+  const closestSMA = (p: number) => ([10, 20, 50, 100, 200] as number[]).reduce((a, b) => Math.abs(b - p) < Math.abs(a - p) ? b : a);
+  const closestEMA = (p: number) => ([9, 20, 50, 100, 200] as number[]).reduce((a, b) => Math.abs(b - p) < Math.abs(a - p) ? b : a);
+  const snappedPeriods: { indicator: string; original: number; snapped: number }[] = [];
+  const fp = Number(params["fastPeriod"] ?? 0);
+  const sp = Number(params["slowPeriod"] ?? 0);
+  if (strategyType === "sma_crossover") {
+    if (fp && closestSMA(fp) !== fp) snappedPeriods.push({ indicator: "SMA", original: fp, snapped: closestSMA(fp) });
+    if (sp && closestSMA(sp) !== sp) snappedPeriods.push({ indicator: "SMA", original: sp, snapped: closestSMA(sp) });
+  } else if (strategyType === "ema_crossover") {
+    if (fp && closestEMA(fp) !== fp) snappedPeriods.push({ indicator: "EMA", original: fp, snapped: closestEMA(fp) });
+    if (sp && closestEMA(sp) !== sp) snappedPeriods.push({ indicator: "EMA", original: sp, snapped: closestEMA(sp) });
+  }
+
+  res.json({ name, conditions, strategyType, snappedPeriods });
 });
 
 // ── GET /alerts/dna-analysis ─────────────────────────────────────────────────

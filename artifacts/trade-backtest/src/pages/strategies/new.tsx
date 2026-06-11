@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, Save, CheckCircle, Sparkles } from "lucide-react";
 
@@ -72,15 +72,23 @@ export function loadLocalStrategies(): LocalStrategy[] {
   } catch { return []; }
 }
 
-function saveLocalStrategy(s: LocalStrategy) {
+export function saveLocalStrategy(s: LocalStrategy) {
   try {
     const existing = loadLocalStrategies();
     localStorage.setItem(LS_KEY, JSON.stringify([s, ...existing]));
   } catch {}
 }
 
+export function updateLocalStrategy(s: LocalStrategy) {
+  try {
+    const existing = loadLocalStrategies().filter(x => x.id !== s.id);
+    localStorage.setItem(LS_KEY, JSON.stringify([s, ...existing]));
+  } catch {}
+}
+
 export default function NewStrategy() {
   const [, setLocation] = useLocation();
+  const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("ema_crossover");
@@ -90,6 +98,20 @@ export default function NewStrategy() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const editParam = new URLSearchParams(window.location.search).get("edit");
+    if (!editParam) return;
+    const existing = loadLocalStrategies().find(s => s.id === editParam);
+    if (!existing) return;
+    setEditId(editParam);
+    setName(existing.name);
+    setDescription(existing.description);
+    setType(existing.type);
+    setSymbol(existing.symbol);
+    setTimeframe(existing.timeframe);
+    setParams(existing.parameters);
+  }, []);
 
   function handleTypeChange(newType: string) {
     setType(newType);
@@ -110,17 +132,23 @@ export default function NewStrategy() {
     setSaving(true);
     setTimeout(() => {
       const strategy: LocalStrategy = {
-        id: `local_${Date.now()}`,
+        id: editId ?? `local_${Date.now()}`,
         name: name.trim(),
         description: description.trim(),
         type,
         symbol,
         timeframe,
         parameters: params,
-        createdAt: new Date().toISOString(),
+        createdAt: editId
+          ? (loadLocalStrategies().find(s => s.id === editId)?.createdAt ?? new Date().toISOString())
+          : new Date().toISOString(),
         local: true,
       };
-      saveLocalStrategy(strategy);
+      if (editId) {
+        updateLocalStrategy(strategy);
+      } else {
+        saveLocalStrategy(strategy);
+      }
       setSaving(false);
       setSaved(true);
       setTimeout(() => setLocation("/strategies"), 1000);
@@ -158,7 +186,9 @@ export default function NewStrategy() {
           style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)" }}>
           <CheckCircle className="h-8 w-8" style={{ color: "hsl(150,90%,58%)" }} />
         </div>
-        <h2 className="text-xl font-bold" style={{ color: "hsl(220,14%,90%)" }}>Strategy Created!</h2>
+        <h2 className="text-xl font-bold" style={{ color: "hsl(220,14%,90%)" }}>
+          {editId ? "Strategy Updated!" : "Strategy Created!"}
+        </h2>
         <p className="text-sm font-mono" style={{ color: "hsl(220,14%,45%)" }}>Redirecting to Analytics…</p>
       </div>
     );
@@ -176,8 +206,12 @@ export default function NewStrategy() {
           </span>
         </Link>
         <div>
-          <h1 className="text-xl font-bold tracking-tight" style={{ color: "hsl(220,14%,92%)" }}>New Strategy</h1>
-          <p className="text-xs font-mono" style={{ color: "hsl(220,14%,42%)" }}>Configure a systematic trading strategy</p>
+          <h1 className="text-xl font-bold tracking-tight" style={{ color: "hsl(220,14%,92%)" }}>
+            {editId ? "Edit Strategy" : "New Strategy"}
+          </h1>
+          <p className="text-xs font-mono" style={{ color: "hsl(220,14%,42%)" }}>
+            {editId ? "Update your saved strategy" : "Configure a systematic trading strategy"}
+          </p>
         </div>
       </div>
 

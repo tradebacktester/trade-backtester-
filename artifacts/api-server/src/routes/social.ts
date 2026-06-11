@@ -323,8 +323,9 @@ router.post("/marketplace/:id/vote", requireAuth, async (req, res): Promise<void
     .returning({ id: marketplaceVotesTable.id });
 
   // Only increment the counter when a new vote row was actually created.
+  const alreadyVoted = inserted.length === 0;
   let updatedListing = listing;
-  if (inserted.length > 0) {
+  if (!alreadyVoted) {
     const [updated] = await db
       .update(marketplaceListingsTable)
       .set({ votes: sql`${marketplaceListingsTable.votes} + 1` })
@@ -333,7 +334,7 @@ router.post("/marketplace/:id/vote", requireAuth, async (req, res): Promise<void
     updatedListing = updated!;
   }
 
-  res.json({ voted: true, votes: updatedListing.votes });
+  res.json({ voted: true, votes: updatedListing.votes, alreadyVoted });
 });
 
 // POST /marketplace/:id/backtest-stats — refresh real backtest stats on a listing (auth: listing owner)

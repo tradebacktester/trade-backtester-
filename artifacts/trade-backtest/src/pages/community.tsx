@@ -47,8 +47,7 @@ function avatarColor(name: string): string {
   return AVATAR_PALETTE[h % AVATAR_PALETTE.length]!;
 }
 
-async function apiFetch(path: string, opts?: RequestInit) {
-  const token = localStorage.getItem("tt_token");
+async function apiFetch(path: string, opts?: RequestInit, token?: string | null) {
   const r = await fetch(`${API_BASE}${path}` as string, {
     ...opts,
     headers: {
@@ -245,7 +244,7 @@ function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
 }
 
 function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
-  const { user } = useAuth();
+  const { user, token: authToken } = useAuth();
   const [content, setContent] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(user?.name ?? "");
@@ -281,7 +280,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
       const post = await apiFetch("/api/community", {
         method: "POST",
         body: JSON.stringify({ content: content.trim(), imageUrl: imagePreview ?? undefined }),
-      }) as Post;
+      }, authToken) as Post;
       onCreated(post);
       setContent(""); setImagePreview(null);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -499,7 +498,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
 }
 
 export default function CommunityPage() {
-  const { adminToken } = useAuth();
+  const { adminToken, token: authToken } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -549,7 +548,7 @@ export default function CommunityPage() {
       const updated = await apiFetch(`/api/community/${id}/like`, {
         method: "POST",
         body: JSON.stringify({ action: alreadyLiked ? "unlike" : "like" }),
-      }) as Post;
+      }, authToken) as Post;
       setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: updated.likes } : p));
       setLikedIds(prev => {
         const next = new Set(prev);

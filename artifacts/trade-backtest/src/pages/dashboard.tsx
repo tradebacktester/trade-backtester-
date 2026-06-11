@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { API_BASE } from "@/lib/api-config";
 import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function fmtPct(v: number | null | undefined, sign = true) {
@@ -88,6 +89,7 @@ type CoachingData = {
 /* ── Alert Engine Card (dashboard widget) ────────────────────────── */
 function AlertEngineCard() {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [stats, setStats] = useState<{ total: number; active: number; unread: number; planSlug: string; maxAlerts: number } | null>(null);
 
   useEffect(() => {
@@ -95,7 +97,7 @@ function AlertEngineCard() {
     fetch(`${API_BASE}/api/alerts`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then((d: any) => setStats({ total: d.total ?? 0, active: d.active ?? 0, unread: d.unreadNotifications ?? 0, planSlug: d.planSlug ?? "free", maxAlerts: d.maxAlerts ?? 5 }))
-      .catch(() => {});
+      .catch(() => { toast({ variant: "destructive", title: "Failed to load alert stats" }); });
   }, [token]);
 
   if (!token) return null;
@@ -152,6 +154,7 @@ function AlertEngineCard() {
 /* ── Daily Coach Card (compact dashboard widget) ─────────────────── */
 function DailyCoachCard() {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(true);
@@ -164,7 +167,7 @@ function DailyCoachCard() {
     })
       .then(r => r.json())
       .then(d => setData(d as Record<string, unknown>))
-      .catch(() => {})
+      .catch(() => { toast({ variant: "destructive", title: "Failed to load daily coach" }); })
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -240,6 +243,7 @@ function DailyCoachCard() {
 
 function AiCoachSection() {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [data, setData] = useState<CoachingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showMistakes, setShowMistakes] = useState(false);
@@ -251,7 +255,7 @@ function AiCoachSection() {
     })
       .then(r => r.json())
       .then(d => setData(d as CoachingData))
-      .catch(() => {})
+      .catch(() => { toast({ variant: "destructive", title: "Failed to load AI coaching insights" }); })
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -587,6 +591,7 @@ interface DnaProfile {
 
 function TraderDNACommandCenter() {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [data, setData] = useState<DnaProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -597,7 +602,7 @@ function TraderDNACommandCenter() {
     fetch(`${API_BASE}/api/alerts/dna-analysis`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then((d: DnaProfile | null) => { if (d) setData(d); })
-      .catch(() => {})
+      .catch(() => { toast({ variant: "destructive", title: "Failed to load Trader DNA" }); })
       .finally(() => setLoading(false));
   }, [token]);
 

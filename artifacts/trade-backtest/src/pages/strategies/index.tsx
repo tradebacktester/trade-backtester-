@@ -3,44 +3,51 @@ import { Link } from "wouter";
 import { useListStrategies, getListStrategiesQueryKey } from "@workspace/api-client-react";
 import {
   Plus, ArrowRight, TrendingUp, BarChart2,
-  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell, Copy, Loader2, Download,
+  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell, Copy, Loader2, Download, Pencil,
 } from "lucide-react";
-import { loadLocalStrategies, type LocalStrategy } from "./new";
+import { loadLocalStrategies, saveLocalStrategy, type LocalStrategy } from "./new";
 import { useQueryClient } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api-config";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
+import { AuthModal } from "@/components/auth-modal";
 
 const SAMPLE_STRATEGIES = [
   {
     id: "sample-ema",
     name: "EMA Crossover",
     description: "Buy when the 20 EMA crosses above the 50 EMA; sell when it crosses back below. A classic trend-following system suited to strong trending markets.",
-    type: "trend", timeframe: "1H", symbol: "BTC/USDT", winRate: 61, sharpe: 1.82,
+    type: "trend", backtestType: "ema_crossover", timeframe: "1h", symbol: "BTC/USDT", winRate: 61, sharpe: 1.82,
     sample: true, icon: TrendingUp,
     color: "hsl(150,80%,50%)", colorBg: "rgba(52,211,153,0.1)", colorBorder: "rgba(52,211,153,0.2)",
+    defaultParams: { fastPeriod: 9, slowPeriod: 21 } as Record<string, number>,
   },
   {
     id: "sample-rsi",
     name: "RSI Reversal",
     description: "Enter long when RSI(14) dips below 30 (oversold) and exit when it reclaims 70. Works best in ranging, mean-reverting markets.",
-    type: "reversal", timeframe: "4H", symbol: "ETH/USDT", winRate: 55, sharpe: 1.41,
+    type: "reversal", backtestType: "rsi", timeframe: "4h", symbol: "ETH/USDT", winRate: 55, sharpe: 1.41,
     sample: true, icon: Activity,
     color: "hsl(260,80%,65%)", colorBg: "rgba(139,92,246,0.1)", colorBorder: "rgba(139,92,246,0.2)",
+    defaultParams: { period: 14, oversold: 30, overbought: 70 } as Record<string, number>,
   },
   {
     id: "sample-vol",
     name: "Volume Breakout",
     description: "Enter on a close above the 20-period high accompanied by volume ≥ 2× the 20-period average. Captures high-conviction momentum moves.",
-    type: "breakout", timeframe: "1D", symbol: "BTC/USDT", winRate: 48, sharpe: 1.65,
+    type: "breakout", backtestType: "breakout", timeframe: "1d", symbol: "BTC/USDT", winRate: 48, sharpe: 1.65,
     sample: true, icon: Zap,
     color: "hsl(38,100%,55%)", colorBg: "rgba(245,158,11,0.1)", colorBorder: "rgba(245,158,11,0.2)",
+    defaultParams: { entryPeriod: 20, exitPeriod: 10 } as Record<string, number>,
   },
   {
     id: "sample-sr",
     name: "S/R Breakout",
     description: "Identify 20-period swing highs/lows as support and resistance. Enter on confirmed breakout candle with at least 1% follow-through.",
-    type: "breakout", timeframe: "1H", symbol: "SOL/USDT", winRate: 52, sharpe: 1.58,
+    type: "breakout", backtestType: "breakout", timeframe: "1h", symbol: "SOL/USDT", winRate: 52, sharpe: 1.58,
     sample: true, icon: Target,
     color: "hsl(190,90%,55%)", colorBg: "rgba(0,229,255,0.1)", colorBorder: "rgba(0,229,255,0.2)",
+    defaultParams: { entryPeriod: 20, exitPeriod: 10 } as Record<string, number>,
   },
 ];
 
@@ -70,18 +77,25 @@ interface StrategyCardProps {
   winRate?: number; sharpe?: number; id: string | number;
   sample?: boolean; local?: boolean;
   params?: Record<string, unknown>;
+  backtestType?: string;
+  defaultParams?: Record<string, number>;
   icon?: React.ElementType; color?: string; colorBg?: string; colorBorder?: string;
 }
 
 function StrategyCard({
   name, description, type, timeframe, symbol,
   winRate, sharpe, id, sample, local, params,
+  backtestType, defaultParams,
   icon: Icon = Layers,
   color = "hsl(190,90%,60%)", colorBg = "rgba(0,229,255,0.1)", colorBorder = "rgba(0,229,255,0.2)",
 }: StrategyCardProps) {
   const ts = typeStyle(type);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isSavingCopy, setIsSavingCopy] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { token } = useAuth();
 
   async function downloadJson(e: React.MouseEvent) {
     e.preventDefault();
@@ -135,6 +149,7 @@ function StrategyCard({
   }
 
   return (
+    <>
     <div
       className="rounded-2xl border flex flex-col transition-all duration-200 hover:translate-y-[-2px]"
       style={{
@@ -236,6 +251,46 @@ function StrategyCard({
                 Run Backtest
               </span>
             </Link>
+            <button
+              onClick={async () => {
+                if (!token) {
+                  setShowAuthModal(true);
+                  return;
+                }
+                setIsSavingCopy(true);
+                try {
+                  const body = {
+                    name: `${name} (copy)`,
+                    description,
+                    type: backtestType ?? type,
+                    symbol,
+                    timeframe,
+                    parameters: defaultParams ?? {},
+                  };
+                  const r = await fetch(`${API_BASE}/api/strategies`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify(body),
+                  });
+                  if (!r.ok) {
+                    const err = await r.json().catch(() => ({})) as { error?: string };
+                    throw new Error(err.error ?? "Failed to save");
+                  }
+                  queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
+                  toast({ title: "Strategy saved", description: `"${body.name}" added to your strategies.` });
+                } catch (e) {
+                  toast({ variant: "destructive", title: "Failed to save copy", description: e instanceof Error ? e.message : "Unknown error" });
+                } finally {
+                  setIsSavingCopy(false);
+                }
+              }}
+              disabled={isSavingCopy}
+              title="Save a copy to my strategies"
+              className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer disabled:opacity-50"
+              style={{ background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.2)", color: "hsl(150,80%,55%)" }}
+            >
+              {isSavingCopy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+            </button>
           </>
         ) : (
           <>
@@ -245,6 +300,14 @@ function StrategyCard({
                 {local ? "Run Backtest" : "View Details"}
               </span>
             </Link>
+            {local && (
+              <Link href={`/strategies/new?edit=${id}`} title="Edit strategy">
+                <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                  style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", color: "hsl(38,100%,60%)" }}>
+                  <Pencil className="h-4 w-4" />
+                </span>
+              </Link>
+            )}
             <Link href={`/alerts?from=strategy&symbol=${encodeURIComponent(symbol)}&strategyId=${id}&strategyType=${encodeURIComponent(type)}&strategyName=${encodeURIComponent(name)}`} title="Create Alert from Strategy">
               <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
                 style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.2)", color: "hsl(265,89%,65%)" }}>
@@ -284,6 +347,8 @@ function StrategyCard({
         )}
       </div>
     </div>
+    <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} defaultTab="signin" />
+    </>
   );
 }
 

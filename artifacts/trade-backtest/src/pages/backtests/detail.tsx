@@ -159,6 +159,7 @@ const STRATEGY_TAGS: { label: string; color: string }[] = [
 
 function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: number }) {
   const key = `trade_note_${backtestId}_${tradeId}`;
+  const { toast } = useToast();
 
   const [note, setNote] = useState(() => localStorage.getItem(key) ?? "");
   const [tags, setTags] = useState<string[]>(() => {
@@ -213,7 +214,9 @@ function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: numbe
           confidence: parseInt(localStorage.getItem(key + "_confidence") ?? "0"),
           mistakes: (() => { try { return JSON.parse(localStorage.getItem(key + "_mistakes") ?? "[]"); } catch { return []; } })(),
         }),
-      }).catch(() => {});
+      }).catch(() => {
+        toast({ variant: "destructive", title: "Note not saved", description: "Could not sync to server — changes are kept locally." });
+      });
     }, 1500);
   }
 
@@ -867,6 +870,7 @@ export default function BacktestDetail() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { token } = useAuth();
 
   const [activeTab, setActiveTab] = useState("overview");
   const [tradeSearch, setTradeSearch] = useState("");
@@ -979,19 +983,29 @@ export default function BacktestDetail() {
   }
 
   const handleShare = useCallback(async () => {
+    const url = window.location.href;
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(url);
+      copied = true;
     } catch {
-      const el = document.createElement("textarea");
-      el.value = window.location.href;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
+      try {
+        const el = document.createElement("textarea");
+        el.value = url;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        copied = true;
+      } catch { /* clipboard fully blocked */ }
     }
-    setShareCopied(true);
-    toast({ title: "Link copied!", description: "Backtest URL is ready to share." });
-    setTimeout(() => setShareCopied(false), 2000);
+    if (copied) {
+      setShareCopied(true);
+      toast({ title: "Link copied!", description: "Backtest URL is ready to share." });
+      setTimeout(() => setShareCopied(false), 2000);
+    } else {
+      toast({ title: "Could not copy automatically", description: url, variant: "destructive" });
+    }
   }, [toast]);
 
   const handlePublish = useCallback(() => {

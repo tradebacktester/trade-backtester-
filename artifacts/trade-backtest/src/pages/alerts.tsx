@@ -340,19 +340,32 @@ export default function AlertsPage() {
 
   async function deleteAlert(id: number) {
     if (!token) return;
-    await fetch(`${API_BASE}/api/alerts/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    setAlerts(prev => prev.filter(a => a.id !== id));
-    toast({ title: "Alert deleted" });
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { toast({ title: "Failed to delete alert", variant: "destructive" }); return; }
+      setAlerts(prev => prev.filter(a => a.id !== id));
+      toast({ title: "Alert deleted" });
+    } catch {
+      toast({ title: "Network error", description: "Could not delete alert", variant: "destructive" });
+    }
   }
 
   async function toggleActive(a: AlertRow) {
     if (!token) return;
-    const res = await fetch(`${API_BASE}/api/alerts/${a.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ isActive: !a.isActive }),
-    });
-    if (res.ok) setAlerts(prev => prev.map(x => x.id === a.id ? { ...x, isActive: !x.isActive } : x));
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/${a.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ isActive: !a.isActive }),
+      });
+      if (res.ok) {
+        setAlerts(prev => prev.map(x => x.id === a.id ? { ...x, isActive: !x.isActive } : x));
+      } else {
+        toast({ title: "Failed to update alert", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Network error", description: "Could not update alert", variant: "destructive" });
+    }
   }
 
   async function markRead(id: number) {
@@ -397,12 +410,16 @@ export default function AlertsPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ strategyType: strategy.type, parameters: strategy.parameters ?? {}, symbol: form.symbol, name: strategy.name }),
       });
-      const d = await res.json() as { name?: string; conditions?: AlertCondition[]; error?: string };
+      const d = await res.json() as { name?: string; conditions?: AlertCondition[]; error?: string; snappedPeriods?: { indicator: string; original: number; snapped: number }[] };
       if (!res.ok || d.error) { toast({ title: d.error ?? "Failed to load strategy", variant: "destructive" }); return; }
       if (d.conditions?.length) {
         setSelectedStrategyId(strategy.id);
         setForm(prev => ({ ...prev, name: d.name ?? prev.name, conditions: d.conditions! }));
         toast({ title: "Strategy conditions loaded", description: `${d.conditions.length} condition(s) applied from "${strategy.name}"` });
+        if (d.snappedPeriods && d.snappedPeriods.length > 0) {
+          const snapDesc = d.snappedPeriods.map(s => `${s.indicator}(${s.original}) → ${s.indicator}(${s.snapped})`).join(", ");
+          toast({ title: "Indicator periods adjusted", description: `${snapDesc}. Edit the alert to use a custom period.`, variant: "default" });
+        }
       }
     } finally {
       setStrategyLoading(false);

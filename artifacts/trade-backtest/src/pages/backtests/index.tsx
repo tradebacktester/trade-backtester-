@@ -1,13 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { useListBacktests, useDeleteBacktest, getListBacktestsQueryKey } from "@workspace/api-client-react";
+import { useDeleteBacktest, getListBacktestsQueryKey } from "@workspace/api-client-react";
+import type { Backtest } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   Play, Cpu, TrendingUp, TrendingDown, Activity,
   Trash2, ChevronRight, Search, MoreVertical, BookOpen,
-  PenLine, Bell,
+  PenLine, Bell, Loader2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth-context";
+import { API_BASE } from "@/lib/api-config";
 
 function formatSymbol(s: string): string {
   const QUOTES = ["USDT", "USDC", "BUSD", "BTC", "ETH", "BNB", "USD"];
@@ -49,21 +52,60 @@ function SkeletonCard() {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function Journal() {
-  const { data: backtests, isLoading } = useListBacktests();
+  const { token } = useAuth();
   const { mutate: deleteBacktest } = useDeleteBacktest();
   const queryClient = useQueryClient();
+
+  const [allItems, setAllItems] = useState<Backtest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [serverHasMore, setServerHasMore] = useState(false);
+  const [serverPage, setServerPage] = useState(0);
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "wins" | "losses">("all");
   const [sort, setSort] = useState<"date" | "return" | "sharpe" | "winrate">("date");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [menuId, setMenuId] = useState<number | null>(null);
 
-  const completed = backtests?.filter(b => b.status === "complete") ?? [];
+  const fetchPage = useCallback(async (page: number, append: boolean) => {
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(page * PAGE_SIZE),
+    });
+    const r = await fetch(`${API_BASE}/api/backtests?${params}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!r.ok) return;
+    const data = await r.json() as Backtest[];
+    if (append) {
+      setAllItems(prev => [...prev, ...data]);
+    } else {
+      setAllItems(data);
+    }
+    setServerHasMore(data.length === PAGE_SIZE);
+    setServerPage(page);
+  }, [token]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetchPage(0, false).finally(() => setIsLoading(false));
+  }, [fetchPage]);
+
+  async function handleLoadMore() {
+    setIsLoadingMore(true);
+    await fetchPage(serverPage + 1, true);
+    setIsLoadingMore(false);
+  }
+
+  const completed = allItems.filter(b => b.status === "complete");
   const avgReturn  = completed.length ? completed.reduce((a, b) => a + (b.totalReturn ?? 0), 0) / completed.length : null;
   const bestReturn = completed.length ? Math.max(...completed.map(b => b.totalReturn ?? -Infinity)) : null;
 
-  const filtered = (backtests ?? []).filter(b => {
+  const filtered = allItems.filter(b => {
     const q = search.toLowerCase();
     const matchSearch = !q || (b.strategyName ?? "").toLowerCase().includes(q) || (b.symbol ?? "").toLowerCase().includes(q);
     const matchFilter = filter === "all" || (filter === "wins" && (b.totalReturn ?? 0) >= 0) || (filter === "losses" && (b.totalReturn ?? 0) < 0);
@@ -75,10 +117,14 @@ export default function Journal() {
     return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
   });
 
+  const winCount  = completed.filter(b => (b.totalReturn ?? 0) >= 0).length;
+  const lossCount = completed.filter(b => (b.totalReturn ?? 0) < 0).length;
+
   function handleDelete(id: number) {
     setDeletingId(id);
     deleteBacktest({ id }, {
       onSuccess: () => {
+        setAllItems(prev => prev.filter(b => b.id !== id));
         queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
         setDeletingId(null);
         setMenuId(null);
@@ -86,9 +132,6 @@ export default function Journal() {
       onError: () => setDeletingId(null),
     });
   }
-
-  const winCount  = completed.filter(b => (b.totalReturn ?? 0) >= 0).length;
-  const lossCount = completed.filter(b => (b.totalReturn ?? 0) < 0).length;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5 pb-24 sm:pb-8">
@@ -150,7 +193,7 @@ export default function Journal() {
             ))
           ) : (
             <>
-              <StatCard label="Total Runs" value={String(backtests?.length ?? 0)} />
+              <StatCard label="Total Runs" value={String(allItems.length)} />
               <StatCard label="Avg Return"
                 value={avgReturn != null ? `${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(1)}%` : "—"}
                 color={avgReturn != null && avgReturn >= 0 ? "hsl(150,80%,52%)" : "hsl(0,78%,60%)"} />
@@ -186,7 +229,7 @@ export default function Journal() {
               style={filter === f
                 ? { background: "rgba(59,130,246,0.14)", color: "hsl(210,90%,65%)" }
                 : { color: "hsl(218,12%,43%)" }}>
-              {f === "all" ? `All ${backtests?.length ?? 0}` : f === "wins" ? `Wins ${winCount}` : `Losses ${lossCount}`}
+              {f === "all" ? `All ${allItems.length}` : f === "wins" ? `Wins ${winCount}` : `Losses ${lossCount}`}
             </button>
           ))}
         </div>
@@ -386,6 +429,30 @@ export default function Journal() {
           </Link>
         </Button>
       </div>
+
+      {serverHasMore && (
+        <button
+          onClick={handleLoadMore}
+          disabled={isLoadingMore}
+          className="w-full py-3 rounded-2xl text-[13px] font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            color: "hsl(218,12%,50%)",
+          }}
+        >
+          {isLoadingMore ? (
+            <><Loader2 className="h-4 w-4 animate-spin" /> Loading…</>
+          ) : (
+            `Load more backtests (page ${serverPage + 2})`
+          )}
+        </button>
+      )}
+      {!serverHasMore && allItems.length >= PAGE_SIZE && (
+        <p className="text-center text-[11px] py-2" style={{ color: "hsl(218,12%,36%)" }}>
+          All {allItems.length} backtests loaded
+        </p>
+      )}
 
       {menuId !== null && (
         <div className="fixed inset-0 z-20" onClick={() => setMenuId(null)} />

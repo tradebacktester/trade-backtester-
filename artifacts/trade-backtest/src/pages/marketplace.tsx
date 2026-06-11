@@ -326,6 +326,11 @@ export default function MarketplacePage() {
       const data = await res.json();
       if (!res.ok) { toast({ title: "Error", description: data.error, variant: "destructive" }); return; }
       setListings(prev => prev.map(l => l.id === id ? { ...l, voted: data.voted, votes: data.votes } : l));
+      if (data.alreadyVoted) {
+        toast({ description: "You already voted on this strategy." });
+      } else {
+        toast({ description: "Vote recorded!" });
+      }
     } catch {
       toast({ title: "Error", description: "Vote failed.", variant: "destructive" });
     }

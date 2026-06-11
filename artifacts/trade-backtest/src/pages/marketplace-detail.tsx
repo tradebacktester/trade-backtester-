@@ -110,7 +110,13 @@ export default function MarketplaceDetailPage() {
       const data = await res.json();
       if (!res.ok) { toast({ title: "Error", description: data.error, variant: "destructive" }); return; }
       setListing(prev => prev ? { ...prev, voted: data.voted, votes: data.votes } : prev);
-      toast({ description: data.voted ? "Upvoted!" : "Vote removed." });
+      if (data.alreadyVoted) {
+        toast({ description: "You already voted on this strategy." });
+      } else {
+        toast({ description: "Upvoted!" });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Vote failed", description: "Could not reach the server. Please try again." });
     } finally {
       setVoting(false);
     }

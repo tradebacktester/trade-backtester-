@@ -64,6 +64,7 @@ import {
   type ChartLayout, type PriceAlert, type PositionTool,
 } from "@/lib/chart-utils";
 import { API_BASE } from "@/lib/api-config";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -170,7 +171,10 @@ function readPtCapital(): number {
     return v?.initialCapital ?? 10_000;
   } catch { return 10_000; }
 }
-function savePtTrade(trade: { id: number; entryPrice: number; entryTime: number; exitPrice: number; exitTime: number; units: number; pnl: number; pnlPct: number; side?: string; symbol?: string }) {
+async function savePtTrade(
+  trade: { id: number; entryPrice: number; entryTime: number; exitPrice: number; exitTime: number; units: number; pnl: number; pnlPct: number; side?: string; symbol?: string },
+  onError?: (msg: string) => void,
+) {
   // Normalise shape so ai-assistant.tsx (status/openedAt/closedAt) can read it correctly
   const normalized = {
     ...trade,
@@ -178,29 +182,39 @@ function savePtTrade(trade: { id: number; entryPrice: number; entryTime: number;
     openedAt: new Date(trade.entryTime).toISOString(),
     closedAt: new Date(trade.exitTime).toISOString(),
   };
+  // Persist to server first for logged-in users; only update localStorage on success
+  const token = localStorage.getItem("tt_token");
+  if (token) {
+    try {
+      const res = await fetch(`${API_BASE}/api/paper/trades`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          symbol: trade.symbol ?? "UNKNOWN",
+          side: trade.side ?? "long",
+          entryPrice: trade.entryPrice,
+          exitPrice: trade.exitPrice,
+          units: trade.units,
+          pnl: trade.pnl,
+          pnlPct: trade.pnlPct,
+          entryTime: trade.entryTime,
+          exitTime: trade.exitTime,
+        }),
+      });
+      if (!res.ok) {
+        onError?.("Failed to save paper trade to server");
+        return;
+      }
+    } catch {
+      onError?.("Network error — paper trade not saved to server");
+      return;
+    }
+  }
+  // Update localStorage only after confirmed server save (or when not logged in)
   try {
     const prev = JSON.parse(localStorage.getItem("pt_trades") || "[]") as typeof normalized[];
     localStorage.setItem("pt_trades", JSON.stringify([...prev, normalized]));
-  } catch {}
-  // Also persist to server for logged-in users (fire and forget)
-  const token = localStorage.getItem("tt_token");
-  if (token) {
-    fetch(`${API_BASE}/api/paper/trades`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-      body: JSON.stringify({
-        symbol: trade.symbol ?? "UNKNOWN",
-        side: trade.side ?? "long",
-        entryPrice: trade.entryPrice,
-        exitPrice: trade.exitPrice,
-        units: trade.units,
-        pnl: trade.pnl,
-        pnlPct: trade.pnlPct,
-        entryTime: trade.entryTime,
-        exitTime: trade.exitTime,
-      }),
-    }).catch(() => {});
-  }
+  } catch { /* ignore localStorage errors */ }
 }
 function updatePtBalance(balance: number) {
   try {
@@ -326,9 +340,12 @@ export default function ChartPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ symbol, side }),
       });
+      if (!r.ok) throw new Error("Ghost mode request failed");
       const d = await r.json() as GhostResult;
       setGhostResult(d);
-    } catch { /**/ }
+    } catch {
+      toast({ variant: "destructive", title: "Ghost Mode failed", description: "Could not load trade similarity analysis." });
+    }
     finally { setGhostLoading(false); }
   }
 
@@ -383,6 +400,7 @@ export default function ChartPage() {
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
   const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
   const { token } = useAuth();
+  const { toast } = useToast();
 
   // Fetch coaching insights once on mount — used to gate trade warning modal
   useEffect(() => {
@@ -394,7 +412,9 @@ export default function ChartPage() {
       .then((d: { mistakes?: TradeMistake[] } | null) => {
         if (d?.mistakes) coachingRef.current = { mistakes: d.mistakes };
       })
-      .catch(() => {});
+      .catch(() => {
+        // silently ignore — coaching insights are non-critical background data
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -640,7 +660,7 @@ export default function ChartPage() {
       const newEquity = position.capitalAtEntry + pnl;
       const trade = { id: Date.now(), entryPrice: position.price, entryTime: position.time * 1000, exitPrice, exitTime: bar.time * 1000, units: position.units, pnl, pnlPct, side: "short" as const, symbol };
       setTrades(prev => [...prev, trade]); setPosition(null); setEquity(newEquity);
-      savePtTrade(trade); updatePtBalance(newEquity);
+      savePtTrade(trade, (msg) => toast({ variant: "destructive", title: "Save failed", description: msg })); updatePtBalance(newEquity);
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
       const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "belowBar", color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)", shape: "arrowUp", text: `SC ${fmtPct(pnlPct)}`, size: 1 };
       markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
@@ -718,7 +738,7 @@ export default function ChartPage() {
       const newEquity = currentPos.capitalAtEntry + pnl;
       const trade = { id: Date.now(), entryPrice: currentPos.price, entryTime: currentPos.time * 1000, exitPrice, exitTime: bar.time * 1000, units: currentPos.units, pnl, pnlPct, side: "long" as const, symbol };
       setTrades(prev => [...prev, trade]); setPosition(null); setEquity(newEquity);
-      savePtTrade(trade); updatePtBalance(newEquity);
+      savePtTrade(trade, (msg) => toast({ variant: "destructive", title: "Save failed", description: msg })); updatePtBalance(newEquity);
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
       const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "aboveBar", color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)", shape: "arrowDown", text: `S ${fmtPct(pnlPct)}`, size: 1 };
       markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
