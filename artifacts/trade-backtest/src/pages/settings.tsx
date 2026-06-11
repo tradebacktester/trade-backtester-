@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Moon, Sun, Monitor, Palette, LayoutTemplate,
   Bell, Volume2, Globe, Shield, Keyboard,
   Check, ChevronRight, AlertCircle, Wifi, WifiOff,
-  Zap,
+  Zap, Eye, EyeOff, X,
 } from "lucide-react";
 import {
   useSettings,
@@ -12,6 +12,9 @@ import {
   type ChartLayout,
   type DataSource,
 } from "@/lib/settings-context";
+import { useAuth } from "@/lib/auth-context";
+import { useLocation } from "wouter";
+import { API_BASE } from "@/lib/api-config";
 
 // ── Toast ──────────────────────────────────────────────────────────
 
@@ -166,6 +169,77 @@ export default function SettingsPage() {
   const { settings, updateSetting, resolvedTheme, playSound } = useSettings();
   const { toast, show } = useToast();
   const [notifStatus, setNotifStatus] = useState<NotificationPermission>("default");
+  const { setAdminToken } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // ── Developer Mode easter egg state ────────────────────────────────
+  const [showNumPad, setShowNumPad] = useState(false);
+  const [sequence, setSequence] = useState<number[]>([]);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminId, setAdminId] = useState("");
+  const [adminPw, setAdminPw] = useState("");
+  const [showAdminPw, setShowAdminPw] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const [adminLoading, setAdminLoading] = useState(false);
+  const seqRef = useRef(sequence);
+  seqRef.current = sequence;
+
+  const CORRECT_SEQ = [4, 2];
+
+  function handleNumPress(n: number) {
+    const next = [...seqRef.current, n];
+    if (next.length > CORRECT_SEQ.length) {
+      setSequence([n]);
+      return;
+    }
+    setSequence(next);
+    if (next.length === CORRECT_SEQ.length) {
+      if (next.every((v, i) => v === CORRECT_SEQ[i])) {
+        setShowNumPad(false);
+        setShowAdminModal(true);
+        setSequence([]);
+      } else {
+        setSequence([]);
+      }
+    }
+  }
+
+  function closeAdminModal() {
+    setShowAdminModal(false);
+    setAdminId("");
+    setAdminPw("");
+    setAdminError("");
+    setSequence([]);
+  }
+
+  async function handleAdminLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setAdminError("");
+    if (!adminId.trim() || !adminPw.trim()) {
+      setAdminError("Admin ID and password are required");
+      return;
+    }
+    setAdminLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: adminId, password: adminPw }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAdminError(data.error || "Authentication failed");
+        return;
+      }
+      setAdminToken(data.token);
+      closeAdminModal();
+      setLocation("/admin/panel");
+    } catch {
+      setAdminError("Network error. Please try again.");
+    } finally {
+      setAdminLoading(false);
+    }
+  }
 
   useEffect(() => {
     if ("Notification" in window) setNotifStatus(Notification.permission);
@@ -497,6 +571,150 @@ export default function SettingsPage() {
           Reset to defaults
         </button>
       </div>
+
+      {/* ── Developer Mode (easter egg) ──────────────────────────── */}
+      <div className="flex flex-col items-center gap-3 pb-4">
+        <button
+          onClick={() => { setShowNumPad(v => !v); setSequence([]); }}
+          className="text-[10px] font-mono transition-all"
+          style={{ color: "hsl(220,14%,22%)", letterSpacing: "0.08em" }}
+        >
+          Developer Mode
+        </button>
+
+        {showNumPad && (
+          <div
+            className="grid grid-cols-2 gap-2 p-3 rounded-xl"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
+            {[1, 2, 3, 4].map(n => (
+              <button
+                key={n}
+                onClick={() => handleNumPress(n)}
+                className="h-10 w-10 rounded-lg text-sm font-mono font-semibold transition-all duration-150 active:scale-95"
+                style={{
+                  background: sequence.includes(n) && sequence[sequence.length - 1] === n
+                    ? "rgba(255,255,255,0.12)"
+                    : "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  color: "hsl(220,14%,45%)",
+                }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Admin login modal ─────────────────────────────────────── */}
+      {showAdminModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={e => { if (e.target === e.currentTarget) closeAdminModal(); }}
+        >
+          <div
+            className="w-full max-w-sm mx-4 rounded-2xl relative"
+            style={{
+              background: "var(--card-bg, rgba(13,17,28,0.98))",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+            }}
+          >
+            {/* Close */}
+            <button
+              onClick={closeAdminModal}
+              className="absolute top-3 right-3 h-7 w-7 flex items-center justify-center rounded-lg transition-all"
+              style={{ background: "rgba(255,255,255,0.05)", color: "hsl(220,14%,45%)" }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Header */}
+            <div className="px-8 pt-8 pb-5 flex flex-col items-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <span
+                className="h-12 w-12 rounded-2xl flex items-center justify-center mb-3"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+              >
+                <Shield className="h-5 w-5" style={{ color: "hsl(220,14%,60%)" }} />
+              </span>
+              <h2 className="text-base font-semibold" style={{ color: "hsl(220,14%,85%)" }}>Admin Login</h2>
+              <p className="text-xs mt-1 text-center" style={{ color: "hsl(220,14%,42%)" }}>
+                Enter your admin credentials to continue
+              </p>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAdminLogin} className="px-8 py-6 flex flex-col gap-4">
+              <div>
+                <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "hsl(220,14%,45%)" }}>Admin ID</label>
+                <input
+                  type="text"
+                  placeholder="Enter admin ID"
+                  value={adminId}
+                  onChange={e => setAdminId(e.target.value)}
+                  autoFocus
+                  autoComplete="username"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.05)",
+                    color: "hsl(220,14%,85%)",
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium mb-1.5 block" style={{ color: "hsl(220,14%,45%)" }}>Password</label>
+                <div className="relative">
+                  <input
+                    type={showAdminPw ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={adminPw}
+                    onChange={e => setAdminPw(e.target.value)}
+                    autoComplete="current-password"
+                    className="w-full pl-3 pr-10 py-2.5 rounded-xl text-sm outline-none"
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: "rgba(255,255,255,0.05)",
+                      color: "hsl(220,14%,85%)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPw(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "hsl(220,14%,40%)" }}
+                  >
+                    {showAdminPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {adminError && (
+                <div
+                  className="rounded-xl px-3 py-2.5 text-xs"
+                  style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.25)" }}
+                >
+                  {adminError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={adminLoading}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
+                style={{ background: "#FFFFFF", color: "#050505", opacity: adminLoading ? 0.6 : 1 }}
+              >
+                {adminLoading ? "Verifying…" : "Login"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
