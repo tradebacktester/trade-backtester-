@@ -40,15 +40,15 @@ interface Props {
 }
 
 // ── Fabric (local static bundle — no external CDN) ────────────────────────────
-let _fabP: Promise<void> | null = null;
-function ensureFabric(): Promise<void> {
-  if ((window as any).fabric) return Promise.resolve();
+let _fabP: Promise<boolean> | null = null;
+function ensureFabric(): Promise<boolean> {
+  if ((window as any).fabric) return Promise.resolve(true);
   if (_fabP) return _fabP;
-  _fabP = new Promise<void>((res, rej) => {
+  _fabP = new Promise<boolean>((res) => {
     const s = document.createElement("script");
     s.src = "/fabric.min.js";
-    s.onload = () => res();
-    s.onerror = () => rej(new Error("Failed to load fabric"));
+    s.onload = () => res(true);
+    s.onerror = () => { _fabP = null; res(false); };
     document.head.appendChild(s);
   });
   return _fabP;
@@ -173,37 +173,38 @@ class DrawingController {
 
   // ── Mode ────────────────────────────────────────────────────────────────────
   setTool(t: string) {
-    this._cancelDraw();
-    this.tool = t;
-    const upper = this.fab.upperCanvasEl as HTMLElement;
-    const chart = this.chartRef.current;
+    try {
+      this._cancelDraw();
+      this.tool = t;
+      const upper = this.fab.upperCanvasEl as HTMLElement | undefined;
+      const chart = this.chartRef.current;
 
-    if (t === "cursor") {
-      upper.style.pointerEvents = "all";
-      upper.style.cursor = "default";
-      this.fab.selection     = !this.locked;
-      this.fab.skipTargetFind = this.locked;
-      this._selectable(!this.locked);
-      // Restore chart panning/zooming in cursor mode
-      chart?.applyOptions({ handleScroll: true, handleScale: true });
-    } else if (t === "eraser") {
-      upper.style.pointerEvents = "all";
-      upper.style.cursor = "cell";
-      this.fab.selection     = false;
-      this.fab.skipTargetFind = false;
-      this._selectable(true);
-      // Eraser intercepts clicks — keep chart from panning at the same time
-      chart?.applyOptions({ handleScroll: false, handleScale: false });
-    } else {
-      // Any drawing tool: events pass through the transparent upper canvas to
-      // the container below. Disable chart's own scroll/scale so it doesn't
-      // pan while the user is placing a drawing.
-      upper.style.pointerEvents = "none";
-      upper.style.cursor = "crosshair";
-      this.fab.selection     = false;
-      this.fab.skipTargetFind = true;
-      this._selectable(false);
-      chart?.applyOptions({ handleScroll: false, handleScale: false });
+      if (!upper) return;
+
+      if (t === "cursor") {
+        upper.style.pointerEvents = "all";
+        upper.style.cursor = "default";
+        this.fab.selection     = !this.locked;
+        this.fab.skipTargetFind = this.locked;
+        this._selectable(!this.locked);
+        chart?.applyOptions({ handleScroll: true, handleScale: true });
+      } else if (t === "eraser") {
+        upper.style.pointerEvents = "all";
+        upper.style.cursor = "cell";
+        this.fab.selection     = false;
+        this.fab.skipTargetFind = false;
+        this._selectable(true);
+        chart?.applyOptions({ handleScroll: false, handleScale: false });
+      } else {
+        upper.style.pointerEvents = "none";
+        upper.style.cursor = "crosshair";
+        this.fab.selection     = false;
+        this.fab.skipTargetFind = true;
+        this._selectable(false);
+        chart?.applyOptions({ handleScroll: false, handleScale: false });
+      }
+    } catch (err) {
+      console.warn("[DrawingLayer] setTool error:", err);
     }
   }
 
@@ -937,36 +938,45 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
   useEffect(() => {
     if (!containerRef.current || !canvasRef.current) return;
     let ctrl: DrawingController | null = null;
+    let cancelled = false;
     let tries = 0;
     const tryInit = () => {
+      if (cancelled) return;
       if (!chartRef.current || !seriesRef.current) {
         if (++tries < 50) { setTimeout(tryInit, 200); return; }
         return;
       }
-      const F = (window as any).fabric;
-      const container = containerRef.current!;
+      try {
+        const F = (window as any).fabric;
+        if (!F) return;
+        const container = containerRef.current;
+        const canvas = canvasRef.current;
+        if (!container || !canvas) return;
 
-      const fab = new F.Canvas(canvasRef.current!, {
-        selection: false, renderOnAddRemove: false, skipTargetFind: true, preserveObjectStacking: true,
-      });
-      fab.setWidth(container.clientWidth);
-      fab.setHeight(container.clientHeight);
+        const fab = new F.Canvas(canvas, {
+          selection: false, renderOnAddRemove: false, skipTargetFind: true, preserveObjectStacking: true,
+        });
+        fab.setWidth(container.clientWidth);
+        fab.setHeight(container.clientHeight);
 
-      ctrl = new DrawingController(
-        fab, container, chartRef, seriesRef, symbol, interval,
-        onToolChange,
-        (p) => setPositions([...p]),
-        () => setSyncTick(t => t + 1),
-      );
-      ctrlRef.current = ctrl;
-      ctrl.setTool(prevTool.current);
-      setPositions([...ctrl.positions]);
-      setLocked(ctrl.locked);
-      setVisible(ctrl.visible);
-      onHandleReady?.(buildHandle(ctrl));
+        ctrl = new DrawingController(
+          fab, container, chartRef, seriesRef, symbol, interval,
+          onToolChange,
+          (p) => setPositions([...p]),
+          () => setSyncTick(t => t + 1),
+        );
+        ctrlRef.current = ctrl;
+        ctrl.setTool(prevTool.current);
+        setPositions([...ctrl.positions]);
+        setLocked(ctrl.locked);
+        setVisible(ctrl.visible);
+        onHandleReady?.(buildHandle(ctrl));
+      } catch (err) {
+        console.warn("[DrawingLayer] Failed to initialize drawing controller:", err);
+      }
     };
-    ensureFabric().then(tryInit);
-    return () => { ctrl?.destroy(); ctrlRef.current = null; };
+    ensureFabric().then((loaded) => { if (loaded && !cancelled) tryInit(); });
+    return () => { cancelled = true; ctrl?.destroy(); ctrlRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, interval]);
 
