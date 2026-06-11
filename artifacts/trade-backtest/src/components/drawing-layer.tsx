@@ -933,7 +933,7 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
 // DrawingLayer — React wrapper
 // ═════════════════════════════════════════════════════════════════════════════
 export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, onToolChange, symbol, interval, onHandleReady }: Props) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const fabricHostRef = useRef<HTMLDivElement>(null);
   const ctrlRef    = useRef<DrawingController | null>(null);
   const prevTool   = useRef(activeTool);
   const [positions, setPositions] = useState<PosDraw[]>([]);
@@ -958,10 +958,19 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
 
   // Init controller
   useEffect(() => {
-    if (!containerRef.current || !canvasRef.current) return;
+    if (!containerRef.current || !fabricHostRef.current) return;
     let ctrl: DrawingController | null = null;
     let cancelled = false;
     let tries = 0;
+    // Create the canvas element imperatively so React never owns it.
+    // Fabric.js restructures the DOM around this canvas (upper/lower canvas
+    // wrappers), which causes React's insertBefore to throw if React thinks it
+    // owns the canvas node. By creating it outside of JSX we sidestep that.
+    const canvas = document.createElement("canvas");
+    canvas.id = `dl-canvas-${symbol}`;
+    canvas.style.cssText = "position:absolute;top:0;left:0;pointer-events:none;z-index:15;";
+    fabricHostRef.current.appendChild(canvas);
+
     const tryInit = () => {
       if (cancelled) return;
       if (!chartRef.current || !seriesRef.current) {
@@ -972,8 +981,7 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
         const F = (window as any).fabric;
         if (!F) return;
         const container = containerRef.current;
-        const canvas = canvasRef.current;
-        if (!container || !canvas) return;
+        if (!container || !fabricHostRef.current) return;
 
         const fab = new F.Canvas(canvas, {
           selection: false, renderOnAddRemove: false, skipTargetFind: true, preserveObjectStacking: true,
@@ -998,7 +1006,14 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
       }
     };
     ensureFabric().then((loaded) => { if (loaded && !cancelled) tryInit(); });
-    return () => { cancelled = true; ctrl?.destroy(); ctrlRef.current = null; };
+    return () => {
+      cancelled = true;
+      ctrl?.destroy();
+      ctrlRef.current = null;
+      // Remove the imperatively created canvas from the host div so it
+      // doesn't leak when the effect re-runs (symbol/interval change).
+      try { canvas.parentNode?.removeChild(canvas); } catch {}
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, interval]);
 
@@ -1017,9 +1032,11 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
 
   return (
     <>
-      <canvas
-        ref={canvasRef}
-        id={`dl-canvas-${symbol}`}
+      {/* Empty host div — the actual <canvas> is created imperatively inside
+          useEffect so Fabric.js can mutate the DOM freely without conflicting
+          with React's reconciler (prevents the insertBefore DOMException). */}
+      <div
+        ref={fabricHostRef}
         style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none", zIndex: 15 }}
       />
       {positions.map(pos => (
