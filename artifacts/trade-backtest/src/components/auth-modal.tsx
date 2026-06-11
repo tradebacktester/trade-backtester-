@@ -120,7 +120,6 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
   const tabs = [
     { id: "signin" as const, label: "Sign In", icon: LogIn },
     { id: "signup" as const, label: "Sign Up", icon: UserPlus },
-    { id: "admin" as const, label: "Admin", icon: Shield },
   ];
 
   return (

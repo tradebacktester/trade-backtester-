@@ -430,7 +430,15 @@ export default function ChartPage() {
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>(loadAlerts);
   const [showAlertPanel, setShowAlertPanel] = useState(false);
   const [alertInput, setAlertInput] = useState("");
+  const [alertError, setAlertError] = useState("");
   const alertPriceLinesRef = useRef<Map<number, IPriceLine>>(new Map());
+
+  useEffect(() => {
+    if (showAlertPanel && currentBar && !alertInput) {
+      setAlertInput(String(currentBar.close));
+    }
+    if (!showAlertPanel) setAlertError("");
+  }, [showAlertPanel]);
 
   // Watchlist
   const [showWatchlist, setShowWatchlist] = useState(false);
@@ -1991,16 +1999,28 @@ export default function ChartPage() {
             </div>
             <button onClick={() => setShowAlertPanel(false)} className="h-6 w-6 flex items-center justify-center rounded-lg transition-colors hover:bg-white/10" style={{ color: "hsl(220,14%,45%)" }}><X className="h-3 w-3" /></button>
           </div>
-          <div className="flex gap-2 mb-3">
-            <input type="number" value={alertInput} onChange={e => setAlertInput(e.target.value)}
+          <div className="flex gap-2 mb-1">
+            <input type="text" inputMode="decimal" value={alertInput} onChange={e => { setAlertInput(e.target.value); setAlertError(""); }}
               placeholder={currentBar ? `e.g. ${fmt(currentBar.close)}` : "Enter price…"}
-              onKeyDown={e => { if (e.key === "Enter" && alertInput) { const price = Number(alertInput); if (price > 0) { const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) }; const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); } } }}
-              className="flex-1 text-xs font-mono px-2.5 py-2 rounded-xl outline-none" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(220,14%,85%)" }} />
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  const price = Number(String(alertInput).replace(/,/g, ""));
+                  if (!alertInput.trim()) { setAlertError("Enter a target price first"); return; }
+                  if (!price || price <= 0) { setAlertError("Enter a valid price"); return; }
+                  const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) };
+                  const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); setAlertError("");
+                }
+              }}
+              className="flex-1 text-xs font-mono px-2.5 py-2 rounded-xl outline-none" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${alertError ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.12)"}`, color: "hsl(220,14%,85%)" }} />
             <button onClick={() => {
-              const price = Number(alertInput);
-              if (price > 0) { const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) }; const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); }
-            }} className="px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all hover:opacity-90" style={{ background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.35)", color: "hsl(38,100%,65%)" }}>+ Add</button>
+              const price = Number(String(alertInput).replace(/,/g, ""));
+              if (!alertInput.trim()) { setAlertError("Enter a target price first"); return; }
+              if (!price || price <= 0) { setAlertError("Enter a valid price"); return; }
+              const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) };
+              const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); setAlertError("");
+            }} className="px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all hover:opacity-90 active:scale-95" style={{ background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.35)", color: "hsl(38,100%,65%)" }}>+ Add</button>
           </div>
+          {alertError && <p className="text-[10px] font-mono mb-2" style={{ color: "hsl(0,85%,62%)" }}>{alertError}</p>}
           <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
             {priceAlerts.length === 0 && (
               <p className="text-[11px] font-mono text-center py-4" style={{ color: "hsl(220,14%,38%)" }}>
