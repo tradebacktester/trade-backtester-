@@ -1,8 +1,10 @@
-const CACHE_NAME = "trade-lab-v3";
-const API_CACHE_NAME = "trade-lab-api-v3";
+const CACHE_NAME = "trade-lab-v4";
+const API_CACHE_NAME = "trade-lab-api-v4";
 
+// Do NOT pre-cache "/" — the HTML shell changes on every deployment.
+// Pre-caching it causes stale HTML to be served which references old
+// asset filenames, breaking the app after updates.
 const PRECACHE_ASSETS = [
-  "/",
   "/manifest.json",
   "/favicon.svg",
   "/logo.png",
@@ -11,7 +13,7 @@ const PRECACHE_ASSETS = [
   "/opengraph.jpg",
 ];
 
-// ── Install — pre-cache the app shell ────────────────────────────────────────
+// ── Install — pre-cache static assets (not HTML) ──────────────────────────────
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
@@ -51,7 +53,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Hashed Vite assets (/assets/index-abc123.js) — cache first forever
+  // Hashed Vite assets (/assets/index-abc123.js) — cache first forever.
+  // These are safe to cache forever because Vite content-hashes the filenames:
+  // any change produces a NEW filename, so stale cache entries are harmless.
   if (url.pathname.startsWith("/assets/")) {
     event.respondWith(cacheFirst(request, CACHE_NAME));
     return;
@@ -66,8 +70,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Everything else (HTML, icons, manifest) — stale-while-revalidate
-  event.respondWith(staleWhileRevalidate(request, CACHE_NAME));
+  // HTML navigation and everything else — network first, fall back to cache.
+  // Using network-first (not stale-while-revalidate) for HTML ensures users
+  // always load the latest index.html with correct asset filename references.
+  // Stale HTML would cause the app to load old JS bundles indefinitely.
+  event.respondWith(networkFirstThenCache(request, CACHE_NAME));
 });
 
 // ── Strategies ────────────────────────────────────────────────────────────────
@@ -94,33 +101,15 @@ async function networkFirstThenCache(request, cacheName) {
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
+    // SPA fallback: for navigation requests return the cached HTML shell
+    const isSpaNav = request.mode === "navigate";
+    if (isSpaNav) {
+      const shell = await caches.match("/");
+      if (shell) return shell;
+    }
     return new Response(
       JSON.stringify({ error: "You are offline. Cached data unavailable." }),
       { status: 503, headers: { "Content-Type": "application/json" } },
     );
   }
-}
-
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-
-  const fetchPromise = fetch(request)
-    .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => null);
-
-  // Return cached immediately if available, otherwise wait for network
-  if (cached) {
-    fetchPromise; // revalidate in background
-    return cached;
-  }
-
-  const networkResponse = await fetchPromise;
-  if (networkResponse) return networkResponse;
-
-  // Final fallback — return the cached root index.html for SPA navigation
-  return cache.match("/") ?? new Response("Offline", { status: 503 });
 }
