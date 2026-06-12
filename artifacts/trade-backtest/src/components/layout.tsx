@@ -7,7 +7,7 @@ import {
   Shield, LogIn, LogOut, Users, Crown, CreditCard, Wrench, Store,
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
   UserCircle, Calculator, Play, Search, ChevronDown,
-  Cpu, Globe, Plus, Layers, TestTube, Bell,
+  Cpu, Globe, Plus, Layers, TestTube, Bell, GraduationCap, Map, Library, FileText, Trophy, Award,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -80,6 +80,21 @@ const SECTIONS = [
       { title: "Pricing",      url: "/pricing",     icon: Crown,    desc: "Subscription plans" },
     ],
   },
+  {
+    id: "academy",
+    label: "Academy",
+    icon: GraduationCap,
+    primary: "/academy",
+    items: [
+      { title: "Dashboard",      url: "/academy",   icon: LayoutDashboard, desc: "Your learning progress & XP" },
+      { title: "Learning Paths", url: "/academy",   icon: Map,             desc: "Beginner to Professional paths" },
+      { title: "Topic Library",  url: "/academy",   icon: Library,         desc: "Search all trading topics" },
+      { title: "AI Tutor",       url: "/academy",   icon: Bot,             desc: "Ask any trading question" },
+      { title: "Notes Hub",      url: "/academy",   icon: FileText,        desc: "Your private trading notes" },
+      { title: "Quizzes",        url: "/academy",   icon: Trophy,          desc: "Test your knowledge" },
+      { title: "Certificates",   url: "/academy",   icon: Award,           desc: "Earn & download certificates" },
+    ],
+  },
 ] as const;
 
 /* ── Route → section mapping ───────────────────────────────────────── */
@@ -93,6 +108,7 @@ const ROUTE_SECTION: Record<string, string> = {
   "/profile": "trader-dna",       "/trader-dna": "trader-dna",
   "/trading-os": "trader-dna",
   "/community": "community",      "/pricing": "community",
+  "/academy": "academy",
 };
 
 function getActiveSection(location: string): string | null {
@@ -118,6 +134,7 @@ const HOME_SHEET_SECTIONS = [
     label: "Navigate",
     items: [
       { title: "Dashboard",   url: "/dashboard",   icon: LayoutDashboard },
+      { title: "Academy",     url: "/academy",     icon: GraduationCap },
       { title: "Community",   url: "/community",   icon: Users },
       { title: "Marketplace", url: "/marketplace", icon: Store },
       { title: "Pricing",     url: "/pricing",     icon: Crown },

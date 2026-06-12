@@ -17,6 +17,7 @@ import journalRouter from "./journal";
 import paperRouter from "./paper";
 import alertsRouter from "./alerts";
 import tradingOsRouter from "./trading-os";
+import academyRouter from "./academy";
 
 const router: IRouter = Router();
 
@@ -41,5 +42,6 @@ router.use(socialRouter);
 router.use(paperRouter);
 router.use(alertsRouter);
 router.use(tradingOsRouter);
+router.use(academyRouter);
 
 export default router;

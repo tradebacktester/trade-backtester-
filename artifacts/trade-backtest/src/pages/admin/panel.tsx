@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronUp, UserCheck, UserX, Crown, CreditCard, Zap,
   Plus, Edit2, ToggleLeft, ToggleRight, Gift, Trash2, Star,
   X, Check, Package, AlertCircle, Calendar, Hash, KeyRound, Copy, Clock,
+  GraduationCap, BookOpen, BarChart2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -69,7 +70,7 @@ interface PendingReset {
   userId: number; userEmail: string | null; userName: string | null;
 }
 
-type Tab = "users" | "policies" | "plans" | "subscribers" | "payments" | "resets";
+type Tab = "users" | "policies" | "plans" | "subscribers" | "payments" | "resets" | "academy";
 
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
@@ -316,6 +317,7 @@ export default function AdminPanel() {
     ["subscribers", Star, "Subscribers"],
     ["payments", CreditCard, "Payments"],
     ["resets", KeyRound, "Resets"],
+    ["academy", GraduationCap, "Academy"],
   ];
 
   // Memoized so these three array passes only re-run when subs or the filter changes,
@@ -1098,6 +1100,146 @@ export default function AdminPanel() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Academy tab ── */}
+      {(tab === "academy" || visitedTabs.has("academy")) && (
+        <div className={tab !== "academy" ? "hidden" : "flex flex-col gap-4"}>
+          <AcademyAdminTab headers={headers} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Academy Admin Tab ─────────────────────────────────────────── */
+interface AcademyStats {
+  totalCourses: number;
+  totalLessons: number;
+  totalUsers: number;
+  totalCompletions: number;
+  totalCertificates: number;
+  totalXpAwarded: number;
+  topCourses: Array<{ id: number; title: string; completions: number; thumbnailEmoji: string }>;
+}
+
+function AcademyAdminTab({ headers }: { headers: Record<string, string> }) {
+  const [stats, setStats] = useState<AcademyStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedMsg, setSeedMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetchStats();
+  }, []);
+
+  async function fetchStats() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/academy/admin/stats`, { headers });
+      if (r.ok) setStats(await r.json());
+    } catch { /* ignore */ }
+    setLoading(false);
+  }
+
+  async function runSeed() {
+    setSeedLoading(true);
+    setSeedMsg(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/academy/admin/seed`, { method: "POST", headers });
+      const data = await r.json();
+      setSeedMsg(r.ok ? `✓ ${data.message ?? "Seed complete"}` : `✗ ${data.error ?? "Seed failed"}`);
+      if (r.ok) void fetchStats();
+    } catch {
+      setSeedMsg("✗ Request failed");
+    }
+    setSeedLoading(false);
+  }
+
+  const C = { purple: "#a855f7", cyan: "#06b6d4", green: "#22c55e", amber: "#f59e0b" };
+
+  const STAT_CARDS = stats ? [
+    { label: "Courses", value: stats.totalCourses, color: C.purple, icon: <BookOpen style={{ height: "13px", width: "13px" }} /> },
+    { label: "Lessons", value: stats.totalLessons, color: C.cyan, icon: <FileText style={{ height: "13px", width: "13px" }} /> },
+    { label: "Learners", value: stats.totalUsers, color: C.green, icon: <Users style={{ height: "13px", width: "13px" }} /> },
+    { label: "Completions", value: stats.totalCompletions, color: C.amber, icon: <CheckCircle style={{ height: "13px", width: "13px" }} /> },
+    { label: "Certificates", value: stats.totalCertificates, color: "#ec4899", icon: <GraduationCap style={{ height: "13px", width: "13px" }} /> },
+    { label: "XP Awarded", value: stats.totalXpAwarded.toLocaleString(), color: C.amber, icon: <BarChart2 style={{ height: "13px", width: "13px" }} /> },
+  ] : [];
+
+  return (
+    <div style={{ background: "var(--card-bg)", borderRadius: "16px", padding: "20px 24px", border: "1px solid var(--glass-border)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <GraduationCap style={{ height: "18px", width: "18px", color: C.purple }} />
+          <span style={{ fontSize: "15px", fontWeight: 700, color: "hsl(var(--foreground))" }}>Academy Management</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            onClick={fetchStats}
+            style={{ padding: "5px 12px", borderRadius: "8px", fontSize: "11px", cursor: "pointer", background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))", display: "flex", alignItems: "center", gap: "4px" }}
+          >
+            <RefreshCw style={{ height: "11px", width: "11px" }} /> Refresh
+          </button>
+          <button
+            onClick={runSeed}
+            disabled={seedLoading}
+            style={{ padding: "5px 12px", borderRadius: "8px", fontSize: "11px", cursor: "pointer", background: `${C.purple}18`, border: `1px solid ${C.purple}40`, color: C.purple, fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}
+          >
+            {seedLoading ? <RefreshCw style={{ height: "11px", width: "11px", animation: "spin 1s linear infinite" }} /> : <Plus style={{ height: "11px", width: "11px" }} />}
+            Re-seed Content
+          </button>
+        </div>
+      </div>
+
+      {seedMsg && (
+        <div style={{ marginBottom: "16px", padding: "8px 14px", borderRadius: "8px", fontSize: "12px", background: seedMsg.startsWith("✓") ? `${C.green}12` : "rgba(239,68,68,0.12)", color: seedMsg.startsWith("✓") ? C.green : "#ef4444", border: `1px solid ${seedMsg.startsWith("✓") ? C.green : "#ef4444"}30` }}>
+          {seedMsg}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "hsl(var(--muted-foreground))", fontSize: "12px" }}>
+          <RefreshCw style={{ height: "13px", width: "13px", animation: "spin 1s linear infinite" }} /> Loading stats...
+        </div>
+      ) : stats ? (
+        <>
+          {/* Stat grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "10px", marginBottom: "20px" }}>
+            {STAT_CARDS.map(s => (
+              <div key={s.label} style={{ padding: "12px 14px", borderRadius: "10px", background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "5px", color: s.color, marginBottom: "4px" }}>
+                  {s.icon}
+                  <span style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</span>
+                </div>
+                <div style={{ fontSize: "22px", fontWeight: 700, color: "hsl(var(--foreground))" }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Top courses */}
+          {stats.topCourses.length > 0 && (
+            <div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Top Courses by Completions
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {stats.topCourses.map((c, i) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", borderRadius: "8px", background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "hsl(var(--muted-foreground))", width: "16px" }}>#{i + 1}</span>
+                    <span style={{ fontSize: "16px" }}>{c.thumbnailEmoji}</span>
+                    <span style={{ flex: 1, fontSize: "12px", color: "hsl(var(--foreground))" }}>{c.title}</span>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: C.green }}>{c.completions} completions</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }}>
+          No academy data yet. Click "Re-seed Content" to populate courses and lessons.
         </div>
       )}
     </div>

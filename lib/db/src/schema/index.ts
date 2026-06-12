@@ -25,3 +25,4 @@ export * from "./admin_audit_log";
 export * from "./auth_failures";
 export * from "./rate_limit_log";
 export * from "./password_resets";
+export * from "./academy";
