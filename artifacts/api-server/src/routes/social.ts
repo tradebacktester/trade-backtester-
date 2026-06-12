@@ -63,6 +63,7 @@ function serializeListing(l: typeof marketplaceListingsTable.$inferSelect, voted
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get("/backtests/:id/percentile", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -77,7 +78,7 @@ router.get("/backtests/:id/percentile", requireAuth, async (req, res): Promise<v
       totalReturn: backtestsTable.totalReturn,
     })
     .from(backtestsTable)
-    .where(and(eq(backtestsTable.id, id), eq(backtestsTable.status, "complete")));
+    .where(and(eq(backtestsTable.id, id), eq(backtestsTable.userId, userId), eq(backtestsTable.status, "complete")));
 
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
 

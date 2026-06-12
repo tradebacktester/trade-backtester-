@@ -197,6 +197,13 @@ if (fs.existsSync(drawingToolsDir)) {
   logger.info({ drawingToolsDir }, "Serving drawing tools");
 }
 
+// Serve .well-known directory (needed for TWA assetlinks.json from PWA Builder)
+const wellKnownDir = path.resolve(process.cwd(), "public", ".well-known");
+if (!fs.existsSync(wellKnownDir)) fs.mkdirSync(wellKnownDir, { recursive: true });
+app.use("/.well-known", express.static(wellKnownDir, {
+  setHeaders(res) { res.setHeader("Cache-Control", "no-store"); },
+}));
+
 // Serve uploaded academy images
 const uploadsDir = path.resolve(process.cwd(), "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });

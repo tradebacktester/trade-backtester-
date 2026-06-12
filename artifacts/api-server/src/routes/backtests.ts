@@ -562,14 +562,30 @@ router.get("/backtests/:id/equity", requireAuth, async (req, res): Promise<void>
   })));
 });
 
+// Per-user rate limiter for compute-heavy optimization
+const optimizeLimits = new Map<number, { count: number; resetAt: number }>();
+
 // Parameter optimization: grid search over two parameters (no DB writes)
 router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const now = Date.now();
+  const entry = optimizeLimits.get(userId);
+  if (entry && entry.resetAt > now && entry.count >= 5) {
+    res.status(429).json({ error: "Too many optimization requests. Please wait a minute." });
+    return;
+  }
+  if (!entry || entry.resetAt <= now) {
+    optimizeLimits.set(userId, { count: 1, resetAt: now + 60_000 });
+  } else {
+    entry.count++;
+  }
+
   const { strategyId, symbol, startDate, endDate, initialCapital, param1Name, param1Values, param2Name, param2Values } = req.body;
   if (!strategyId || !symbol || !startDate || !endDate || !initialCapital || !param1Name || !param1Values?.length || !param2Name || !param2Values?.length) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
-  const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, strategyId));
+  const [strategy] = await db.select().from(strategiesTable).where(and(eq(strategiesTable.id, strategyId), eq(strategiesTable.userId, userId)));
   if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
 
   // Fetch real price data once, reuse for all grid combinations

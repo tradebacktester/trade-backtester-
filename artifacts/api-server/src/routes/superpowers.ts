@@ -22,6 +22,21 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
 
 const router: IRouter = Router();
 
+// ─── Per-user rate limiter for compute-heavy routes ───────────────────────────
+const computeRateLimits = new Map<string, { count: number; resetAt: number }>();
+function checkComputeRateLimit(userId: number, key: string, maxPerMinute: number): boolean {
+  const mapKey = `${key}:${userId}`;
+  const now = Date.now();
+  const entry = computeRateLimits.get(mapKey);
+  if (!entry || entry.resetAt < now) {
+    computeRateLimits.set(mapKey, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= maxPerMinute) return false;
+  entry.count++;
+  return true;
+}
+
 // ─── DNA result cache (5-min TTL per user+strategySet) ────────────────────────
 const dnaCache = new Map<string, { result: unknown; expiresAt: number }>();
 const DNA_TTL = 5 * 60_000;
@@ -291,10 +306,11 @@ router.get("/strategies/dna", requireAuth, async (_req, res): Promise<void> => {
 // ─── GET /backtests/:id/regime-analysis — uses stored tradesTable ──────────────
 
 router.get("/backtests/:id/regime-analysis", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const backtestId = parseInt(req.params["id"] as string, 10);
   if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   if (bt.status !== "complete") { res.json({ regimes: [], summary: {} }); return; }
 
@@ -366,10 +382,11 @@ router.get("/backtests/:id/regime-analysis", requireAuth, async (req, res): Prom
 // ─── GET /backtests/:id/divergence ────────────────────────────────────────────
 
 router.get("/backtests/:id/divergence", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
   const backtestId = parseInt(req.params["id"] as string, 10);
   if (isNaN(backtestId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [bt] = await db.select().from(backtestsTable).where(eq(backtestsTable.id, backtestId));
+  const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, backtestId), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   if (bt.status !== "complete") { res.json({ expected: [], actual: [], liveTotal: 0, expectedTotal: 0, divergenceScore: null, initialCapital: Number(bt.initialCapital) }); return; }
 
@@ -634,8 +651,22 @@ async function stressTestHandler(req: import("express").Request, res: import("ex
 }
 
 // Register on both paths — canonical spec path + legacy path
-router.post("/stress-test", requireAuth, stressTestHandler);
-router.post("/superpowers/stress-test", requireAuth, stressTestHandler);
+router.post("/stress-test", requireAuth, (req, res, next) => {
+  const userId = res.locals["userId"] as number;
+  if (!checkComputeRateLimit(userId, "stress-test", 3)) {
+    res.status(429).json({ error: "Too many stress-test requests. Please wait a minute." });
+    return;
+  }
+  next();
+}, stressTestHandler);
+router.post("/superpowers/stress-test", requireAuth, (req, res, next) => {
+  const userId = res.locals["userId"] as number;
+  if (!checkComputeRateLimit(userId, "stress-test", 3)) {
+    res.status(429).json({ error: "Too many stress-test requests. Please wait a minute." });
+    return;
+  }
+  next();
+}, stressTestHandler);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ECONOMIC EVENT IMPACT OVERLAY
