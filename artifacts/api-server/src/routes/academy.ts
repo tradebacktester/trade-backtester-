@@ -1,5 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import OpenAI from "openai";
+import fs from "node:fs";
+import pathModule from "node:path";
 import { verifyJwt } from "../lib/jwt";
 import { verifyAdminToken } from "../lib/admin-auth";
 import { logger } from "../lib/logger";
@@ -1188,6 +1190,118 @@ router.patch("/academy/admin/courses/:id/publish", requireAdmin, async (req, res
   } catch (e) {
     logger.error({ err: e }, "PATCH /academy/admin/courses/:id/publish");
     res.status(500).json({ error: "Failed to update" });
+  }
+});
+
+/* POST /api/academy/admin/upload-image — upload image file for lesson slides */
+router.post("/academy/admin/upload-image", requireAdmin, async (req, res): Promise<void> => {
+  const { data, mimeType, filename } = req.body as { data?: string; mimeType?: string; filename?: string };
+  if (!data || !mimeType) { res.status(400).json({ error: "data and mimeType required" }); return; }
+  const allowed: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
+  if (!allowed[mimeType]) { res.status(400).json({ error: "Only JPEG, PNG, GIF, and WebP images allowed" }); return; }
+  try {
+    const ext = allowed[mimeType]!;
+    const safeName = (filename ?? "upload").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 50);
+    const uniqueName = `${Date.now()}_${safeName}.${ext}`;
+    const uploadsDir = pathModule.join(process.cwd(), "public", "uploads", "academy");
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    const buffer = Buffer.from(data, "base64");
+    if (buffer.length > 5 * 1024 * 1024) { res.status(400).json({ error: "Image too large (max 5 MB)" }); return; }
+    fs.writeFileSync(pathModule.join(uploadsDir, uniqueName), buffer);
+    res.json({ url: `/uploads/academy/${uniqueName}` });
+  } catch (e) {
+    logger.error({ err: e }, "POST /academy/admin/upload-image");
+    res.status(500).json({ error: "Upload failed" });
+  }
+});
+
+/* POST /api/academy/request-topic — user requests an AI-generated topic */
+router.post("/academy/request-topic", requireAuth, async (req, res): Promise<void> => {
+  const { topicName, difficulty } = req.body as { topicName?: string; difficulty?: string };
+  if (!topicName?.trim()) { res.status(400).json({ error: "topicName required" }); return; }
+
+  const validDiffs = ["beginner", "intermediate", "advanced", "professional"];
+  const diff = validDiffs.includes(difficulty ?? "") ? difficulty! : "intermediate";
+
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI service unavailable" }); return; }
+
+  try {
+    const client = groqClient();
+    const prompt = `You are an expert trading educator for the Trade Lab Academy. A student has requested a topic: "${topicName.trim()}" at ${diff} level.
+
+Generate a complete, self-contained trading topic with a title, description, and exactly 2 comprehensive lesson articles.
+
+Return ONLY valid JSON in this exact format:
+{
+  "title": "Concise topic title (3-6 words)",
+  "description": "2-3 sentence description of what students will learn",
+  "category": "Category name (e.g. Price Action, Risk Management, Indicators, Technical Analysis, etc.)",
+  "thumbnailEmoji": "single relevant emoji",
+  "estimatedMinutes": 30,
+  "lessons": [
+    {
+      "titleSuffix": "Part 1 subtitle (3-5 words)",
+      "content": "Full markdown lesson content — minimum 350 words. Use: # h1 title, ## h2 sub-headings, **bold** key terms, - bullet points, > blockquotes for tips, real market examples with tickers (BTC, EURUSD, gold, SPX)",
+      "estimatedMinutes": 15
+    },
+    {
+      "titleSuffix": "Part 2 subtitle (3-5 words)",
+      "content": "Full markdown lesson content — minimum 350 words. Builds on Part 1 with practical application and advanced nuances.",
+      "estimatedMinutes": 15
+    }
+  ]
+}
+
+Difficulty level: ${diff}. Make content practical, actionable, and trader-focused. Never give financial advice.`;
+
+    const completion = await client.chat.completions.create({
+      model: GROQ_MODEL,
+      messages: [
+        { role: "system", content: "You are an expert trading educator. Always respond with valid JSON only. No markdown code blocks, no extra text." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 3500,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    let parsed: { title?: string; description?: string; category?: string; thumbnailEmoji?: string; estimatedMinutes?: number; lessons?: Array<{ titleSuffix: string; content: string; estimatedMinutes: number }> };
+    try { parsed = JSON.parse(raw); } catch {
+      res.status(500).json({ error: "AI returned invalid response. Please try again." }); return;
+    }
+    if (!parsed.title || !Array.isArray(parsed.lessons) || parsed.lessons.length === 0) {
+      res.status(500).json({ error: "AI generation incomplete. Please try again." }); return;
+    }
+
+    const [course] = await db.insert(academyCoursesTable).values({
+      title: parsed.title,
+      description: parsed.description ?? `A comprehensive guide to ${topicName.trim()}.`,
+      category: parsed.category ?? "General",
+      difficulty: diff,
+      pathId: diff,
+      thumbnailEmoji: parsed.thumbnailEmoji ?? "🤖",
+      estimatedMinutes: parsed.estimatedMinutes ?? 30,
+      sortOrder: 999,
+      published: true,
+    }).returning();
+
+    for (let i = 0; i < parsed.lessons.length; i++) {
+      const l = parsed.lessons[i]!;
+      await db.insert(academyLessonsTable).values({
+        courseId: course!.id,
+        title: `${course!.title}: ${l.titleSuffix}`,
+        type: "article",
+        content: l.content,
+        estimatedMinutes: l.estimatedMinutes ?? 15,
+        sortOrder: i + 1,
+      });
+    }
+
+    res.json({ ...course, lessonCount: parsed.lessons.length });
+  } catch (e) {
+    logger.error({ err: e }, "POST /academy/request-topic");
+    res.status(500).json({ error: "Failed to generate topic. Please try again." });
   }
 });
 

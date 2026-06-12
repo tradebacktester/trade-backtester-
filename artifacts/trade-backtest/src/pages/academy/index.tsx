@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  GraduationCap, LayoutDashboard, Map, Library, Bot,
+  GraduationCap, LayoutDashboard, Library, Bot,
   FileText, Trophy, Award, LogIn,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -8,7 +8,6 @@ import { AuthModal } from "@/components/auth-modal";
 import { API_BASE } from "@/lib/api-config";
 import type { AcademyCourse, AcademyDashboard, AcademyNote, AcademyQuizAttempt, AcademyCertificate, AcademyLesson } from "./types";
 import { DashboardTab } from "./dashboard-tab";
-import { PathsTab } from "./paths-tab";
 import { LibraryTab } from "./library-tab";
 import { AiTutorTab } from "./ai-tutor-tab";
 import { NotesTab } from "./notes-tab";
@@ -23,7 +22,6 @@ const TEXT = "#A1A1AA";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "paths", label: "Learning Paths", icon: Map },
   { id: "library", label: "Library", icon: Library },
   { id: "ai-tutor", label: "AI Tutor", icon: Bot },
   { id: "notes", label: "Notes", icon: FileText },
@@ -272,8 +270,13 @@ export default function AcademyPage() {
             }}
           />
         )}
-        {activeTab === "paths" && <PathsTab courses={courses} onSelectCourse={openCourse} />}
-        {activeTab === "library" && <LibraryTab courses={courses} onSelectCourse={openCourse} />}
+        {activeTab === "library" && (
+          <LibraryTab
+            courses={courses}
+            onSelectCourse={openCourse}
+            onCourseAdded={course => setCourses(prev => [course, ...prev])}
+          />
+        )}
         {activeTab === "ai-tutor" && <AiTutorTab />}
         {activeTab === "notes" && <NotesTab notes={notes} onNotesChange={setNotes} />}
         {activeTab === "quizzes" && (

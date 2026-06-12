@@ -82,7 +82,7 @@ function PathProgressCard({
 
   return (
     <div
-      onClick={() => onNavigate("paths")}
+      onClick={() => onNavigate("library")}
       style={{
         background: CARD, border: `1px solid ${BORDER}`,
         borderRadius: "10px", padding: "14px 16px", cursor: "pointer",
@@ -193,7 +193,7 @@ export function DashboardTab({
             Learning Paths
           </div>
           <button
-            onClick={() => onNavigate("paths")}
+            onClick={() => onNavigate("library")}
             style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", color: TEXT, background: "none", border: "none", cursor: "pointer" }}
             onMouseEnter={e => (e.currentTarget.style.color = "#FFFFFF")}
             onMouseLeave={e => (e.currentTarget.style.color = TEXT)}

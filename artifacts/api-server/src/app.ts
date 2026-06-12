@@ -197,6 +197,17 @@ if (fs.existsSync(drawingToolsDir)) {
   logger.info({ drawingToolsDir }, "Serving drawing tools");
 }
 
+// Serve uploaded academy images
+const uploadsDir = path.resolve(process.cwd(), "public", "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use("/uploads", express.static(uploadsDir, {
+  setHeaders(res, filePath) {
+    if (process.env["NODE_ENV"] !== "production" || filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-store");
+    }
+  },
+}));
+
 // Serve the pre-built Vite frontend for all non-API routes (SPA fallback).
 // Set SERVE_FRONTEND=false on Railway (API-only) so this block is skipped.
 const serveFrontend = process.env["SERVE_FRONTEND"] !== "false";

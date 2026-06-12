@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   GraduationCap, BookOpen, FileText, Users, CheckCircle, BarChart2,
   RefreshCw, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, ChevronDown,
   ChevronUp, Check, X, Image, Wand2, Save, AlertCircle, Eye, EyeOff,
-  ChevronRight, Layers,
+  ChevronRight, Layers, Upload, Loader2,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api-config";
 
@@ -520,6 +520,7 @@ export function AcademyAdminTab({ headers }: { headers: Record<string, string> }
                                   onCancel={() => { setShowAddLesson(null); setAddLessonMsg(null); }}
                                   saving={addLessonLoading}
                                   title="Add New Lesson"
+                                  headers={headers}
                                 />
                               ) : (
                                 <button onClick={() => { setShowAddLesson(course.id); setAddLessonForm({ title: "", type: "article", content: "", videoUrl: "", estimatedMinutes: "10", imageUrls: [] }); }}
@@ -648,6 +649,7 @@ export function AcademyAdminTab({ headers }: { headers: Record<string, string> }
             saving={editLessonLoading}
             title="Save Lesson"
             msg={editLessonMsg}
+            headers={headers}
           />
         </Modal>
       )}
@@ -776,9 +778,14 @@ interface LessonFormProps {
   saving: boolean;
   title: string;
   msg?: string | null;
+  headers?: Record<string, string>;
 }
 
-function LessonForm({ form, onChange, onSave, onCancel, saving, title, msg }: LessonFormProps) {
+function LessonForm({ form, onChange, onSave, onCancel, saving, title, msg, headers }: LessonFormProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   function setField(k: string, v: unknown) { onChange({ ...form, [k]: v } as LessonFormProps["form"]); }
 
   function addImageUrl() { onChange({ ...form, imageUrls: [...(form.imageUrls ?? []), ""] }); }
@@ -789,6 +796,34 @@ function LessonForm({ form, onChange, onSave, onCancel, saving, title, msg }: Le
   }
   function removeImageUrl(i: number) {
     onChange({ ...form, imageUrls: (form.imageUrls ?? []).filter((_, idx) => idx !== i) });
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !headers) return;
+    setIsUploading(true);
+    setUploadError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1] ?? "";
+      void fetch(`${API_BASE}/api/academy/admin/upload-image`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ data: base64, mimeType: file.type, filename: file.name }),
+      }).then(async r => {
+        const data = await r.json() as { url?: string; error?: string };
+        if (r.ok && data.url) {
+          onChange({ ...form, imageUrls: [...(form.imageUrls ?? []), data.url] });
+        } else {
+          setUploadError(data.error ?? "Upload failed");
+        }
+        setIsUploading(false);
+      }).catch(() => { setUploadError("Network error during upload"); setIsUploading(false); });
+    };
+    reader.onerror = () => { setUploadError("Could not read file"); setIsUploading(false); };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   }
 
   return (
@@ -853,9 +888,27 @@ function LessonForm({ form, onChange, onSave, onCancel, saving, title, msg }: Le
             </div>
           ))}
         </div>
-        <button onClick={addImageUrl} style={{ ...btnBase, padding: "6px 12px", background: "hsl(var(--muted))", border: "1px dashed hsl(var(--border))", color: "hsl(var(--muted-foreground))", fontSize: "11px", marginTop: "6px", fontWeight: 400 }}>
-          <Image style={{ height: "11px", width: "11px" }} /> Add Slide Image
-        </button>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
+          <button onClick={addImageUrl} style={{ ...btnBase, padding: "6px 12px", background: "hsl(var(--muted))", border: "1px dashed hsl(var(--border))", color: "hsl(var(--muted-foreground))", fontSize: "11px", fontWeight: 400 }}>
+            <Image style={{ height: "11px", width: "11px" }} /> Add Image URL
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            style={{ ...btnBase, padding: "6px 12px", background: "hsl(var(--muted))", border: "1px dashed hsl(var(--border))", color: "hsl(var(--muted-foreground))", fontSize: "11px", fontWeight: 400, opacity: isUploading ? 0.6 : 1 }}
+          >
+            {isUploading
+              ? <><Loader2 style={{ height: "11px", width: "11px", animation: "spin 1s linear infinite" }} /> Uploading…</>
+              : <><Upload style={{ height: "11px", width: "11px" }} /> Upload Image</>
+            }
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={e => void handleFileUpload(e)} style={{ display: "none" }} />
+        </div>
+        {uploadError && (
+          <div style={{ fontSize: "11px", color: "#ef4444", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+            <AlertCircle style={{ height: "11px", width: "11px" }} /> {uploadError}
+          </div>
+        )}
       </div>
 
       {msg && <StatusMsg msg={msg} />}
