@@ -1,62 +1,35 @@
 {
-  "id": "/trade-lab",
+  "id": "/",
   "name": "Trade Lab",
   "short_name": "Trade Lab",
-  "description": "A fast trading and analysis platform for real-time market insights, strategy backtesting, and AI-powered tools.",
+  "description": "Professional trading platform with live charts, strategy backtesting, AI-powered analysis, and paper trading.",
   "lang": "en-US",
   "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "background_color": "#050505",
   "theme_color": "#050505",
-  "orientation": "any",
+  "orientation": "portrait",
   "prefer_related_applications": false,
-  "related_applications": [
-    {
-      "platform": "webapp",
-      "url": "https://trade-lab.vercel.app/manifest.json",
-      "id": "trade-lab"
-    },
-    {
-      "platform": "play",
-      "url": "https://play.google.com/store/apps/details?id=app.tradelab",
-      "id": "app.tradelab"
-    },
-    {
-      "platform": "itunes",
-      "url": "https://apps.apple.com/app/trade-lab/id0000000000"
-    }
-  ],
   "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
   "categories": ["finance", "productivity", "utilities", "business"],
 
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "/icon-48.png",   "sizes": "48x48",     "type": "image/png", "purpose": "any" },
+    { "src": "/icon-72.png",   "sizes": "72x72",     "type": "image/png", "purpose": "any" },
+    { "src": "/icon-96.png",   "sizes": "96x96",     "type": "image/png", "purpose": "any" },
+    { "src": "/icon-128.png",  "sizes": "128x128",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-144.png",  "sizes": "144x144",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-152.png",  "sizes": "152x152",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png",  "sizes": "192x192",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png",  "sizes": "192x192",   "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-256.png",  "sizes": "256x256",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-384.png",  "sizes": "384x384",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png",  "sizes": "512x512",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png",  "sizes": "512x512",   "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
   ],
 
   "screenshots": [
@@ -65,66 +38,45 @@
       "sizes": "1200x630",
       "type": "image/jpeg",
       "form_factor": "wide",
-      "label": "Trade Lab — Dashboard with live market overview and performance metrics"
+      "label": "Trade Lab — Live chart with indicators, paper trading panel and AI tools"
     },
     {
-      "src": "/opengraph.jpg",
-      "sizes": "1200x630",
+      "src": "/screenshot-narrow.jpg",
+      "sizes": "1080x1920",
       "type": "image/jpeg",
       "form_factor": "narrow",
-      "label": "Trade Lab — Mobile trading dashboard"
+      "label": "Trade Lab — Mobile trading dashboard with live market data"
     }
   ],
 
   "shortcuts": [
     {
-      "name": "Charts",
-      "short_name": "Charts",
-      "description": "View live market charts and technical analysis",
+      "name": "Live Chart",
+      "short_name": "Chart",
+      "description": "View live market charts and drawing tools",
       "url": "/chart",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Backtests",
       "short_name": "Backtests",
       "description": "Run and review strategy backtests",
       "url": "/backtests",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "AI Assistant",
       "short_name": "AI",
-      "description": "Get AI-powered trading insights and strategy help",
+      "description": "Get AI-powered trading insights",
       "url": "/ai",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Community",
       "short_name": "Community",
-      "description": "Browse and share trading ideas with the community",
+      "description": "Browse and share trading ideas",
       "url": "/community",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    }
-  ],
-
-  "file_handlers": [
-    {
-      "action": "/",
-      "accept": {
-        "text/csv": [".csv"],
-        "application/json": [".json"]
-      }
-    }
-  ],
-
-  "launch_handler": {
-    "client_mode": ["navigate-existing", "auto"]
-  },
-
-  "protocol_handlers": [
-    {
-      "protocol": "web+tradelab",
-      "url": "/?action=%s"
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ],
 
@@ -138,82 +90,14 @@
     }
   },
 
-  "edge_side_panel": {
-    "preferred_width": 400
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
   },
 
-  "note_taking": {
-    "new_note_url": "/journal"
-  },
-
-  "scope_extensions": [
-    { "origin": "https://trade-lab.vercel.app" },
-    { "origin": "https://trade-lab.up.railway.app" }
-  ],
-
-  "widgets": [
+  "protocol_handlers": [
     {
-      "name": "Market Overview",
-      "short_name": "Markets",
-      "description": "Live crypto and forex market snapshot — BTC, ETH, XRP and more",
-      "tag": "market-overview",
-      "ms_ac_template": "widgets/market-overview.json",
-      "data": "/api/klines?widget=true",
-      "type": "application/json",
-      "update": 300,
-      "screenshots": [
-        {
-          "src": "/opengraph.jpg",
-          "sizes": "1200x630",
-          "label": "Market Overview Widget"
-        }
-      ],
-      "icons": [
-        { "src": "/icon-192.png", "sizes": "192x192" },
-        { "src": "/icon-512.png", "sizes": "512x512" }
-      ]
-    },
-    {
-      "name": "Backtest Summary",
-      "short_name": "Backtests",
-      "description": "Your latest backtest results — returns, win rate, and Sharpe ratio at a glance",
-      "tag": "backtest-summary",
-      "ms_ac_template": "widgets/backtest-summary.json",
-      "data": "/api/backtests/summary?widget=true",
-      "type": "application/json",
-      "update": 600,
-      "screenshots": [
-        {
-          "src": "/opengraph.jpg",
-          "sizes": "1200x630",
-          "label": "Backtest Summary Widget"
-        }
-      ],
-      "icons": [
-        { "src": "/icon-192.png", "sizes": "192x192" },
-        { "src": "/icon-512.png", "sizes": "512x512" }
-      ]
-    },
-    {
-      "name": "AI Market Pulse",
-      "short_name": "AI Pulse",
-      "description": "Daily AI-generated market sentiment and trading signal",
-      "tag": "ai-pulse",
-      "ms_ac_template": "widgets/ai-pulse.json",
-      "data": "/api/ai/pulse?widget=true",
-      "type": "application/json",
-      "update": 3600,
-      "screenshots": [
-        {
-          "src": "/opengraph.jpg",
-          "sizes": "1200x630",
-          "label": "AI Market Pulse Widget"
-        }
-      ],
-      "icons": [
-        { "src": "/icon-192.png", "sizes": "192x192" },
-        { "src": "/icon-512.png", "sizes": "512x512" }
-      ]
+      "protocol": "web+tradelab",
+      "url": "/?action=%s"
     }
   ]
 }
