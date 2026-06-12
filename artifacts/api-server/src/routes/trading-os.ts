@@ -93,7 +93,7 @@ function computeRankScore(profile: TraderProfile) {
 
 /* ── Router ────────────────────────────────────────────────────────────────── */
 const router = Router();
-router.use(requireAuth);
+router.use("/trading-os", requireAuth);
 
 /* ── GET /api/trading-os/rank ─────────────────────────────────────────────── */
 router.get("/trading-os/rank", async (req: Request, res: Response): Promise<void> => {
