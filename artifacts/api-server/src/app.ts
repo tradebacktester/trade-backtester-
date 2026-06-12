@@ -162,8 +162,11 @@ app.use(
     origin(requestOrigin, callback) {
       // Allow server-to-server requests (no Origin header) and same-origin
       if (!requestOrigin) return callback(null, true);
-      // Matched against explicit allow-list only — never open wildcard
+      // Matched against explicit allow-list
       if (allowedOrigins.includes(requestOrigin)) return callback(null, true);
+      // Allow any Replit-hosted domain (dev previews and deployed .replit.app)
+      if (requestOrigin.endsWith(".replit.dev") || requestOrigin.endsWith(".replit.app"))
+        return callback(null, true);
       // In development, also allow localhost variants
       if (process.env["NODE_ENV"] !== "production" &&
           (requestOrigin.startsWith("http://localhost:") || requestOrigin.startsWith("http://127.0.0.1:")))
