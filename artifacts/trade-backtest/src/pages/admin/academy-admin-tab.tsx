@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   GraduationCap, BookOpen, FileText, Users, CheckCircle, BarChart2,
   RefreshCw, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, ChevronDown,
@@ -6,6 +6,7 @@ import {
   ChevronRight, Layers, Upload, Loader2,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api-config";
+import { useAuth } from "@/lib/auth-context";
 
 /* ── Types ───────────────────────────────────────────────────────── */
 interface AcademyStats {
@@ -54,7 +55,13 @@ const btnBase: React.CSSProperties = {
 /* ═══════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════════ */
-export function AcademyAdminTab({ headers }: { headers: Record<string, string> }) {
+export function AcademyAdminTab() {
+  const { adminToken, setAdminToken } = useAuth();
+  const headers = useMemo<Record<string, string>>(
+    () => ({ "Content-Type": "application/json", "x-admin-token": adminToken ?? "" }),
+    [adminToken]
+  );
+
   /* ── Core state ── */
   const [stats, setStats] = useState<AcademyStats | null>(null);
   const [courses, setCourses] = useState<AdminCourse[]>([]);
@@ -119,6 +126,7 @@ export function AcademyAdminTab({ headers }: { headers: Record<string, string> }
       ]);
       if (sr.status === 401 || cr.status === 401) {
         setFetchError("Authentication required. Please log in as admin.");
+        setAdminToken(null);
         setLoading(false); return;
       }
       if (sr.ok) setStats(await sr.json());

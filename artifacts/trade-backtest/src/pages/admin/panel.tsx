@@ -1107,7 +1107,7 @@ export default function AdminPanel() {
       {/* ── Academy tab ── */}
       {(tab === "academy" || visitedTabs.has("academy")) && (
         <div className={tab !== "academy" ? "hidden" : "flex flex-col gap-4"}>
-          <AcademyAdminTab headers={headers} />
+          <AcademyAdminTab />
         </div>
       )}
     </div>
