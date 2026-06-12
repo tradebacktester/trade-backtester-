@@ -82,9 +82,10 @@ export default function AcademyPage() {
       const r = await fetch(`${API_BASE}/api/academy/courses/${course.id}/lessons`, { headers: authHeader });
       if (!r.ok) return;
       const data = await r.json() as { course: AcademyCourse; lessons: AcademyLesson[] };
-      if (!data.lessons.length) return;
-      const firstIncomplete = data.lessons.find(l => !l.completed) ?? data.lessons[0];
-      setLessonCtx({ course: data.course, lesson: firstIncomplete, allLessons: data.lessons });
+      const lessons = data?.lessons ?? [];
+      if (!lessons.length) return;
+      const firstIncomplete = lessons.find(l => !l.completed) ?? lessons[0];
+      setLessonCtx({ course: data.course ?? course, lesson: firstIncomplete, allLessons: lessons });
     } catch { }
   }
 
@@ -99,7 +100,8 @@ export default function AcademyPage() {
       const r2 = await fetch(`${API_BASE}/api/academy/courses/${course.id}/lessons`, { headers: authHeader });
       if (!r2.ok) return;
       const data = await r2.json() as { course: AcademyCourse; lessons: AcademyLesson[] };
-      setLessonCtx({ course: data.course, lesson, allLessons: data.lessons });
+      const lessons = data?.lessons ?? [];
+      setLessonCtx({ course: data.course ?? course, lesson, allLessons: lessons });
     } catch { }
   }
 

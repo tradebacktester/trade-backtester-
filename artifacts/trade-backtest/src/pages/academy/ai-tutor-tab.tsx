@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bot, Send, User, Loader2 } from "lucide-react";
+import { Bot, Send, User, Loader2, ArrowUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 
 const ACCENT = "#22D3EE";
+const SUCCESS = "#84CC16";
 const BORDER = "#262626";
 const CARD = "#171717";
 const TEXT = "#A1A1AA";
@@ -11,37 +12,33 @@ const TEXT = "#A1A1AA";
 interface Message { role: "user" | "assistant"; content: string; }
 
 const SUGGESTED_PROMPTS = [
-  "Explain what an Order Block is",
-  "What is the difference between Support and Supply/Demand?",
-  "How do I calculate position size correctly?",
-  "What are the biggest beginner trading mistakes?",
-  "Explain Fair Value Gaps and how to trade them",
+  "Explain Order Blocks",
+  "What is a Fair Value Gap?",
+  "How to size positions correctly?",
   "What is a liquidity sweep?",
-  "How do I identify market structure shifts?",
-  "Explain the psychology behind revenge trading",
+  "Explain market structure shifts",
+  "ICT vs Smart Money Concepts",
+  "Psychology of losing trades",
+  "Beginner mistakes to avoid",
 ];
 
 function formatMessage(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:700;color:#FFFFFF">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, `<code style="font-family:monospace;font-size:11px;background:#222;padding:1px 5px;border-radius:4px">$1</code>`)
-    .replace(/^• (.+)$/gm, `<div style="display:flex;gap:8px;margin:3px 0"><span style="color:${ACCENT};flex-shrink:0">·</span><span>$1</span></div>`)
-    .replace(/^- (.+)$/gm, `<div style="display:flex;gap:8px;margin:3px 0"><span style="color:${ACCENT};flex-shrink:0">·</span><span>$1</span></div>`)
+    .replace(/`(.+?)`/g, `<code style="font-family:monospace;font-size:12px;background:#222;padding:2px 6px;border-radius:4px">$1</code>`)
+    .replace(/^[-•] (.+)$/gm, `<div style="display:flex;gap:8px;margin:3px 0"><span style="color:${ACCENT};flex-shrink:0">·</span><span>$1</span></div>`)
     .replace(/\n/g, "<br/>");
 }
 
 export function AiTutorTab() {
   const { token } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Hello. I'm your Trade Lab AI Tutor.\n\nAsk me anything about trading — from the basics of candlestick patterns to advanced Smart Money Concepts.\n\nYou can ask me to:\n- **Explain** any concept clearly\n- **Give examples** from real markets\n- **Quiz you** on a topic\n- **Summarize** key takeaways from a lesson",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [started, setStarted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -51,8 +48,10 @@ export function AiTutorTab() {
     if (!text.trim() || loading) return;
     const userMsg = text.trim();
     setInput("");
+    setStarted(true);
     setMessages(prev => [...prev, { role: "user", content: userMsg }]);
     setLoading(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
     try {
       const r = await fetch(`${API_BASE}/api/academy/ai/chat`, {
         method: "POST",
@@ -71,170 +70,171 @@ export function AiTutorTab() {
     }
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  }
+
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 220px)", minHeight: "480px" }}>
-      {/* Header */}
-      <div style={{
-        padding: "14px 18px", background: CARD, border: `1px solid ${BORDER}`,
-        borderBottom: "none", borderRadius: "10px 10px 0 0",
-        display: "flex", alignItems: "center", gap: "12px",
-      }}>
-        <div style={{
-          width: "34px", height: "34px", borderRadius: "8px",
-          background: "#111111", border: `1px solid ${BORDER}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <Bot style={{ height: "16px", width: "16px", color: ACCENT }} />
-        </div>
-        <div>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>AI Study Tutor</div>
-          <div style={{ fontSize: "11px", color: TEXT }}>Expert in trading education</div>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "6px" }}>
-          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84CC16" }} />
-          <span style={{ fontSize: "11px", color: TEXT }}>Online</span>
-        </div>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 180px)", minHeight: "500px" }}>
 
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        style={{
-          flex: 1, overflow: "auto", padding: "16px",
-          background: "#0f0f0f", border: `1px solid ${BORDER}`, borderTop: "none", borderBottom: "none",
-          display: "flex", flexDirection: "column", gap: "12px",
-        }}
-      >
-        {messages.map((m, i) => (
-          <div key={i} style={{
-            display: "flex", gap: "10px",
-            justifyContent: m.role === "user" ? "flex-end" : "flex-start",
-            alignItems: "flex-end",
-          }}>
-            {m.role === "assistant" && (
-              <div style={{
-                width: "28px", height: "28px", borderRadius: "7px", flexShrink: 0,
-                background: "#111111", border: `1px solid ${BORDER}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <Bot style={{ height: "13px", width: "13px", color: ACCENT }} />
-              </div>
-            )}
+      {/* Messages area */}
+      <div ref={scrollRef} style={{ flex: 1, overflow: "auto", paddingBottom: "8px" }}>
+        {!started ? (
+          /* Welcome state */
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "300px", padding: "20px 16px", textAlign: "center" }}>
             <div style={{
-              maxWidth: "72%", padding: "11px 14px",
-              borderRadius: m.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-              background: m.role === "user" ? "#1a1a1a" : CARD,
-              border: `1px solid ${m.role === "user" ? "#333" : BORDER}`,
-              color: "#FFFFFF", fontSize: "13px", lineHeight: "1.6",
+              width: "56px", height: "56px", borderRadius: "16px",
+              background: "#111", border: `1px solid ${BORDER}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              marginBottom: "16px",
             }}>
-              {m.role === "assistant"
-                ? <span dangerouslySetInnerHTML={{ __html: formatMessage(m.content) }} />
-                : m.content
-              }
+              <Bot style={{ height: "24px", width: "24px", color: ACCENT }} />
             </div>
-            {m.role === "user" && (
-              <div style={{
-                width: "28px", height: "28px", borderRadius: "7px", flexShrink: 0,
-                background: "#111111", border: `1px solid ${BORDER}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <User style={{ height: "13px", width: "13px", color: TEXT }} />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {loading && (
-          <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-            <div style={{
-              width: "28px", height: "28px", borderRadius: "7px",
-              background: "#111111", border: `1px solid ${BORDER}`,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            }}>
-              <Bot style={{ height: "13px", width: "13px", color: ACCENT }} />
+            <div style={{ fontSize: "20px", fontWeight: 700, color: "#FFFFFF", marginBottom: "6px" }}>Trade Lab AI Tutor</div>
+            <div style={{ fontSize: "14px", color: TEXT, marginBottom: "28px", lineHeight: "1.5", maxWidth: "320px" }}>
+              Ask me anything about trading — from chart patterns to advanced Smart Money Concepts.
             </div>
-            <div style={{
-              padding: "11px 14px", borderRadius: "12px 12px 12px 4px",
-              background: CARD, border: `1px solid ${BORDER}`,
-              display: "flex", gap: "4px", alignItems: "center",
-            }}>
-              {[0, 1, 2].map(i => (
-                <div key={i} style={{
-                  width: "5px", height: "5px", borderRadius: "50%", background: TEXT,
-                  animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-                }} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "400px" }}>
+              {SUGGESTED_PROMPTS.slice(0, 6).map(p => (
+                <button
+                  key={p}
+                  onClick={() => sendMessage(p)}
+                  style={{
+                    padding: "10px 12px", borderRadius: "10px", fontSize: "13px",
+                    cursor: "pointer", background: CARD, border: `1px solid ${BORDER}`,
+                    color: TEXT, textAlign: "left", lineHeight: "1.3",
+                    transition: "border-color 0.12s, color 0.12s",
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.borderColor = "#3a3a3a";
+                    (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.borderColor = BORDER;
+                    (e.currentTarget as HTMLElement).style.color = TEXT;
+                  }}
+                >
+                  {p}
+                </button>
               ))}
             </div>
+          </div>
+        ) : (
+          /* Chat messages */
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "8px 4px" }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{
+                display: "flex",
+                flexDirection: m.role === "user" ? "row-reverse" : "row",
+                gap: "10px", alignItems: "flex-end",
+              }}>
+                <div style={{
+                  width: "30px", height: "30px", borderRadius: "50%", flexShrink: 0,
+                  background: m.role === "user" ? "#1C1C1E" : "#111",
+                  border: `1px solid ${BORDER}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {m.role === "assistant"
+                    ? <Bot style={{ height: "14px", width: "14px", color: ACCENT }} />
+                    : <User style={{ height: "14px", width: "14px", color: TEXT }} />
+                  }
+                </div>
+                <div style={{
+                  maxWidth: "78%", padding: "12px 15px",
+                  borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                  background: m.role === "user" ? "#1C1C1E" : CARD,
+                  border: `1px solid ${m.role === "user" ? "#333" : BORDER}`,
+                  color: "#FFFFFF", fontSize: "14px", lineHeight: "1.65",
+                }}>
+                  {m.role === "assistant"
+                    ? <span dangerouslySetInnerHTML={{ __html: formatMessage(m.content) }} />
+                    : m.content
+                  }
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "#111", border: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Bot style={{ height: "14px", width: "14px", color: ACCENT }} />
+                </div>
+                <div style={{ padding: "12px 16px", borderRadius: "18px 18px 18px 4px", background: CARD, border: `1px solid ${BORDER}`, display: "flex", gap: "5px", alignItems: "center" }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{ width: "7px", height: "7px", borderRadius: "50%", background: TEXT, animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Suggested prompts */}
-      {messages.length <= 2 && (
-        <div style={{
-          padding: "10px 16px", background: "#0f0f0f",
-          border: `1px solid ${BORDER}`, borderTop: `1px solid ${BORDER}`, borderBottom: "none",
-          display: "flex", flexWrap: "wrap", gap: "6px",
-        }}>
-          {SUGGESTED_PROMPTS.slice(0, 4).map(p => (
+      {/* Quick prompts row (after first message sent) */}
+      {started && (
+        <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "8px", flexShrink: 0 }}>
+          {SUGGESTED_PROMPTS.slice(0, 5).map(p => (
             <button
               key={p}
               onClick={() => sendMessage(p)}
               style={{
-                padding: "5px 11px", borderRadius: "6px", fontSize: "11px",
-                cursor: "pointer", background: "#111111", border: `1px solid ${BORDER}`,
-                color: TEXT, transition: "border-color 0.12s, color 0.12s",
-                whiteSpace: "nowrap",
+                padding: "6px 12px", borderRadius: "16px", fontSize: "12px", whiteSpace: "nowrap",
+                cursor: "pointer", background: "#111", border: `1px solid ${BORDER}`, color: TEXT,
+                flexShrink: 0, transition: "border-color 0.12s",
               }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = "#3a3a3a";
-                (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = BORDER;
-                (e.currentTarget as HTMLElement).style.color = TEXT;
-              }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "#444"}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = BORDER}
             >
-              {p.length > 40 ? p.slice(0, 40) + "…" : p}
+              {p}
             </button>
           ))}
         </div>
       )}
 
-      {/* Input */}
+      {/* Input bar */}
       <div style={{
-        padding: "12px 16px", borderRadius: "0 0 10px 10px",
-        background: CARD, border: `1px solid ${BORDER}`, borderTop: "none",
-        display: "flex", gap: "8px", alignItems: "flex-end",
+        display: "flex", gap: "10px", alignItems: "flex-end",
+        background: "#1C1C1E", border: `1px solid ${BORDER}`,
+        borderRadius: "16px", padding: "10px 12px",
+        flexShrink: 0,
       }}>
         <textarea
+          ref={inputRef}
           value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
+          onChange={e => { setInput(e.target.value); autoResize(e.target); }}
+          onKeyDown={handleKeyDown}
           placeholder="Ask anything about trading…"
-          rows={2}
+          rows={1}
           style={{
-            flex: 1, padding: "9px 12px", borderRadius: "8px", fontSize: "13px",
-            background: "#111111", border: `1px solid ${BORDER}`,
-            color: "#FFFFFF", outline: "none", resize: "none",
+            flex: 1, background: "none", border: "none", outline: "none",
+            color: "#FFFFFF", fontSize: "15px", resize: "none",
             lineHeight: "1.5", fontFamily: "inherit",
+            minHeight: "24px", maxHeight: "120px",
+            padding: 0,
           }}
         />
         <button
           onClick={() => sendMessage(input)}
           disabled={!input.trim() || loading}
           style={{
-            width: "38px", height: "38px", borderRadius: "8px", flexShrink: 0,
-            background: input.trim() && !loading ? ACCENT : "#111111",
-            border: `1px solid ${input.trim() && !loading ? ACCENT : BORDER}`,
-            cursor: input.trim() && !loading ? "pointer" : "not-allowed",
+            width: "36px", height: "36px", borderRadius: "50%", flexShrink: 0,
+            background: input.trim() && !loading ? ACCENT : "#333",
+            border: "none", cursor: input.trim() && !loading ? "pointer" : "default",
             display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "all 0.15s",
+            transition: "background 0.2s",
           }}
         >
           {loading
-            ? <Loader2 style={{ height: "14px", width: "14px", color: TEXT, animation: "spin 1s linear infinite" }} />
-            : <Send style={{ height: "14px", width: "14px", color: input.trim() ? "#000000" : TEXT }} />
+            ? <Loader2 style={{ height: "15px", width: "15px", color: "#000", animation: "spin 1s linear infinite" }} />
+            : <ArrowUp style={{ height: "16px", width: "16px", color: input.trim() ? "#000" : TEXT }} />
           }
         </button>
       </div>

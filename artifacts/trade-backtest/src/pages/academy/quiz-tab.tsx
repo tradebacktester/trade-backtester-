@@ -19,7 +19,7 @@ interface QuizResult {
   score: number;
   totalQuestions: number;
   percentage: number;
-  results: Array<{ correct: boolean; correctIndex: number; explanation: string }>;
+  results: Array<{ correct: boolean; correctIndex: number; explanation: string }> | undefined;
 }
 
 function QuizRunner({ course, questions, onFinish, onBack }: {
@@ -38,12 +38,13 @@ function QuizRunner({ course, questions, onFinish, onBack }: {
   const q = questions[currentQ];
   if (!q) return null;
 
-  const progress = (currentQ / questions.length) * 100;
+  const progress = ((currentQ) / questions.length) * 100;
+  const isLast = currentQ === questions.length - 1;
 
   function handleNext() {
     if (selected === null) return;
     const newAnswers = [...answers, selected];
-    if (currentQ < questions.length - 1) {
+    if (!isLast) {
       setAnswers(newAnswers);
       setCurrentQ(qi => qi + 1);
       setSelected(null);
@@ -69,87 +70,90 @@ function QuizRunner({ course, questions, onFinish, onBack }: {
   }
 
   return (
-    <div style={{ maxWidth: "580px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "16px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>{course.title}</div>
-          <div style={{ fontSize: "11px", color: TEXT }}>Question {currentQ + 1} of {questions.length}</div>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF" }}>{course.title}</div>
+          <div style={{ fontSize: "12px", color: TEXT }}>Question {currentQ + 1} of {questions.length}</div>
         </div>
         <button onClick={onBack} style={{
-          padding: "5px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer",
+          padding: "7px 14px", borderRadius: "8px", fontSize: "12px", cursor: "pointer",
           background: "transparent", border: `1px solid ${BORDER}`, color: TEXT,
         }}>
           Exit
         </button>
       </div>
 
-      {/* Progress */}
-      <div style={{ height: "2px", borderRadius: "1px", background: "#262626", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: ACCENT, transition: "width 0.4s" }} />
+      {/* Progress bar */}
+      <div style={{ height: "3px", borderRadius: "2px", background: "#262626", overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${progress}%`, background: ACCENT, transition: "width 0.4s", borderRadius: "2px" }} />
       </div>
 
-      {/* Question */}
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: "10px", padding: "22px" }}>
-        <div style={{ fontSize: "14px", fontWeight: 600, color: "#FFFFFF", lineHeight: "1.5", marginBottom: "18px" }}>
+      {/* Question card */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: "14px", padding: "20px 16px" }}>
+        <div style={{ fontSize: "16px", fontWeight: 600, color: "#FFFFFF", lineHeight: "1.5", marginBottom: "18px" }}>
           {q.question}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
-          {q.options.map((opt, i) => {
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {(q.options ?? []).map((opt, i) => {
             const isSelected = selected === i;
             return (
               <button
                 key={i}
-                onClick={() => { if (selected === null) setSelected(i); }}
+                onClick={() => setSelected(i)}
                 style={{
                   display: "flex", alignItems: "center", gap: "12px",
-                  padding: "11px 14px", borderRadius: "8px",
-                  cursor: selected !== null ? "default" : "pointer",
-                  textAlign: "left", width: "100%", transition: "all 0.12s",
-                  background: isSelected ? "#111111" : "transparent",
-                  border: `1px solid ${isSelected ? ACCENT : BORDER}`,
-                  color: "#FFFFFF",
+                  padding: "13px 14px", borderRadius: "10px",
+                  cursor: "pointer", textAlign: "left", width: "100%",
+                  background: isSelected ? "#0d1a1a" : "transparent",
+                  border: `2px solid ${isSelected ? ACCENT : BORDER}`,
+                  color: "#FFFFFF", transition: "all 0.12s",
                 }}
-                onMouseEnter={e => { if (selected === null) (e.currentTarget as HTMLElement).style.borderColor = "#3a3a3a"; }}
-                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.borderColor = BORDER; }}
               >
                 <div style={{
-                  width: "24px", height: "24px", borderRadius: "6px", flexShrink: 0,
+                  width: "28px", height: "28px", borderRadius: "8px", flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "11px", fontWeight: 700,
-                  background: isSelected ? ACCENT : "#111111",
+                  fontSize: "12px", fontWeight: 700,
+                  background: isSelected ? ACCENT : "#111",
                   color: isSelected ? "#000000" : TEXT,
                   border: `1px solid ${isSelected ? ACCENT : BORDER}`,
+                  transition: "all 0.12s",
                 }}>
                   {["A", "B", "C", "D"][i]}
                 </div>
-                <span style={{ fontSize: "13px" }}>{opt}</span>
+                <span style={{ fontSize: "14px", lineHeight: "1.4" }}>{opt}</span>
+                {isSelected && (
+                  <CheckCircle2 style={{ height: "16px", width: "16px", color: ACCENT, marginLeft: "auto", flexShrink: 0 }} />
+                )}
               </button>
             );
           })}
         </div>
       </div>
 
+      {/* Next button */}
       <button
         onClick={handleNext}
         disabled={selected === null || submitting}
         style={{
-          width: "100%", padding: "11px", borderRadius: "8px", fontSize: "13px", fontWeight: 600,
+          width: "100%", padding: "14px", borderRadius: "12px", fontSize: "15px", fontWeight: 700,
           cursor: selected !== null ? "pointer" : "not-allowed",
-          background: selected !== null ? "#111111" : "transparent",
+          background: selected !== null ? "#111" : "transparent",
           border: `1px solid ${selected !== null ? "#FFFFFF" : BORDER}`,
           color: selected !== null ? "#FFFFFF" : TEXT,
           opacity: submitting ? 0.7 : 1,
-          display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: "7px",
           transition: "all 0.15s",
         }}
       >
-        {submitting ? (
-          <><Loader2 style={{ height: "13px", width: "13px", animation: "spin 1s linear infinite" }} /> Submitting…</>
-        ) : currentQ < questions.length - 1 ? (
-          <>Next Question <ChevronRight style={{ height: "13px", width: "13px" }} /></>
-        ) : (
-          <>Submit Quiz <CheckCircle2 style={{ height: "13px", width: "13px" }} /></>
-        )}
+        {submitting
+          ? <><Loader2 style={{ height: "15px", width: "15px", animation: "spin 1s linear infinite" }} /> Submitting…</>
+          : isLast
+            ? <><CheckCircle2 style={{ height: "15px", width: "15px" }} /> Submit Quiz</>
+            : <>Next Question <ChevronRight style={{ height: "15px", width: "15px" }} /></>
+        }
       </button>
     </div>
   );
@@ -163,64 +167,66 @@ function QuizResults({ course, result, answers, questions, onRetry, onBack }: {
   onRetry: () => void;
   onBack: () => void;
 }) {
-  const pct = result.percentage;
+  const pct = result.percentage ?? 0;
   const color = pct >= 80 ? SUCCESS : pct >= 60 ? "#F59E0B" : DANGER;
+  const resultsList = result.results ?? [];
 
   return (
-    <div style={{ maxWidth: "580px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "14px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      {/* Score card */}
       <div style={{
-        border: `1px solid ${BORDER}`,
-        borderRadius: "10px", padding: "28px", textAlign: "center",
-        background: CARD,
+        background: CARD, border: `1px solid ${BORDER}`,
+        borderRadius: "14px", padding: "28px 20px", textAlign: "center",
       }}>
-        <div style={{ fontSize: "48px", fontWeight: 800, color, letterSpacing: "-0.04em", marginBottom: "4px" }}>
+        <div style={{ fontSize: "56px", fontWeight: 800, color, letterSpacing: "-0.04em", lineHeight: 1, marginBottom: "6px" }}>
           {pct}%
         </div>
-        <div style={{ fontSize: "14px", fontWeight: 600, color: "#FFFFFF", marginBottom: "6px" }}>
+        <div style={{ fontSize: "16px", fontWeight: 600, color: "#FFFFFF", marginBottom: "5px" }}>
           {pct >= 80 ? "Excellent result" : pct >= 60 ? "Good effort" : "Keep practising"}
         </div>
-        <div style={{ fontSize: "12px", color: TEXT }}>
+        <div style={{ fontSize: "13px", color: TEXT }}>
           {result.score} / {result.totalQuestions} correct
         </div>
         {pct >= 80 && (
           <div style={{
-            display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "12px",
-            padding: "5px 12px", borderRadius: "6px", fontSize: "11px", fontWeight: 600,
-            background: "#111111", color: "#F59E0B", border: "1px solid #F59E0B40",
+            display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "14px",
+            padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600,
+            background: "#111", color: "#F59E0B", border: "1px solid #F59E0B40",
           }}>
-            <Award style={{ height: "11px", width: "11px" }} /> +100 XP earned
+            <Award style={{ height: "12px", width: "12px" }} /> +100 XP earned
           </div>
         )}
       </div>
 
-      {result.results.length > 0 && (
+      {/* Review */}
+      {resultsList.length > 0 && (
         <div>
-          <div style={{ fontSize: "11px", fontWeight: 600, color: TEXT, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            Review Answers
+          <div style={{ fontSize: "12px", fontWeight: 600, color: TEXT, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            Answer Review
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {questions.map((q, i) => {
-              const r = result.results[i];
+              const r = resultsList[i];
               if (!r) return null;
               return (
                 <div key={q.id} style={{
                   background: CARD, border: `1px solid ${r.correct ? SUCCESS + "30" : DANGER + "30"}`,
-                  borderRadius: "8px", padding: "12px 14px",
+                  borderRadius: "10px", padding: "13px 14px",
                 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: r.correct ? 0 : "6px" }}>
                     {r.correct
-                      ? <CheckCircle2 style={{ height: "14px", width: "14px", color: SUCCESS, flexShrink: 0, marginTop: "1px" }} />
-                      : <XCircle style={{ height: "14px", width: "14px", color: DANGER, flexShrink: 0, marginTop: "1px" }} />
+                      ? <CheckCircle2 style={{ height: "15px", width: "15px", color: SUCCESS, flexShrink: 0, marginTop: "1px" }} />
+                      : <XCircle style={{ height: "15px", width: "15px", color: DANGER, flexShrink: 0, marginTop: "1px" }} />
                     }
-                    <div style={{ fontSize: "12px", fontWeight: 500, color: "#FFFFFF", lineHeight: "1.4" }}>{q.question}</div>
+                    <div style={{ fontSize: "13px", fontWeight: 500, color: "#FFFFFF", lineHeight: "1.4" }}>{q.question}</div>
                   </div>
                   {!r.correct && (
-                    <div style={{ fontSize: "11px", color: SUCCESS, marginLeft: "22px", marginBottom: "4px" }}>
-                      Correct: {q.options[r.correctIndex]}
+                    <div style={{ fontSize: "12px", color: SUCCESS, marginLeft: "23px", marginBottom: "5px" }}>
+                      ✓ {(q.options ?? [])[r.correctIndex]}
                     </div>
                   )}
                   {r.explanation && (
-                    <div style={{ fontSize: "11px", color: TEXT, marginLeft: "22px", lineHeight: "1.5", padding: "6px 10px", borderRadius: "6px", background: "#0f0f0f", border: `1px solid ${BORDER}` }}>
+                    <div style={{ fontSize: "12px", color: TEXT, marginLeft: "23px", lineHeight: "1.5", padding: "8px 10px", borderRadius: "7px", background: "#0f0f0f", border: `1px solid ${BORDER}` }}>
                       {r.explanation}
                     </div>
                   )}
@@ -233,15 +239,15 @@ function QuizResults({ course, result, answers, questions, onRetry, onBack }: {
 
       <div style={{ display: "flex", gap: "8px" }}>
         <button onClick={onRetry} style={{
-          display: "flex", alignItems: "center", gap: "5px", padding: "8px 14px", borderRadius: "8px",
-          fontSize: "12px", fontWeight: 600, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: "5px", padding: "11px 16px", borderRadius: "10px",
+          fontSize: "13px", fontWeight: 600, cursor: "pointer",
           background: "transparent", border: `1px solid ${BORDER}`, color: TEXT,
         }}>
-          <RotateCcw style={{ height: "11px", width: "11px" }} /> Retry
+          <RotateCcw style={{ height: "12px", width: "12px" }} /> Retry
         </button>
         <button onClick={onBack} style={{
-          flex: 1, padding: "8px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 600,
-          cursor: "pointer", background: "#111111", border: "1px solid #FFFFFF", color: "#FFFFFF",
+          flex: 1, padding: "11px", borderRadius: "10px", fontSize: "13px", fontWeight: 700,
+          cursor: "pointer", background: "#111", border: "1px solid #FFFFFF", color: "#FFFFFF",
         }}>
           Back to Quizzes
         </button>
@@ -258,24 +264,27 @@ export function QuizzesTab({ courses, attempts, onAttemptsChange }: {
   const { token } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<AcademyCourse | null>(null);
   const [questions, setQuestions] = useState<AcademyQuizQuestion[]>([]);
-  const [loadingQuiz, setLoadingQuiz] = useState(false);
+  const [loadingQuiz, setLoadingQuiz] = useState<number | null>(null);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
 
+  const safeAttempts = attempts ?? [];
+  const safeCourses = courses ?? [];
+
   async function startQuiz(course: AcademyCourse) {
-    setLoadingQuiz(true);
+    setLoadingQuiz(course.id);
     try {
       const r = await fetch(`${API_BASE}/api/academy/courses/${course.id}/quiz`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const qs = await r.json() as AcademyQuizQuestion[];
-      if (!qs.length) { setLoadingQuiz(false); return; }
+      if (!qs?.length) { setLoadingQuiz(null); return; }
       setQuestions(qs);
       setSelectedCourse(course);
       setQuizResult(null);
       setQuizAnswers([]);
     } catch { }
-    setLoadingQuiz(false);
+    setLoadingQuiz(null);
   }
 
   if (selectedCourse && questions.length > 0) {
@@ -298,26 +307,26 @@ export function QuizzesTab({ courses, attempts, onAttemptsChange }: {
   }
 
   const bestScores = new Map<number, number>();
-  for (const a of attempts) {
-    const pct = Math.round((a.score / a.totalQuestions) * 100);
+  for (const a of safeAttempts) {
+    const pct = a.totalQuestions > 0 ? Math.round((a.score / a.totalQuestions) * 100) : 0;
     if (!bestScores.has(a.courseId) || bestScores.get(a.courseId)! < pct) bestScores.set(a.courseId, pct);
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      {attempts.length > 0 && (
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+      {safeAttempts.length > 0 && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           {[
-            { label: "Quizzes Taken", value: attempts.length },
-            { label: "Best Score", value: `${Math.max(...attempts.map(a => Math.round(a.score / a.totalQuestions * 100)))}%` },
-            { label: "Avg Score", value: `${Math.round(attempts.reduce((s, a) => s + (a.score / a.totalQuestions), 0) / attempts.length * 100)}%` },
+            { label: "Taken", value: safeAttempts.length },
+            { label: "Best", value: `${Math.max(...safeAttempts.map(a => a.totalQuestions > 0 ? Math.round(a.score / a.totalQuestions * 100) : 0))}%` },
+            { label: "Avg", value: `${Math.round(safeAttempts.reduce((s, a) => s + (a.totalQuestions > 0 ? a.score / a.totalQuestions : 0), 0) / safeAttempts.length * 100)}%` },
           ].map(s => (
             <div key={s.label} style={{
-              padding: "12px 16px", borderRadius: "10px", background: CARD,
+              flex: 1, padding: "12px 10px", borderRadius: "10px", background: CARD,
               border: `1px solid ${BORDER}`, textAlign: "center",
             }}>
-              <div style={{ fontSize: "20px", fontWeight: 700, color: "#FFFFFF" }}>{s.value}</div>
-              <div style={{ fontSize: "10px", color: TEXT, marginTop: "2px" }}>{s.label}</div>
+              <div style={{ fontSize: "22px", fontWeight: 800, color: "#FFFFFF" }}>{s.value}</div>
+              <div style={{ fontSize: "11px", color: TEXT, marginTop: "2px" }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -327,51 +336,54 @@ export function QuizzesTab({ courses, attempts, onAttemptsChange }: {
         <div style={{ fontSize: "11px", fontWeight: 600, color: TEXT, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
           Available Quizzes
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "8px" }}>
-          {courses.map(c => {
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {safeCourses.map(c => {
             const best = bestScores.get(c.id);
             const bestColor = best === undefined ? TEXT : best >= 80 ? SUCCESS : best >= 60 ? "#F59E0B" : DANGER;
             return (
               <div key={c.id} style={{
                 background: CARD, border: `1px solid ${BORDER}`,
-                borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px",
+                borderRadius: "12px", padding: "14px 16px",
+                display: "flex", alignItems: "center", gap: "12px",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{
-                    width: "30px", height: "30px", borderRadius: "7px", flexShrink: 0,
-                    background: "#111111", border: `1px solid ${BORDER}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <BookOpen style={{ height: "13px", width: "13px", color: TEXT }} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#FFFFFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {c.title}
-                    </div>
-                    <div style={{ fontSize: "10px", color: TEXT }}>{PATH_META[c.pathId]?.title ?? c.pathId}</div>
-                  </div>
-                  {best !== undefined && (
-                    <div style={{ fontSize: "14px", fontWeight: 700, color: bestColor, flexShrink: 0 }}>
-                      {best}%
-                    </div>
-                  )}
+                <div style={{
+                  width: "36px", height: "36px", borderRadius: "10px", flexShrink: 0,
+                  background: "#111", border: `1px solid ${BORDER}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <BookOpen style={{ height: "15px", width: "15px", color: TEXT }} />
                 </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.title}
+                  </div>
+                  <div style={{ fontSize: "11px", color: TEXT }}>{PATH_META[c.pathId]?.title ?? c.pathId}</div>
+                </div>
+                {best !== undefined && (
+                  <div style={{ fontSize: "16px", fontWeight: 800, color: bestColor, flexShrink: 0 }}>{best}%</div>
+                )}
                 <button
                   onClick={() => startQuiz(c)}
-                  disabled={loadingQuiz}
+                  disabled={loadingQuiz === c.id}
                   style={{
-                    width: "100%", padding: "7px", borderRadius: "6px", fontSize: "11px", fontWeight: 600,
-                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
-                    background: "transparent",
+                    padding: "8px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 700,
+                    cursor: "pointer", flexShrink: 0,
+                    background: best !== undefined ? "transparent" : "#111",
                     border: `1px solid ${best !== undefined ? BORDER : "#FFFFFF"}`,
                     color: best !== undefined ? TEXT : "#FFFFFF",
+                    display: "flex", alignItems: "center", gap: "5px",
                     transition: "all 0.12s",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#111111"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#111"}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = best !== undefined ? "transparent" : "#111"}
                 >
-                  {loadingQuiz ? <Loader2 style={{ height: "11px", width: "11px", animation: "spin 1s linear infinite" }} /> : best !== undefined ? <RotateCcw style={{ height: "11px", width: "11px" }} /> : <Trophy style={{ height: "11px", width: "11px" }} />}
-                  {best !== undefined ? "Retake" : "Start Quiz"}
+                  {loadingQuiz === c.id
+                    ? <Loader2 style={{ height: "12px", width: "12px", animation: "spin 1s linear infinite" }} />
+                    : best !== undefined
+                      ? <RotateCcw style={{ height: "12px", width: "12px" }} />
+                      : <Trophy style={{ height: "12px", width: "12px" }} />
+                  }
+                  {best !== undefined ? "Retry" : "Start"}
                 </button>
               </div>
             );

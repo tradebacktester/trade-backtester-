@@ -146,10 +146,10 @@ function PathSection({
 
       {expanded && !path.locked && (
         <div style={{ padding: "0 16px 14px", display: "flex", flexDirection: "column", gap: "6px", background: "#0f0f0f", borderTop: `1px solid ${BORDER}`, paddingTop: "14px" }}>
-          {path.courses.length === 0 ? (
+          {(path.courses ?? []).length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px", color: TEXT, fontSize: "13px" }}>No courses yet</div>
           ) : (
-            path.courses.map(c => <CourseRow key={c.id} course={c} onSelect={onSelectCourse} />)
+            (path.courses ?? []).map(c => <CourseRow key={c.id} course={c} onSelect={onSelectCourse} />)
           )}
         </div>
       )}
