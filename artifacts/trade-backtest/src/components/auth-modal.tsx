@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "wouter";
 import { X, Mail, Lock, User, LogIn, UserPlus, Shield, Eye, EyeOff, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -313,6 +314,20 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
             >
               {loading ? "Please wait…" : tab === "signin" ? "Sign In" : "Create Account"}
             </button>
+
+            {tab === "signin" && (
+              <Link href="/forgot-password" onClick={onClose}>
+                <button
+                  type="button"
+                  className="w-full text-center text-[11px] py-1 transition-colors"
+                  style={{ color: "hsl(var(--muted-foreground))" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "hsl(var(--foreground))")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "hsl(var(--muted-foreground))")}
+                >
+                  Forgot your password?
+                </button>
+              </Link>
+            )}
           </form>
         )}
 

@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
-import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable, adminAuditLogTable } from "@workspace/db";
-import { eq, and, desc, gt, lt, count as drizzleCount } from "drizzle-orm";
+import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable, adminAuditLogTable, passwordResetsTable } from "@workspace/db";
+import { eq, and, desc, gt, lt, count as drizzleCount, isNull } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
 import { makeAdminToken, verifyAdminToken } from "../lib/admin-auth";
 
@@ -283,6 +283,27 @@ router.get("/admin/payments", requireAdmin, async (_req, res): Promise<void> => 
     .limit(200);
 
   res.json(pmts.map(p => ({ ...p, createdAt: p.createdAt.toISOString() })));
+});
+
+// ── Password reset requests — list active (unused, unexpired) tokens ──────────
+router.get("/admin/password-resets", requireAdmin, async (_req, res): Promise<void> => {
+  const now = new Date();
+  const resets = await db
+    .select({
+      id: passwordResetsTable.id,
+      token: passwordResetsTable.token,
+      expiresAt: passwordResetsTable.expiresAt,
+      createdAt: passwordResetsTable.createdAt,
+      userId: passwordResetsTable.userId,
+      userEmail: usersTable.email,
+      userName: usersTable.name,
+    })
+    .from(passwordResetsTable)
+    .leftJoin(usersTable, eq(passwordResetsTable.userId, usersTable.id))
+    .where(and(isNull(passwordResetsTable.usedAt), gt(passwordResetsTable.expiresAt, now)))
+    .orderBy(desc(passwordResetsTable.createdAt))
+    .limit(100);
+  res.json(resets.map(r => ({ ...r, expiresAt: r.expiresAt.toISOString(), createdAt: r.createdAt.toISOString() })));
 });
 
 export default router;

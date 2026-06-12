@@ -48,6 +48,8 @@ import AlertsPage from "@/pages/alerts";
 import TradingOsPage from "@/pages/trading-os";
 import TradingOsReportPage from "@/pages/trading-os-report";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 
 const ChartPage = lazy(() => import("@/pages/chart"));
 
@@ -146,6 +148,9 @@ function Router() {
       <Route path="/profile" component={ProfilePage} />
       <Route path="/pricing" component={PricingPage} />
       <Route path="/billing" component={BillingPage} />
+
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
 
       <Route path="/admin" component={() => <Redirect to="/admin/login" />} />
       <Route path="/admin/login" component={AdminLogin} />

@@ -4,7 +4,7 @@ import {
   Shield, Users, FileText, LogOut, Ban, CheckCircle, RefreshCw, Save,
   ChevronDown, ChevronUp, UserCheck, UserX, Crown, CreditCard, Zap,
   Plus, Edit2, ToggleLeft, ToggleRight, Gift, Trash2, Star,
-  X, Check, Package, AlertCircle, Calendar, Hash,
+  X, Check, Package, AlertCircle, Calendar, Hash, KeyRound, Copy, Clock,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -64,7 +64,12 @@ function planAccent(slug: string) {
   return PLAN_ACCENT[slug] ?? PLAN_ACCENT.free;
 }
 
-type Tab = "users" | "policies" | "plans" | "subscribers" | "payments";
+interface PendingReset {
+  id: number; token: string; expiresAt: string; createdAt: string;
+  userId: number; userEmail: string | null; userName: string | null;
+}
+
+type Tab = "users" | "policies" | "plans" | "subscribers" | "payments" | "resets";
 
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
@@ -119,6 +124,11 @@ export default function AdminPanel() {
   // ── Payments ──
   const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
+
+  // ── Password Reset Requests ──
+  const [resets, setResets] = useState<PendingReset[]>([]);
+  const [resetsLoading, setResetsLoading] = useState(true);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   useEffect(() => { if (!adminToken) { setLocation("/admin"); return; } }, [adminToken]);
 
@@ -182,12 +192,19 @@ export default function AdminPanel() {
     finally { setPaymentsLoading(false); }
   }, [headers]);
 
-  // All 5 fetch callbacks are stable (only change when `headers` changes = when
-  // adminToken changes), so including them in the effect deps is safe and correct.
+  const fetchResets = useCallback(async () => {
+    setResetsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/password-resets`, { headers });
+      if (res.ok) setResets(await res.json());
+    } catch { }
+    finally { setResetsLoading(false); }
+  }, [headers]);
+
   useEffect(() => {
     if (!adminToken) return;
-    fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments();
-  }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments]);
+    fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments(); fetchResets();
+  }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments, fetchResets]);
 
   async function toggleBan(user: AdminUser) {
     const reason = !user.banned ? (banReason[user.id] || null) : null;
@@ -298,6 +315,7 @@ export default function AdminPanel() {
     ["plans", Package, "Plans"],
     ["subscribers", Star, "Subscribers"],
     ["payments", CreditCard, "Payments"],
+    ["resets", KeyRound, "Resets"],
   ];
 
   // Memoized so these three array passes only re-run when subs or the filter changes,
@@ -345,6 +363,12 @@ export default function AdminPanel() {
               <span className="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
                 style={tab === key ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: "rgba(139,92,246,0.1)", color: "hsl(265,89%,60%)" }}>
                 {activeSubs}
+              </span>
+            )}
+            {key === "resets" && resets.length > 0 && (
+              <span className="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                style={tab === key ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: "rgba(251,191,36,0.15)", color: "#fbbf24" }}>
+                {resets.length}
               </span>
             )}
           </button>
@@ -925,6 +949,93 @@ export default function AdminPanel() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Password Resets ── */}
+      {visitedTabs.has("resets") && (
+        <div className={tab !== "resets" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+            <div className="flex items-center gap-2">
+              <KeyRound style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+              <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Pending Password Resets</span>
+              {resets.length > 0 && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(251,191,36,0.12)", color: "#fbbf24" }}>{resets.length}</span>
+              )}
+            </div>
+            <button onClick={fetchResets} className="p-1.5 rounded-lg transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
+              <RefreshCw style={{ height: "13px", width: "13px" }} />
+            </button>
+          </div>
+          <div
+            className="mx-5 my-3 rounded-xl px-4 py-3 text-xs flex items-start gap-2"
+            style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", color: "hsl(var(--muted-foreground))", lineHeight: "1.6" }}
+          >
+            <AlertCircle style={{ height: "13px", width: "13px", color: "#818cf8", flexShrink: 0, marginTop: "1px" }} />
+            <span>
+              <strong style={{ color: "#818cf8" }}>How it works:</strong> When a user requests a password reset, a unique link appears here. Copy the link and share it with the user directly. Links expire after <strong style={{ color: "hsl(var(--foreground))" }}>1 hour</strong> and can only be used once.
+            </span>
+          </div>
+          {resetsLoading ? (
+            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Loading…</div>
+          ) : resets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <KeyRound style={{ height: "28px", width: "28px", color: "hsl(var(--muted-foreground))" }} />
+              <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>No pending reset requests</p>
+            </div>
+          ) : (
+            <div>
+              {resets.map((r, i) => {
+                const resetUrl = `${window.location.origin}/reset-password?token=${r.token}`;
+                const expiresIn = Math.max(0, Math.floor((new Date(r.expiresAt).getTime() - Date.now()) / 60_000));
+                const copied = copiedToken === r.token;
+                return (
+                  <div key={r.id} className="px-5 py-4" style={{ borderBottom: i < resets.length - 1 ? "1px solid var(--glass-border)" : "none" }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                            style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+                            {(r.userName ?? "?").charAt(0).toUpperCase()}
+                          </span>
+                          <div>
+                            <span className="text-sm font-medium" style={{ color: "hsl(var(--foreground))" }}>{r.userName ?? "Unknown"}</span>
+                            <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>{r.userEmail}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Clock style={{ height: "11px", width: "11px", color: expiresIn < 15 ? "#f97316" : "#fbbf24", flexShrink: 0 }} />
+                          <span className="text-[11px]" style={{ color: expiresIn < 15 ? "#f97316" : "hsl(var(--muted-foreground))" }}>
+                            Expires in {expiresIn} min · Requested {new Date(r.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <div
+                          className="mt-2 px-3 py-2 rounded-lg font-mono text-[10px] truncate"
+                          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))", maxWidth: "380px" }}
+                          title={resetUrl}
+                        >
+                          {resetUrl}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(resetUrl).catch(() => {});
+                          setCopiedToken(r.token);
+                          setTimeout(() => setCopiedToken(null), 2000);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium flex-shrink-0 transition-all"
+                        style={copied
+                          ? { background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid #bbf7d0" }
+                          : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}
+                      >
+                        {copied ? <><Check style={{ height: "11px", width: "11px" }} />Copied!</> : <><Copy style={{ height: "11px", width: "11px" }} />Copy Link</>}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

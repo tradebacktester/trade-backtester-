@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
-import { db, usersTable, authAttemptsTable, authFailuresTable } from "@workspace/db";
-import { eq, gt, lt, count as drizzleCount, and as drizzleAnd } from "drizzle-orm";
+import { db, usersTable, authAttemptsTable, authFailuresTable, passwordResetsTable } from "@workspace/db";
+import { eq, gt, lt, count as drizzleCount, and as drizzleAnd, isNull } from "drizzle-orm";
 import { signJwt } from "../lib/jwt";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -87,6 +87,75 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   const [user] = await db.insert(usersTable).values({ email: email.toLowerCase(), name, passwordHash }).returning();
   const token = signJwt({ id: user!.id, email: user!.email }, JWT_SECRET);
   res.status(201).json({ user: { id: user!.id, email: user!.email, name: user!.name, banned: user!.banned }, token });
+});
+
+// ── Forgot password — generate a 1-hour reset token ──────────────────────────
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  if (!await checkAuthRateLimit(getAuthIp(req))) {
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return;
+  }
+  const { email } = req.body;
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+  // Always return 200 — don't reveal whether the email exists (prevents enumeration)
+  const [user] = await db.select({ id: usersTable.id }).from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase()));
+  if (user) {
+    // Invalidate any existing unused tokens for this user
+    await db.update(passwordResetsTable)
+      .set({ usedAt: new Date() })
+      .where(drizzleAnd(eq(passwordResetsTable.userId, user.id), isNull(passwordResetsTable.usedAt)));
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60_000); // 1 hour
+    await db.insert(passwordResetsTable).values({ userId: user.id, token, expiresAt });
+  }
+  res.json({ ok: true });
+});
+
+// ── Reset password — validate token and update password hash ─────────────────
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    res.status(400).json({ error: "Token and new password are required" });
+    return;
+  }
+  if (typeof password !== "string" || password.length < 6) {
+    res.status(400).json({ error: "Password must be at least 6 characters" });
+    return;
+  }
+  const [reset] = await db.select().from(passwordResetsTable)
+    .where(eq(passwordResetsTable.token, token));
+  if (!reset) {
+    res.status(400).json({ error: "Invalid or expired reset link" });
+    return;
+  }
+  if (reset.usedAt) {
+    res.status(400).json({ error: "This reset link has already been used" });
+    return;
+  }
+  if (reset.expiresAt < new Date()) {
+    res.status(400).json({ error: "This reset link has expired. Please request a new one." });
+    return;
+  }
+  const passwordHash = createPasswordHash(password);
+  const [user] = await db.update(usersTable)
+    .set({ passwordHash })
+    .where(eq(usersTable.id, reset.userId))
+    .returning();
+  if (!user) {
+    res.status(400).json({ error: "User account not found" });
+    return;
+  }
+  // Mark token as used
+  await db.update(passwordResetsTable)
+    .set({ usedAt: new Date() })
+    .where(eq(passwordResetsTable.id, reset.id));
+  // Sign in the user immediately
+  const jwtToken = signJwt({ id: user.id, email: user.email }, JWT_SECRET);
+  res.json({ user: { id: user.id, email: user.email, name: user.name, banned: user.banned }, token: jwtToken });
 });
 
 router.post("/auth/signin", async (req, res): Promise<void> => {
