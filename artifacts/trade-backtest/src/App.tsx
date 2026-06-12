@@ -89,7 +89,7 @@ function AdminPanelGuard() {
   const { adminToken } = useAuth();
   const [, setLocation] = useLocation();
   useEffect(() => {
-    if (!adminToken) setLocation("/dashboard");
+    if (!adminToken) setLocation("/admin/login");
   }, [adminToken]);
   if (!adminToken) return null;
   return <AdminPanel />;

@@ -5,6 +5,7 @@ import {
   ChevronUp, Check, X, Image, Wand2, Save, AlertCircle, Eye, EyeOff,
   ChevronRight, Layers, Upload, Loader2,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { API_BASE } from "@/lib/api-config";
 import { useAuth } from "@/lib/auth-context";
 
@@ -57,6 +58,7 @@ const btnBase: React.CSSProperties = {
 ═══════════════════════════════════════════════════════════════════ */
 export function AcademyAdminTab() {
   const { adminToken, setAdminToken } = useAuth();
+  const [, setLocation] = useLocation();
   const headers = useMemo<Record<string, string>>(
     () => ({ "Content-Type": "application/json", "x-admin-token": adminToken ?? "" }),
     [adminToken]
@@ -125,8 +127,8 @@ export function AcademyAdminTab() {
         fetch(`${API_BASE}/api/academy/admin/courses`, { headers }),
       ]);
       if (sr.status === 401 || cr.status === 401) {
-        setFetchError("Authentication required. Please log in as admin.");
         setAdminToken(null);
+        setLocation("/admin/login");
         setLoading(false); return;
       }
       if (sr.ok) setStats(await sr.json());
