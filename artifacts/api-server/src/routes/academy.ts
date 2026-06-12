@@ -958,4 +958,142 @@ router.get("/academy/admin/analytics", requireAdmin, async (req, res): Promise<v
   }
 });
 
+/* GET /api/academy/admin/stats — stats for admin panel */
+router.get("/academy/admin/stats", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const [{ totalStudents }] = await db.select({ totalStudents: drizzleCount() }).from(academyXpTable);
+    const [{ totalLessons }] = await db.select({ totalLessons: drizzleCount() }).from(academyLessonsTable);
+    const [{ totalCompletions }] = await db.select({ totalCompletions: drizzleCount() }).from(academyUserProgressTable);
+    const [{ totalCertificates }] = await db.select({ totalCertificates: drizzleCount() }).from(academyCertificatesTable);
+
+    const xpRows = await db.select({ xp: academyXpTable.xp }).from(academyXpTable);
+    const totalXpAwarded = xpRows.reduce((s, r) => s + (r.xp ?? 0), 0);
+
+    const courses = await db.select().from(academyCoursesTable).where(eq(academyCoursesTable.published, true));
+    const totalCourses = courses.length;
+
+    // Top courses by completions
+    const progressRows = await db.select({ lessonId: academyUserProgressTable.lessonId }).from(academyUserProgressTable);
+    const allLessonsForTop = await db.select({ id: academyLessonsTable.id, courseId: academyLessonsTable.courseId }).from(academyLessonsTable);
+    const lessonToCourse = new Map(allLessonsForTop.map(l => [l.id, l.courseId]));
+    const completionsByCourse = new Map<number, number>();
+    for (const p of progressRows) {
+      const cid = lessonToCourse.get(p.lessonId);
+      if (cid !== undefined) completionsByCourse.set(cid, (completionsByCourse.get(cid) ?? 0) + 1);
+    }
+    const topCourses = courses
+      .map(c => ({ id: c.id, title: c.title, thumbnailEmoji: c.thumbnailEmoji ?? "📚", completions: completionsByCourse.get(c.id) ?? 0 }))
+      .sort((a, b) => b.completions - a.completions)
+      .slice(0, 5);
+
+    res.json({
+      totalCourses,
+      totalLessons: Number(totalLessons),
+      totalUsers: Number(totalStudents),
+      totalCompletions: Number(totalCompletions),
+      totalCertificates: Number(totalCertificates),
+      totalXpAwarded,
+      topCourses,
+    });
+  } catch (e) {
+    logger.error({ err: e }, "GET /academy/admin/stats");
+    res.status(500).json({ error: "Failed to load stats" });
+  }
+});
+
+/* POST /api/academy/admin/seed — force-reseed missing content (admin only) */
+router.post("/academy/admin/seed", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    let added = 0;
+    for (const c of SEED_COURSES) {
+      // Only add if title doesn't already exist
+      const existing = await db.select({ id: academyCoursesTable.id })
+        .from(academyCoursesTable).where(sql`lower(title) = lower(${c.title})`).limit(1);
+      if (existing.length > 0) continue;
+
+      const [inserted] = await db.insert(academyCoursesTable).values(c).returning({ id: academyCoursesTable.id });
+      const courseId = inserted.id;
+      added++;
+
+      const lessons = SEED_LESSONS[c.title];
+      if (lessons) {
+        for (let i = 0; i < lessons.length; i++) {
+          const l = lessons[i];
+          await db.insert(academyLessonsTable).values({
+            courseId,
+            title: `${c.title}: ${l.titleSuffix}`,
+            type: l.type,
+            content: l.content,
+            estimatedMinutes: l.estimatedMinutes,
+            sortOrder: i + 1,
+          });
+        }
+      } else {
+        await db.insert(academyLessonsTable).values({
+          courseId,
+          title: `${c.title}: Introduction`,
+          type: "article",
+          content: `# ${c.title}\n\n${c.description}\n\nThis lesson is coming soon.`,
+          estimatedMinutes: c.estimatedMinutes,
+          sortOrder: 1,
+        });
+      }
+
+      const quizzes = SEED_QUIZZES[c.title];
+      if (quizzes) {
+        for (let i = 0; i < quizzes.length; i++) {
+          const q = quizzes[i];
+          await db.insert(academyQuizQuestionsTable).values({ courseId, ...q, sortOrder: i + 1 });
+        }
+      } else {
+        await db.insert(academyQuizQuestionsTable).values([
+          { courseId, sortOrder: 1, question: `What is the primary focus of ${c.title}?`, type: "mcq", options: ["Technical analysis only", "The core concepts covered in this module", "Fundamental analysis", "News trading"], correctIndex: 1, explanation: `${c.title} focuses on the key concepts described in this module.` },
+          { courseId, sortOrder: 2, question: `${c.title} is only relevant to professional traders.`, type: "true_false", options: ["True", "False"], correctIndex: 1, explanation: "The concepts are valuable for traders at all levels." },
+        ]);
+      }
+    }
+    logger.info(`Admin reseed: ${added} new courses added.`);
+    res.json({ message: `${added} new course${added !== 1 ? "s" : ""} added. Existing content unchanged.` });
+  } catch (e) {
+    logger.error({ err: e }, "POST /academy/admin/seed");
+    res.status(500).json({ error: "Seed failed" });
+  }
+});
+
+/* GET /api/academy/admin/courses — list all courses (all paths, published + unpublished) */
+router.get("/academy/admin/courses", requireAdmin, async (req, res): Promise<void> => {
+  try {
+    const courses = await db.select().from(academyCoursesTable)
+      .orderBy(academyCoursesTable.pathId, academyCoursesTable.sortOrder);
+
+    const lessonCounts = await db.select({
+      courseId: academyLessonsTable.courseId,
+      count: drizzleCount(),
+    }).from(academyLessonsTable).groupBy(academyLessonsTable.courseId);
+
+    const countMap = new Map(lessonCounts.map(r => [r.courseId, Number(r.count)]));
+
+    res.json(courses.map(c => ({ ...c, lessonCount: countMap.get(c.id) ?? 0 })));
+  } catch (e) {
+    logger.error({ err: e }, "GET /academy/admin/courses");
+    res.status(500).json({ error: "Failed to load courses" });
+  }
+});
+
+/* PATCH /api/academy/admin/courses/:id/publish — toggle published */
+router.patch("/academy/admin/courses/:id/publish", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(req.params["id"]);
+  const { published } = req.body as { published: boolean };
+  try {
+    const [updated] = await db.update(academyCoursesTable)
+      .set({ published, updatedAt: new Date() })
+      .where(eq(academyCoursesTable.id, id))
+      .returning();
+    res.json(updated);
+  } catch (e) {
+    logger.error({ err: e }, "PATCH /academy/admin/courses/:id/publish");
+    res.status(500).json({ error: "Failed to update" });
+  }
+});
+
 export default router;
