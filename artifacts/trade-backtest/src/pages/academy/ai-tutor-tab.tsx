@@ -1,31 +1,42 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bot, Send, User, Loader2, Sparkles, BookOpen, RefreshCw } from "lucide-react";
+import { Bot, Send, User, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 
-const C = { purple: "#a855f7", cyan: "#06b6d4", green: "#22c55e", amber: "#f59e0b" };
+const ACCENT = "#22D3EE";
+const BORDER = "#262626";
+const CARD = "#171717";
+const TEXT = "#A1A1AA";
 
 interface Message { role: "user" | "assistant"; content: string; }
 
 const SUGGESTED_PROMPTS = [
-  "Explain what an Order Block is in simple terms",
-  "What is the difference between Support/Resistance and Supply/Demand?",
+  "Explain what an Order Block is",
+  "What is the difference between Support and Supply/Demand?",
   "How do I calculate position size correctly?",
-  "What are the biggest mistakes beginner traders make?",
+  "What are the biggest beginner trading mistakes?",
   "Explain Fair Value Gaps and how to trade them",
-  "What is a liquidity sweep and why does it happen?",
+  "What is a liquidity sweep?",
   "How do I identify market structure shifts?",
-  "What is the ICT concept of 'inducement'?",
   "Explain the psychology behind revenge trading",
-  "What makes a valid Order Block different from any candle?",
 ];
+
+function formatMessage(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:700;color:#FFFFFF">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, `<code style="font-family:monospace;font-size:11px;background:#222;padding:1px 5px;border-radius:4px">$1</code>`)
+    .replace(/^• (.+)$/gm, `<div style="display:flex;gap:8px;margin:3px 0"><span style="color:${ACCENT};flex-shrink:0">·</span><span>$1</span></div>`)
+    .replace(/^- (.+)$/gm, `<div style="display:flex;gap:8px;margin:3px 0"><span style="color:${ACCENT};flex-shrink:0">·</span><span>$1</span></div>`)
+    .replace(/\n/g, "<br/>");
+}
 
 export function AiTutorTab() {
   const { token } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I'm your Trade Lab AI Tutor 📚\n\nI'm here to help you learn trading — from beginner basics to advanced Smart Money Concepts. Ask me anything!\n\nYou can ask me to:\n• **Explain** any concept simply\n• **Give examples** from real markets\n• **Quiz you** on a topic\n• **Summarize** key takeaways\n• **Clarify** anything from the lessons",
+      content: "Hello. I'm your Trade Lab AI Tutor.\n\nAsk me anything about trading — from the basics of candlestick patterns to advanced Smart Money Concepts.\n\nYou can ask me to:\n- **Explain** any concept clearly\n- **Give examples** from real markets\n- **Quiz you** on a topic\n- **Summarize** key takeaways from a lesson",
     },
   ]);
   const [input, setInput] = useState("");
@@ -33,9 +44,7 @@ export function AiTutorTab() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
   async function sendMessage(text: string) {
@@ -54,47 +63,36 @@ export function AiTutorTab() {
         }),
       });
       const data = await r.json() as { reply: string };
-      setMessages(prev => [...prev, { role: "assistant", content: data.reply ?? "Sorry, I couldn't respond. Please try again." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: data.reply ?? "Sorry, I couldn't respond." }]);
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please check your connection and try again." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
     } finally {
       setLoading(false);
     }
   }
 
-  function formatMessage(text: string) {
-    return text
-      .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:700">$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, `<code style="font-family:monospace;font-size:11px;background:rgba(168,85,247,0.15);padding:1px 5px;border-radius:4px">$1</code>`)
-      .replace(/^• (.+)$/gm, `<div style="display:flex;align-items:flex-start;gap:6px;margin:2px 0"><span style="color:${C.purple};flex-shrink:0;margin-top:1px">•</span><span>$1</span></div>`)
-      .replace(/\n/g, "<br/>");
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 200px)", minHeight: "500px", gap: "0" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 220px)", minHeight: "480px" }}>
       {/* Header */}
       <div style={{
-        padding: "16px 20px", borderRadius: "16px 16px 0 0",
-        background: `linear-gradient(135deg, ${C.purple}15, ${C.cyan}08)`,
-        border: "1px solid hsl(var(--border))", borderBottom: "none",
+        padding: "14px 18px", background: CARD, border: `1px solid ${BORDER}`,
+        borderBottom: "none", borderRadius: "10px 10px 0 0",
         display: "flex", alignItems: "center", gap: "12px",
       }}>
         <div style={{
-          width: "38px", height: "38px", borderRadius: "11px",
-          background: `linear-gradient(135deg, ${C.purple}, ${C.cyan})`,
+          width: "34px", height: "34px", borderRadius: "8px",
+          background: "#111111", border: `1px solid ${BORDER}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: `0 4px 12px ${C.purple}40`,
         }}>
-          <Bot style={{ height: "18px", width: "18px", color: "white" }} />
+          <Bot style={{ height: "16px", width: "16px", color: ACCENT }} />
         </div>
         <div>
-          <div style={{ fontSize: "14px", fontWeight: 700, color: "hsl(var(--foreground))" }}>AI Study Tutor</div>
-          <div style={{ fontSize: "11px", color: C.purple }}>Expert in trading education · Available 24/7</div>
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>AI Study Tutor</div>
+          <div style={{ fontSize: "11px", color: TEXT }}>Expert in trading education</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "5px" }}>
-          <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}` }} />
-          <span style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>Online</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#84CC16" }} />
+          <span style={{ fontSize: "11px", color: TEXT }}>Online</span>
         </div>
       </div>
 
@@ -102,9 +100,9 @@ export function AiTutorTab() {
       <div
         ref={scrollRef}
         style={{
-          flex: 1, overflow: "auto", padding: "16px 20px",
-          background: "var(--card-bg)", border: "1px solid hsl(var(--border))", borderTop: "none", borderBottom: "none",
-          display: "flex", flexDirection: "column", gap: "14px",
+          flex: 1, overflow: "auto", padding: "16px",
+          background: "#0f0f0f", border: `1px solid ${BORDER}`, borderTop: "none", borderBottom: "none",
+          display: "flex", flexDirection: "column", gap: "12px",
         }}
       >
         {messages.map((m, i) => (
@@ -115,22 +113,19 @@ export function AiTutorTab() {
           }}>
             {m.role === "assistant" && (
               <div style={{
-                width: "30px", height: "30px", borderRadius: "9px", flexShrink: 0,
-                background: `linear-gradient(135deg, ${C.purple}, ${C.cyan})`,
+                width: "28px", height: "28px", borderRadius: "7px", flexShrink: 0,
+                background: "#111111", border: `1px solid ${BORDER}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
-                <Bot style={{ height: "14px", width: "14px", color: "white" }} />
+                <Bot style={{ height: "13px", width: "13px", color: ACCENT }} />
               </div>
             )}
             <div style={{
-              maxWidth: "72%",
-              padding: "12px 16px",
-              borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-              background: m.role === "user"
-                ? `linear-gradient(135deg, ${C.purple}, ${C.cyan})`
-                : "hsl(var(--muted))",
-              color: m.role === "user" ? "white" : "hsl(var(--foreground))",
-              fontSize: "13px", lineHeight: "1.6",
+              maxWidth: "72%", padding: "11px 14px",
+              borderRadius: m.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+              background: m.role === "user" ? "#1a1a1a" : CARD,
+              border: `1px solid ${m.role === "user" ? "#333" : BORDER}`,
+              color: "#FFFFFF", fontSize: "13px", lineHeight: "1.6",
             }}>
               {m.role === "assistant"
                 ? <span dangerouslySetInnerHTML={{ __html: formatMessage(m.content) }} />
@@ -139,30 +134,33 @@ export function AiTutorTab() {
             </div>
             {m.role === "user" && (
               <div style={{
-                width: "30px", height: "30px", borderRadius: "9px", flexShrink: 0,
-                background: "hsl(var(--muted))", display: "flex", alignItems: "center", justifyContent: "center",
+                width: "28px", height: "28px", borderRadius: "7px", flexShrink: 0,
+                background: "#111111", border: `1px solid ${BORDER}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
               }}>
-                <User style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+                <User style={{ height: "13px", width: "13px", color: TEXT }} />
               </div>
             )}
           </div>
         ))}
+
         {loading && (
           <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
             <div style={{
-              width: "30px", height: "30px", borderRadius: "9px",
-              background: `linear-gradient(135deg, ${C.purple}, ${C.cyan})`,
+              width: "28px", height: "28px", borderRadius: "7px",
+              background: "#111111", border: `1px solid ${BORDER}`,
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
             }}>
-              <Bot style={{ height: "14px", width: "14px", color: "white" }} />
+              <Bot style={{ height: "13px", width: "13px", color: ACCENT }} />
             </div>
             <div style={{
-              padding: "12px 16px", borderRadius: "16px 16px 16px 4px",
-              background: "hsl(var(--muted))", display: "flex", alignItems: "center", gap: "5px",
+              padding: "11px 14px", borderRadius: "12px 12px 12px 4px",
+              background: CARD, border: `1px solid ${BORDER}`,
+              display: "flex", gap: "4px", alignItems: "center",
             }}>
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
-                  width: "6px", height: "6px", borderRadius: "50%", background: C.purple,
+                  width: "5px", height: "5px", borderRadius: "50%", background: TEXT,
                   animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
                 }} />
               ))}
@@ -174,24 +172,30 @@ export function AiTutorTab() {
       {/* Suggested prompts */}
       {messages.length <= 2 && (
         <div style={{
-          padding: "10px 20px", background: "var(--card-bg)",
-          border: "1px solid hsl(var(--border))", borderTop: "none", borderBottom: "none",
+          padding: "10px 16px", background: "#0f0f0f",
+          border: `1px solid ${BORDER}`, borderTop: `1px solid ${BORDER}`, borderBottom: "none",
           display: "flex", flexWrap: "wrap", gap: "6px",
         }}>
-          {SUGGESTED_PROMPTS.slice(0, 5).map(p => (
+          {SUGGESTED_PROMPTS.slice(0, 4).map(p => (
             <button
               key={p}
               onClick={() => sendMessage(p)}
               style={{
-                padding: "5px 12px", borderRadius: "20px", fontSize: "11px", fontWeight: 500,
-                cursor: "pointer", background: `${C.purple}10`, border: `1px solid ${C.purple}25`,
-                color: C.purple, transition: "all 0.12s ease",
+                padding: "5px 11px", borderRadius: "6px", fontSize: "11px",
+                cursor: "pointer", background: "#111111", border: `1px solid ${BORDER}`,
+                color: TEXT, transition: "border-color 0.12s, color 0.12s",
                 whiteSpace: "nowrap",
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.purple}20`; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = `${C.purple}10`; }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = "#3a3a3a";
+                (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = BORDER;
+                (e.currentTarget as HTMLElement).style.color = TEXT;
+              }}
             >
-              {p.length > 40 ? p.slice(0, 40) + "..." : p}
+              {p.length > 40 ? p.slice(0, 40) + "…" : p}
             </button>
           ))}
         </div>
@@ -199,20 +203,20 @@ export function AiTutorTab() {
 
       {/* Input */}
       <div style={{
-        padding: "14px 20px", borderRadius: "0 0 16px 16px",
-        background: "var(--card-bg)", border: "1px solid hsl(var(--border))", borderTop: "none",
+        padding: "12px 16px", borderRadius: "0 0 10px 10px",
+        background: CARD, border: `1px solid ${BORDER}`, borderTop: "none",
         display: "flex", gap: "8px", alignItems: "flex-end",
       }}>
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-          placeholder="Ask me anything about trading — Order Blocks, risk management, psychology, charts..."
+          placeholder="Ask anything about trading…"
           rows={2}
           style={{
-            flex: 1, padding: "10px 14px", borderRadius: "12px", fontSize: "13px",
-            background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))",
-            color: "hsl(var(--foreground))", outline: "none", resize: "none",
+            flex: 1, padding: "9px 12px", borderRadius: "8px", fontSize: "13px",
+            background: "#111111", border: `1px solid ${BORDER}`,
+            color: "#FFFFFF", outline: "none", resize: "none",
             lineHeight: "1.5", fontFamily: "inherit",
           }}
         />
@@ -220,19 +224,17 @@ export function AiTutorTab() {
           onClick={() => sendMessage(input)}
           disabled={!input.trim() || loading}
           style={{
-            width: "40px", height: "40px", borderRadius: "12px", flexShrink: 0,
-            background: input.trim() && !loading
-              ? `linear-gradient(135deg, ${C.purple}, ${C.cyan})`
-              : "hsl(var(--muted))",
-            border: "none", cursor: input.trim() && !loading ? "pointer" : "not-allowed",
+            width: "38px", height: "38px", borderRadius: "8px", flexShrink: 0,
+            background: input.trim() && !loading ? ACCENT : "#111111",
+            border: `1px solid ${input.trim() && !loading ? ACCENT : BORDER}`,
+            cursor: input.trim() && !loading ? "pointer" : "not-allowed",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: input.trim() && !loading ? `0 4px 12px ${C.purple}40` : "none",
-            transition: "all 0.15s ease",
+            transition: "all 0.15s",
           }}
         >
           {loading
-            ? <Loader2 style={{ height: "15px", width: "15px", color: "hsl(var(--muted-foreground))", animation: "spin 1s linear infinite" }} />
-            : <Send style={{ height: "15px", width: "15px", color: input.trim() ? "white" : "hsl(var(--muted-foreground))" }} />
+            ? <Loader2 style={{ height: "14px", width: "14px", color: TEXT, animation: "spin 1s linear infinite" }} />
+            : <Send style={{ height: "14px", width: "14px", color: input.trim() ? "#000000" : TEXT }} />
           }
         </button>
       </div>

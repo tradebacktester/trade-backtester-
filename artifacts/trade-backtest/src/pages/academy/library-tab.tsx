@@ -1,85 +1,77 @@
 import React, { useState, useMemo } from "react";
-import { Search, BookOpen, Clock, Filter, X } from "lucide-react";
+import { Search, BookOpen, Clock, Filter, X, CheckCircle2 } from "lucide-react";
 import type { AcademyCourse } from "./types";
 import { PATH_META } from "./types";
 
-const C = { purple: "#a855f7", cyan: "#06b6d4", green: "#22c55e", amber: "#f59e0b" };
+const ACCENT = "#22D3EE";
+const SUCCESS = "#84CC16";
+const BORDER = "#262626";
+const CARD = "#171717";
+const TEXT = "#A1A1AA";
 
 const DIFFICULTIES = ["beginner", "intermediate", "advanced", "professional"];
 const DIFF_COLORS: Record<string, string> = {
-  beginner: C.green, intermediate: C.cyan, advanced: C.purple, professional: C.amber,
+  beginner: SUCCESS,
+  intermediate: ACCENT,
+  advanced: "#A78BFA",
+  professional: "#F59E0B",
 };
 
 function CourseCard({ course, onSelect }: { course: AcademyCourse; onSelect: (c: AcademyCourse) => void }) {
-  const meta = PATH_META[course.pathId];
-  const pct = course.lessonCount! > 0 ? Math.round(((course.completedLessons ?? 0) / course.lessonCount!) * 100) : 0;
-  const diffColor = DIFF_COLORS[course.difficulty] ?? C.purple;
+  const pct = (course.lessonCount ?? 0) > 0
+    ? Math.round(((course.completedLessons ?? 0) / course.lessonCount!) * 100)
+    : 0;
+  const diffColor = DIFF_COLORS[course.difficulty] ?? TEXT;
 
   return (
     <div
       onClick={() => onSelect(course)}
       style={{
-        background: "var(--card-bg)", border: "1px solid hsl(var(--border))",
-        borderRadius: "14px", padding: "18px", cursor: "pointer",
-        transition: "all 0.15s ease", display: "flex", flexDirection: "column", gap: "12px",
+        background: CARD, border: `1px solid ${BORDER}`,
+        borderRadius: "10px", padding: "16px", cursor: "pointer",
+        transition: "border-color 0.15s", display: "flex", flexDirection: "column", gap: "12px",
       }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = diffColor + "50";
-        (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${diffColor}15`;
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
-        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "none";
-      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#3a3a3a"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = BORDER; }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-        <div style={{
-          width: "44px", height: "44px", borderRadius: "12px", flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "22px", background: `${diffColor}18`, border: `1px solid ${diffColor}30`,
-        }}>
-          {course.thumbnailEmoji}
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF", marginBottom: "5px", lineHeight: "1.3" }}>
+          {course.title}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "hsl(var(--foreground))", marginBottom: "4px", lineHeight: "1.3" }}>
-            {course.title}
-          </div>
-          <div style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", lineHeight: "1.4" }}>
-            {course.description.length > 80 ? course.description.slice(0, 80) + "..." : course.description}
-          </div>
+        <div style={{ fontSize: "11px", color: TEXT, lineHeight: "1.5" }}>
+          {course.description.length > 90 ? course.description.slice(0, 90) + "…" : course.description}
         </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
         <span style={{
-          fontSize: "10px", fontWeight: 600, padding: "2px 8px", borderRadius: "10px",
-          background: `${diffColor}18`, color: diffColor, border: `1px solid ${diffColor}30`,
+          fontSize: "10px", fontWeight: 600, padding: "2px 8px", borderRadius: "4px",
+          background: "#111111", color: diffColor, border: `1px solid ${BORDER}`,
         }}>
           {course.difficulty.charAt(0).toUpperCase() + course.difficulty.slice(1)}
         </span>
-        <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", padding: "2px 8px", borderRadius: "10px", background: "hsl(var(--muted))" }}>
+        <span style={{ fontSize: "10px", color: TEXT, padding: "2px 8px", borderRadius: "4px", background: "#111111", border: `1px solid ${BORDER}` }}>
           {course.category}
         </span>
-        <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", display: "flex", alignItems: "center", gap: "3px" }}>
+        <span style={{ fontSize: "10px", color: TEXT, display: "flex", alignItems: "center", gap: "3px" }}>
           <Clock style={{ height: "9px", width: "9px" }} />{course.estimatedMinutes}m
         </span>
-        <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", display: "flex", alignItems: "center", gap: "3px" }}>
-          <BookOpen style={{ height: "9px", width: "9px" }} />{course.lessonCount} lessons
+        <span style={{ fontSize: "10px", color: TEXT, display: "flex", alignItems: "center", gap: "3px" }}>
+          <BookOpen style={{ height: "9px", width: "9px" }} />{course.lessonCount}
         </span>
       </div>
 
       {pct > 0 && (
         <div>
-          <div style={{ height: "3px", borderRadius: "2px", background: "hsl(var(--muted))", overflow: "hidden" }}>
+          <div style={{ height: "2px", borderRadius: "1px", background: "#262626", overflow: "hidden" }}>
             <div style={{
-              height: "100%", borderRadius: "2px", width: `${pct}%`,
-              background: pct === 100 ? C.green : meta.color,
+              height: "100%", borderRadius: "1px", width: `${pct}%`,
+              background: pct === 100 ? SUCCESS : ACCENT, transition: "width 0.4s",
             }} />
           </div>
-          <div style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", marginTop: "4px" }}>
-            {pct === 100 ? "✓ Complete" : `${pct}% complete`}
+          <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "10px", color: pct === 100 ? SUCCESS : TEXT, marginTop: "5px" }}>
+            {pct === 100 && <CheckCircle2 style={{ height: "10px", width: "10px" }} />}
+            {pct === 100 ? "Complete" : `${pct}%`}
           </div>
         </div>
       )}
@@ -96,12 +88,6 @@ export function LibraryTab({
 }) {
   const [query, setQuery] = useState("");
   const [selectedDiff, setSelectedDiff] = useState<string | null>(null);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-
-  const categories = useMemo(() => {
-    const s = new Set(courses.map(c => c.category));
-    return [...s].sort();
-  }, [courses]);
 
   const filtered = useMemo(() => {
     let result = courses;
@@ -114,95 +100,89 @@ export function LibraryTab({
       );
     }
     if (selectedDiff) result = result.filter(c => c.difficulty === selectedDiff);
-    if (selectedPath) result = result.filter(c => c.pathId === selectedPath);
     return result;
-  }, [courses, query, selectedDiff, selectedPath]);
+  }, [courses, query, selectedDiff]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
       {/* Search */}
       <div style={{ position: "relative" }}>
         <Search style={{
-          position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)",
-          height: "14px", width: "14px", color: "hsl(var(--muted-foreground))",
+          position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)",
+          height: "13px", width: "13px", color: TEXT, pointerEvents: "none",
         }} />
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Search topics — RSI, Order Block, MACD, Liquidity..."
+          placeholder="Search — RSI, Order Block, MACD, Liquidity…"
           style={{
-            width: "100%", padding: "11px 14px 11px 38px", borderRadius: "12px",
-            background: "var(--card-bg)", border: "1px solid hsl(var(--border))",
-            color: "hsl(var(--foreground))", fontSize: "13px", outline: "none", boxSizing: "border-box",
+            width: "100%", padding: "10px 36px 10px 36px", borderRadius: "8px",
+            background: CARD, border: `1px solid ${BORDER}`,
+            color: "#FFFFFF", fontSize: "13px", outline: "none", boxSizing: "border-box",
           }}
         />
         {query && (
           <button onClick={() => setQuery("")} style={{
-            position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)",
-            background: "none", border: "none", cursor: "pointer", color: "hsl(var(--muted-foreground))",
+            position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)",
+            background: "none", border: "none", cursor: "pointer", color: TEXT,
             display: "flex", padding: "2px",
           }}>
-            <X style={{ height: "13px", width: "13px" }} />
+            <X style={{ height: "12px", width: "12px" }} />
           </button>
         )}
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
-        <Filter style={{ height: "12px", width: "12px", color: "hsl(var(--muted-foreground))", flexShrink: 0 }} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+        <Filter style={{ height: "11px", width: "11px", color: TEXT, flexShrink: 0 }} />
         {DIFFICULTIES.map(d => {
           const active = selectedDiff === d;
-          const col = DIFF_COLORS[d];
           return (
             <button
               key={d}
               onClick={() => setSelectedDiff(active ? null : d)}
               style={{
-                padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 600,
-                cursor: "pointer", border: `1px solid ${active ? col : "hsl(var(--border))"}`,
-                background: active ? `${col}18` : "var(--card-bg)",
-                color: active ? col : "hsl(var(--muted-foreground))",
-                transition: "all 0.12s ease",
+                padding: "4px 12px", borderRadius: "6px", fontSize: "11px", fontWeight: 500,
+                cursor: "pointer",
+                border: `1px solid ${active ? DIFF_COLORS[d] + "60" : BORDER}`,
+                background: active ? "#111111" : "transparent",
+                color: active ? DIFF_COLORS[d] : TEXT,
+                transition: "all 0.12s",
               }}
             >
               {d.charAt(0).toUpperCase() + d.slice(1)}
             </button>
           );
         })}
-        {(selectedDiff || selectedPath || query) && (
+        {(selectedDiff || query) && (
           <button
-            onClick={() => { setSelectedDiff(null); setSelectedPath(null); setQuery(""); }}
+            onClick={() => { setSelectedDiff(null); setQuery(""); }}
             style={{
-              padding: "3px 10px", borderRadius: "20px", fontSize: "11px",
-              cursor: "pointer", border: "1px solid hsl(var(--border))",
-              background: "none", color: "hsl(var(--muted-foreground))",
+              padding: "4px 10px", borderRadius: "6px", fontSize: "11px",
+              cursor: "pointer", border: `1px solid ${BORDER}`,
+              background: "transparent", color: TEXT,
             }}
           >
-            Clear all
+            Clear
           </button>
         )}
       </div>
 
-      {/* Results count */}
-      <div style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }}>
-        {filtered.length} topic{filtered.length !== 1 ? "s" : ""} found
+      {/* Count */}
+      <div style={{ fontSize: "11px", color: TEXT }}>
+        {filtered.length} module{filtered.length !== 1 ? "s" : ""}
       </div>
 
-      {/* Course grid */}
+      {/* Grid */}
       {filtered.length === 0 ? (
-        <div style={{
-          textAlign: "center", padding: "60px 20px",
-          color: "hsl(var(--muted-foreground))", fontSize: "14px",
-        }}>
-          <Search style={{ height: "36px", width: "36px", margin: "0 auto 12px", opacity: 0.3 }} />
-          <div>No topics found for "{query}"</div>
-          <div style={{ fontSize: "12px", marginTop: "6px" }}>Try a different keyword like "RSI", "candle", or "trend"</div>
+        <div style={{ textAlign: "center", padding: "60px 20px", color: TEXT }}>
+          <Search style={{ height: "28px", width: "28px", margin: "0 auto 10px", opacity: 0.3 }} />
+          <div style={{ fontSize: "13px" }}>No results for "{query}"</div>
+          <div style={{ fontSize: "11px", marginTop: "4px", opacity: 0.7 }}>Try "RSI", "candle", or "trend"</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "12px" }}>
-          {filtered.map(c => (
-            <CourseCard key={c.id} course={c} onSelect={onSelectCourse} />
-          ))}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "10px" }}>
+          {filtered.map(c => <CourseCard key={c.id} course={c} onSelect={onSelectCourse} />)}
         </div>
       )}
     </div>

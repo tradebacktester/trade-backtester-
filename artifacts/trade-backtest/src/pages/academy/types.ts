@@ -1,3 +1,5 @@
+import { BookOpen, Zap, Brain, Trophy } from "lucide-react";
+
 export interface AcademyCourse {
   id: number;
   title: string;
@@ -104,25 +106,32 @@ export const PATH_META: Record<string, { title: string; description: string; ico
   beginner: {
     title: "Beginner Trader",
     description: "Master the fundamentals of trading from scratch",
-    icon: "🥉",
-    color: "#22c55e",
+    icon: "beginner",
+    color: "#84CC16",
   },
   intermediate: {
     title: "Intermediate Trader",
     description: "Deepen your skills with advanced price action",
-    icon: "🥈",
-    color: "#06b6d4",
+    icon: "intermediate",
+    color: "#22D3EE",
   },
   advanced: {
     title: "Advanced Trader",
     description: "Smart money concepts and institutional techniques",
-    icon: "🥇",
-    color: "#a855f7",
+    icon: "advanced",
+    color: "#A78BFA",
   },
   professional: {
     title: "Professional Trader",
     description: "Portfolio management and systematic trading",
-    icon: "🏆",
-    color: "#f59e0b",
+    icon: "professional",
+    color: "#F59E0B",
   },
+};
+
+export const PATH_ICONS: Record<string, React.ElementType> = {
+  beginner: BookOpen,
+  intermediate: Zap,
+  advanced: Brain,
+  professional: Trophy,
 };

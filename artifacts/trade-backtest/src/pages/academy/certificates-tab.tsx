@@ -1,36 +1,35 @@
 import React from "react";
-import { Award, Download, Lock, CheckCircle2, BookOpen, Target, Clock } from "lucide-react";
+import { Award, Download, Lock, CheckCircle2 } from "lucide-react";
 import type { AcademyCertificate } from "./types";
-import { PATH_META } from "./types";
+import { PATH_META, PATH_ICONS } from "./types";
 
-const C = { purple: "#a855f7", cyan: "#06b6d4", green: "#22c55e", amber: "#f59e0b", pink: "#ec4899" };
+const SUCCESS = "#84CC16";
+const BORDER = "#262626";
+const CARD = "#171717";
+const TEXT = "#A1A1AA";
 
-const CERT_META: Record<string, { title: string; icon: string; color: string; description: string; requirements: string[] }> = {
+const CERT_META: Record<string, { title: string; color: string; description: string; requirements: string[] }> = {
   beginner: {
     title: "Beginner Trader Certificate",
-    icon: "🥉",
-    color: C.green,
+    color: SUCCESS,
     description: "Awarded for completing the Beginner trading path with fundamental knowledge of markets, charts, and risk management.",
     requirements: ["Complete 80%+ of Beginner path lessons", "Score 60%+ average on quizzes"],
   },
   intermediate: {
     title: "Intermediate Trader Certificate",
-    icon: "🥈",
-    color: C.cyan,
+    color: "#22D3EE",
     description: "Demonstrates proficiency in price action, market structure, and intermediate trading concepts.",
     requirements: ["Complete 80%+ of Intermediate path lessons", "Score 60%+ average on quizzes"],
   },
   advanced: {
     title: "Advanced Trader Certificate",
-    icon: "🥇",
-    color: C.purple,
+    color: "#A78BFA",
     description: "Recognizes mastery of Smart Money Concepts, ICT methodology, and advanced market analysis.",
     requirements: ["Complete 80%+ of Advanced path lessons", "Score 60%+ average on quizzes"],
   },
   professional: {
     title: "Trade Lab Certified Trader",
-    icon: "🏆",
-    color: C.amber,
+    color: "#F59E0B",
     description: "The highest Trade Lab certification — awarded to traders who have mastered professional-level concepts.",
     requirements: ["Complete 80%+ of Professional path lessons", "Score 60%+ average on quizzes"],
   },
@@ -42,72 +41,57 @@ function CertificateCard({ pathId, cert, pathProgress }: {
   pathProgress: { total: number; completed: number; quizScore: number | null };
 }) {
   const meta = CERT_META[pathId];
+  const pathMeta = PATH_META[pathId];
+  const Icon = PATH_ICONS[pathId] ?? Award;
   const earned = !!cert;
   const pct = pathProgress.total > 0 ? Math.round((pathProgress.completed / pathProgress.total) * 100) : 0;
 
   function downloadCert() {
-    if (!cert || !earned) return;
+    if (!cert || !earned || !meta) return;
     const canvas = document.createElement("canvas");
     canvas.width = 1000;
     canvas.height = 700;
     const ctx = canvas.getContext("2d")!;
 
-    // Background
-    ctx.fillStyle = "#0f0f14";
+    ctx.fillStyle = "#0A0A0A";
     ctx.fillRect(0, 0, 1000, 700);
 
-    // Border gradient
-    const borderGrad = ctx.createLinearGradient(0, 0, 1000, 700);
-    borderGrad.addColorStop(0, meta.color);
-    borderGrad.addColorStop(1, C.cyan);
-    ctx.strokeStyle = borderGrad;
-    ctx.lineWidth = 6;
+    ctx.strokeStyle = meta.color;
+    ctx.lineWidth = 4;
     ctx.strokeRect(20, 20, 960, 660);
 
-    // Inner border
-    ctx.strokeStyle = meta.color + "40";
+    ctx.strokeStyle = "#262626";
     ctx.lineWidth = 1;
-    ctx.strokeRect(32, 32, 936, 636);
+    ctx.strokeRect(34, 34, 932, 632);
 
-    // Title
     ctx.fillStyle = meta.color;
-    ctx.font = "bold 28px Arial";
+    ctx.font = "bold 22px Arial";
     ctx.textAlign = "center";
     ctx.fillText("TRADE LAB ACADEMY", 500, 100);
 
-    // Cert type
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 42px Arial";
-    ctx.fillText("Certificate of Completion", 500, 180);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 38px Arial";
+    ctx.fillText("Certificate of Completion", 500, 170);
 
-    // Icon
-    ctx.font = "72px Arial";
-    ctx.fillText(meta.icon, 500, 290);
-
-    // Award text
-    ctx.fillStyle = "#a0a0b0";
-    ctx.font = "20px Arial";
-    ctx.fillText("This is to certify that you have successfully completed", 500, 360);
-
-    // Certificate title
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 32px Arial";
-    ctx.fillText(meta.title, 500, 420);
-
-    // Score
-    ctx.fillStyle = meta.color;
+    ctx.fillStyle = "#A1A1AA";
     ctx.font = "18px Arial";
-    ctx.fillText(`Achievement Score: ${cert.score}%`, 500, 470);
+    ctx.fillText("This is to certify that you have successfully completed", 500, 340);
 
-    // Date
-    ctx.fillStyle = "#a0a0b0";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 30px Arial";
+    ctx.fillText(meta.title, 500, 400);
+
+    ctx.fillStyle = meta.color;
     ctx.font = "16px Arial";
-    ctx.fillText(`Issued: ${new Date(cert.issuedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, 500, 520);
+    ctx.fillText(`Achievement Score: ${cert.score}%`, 500, 450);
 
-    // Footer
-    ctx.fillStyle = "#606070";
+    ctx.fillStyle = "#A1A1AA";
     ctx.font = "14px Arial";
-    ctx.fillText("Trade Lab · Professional Trading Education Platform", 500, 600);
+    ctx.fillText(`Issued: ${new Date(cert.issuedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, 500, 500);
+
+    ctx.fillStyle = "#404040";
+    ctx.font = "12px Arial";
+    ctx.fillText("Trade Lab · Professional Trading Education Platform", 500, 590);
 
     const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
@@ -116,86 +100,78 @@ function CertificateCard({ pathId, cert, pathProgress }: {
     a.click();
   }
 
+  if (!meta) return null;
+
   return (
     <div style={{
-      background: earned
-        ? `linear-gradient(135deg, ${meta.color}12, ${meta.color}06)`
-        : "var(--card-bg)",
-      border: `1px solid ${earned ? meta.color + "40" : "hsl(var(--border))"}`,
-      borderRadius: "20px", padding: "24px",
-      position: "relative", overflow: "hidden",
+      background: CARD, border: `1px solid ${earned ? meta.color + "30" : BORDER}`,
+      borderRadius: "10px", padding: "20px",
       opacity: earned ? 1 : 0.85,
     }}>
-      {earned && (
-        <div style={{
-          position: "absolute", top: "16px", right: "16px",
-          display: "flex", alignItems: "center", gap: "4px",
-          fontSize: "10px", fontWeight: 700, color: C.green,
-          background: `${C.green}18`, padding: "3px 8px", borderRadius: "10px",
-          border: `1px solid ${C.green}30`,
-        }}>
-          <CheckCircle2 style={{ height: "9px", width: "9px" }} /> EARNED
-        </div>
-      )}
-
       <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
         <div style={{
-          width: "64px", height: "64px", borderRadius: "16px", flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: "34px",
-          background: `${meta.color}18`, border: `2px solid ${earned ? meta.color + "60" : meta.color + "20"}`,
-          filter: earned ? "none" : "grayscale(80%)",
-          boxShadow: earned ? `0 0 20px ${meta.color}30` : "none",
+          width: "52px", height: "52px", borderRadius: "10px", flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "#111111", border: `1px solid ${earned ? meta.color + "40" : BORDER}`,
+          filter: earned ? "none" : "grayscale(60%)",
         }}>
-          {meta.icon}
+          <Icon style={{ height: "22px", width: "22px", color: earned ? meta.color : TEXT }} />
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "15px", fontWeight: 700, color: "hsl(var(--foreground))", marginBottom: "4px" }}>
-            {meta.title}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF" }}>{meta.title}</span>
+            {earned && (
+              <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: SUCCESS, background: "#111111", padding: "2px 8px", borderRadius: "4px", border: `1px solid ${SUCCESS}40`, fontWeight: 600 }}>
+                <CheckCircle2 style={{ height: "9px", width: "9px" }} /> Earned
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))", lineHeight: "1.5", marginBottom: "12px" }}>
+          <div style={{ fontSize: "12px", color: TEXT, lineHeight: "1.5", marginBottom: "12px" }}>
             {meta.description}
           </div>
 
           {earned ? (
             <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-              <div style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }}>
+              <div style={{ fontSize: "12px", color: TEXT }}>
                 Score: <strong style={{ color: meta.color }}>{cert!.score}%</strong>
               </div>
-              <div style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }}>
-                Issued: <strong>{new Date(cert!.issuedAt).toLocaleDateString()}</strong>
+              <div style={{ fontSize: "12px", color: TEXT }}>
+                Issued: <strong style={{ color: "#FFFFFF" }}>{new Date(cert!.issuedAt).toLocaleDateString()}</strong>
               </div>
               <button
                 onClick={downloadCert}
                 style={{
-                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 14px",
-                  borderRadius: "9px", fontSize: "11px", fontWeight: 600, cursor: "pointer",
-                  background: meta.color, border: "none", color: "white",
-                  boxShadow: `0 2px 8px ${meta.color}40`,
+                  display: "flex", alignItems: "center", gap: "5px", padding: "6px 12px",
+                  borderRadius: "6px", fontSize: "11px", fontWeight: 600, cursor: "pointer",
+                  background: "#111111", border: "1px solid #FFFFFF", color: "#FFFFFF",
+                  transition: "background 0.12s",
                 }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#1a1a1a")}
+                onMouseLeave={e => (e.currentTarget.style.background = "#111111")}
               >
-                <Download style={{ height: "11px", width: "11px" }} /> Download Certificate
+                <Download style={{ height: "10px", width: "10px" }} /> Download
               </button>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ fontSize: "11px", fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: "2px", display: "flex", alignItems: "center", gap: "5px" }}>
-                <Lock style={{ height: "10px", width: "10px" }} /> Requirements
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: TEXT, marginBottom: "6px" }}>
+                <Lock style={{ height: "10px", width: "10px" }} />
+                Requirements
               </div>
               {meta.requirements.map(r => (
-                <div key={r} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "hsl(var(--muted-foreground))" }}>
-                  <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: meta.color + "60", flexShrink: 0 }} />
+                <div key={r} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: TEXT, marginBottom: "3px" }}>
+                  <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: BORDER, flexShrink: 0 }} />
                   {r}
                 </div>
               ))}
-              <div style={{ marginTop: "6px" }}>
+              <div style={{ marginTop: "10px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-                  <span style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>
-                    Path completion
-                  </span>
-                  <span style={{ fontSize: "11px", fontWeight: 600, color: meta.color }}>{pct}%</span>
+                  <span style={{ fontSize: "10px", color: TEXT }}>Path completion</span>
+                  <span style={{ fontSize: "10px", fontWeight: 600, color: "#FFFFFF" }}>{pct}%</span>
                 </div>
-                <div style={{ height: "5px", borderRadius: "3px", background: "hsl(var(--muted))", overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: "3px", width: `${pct}%`, background: meta.color, transition: "width 0.6s ease" }} />
+                <div style={{ height: "2px", borderRadius: "1px", background: "#262626", overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: "1px", width: `${pct}%`, background: meta.color, transition: "width 0.6s" }} />
                 </div>
               </div>
             </div>
@@ -214,42 +190,37 @@ export function CertificatesTab({
   pathProgress: Record<string, { total: number; completed: number; quizScore: number | null }>;
 }) {
   const certByPath = new Map(certificates.map(c => [c.pathId, c]));
-  const earnedCount = certificates.length;
+  const earned = certificates.length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      {/* Header stats */}
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-        <div style={{ padding: "14px 20px", borderRadius: "12px", background: "var(--card-bg)", border: "1px solid hsl(var(--border))" }}>
-          <div style={{ fontSize: "24px", fontWeight: 700, color: C.amber }}>{earnedCount}</div>
-          <div style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>Certificates Earned</div>
+      {/* Stats */}
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ padding: "12px 16px", borderRadius: "10px", background: CARD, border: `1px solid ${BORDER}` }}>
+          <div style={{ fontSize: "20px", fontWeight: 700, color: "#F59E0B" }}>{earned}</div>
+          <div style={{ fontSize: "10px", color: TEXT, marginTop: "2px" }}>Earned</div>
         </div>
-        <div style={{ padding: "14px 20px", borderRadius: "12px", background: "var(--card-bg)", border: "1px solid hsl(var(--border))" }}>
-          <div style={{ fontSize: "24px", fontWeight: 700, color: C.purple }}>{4 - earnedCount}</div>
-          <div style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>Certificates Remaining</div>
+        <div style={{ padding: "12px 16px", borderRadius: "10px", background: CARD, border: `1px solid ${BORDER}` }}>
+          <div style={{ fontSize: "20px", fontWeight: 700, color: "#FFFFFF" }}>{4 - earned}</div>
+          <div style={{ fontSize: "10px", color: TEXT, marginTop: "2px" }}>Remaining</div>
         </div>
       </div>
 
-      {earnedCount > 0 && (
+      {earned > 0 && (
         <div style={{
-          padding: "14px 18px", borderRadius: "12px",
-          background: `${C.amber}10`, border: `1px solid ${C.amber}30`,
+          padding: "12px 16px", borderRadius: "8px",
+          background: "#111111", border: `1px solid ${BORDER}`,
           display: "flex", alignItems: "center", gap: "10px",
         }}>
-          <span style={{ fontSize: "22px" }}>🏆</span>
-          <div>
-            <div style={{ fontSize: "13px", fontWeight: 600, color: "hsl(var(--foreground))" }}>
-              {earnedCount === 4 ? "Congratulations! You've earned all certificates!" : `You've earned ${earnedCount} certificate${earnedCount > 1 ? "s" : ""}!`}
-            </div>
-            <div style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>
-              Download your certificates to share your achievement.
-            </div>
+          <Award style={{ height: "16px", width: "16px", color: "#F59E0B", flexShrink: 0 }} />
+          <div style={{ fontSize: "13px", color: "#FFFFFF" }}>
+            {earned === 4 ? "All certificates earned — well done." : `${earned} certificate${earned > 1 ? "s" : ""} earned. Download them to share your achievement.`}
           </div>
         </div>
       )}
 
-      {/* Certificate cards */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      {/* Cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {["beginner", "intermediate", "advanced", "professional"].map(pathId => (
           <CertificateCard
             key={pathId}

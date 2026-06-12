@@ -1,151 +1,156 @@
-import React, { useState } from "react";
-import { ChevronDown, ChevronRight, Lock, CheckCircle2, BookOpen, Clock, Target, Play } from "lucide-react";
-import type { AcademyCourse } from "./types";
-import { PATH_META } from "./types";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  ChevronDown, ChevronRight, Lock, CheckCircle2, Circle,
+  PlayCircle,
+} from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { API_BASE } from "@/lib/api-config";
+import type { AcademyCourse, LearningPath } from "./types";
+import { PATH_META, PATH_ICONS } from "./types";
 
-const C = { purple: "#a855f7", cyan: "#06b6d4", green: "#22c55e", amber: "#f59e0b", pink: "#ec4899", blue: "#3b82f6" };
+const ACCENT = "#22D3EE";
+const SUCCESS = "#84CC16";
+const BORDER = "#262626";
+const CARD = "#171717";
+const TEXT = "#A1A1AA";
 
 const PATH_ORDER = ["beginner", "intermediate", "advanced", "professional"];
 
-function CourseCard({ course, onSelect }: { course: AcademyCourse; onSelect: (c: AcademyCourse) => void }) {
-  const pct = course.lessonCount! > 0 ? Math.round(((course.completedLessons ?? 0) / course.lessonCount!) * 100) : 0;
+function CourseRow({ course, onSelect }: { course: AcademyCourse; onSelect: (c: AcademyCourse) => void }) {
+  const total = course.lessonCount ?? 0;
+  const done = course.completedLessons ?? 0;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const completed = pct === 100;
-  const meta = PATH_META[course.pathId];
 
   return (
     <div
       onClick={() => onSelect(course)}
       style={{
-        background: "var(--card-bg)", border: "1px solid hsl(var(--border))",
-        borderRadius: "12px", padding: "14px 16px", cursor: "pointer",
-        transition: "all 0.15s ease", display: "flex", alignItems: "center", gap: "14px",
+        display: "flex", alignItems: "center", gap: "14px",
+        padding: "11px 14px", borderRadius: "8px",
+        border: `1px solid ${BORDER}`, cursor: "pointer",
+        transition: "border-color 0.15s, background 0.15s",
+        background: "transparent",
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = meta.color + "50";
-        (e.currentTarget as HTMLElement).style.transform = "translateX(3px)";
+        (e.currentTarget as HTMLElement).style.borderColor = "#3a3a3a";
+        (e.currentTarget as HTMLElement).style.background = "#111111";
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
-        (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
+        (e.currentTarget as HTMLElement).style.borderColor = BORDER;
+        (e.currentTarget as HTMLElement).style.background = "transparent";
       }}
     >
-      <div style={{
-        width: "42px", height: "42px", borderRadius: "12px", flexShrink: 0,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "20px", background: `${meta.color}18`, border: `1px solid ${meta.color}30`,
-      }}>
-        {completed ? <CheckCircle2 style={{ height: "20px", width: "20px", color: C.green }} /> : course.thumbnailEmoji}
+      <div style={{ flexShrink: 0 }}>
+        {completed
+          ? <CheckCircle2 style={{ height: "15px", width: "15px", color: SUCCESS }} />
+          : <Circle style={{ height: "15px", width: "15px", color: BORDER }} />
+        }
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "13px", fontWeight: 600, color: "hsl(var(--foreground))", marginBottom: "4px", display: "flex", alignItems: "center", gap: "6px" }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {course.title}
-          {completed && (
-            <span style={{ fontSize: "10px", color: C.green, background: `${C.green}18`, padding: "1px 7px", borderRadius: "10px", fontWeight: 600 }}>
-              Complete
-            </span>
-          )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-          <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", display: "flex", alignItems: "center", gap: "3px" }}>
-            <BookOpen style={{ height: "10px", width: "10px" }} /> {course.lessonCount} lessons
-          </span>
-          <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", display: "flex", alignItems: "center", gap: "3px" }}>
-            <Clock style={{ height: "10px", width: "10px" }} /> {course.estimatedMinutes}m
-          </span>
-          {course.quizScore !== null && course.quizScore !== undefined && (
-            <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))", display: "flex", alignItems: "center", gap: "3px" }}>
-              <Target style={{ height: "10px", width: "10px" }} /> Quiz: {course.quizScore}%
-            </span>
-          )}
-        </div>
-        <div style={{ height: "4px", borderRadius: "2px", background: "hsl(var(--muted))", overflow: "hidden" }}>
-          <div style={{
-            height: "100%", borderRadius: "2px", width: `${pct}%`,
-            background: completed ? C.green : meta.color, transition: "width 0.5s ease",
-          }} />
+        <div style={{ fontSize: "11px", color: TEXT, marginTop: "1px" }}>
+          {done}/{total} lessons · {course.estimatedMinutes}m
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px", flexShrink: 0 }}>
-        <span style={{ fontSize: "13px", fontWeight: 700, color: meta.color }}>{pct}%</span>
-        <ChevronRight style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+        {pct > 0 && pct < 100 && (
+          <div style={{ width: "48px", height: "2px", borderRadius: "1px", background: "#262626", overflow: "hidden" }}>
+            <div style={{ height: "100%", background: ACCENT, width: `${pct}%`, borderRadius: "1px" }} />
+          </div>
+        )}
+        <span style={{ fontSize: "11px", color: TEXT, minWidth: "26px", textAlign: "right" }}>
+          {pct > 0 ? `${pct}%` : ""}
+        </span>
+        <PlayCircle style={{ height: "13px", width: "13px", color: TEXT }} />
       </div>
     </div>
   );
 }
 
 function PathSection({
-  pathId, courses, isLocked, defaultOpen, onSelectCourse,
+  path,
+  expanded,
+  onToggle,
+  onSelectCourse,
 }: {
-  pathId: string;
-  courses: AcademyCourse[];
-  isLocked: boolean;
-  defaultOpen: boolean;
+  path: LearningPath;
+  expanded: boolean;
+  onToggle: () => void;
   onSelectCourse: (c: AcademyCourse) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const meta = PATH_META[pathId];
-  const totalLessons = courses.reduce((s, c) => s + (c.lessonCount ?? 0), 0);
-  const completedLessons = courses.reduce((s, c) => s + (c.completedLessons ?? 0), 0);
-  const pct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-  const estHours = Math.round(courses.reduce((s, c) => s + c.estimatedMinutes, 0) / 60 * 10) / 10;
+  const meta = PATH_META[path.id] ?? { title: path.id, description: "", color: TEXT };
+  const Icon = PATH_ICONS[path.id];
+  const pct = path.totalLessons > 0 ? Math.round((path.completedLessons / path.totalLessons) * 100) : 0;
+  const done = pct === 100;
 
   return (
-    <div style={{
-      border: "1px solid hsl(var(--border))", borderRadius: "16px", overflow: "hidden",
-      ...(isLocked ? { opacity: 0.6 } : {}),
-    }}>
+    <div style={{ borderRadius: "10px", border: `1px solid ${BORDER}`, overflow: "hidden" }}>
       <button
-        onClick={() => !isLocked && setOpen(o => !o)}
+        onClick={path.locked ? undefined : onToggle}
         style={{
-          width: "100%", padding: "20px 22px", display: "flex", alignItems: "center", gap: "16px",
-          background: open ? `${meta.color}0a` : "var(--card-bg)",
-          borderBottom: open ? "1px solid hsl(var(--border))" : "none",
-          cursor: isLocked ? "not-allowed" : "pointer", textAlign: "left",
+          width: "100%", display: "flex", alignItems: "center", gap: "14px",
+          padding: "16px 20px", cursor: path.locked ? "default" : "pointer",
+          background: CARD, border: "none", transition: "background 0.15s", textAlign: "left",
         }}
+        onMouseEnter={e => { if (!path.locked) (e.currentTarget as HTMLElement).style.background = "#1a1a1a"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = CARD; }}
       >
-        <div style={{ fontSize: "28px" }}>{meta.icon}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-            <span style={{ fontSize: "15px", fontWeight: 700, color: "hsl(var(--foreground))" }}>{meta.title}</span>
-            {isLocked && (
-              <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "hsl(var(--muted-foreground))", background: "hsl(var(--muted))", padding: "2px 8px", borderRadius: "10px" }}>
-                <Lock style={{ height: "9px", width: "9px" }} /> Locked
-              </span>
-            )}
-            {pct === 100 && (
-              <span style={{ fontSize: "10px", color: C.green, background: `${C.green}18`, padding: "2px 8px", borderRadius: "10px", fontWeight: 600 }}>
-                ✓ Completed
-              </span>
-            )}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
-            <span style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>{courses.length} modules</span>
-            <span style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>{totalLessons} lessons</span>
-            <span style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>{estHours}h estimated</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ flex: 1, height: "5px", borderRadius: "3px", background: "hsl(var(--muted))", overflow: "hidden" }}>
-              <div style={{
-                height: "100%", borderRadius: "3px", width: `${pct}%`,
-                background: meta.color, transition: "width 0.6s ease",
-              }} />
-            </div>
-            <span style={{ fontSize: "12px", fontWeight: 700, color: meta.color, flexShrink: 0 }}>{pct}%</span>
-          </div>
+        <div style={{
+          width: "36px", height: "36px", borderRadius: "8px", flexShrink: 0,
+          background: "#111111", border: `1px solid ${BORDER}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {path.locked
+            ? <Lock style={{ height: "14px", width: "14px", color: TEXT }} />
+            : Icon && <Icon style={{ height: "14px", width: "14px", color: meta.color }} />
+          }
         </div>
-        {!isLocked && (
-          open
-            ? <ChevronDown style={{ height: "16px", width: "16px", color: "hsl(var(--muted-foreground))", flexShrink: 0 }} />
-            : <ChevronRight style={{ height: "16px", width: "16px", color: "hsl(var(--muted-foreground))", flexShrink: 0 }} />
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: path.locked ? TEXT : "#FFFFFF" }}>
+              {meta.title}
+            </span>
+            {done && (
+              <span style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", background: "#111111", border: `1px solid ${SUCCESS}`, color: SUCCESS, fontWeight: 600 }}>
+                Complete
+              </span>
+            )}
+            {path.locked && (
+              <span style={{ fontSize: "10px", color: TEXT }}>Locked</span>
+            )}
+          </div>
+          <div style={{ fontSize: "11px", color: TEXT, marginBottom: path.locked ? 0 : "8px" }}>{meta.description}</div>
+          {!path.locked && (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ flex: 1, height: "2px", borderRadius: "1px", background: "#262626", overflow: "hidden", maxWidth: "120px" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: done ? SUCCESS : ACCENT, borderRadius: "1px", transition: "width 0.6s" }} />
+              </div>
+              <span style={{ fontSize: "11px", color: TEXT }}>
+                {path.completedLessons}/{path.totalLessons} · {path.estimatedHours}h
+              </span>
+            </div>
+          )}
+        </div>
+
+        {!path.locked && (
+          expanded
+            ? <ChevronDown style={{ height: "15px", width: "15px", color: TEXT, flexShrink: 0 }} />
+            : <ChevronRight style={{ height: "15px", width: "15px", color: TEXT, flexShrink: 0 }} />
         )}
-        {isLocked && <Lock style={{ height: "16px", width: "16px", color: "hsl(var(--muted-foreground))", flexShrink: 0 }} />}
+        {path.locked && <Lock style={{ height: "14px", width: "14px", color: TEXT, flexShrink: 0 }} />}
       </button>
 
-      {open && !isLocked && (
-        <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "8px", background: "var(--card-bg)" }}>
-          {courses.map(course => (
-            <CourseCard key={course.id} course={course} onSelect={onSelectCourse} />
-          ))}
+      {expanded && !path.locked && (
+        <div style={{ padding: "0 16px 14px", display: "flex", flexDirection: "column", gap: "6px", background: "#0f0f0f", borderTop: `1px solid ${BORDER}`, paddingTop: "14px" }}>
+          {path.courses.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "20px", color: TEXT, fontSize: "13px" }}>No courses yet</div>
+          ) : (
+            path.courses.map(c => <CourseRow key={c.id} course={c} onSelect={onSelectCourse} />)
+          )}
         </div>
       )}
     </div>
@@ -159,24 +164,45 @@ export function PathsTab({
   courses: AcademyCourse[];
   onSelectCourse: (c: AcademyCourse) => void;
 }) {
-  const byCourse = new Map<string, AcademyCourse[]>();
-  for (const c of courses) {
-    if (!byCourse.has(c.pathId)) byCourse.set(c.pathId, []);
-    byCourse.get(c.pathId)!.push(c);
+  const { token } = useAuth();
+  const [paths, setPaths] = useState<LearningPath[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ beginner: true });
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/academy/paths`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r.ok) setPaths(await r.json());
+    } catch { }
+    setLoading(false);
+  }, [token]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {[...Array(4)].map((_, i) => (
+          <div key={i} style={{ height: "72px", borderRadius: "10px", background: CARD, border: `1px solid ${BORDER}`, opacity: 0.5 }} />
+        ))}
+      </div>
+    );
   }
 
+  const sorted = [...paths].sort((a, b) => PATH_ORDER.indexOf(a.id) - PATH_ORDER.indexOf(b.id));
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-      <p style={{ fontSize: "13px", color: "hsl(var(--muted-foreground))", margin: 0 }}>
-        Follow structured learning paths from Beginner to Professional. Complete each path to earn certificates and unlock the next level.
-      </p>
-      {PATH_ORDER.map((pathId, i) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      {sorted.map(path => (
         <PathSection
-          key={pathId}
-          pathId={pathId}
-          courses={byCourse.get(pathId) ?? []}
-          isLocked={false}
-          defaultOpen={i === 0}
+          key={path.id}
+          path={path}
+          expanded={!!expanded[path.id]}
+          onToggle={() => setExpanded(prev => ({ ...prev, [path.id]: !prev[path.id] }))}
           onSelectCourse={onSelectCourse}
         />
       ))}
