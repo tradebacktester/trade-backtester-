@@ -605,6 +605,13 @@ export default function ChartPage() {
   const currentDate   = replayMode && currentBar ? fmtDate(currentBar.time) : null;
 
   const livePrice       = replayMode ? (currentBar?.close ?? 0) : liveChartPrice;
+  // Shadow refs — always hold the latest value so useCallback handlers can read
+  // the live price without being re-created on every tick.
+  const livePriceRef = useRef(livePrice);
+  livePriceRef.current = livePrice;
+  const replayModeRef = useRef(replayMode);
+  replayModeRef.current = replayMode;
+
   const unrealizedPnl   = position ? (position.side === "short" ? (position.price - livePrice) * position.units : (livePrice - position.price) * position.units) : null;
   const unrealizedPct   = position ? (position.side === "short" ? ((position.price - livePrice) / position.price) * 100 : ((livePrice - position.price) / position.price) * 100) : null;
 
@@ -654,12 +661,16 @@ export default function ChartPage() {
   }, [applyMarkers, ptCapital]);
 
   const handleBuy = useCallback((bar: KlineBar, priceOverride?: number) => {
-    const exitPrice = priceOverride ?? bar.close;
+    // In live mode, market orders fill at the live WebSocket price (not bar.close
+    // which is the stale last historical candle). Limit/stop orders use priceOverride.
+    const marketPrice = replayModeRef.current ? bar.close : (livePriceRef.current || bar.close);
+    const exitPrice = priceOverride ?? marketPrice;
     if (position?.side === "short") {
       const pnl = position.units * (position.price - exitPrice);
       const pnlPct = (pnl / position.capitalAtEntry) * 100;
       const newEquity = position.capitalAtEntry + pnl;
-      const trade = { id: Date.now(), entryPrice: position.price, entryTime: position.time, exitPrice, exitTime: bar.time, units: position.units, pnl, pnlPct, side: "short" as const, symbol };
+      const nowSec = Math.floor(Date.now() / 1000);
+      const trade = { id: Date.now(), entryPrice: position.price, entryTime: position.time, exitPrice, exitTime: replayModeRef.current ? bar.time : nowSec, units: position.units, pnl, pnlPct, side: "short" as const, symbol };
       setTrades(prev => [...prev, trade]); setPosition(null); setEquity(newEquity);
       savePtTrade(trade, (msg) => toast({ variant: "destructive", title: "Save failed", description: msg })); updatePtBalance(newEquity);
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
@@ -732,12 +743,14 @@ export default function ChartPage() {
 
   const handleSell = useCallback((bar: KlineBar, pos?: Position) => {
     const currentPos = pos ?? position;
-    const exitPrice  = bar.close;
+    // In live mode use the live WebSocket price; in replay use bar.close
+    const exitPrice = replayModeRef.current ? bar.close : (livePriceRef.current || bar.close);
     if (currentPos?.side === "long") {
       const pnl = currentPos.units * (exitPrice - currentPos.price);
       const pnlPct = (pnl / currentPos.capitalAtEntry) * 100;
       const newEquity = currentPos.capitalAtEntry + pnl;
-      const trade = { id: Date.now(), entryPrice: currentPos.price, entryTime: currentPos.time, exitPrice, exitTime: bar.time, units: currentPos.units, pnl, pnlPct, side: "long" as const, symbol };
+      const nowSec2 = Math.floor(Date.now() / 1000);
+      const trade = { id: Date.now(), entryPrice: currentPos.price, entryTime: currentPos.time, exitPrice, exitTime: replayModeRef.current ? bar.time : nowSec2, units: currentPos.units, pnl, pnlPct, side: "long" as const, symbol };
       setTrades(prev => [...prev, trade]); setPosition(null); setEquity(newEquity);
       savePtTrade(trade, (msg) => toast({ variant: "destructive", title: "Save failed", description: msg })); updatePtBalance(newEquity);
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
@@ -2485,7 +2498,7 @@ export default function ChartPage() {
                   </button>
                 ))}
               </div>
-              {currentBar && <p className="text-[10px] text-center font-mono" style={{ color: "hsl(220,14%,35%)" }}>price ${fmt(currentBar.close)}</p>}
+              {livePrice > 0 && <p className="text-[10px] text-center font-mono" style={{ color: "hsl(220,14%,35%)" }}>price ${fmt(livePrice)}</p>}
 
               {/* ── Ghost Mode mini widget (live panel) ── */}
               {token && !position && (
