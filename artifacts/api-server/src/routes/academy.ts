@@ -1060,6 +1060,101 @@ router.post("/academy/admin/seed", requireAdmin, async (req, res): Promise<void>
   }
 });
 
+/* GET /api/academy/admin/courses/:id/lessons — list all lessons for a course (admin) */
+router.get("/academy/admin/courses/:id/lessons", requireAdmin, async (req, res): Promise<void> => {
+  const courseId = Number(req.params["id"]);
+  try {
+    const lessonRows = await db.select().from(academyLessonsTable)
+      .where(eq(academyLessonsTable.courseId, courseId))
+      .orderBy(academyLessonsTable.sortOrder);
+    res.json(lessonRows);
+  } catch (e) {
+    logger.error({ err: e }, "GET /academy/admin/courses/:id/lessons");
+    res.status(500).json({ error: "Failed to load lessons" });
+  }
+});
+
+/* POST /api/academy/admin/ai/generate-course — Groq AI generates lesson content + quiz questions */
+router.post("/academy/admin/ai/generate-course", requireAdmin, async (req, res): Promise<void> => {
+  const { courseId } = req.body as { courseId: number };
+  if (!courseId) { res.status(400).json({ error: "courseId required" }); return; }
+
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "GROQ_API_KEY not configured" }); return; }
+
+  try {
+    const [course] = await db.select().from(academyCoursesTable).where(eq(academyCoursesTable.id, courseId)).limit(1);
+    if (!course) { res.status(404).json({ error: "Course not found" }); return; }
+
+    const client = groqClient();
+
+    const prompt = `You are an expert trading educator creating structured course content for the Trade Lab Academy.
+
+Generate content for this trading course:
+- Title: ${course.title}
+- Description: ${course.description}
+- Category: ${course.category}
+- Difficulty: ${course.difficulty}
+- Learning Path: ${course.pathId}
+
+Create exactly 3 comprehensive lesson articles and 5 quiz questions.
+
+Return ONLY valid JSON in this exact format:
+{
+  "lessons": [
+    {
+      "title": "Full lesson title including course name",
+      "content": "Full markdown lesson content (minimum 400 words with headers, bullet points, tables, examples)",
+      "estimatedMinutes": 12
+    }
+  ],
+  "quizQuestions": [
+    {
+      "question": "Question text?",
+      "type": "mcq",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctIndex": 0,
+      "explanation": "Why this is correct..."
+    }
+  ]
+}
+
+Rules:
+- Lessons must be detailed markdown with # headers, ## sub-headers, bullet lists, tables, and real trading examples
+- Each lesson builds on the previous one
+- Quiz questions test genuine understanding, not just recall
+- Mix mcq and true_false types (type="true_false" has exactly 2 options: ["True","False"])
+- Make content practical and actionable for ${course.difficulty} level traders`;
+
+    const completion = await client.chat.completions.create({
+      model: GROQ_MODEL,
+      messages: [
+        { role: "system", content: "You are an expert trading educator. Always respond with valid JSON only. No markdown code blocks, no extra text." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 4000,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    let parsed: { lessons?: unknown[]; quizQuestions?: unknown[] };
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      res.status(500).json({ error: "AI returned invalid JSON. Try again." }); return;
+    }
+
+    if (!Array.isArray(parsed.lessons) || !Array.isArray(parsed.quizQuestions)) {
+      res.status(500).json({ error: "AI response missing lessons or quizQuestions. Try again." }); return;
+    }
+
+    res.json({ lessons: parsed.lessons, quizQuestions: parsed.quizQuestions });
+  } catch (e) {
+    logger.error({ err: e }, "POST /academy/admin/ai/generate-course");
+    res.status(500).json({ error: "AI generation failed" });
+  }
+});
+
 /* GET /api/academy/admin/courses — list all courses (all paths, published + unpublished) */
 router.get("/academy/admin/courses", requireAdmin, async (req, res): Promise<void> => {
   try {
