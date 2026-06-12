@@ -171,7 +171,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150"
               style={tab === t.id ? {
                 background: "var(--card-bg)",
-                color: t.id === "admin" ? "#f87171" : "hsl(var(--foreground))",
+                color: (t.id as string) === "admin" ? "#f87171" : "hsl(var(--foreground))",
                 boxShadow: "var(--shadow-xs)",
               } : { color: "hsl(var(--muted-foreground))" }}
             >

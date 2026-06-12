@@ -166,7 +166,7 @@ export default function TradingOsReportPage() {
                 </p>
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <p className="text-2xl font-bold" style={{ color: C.text }}>{d.headline as string}</p>
-                  {d.analystRating && (
+                  {d.analystRating ? (
                     <span className="text-sm px-3 py-1 rounded-full font-semibold shrink-0"
                       style={{
                         background: `${ratingColor(d.analystRating as string)}20`,
@@ -175,12 +175,12 @@ export default function TradingOsReportPage() {
                       }}>
                       {d.analystRating as string}
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               {/* Metrics */}
-              {d.metrics && (
+              {d.metrics ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
                     { label: "Win Rate",   value: `${(d.metrics as Record<string, unknown>).winRate}%`,  color: (d.metrics as Record<string, number>).winRate >= 50 ? C.green : C.red },
@@ -194,7 +194,7 @@ export default function TradingOsReportPage() {
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
 
               {/* Performance summary */}
               <div className="rounded-2xl p-6 print-card" style={CARD}>

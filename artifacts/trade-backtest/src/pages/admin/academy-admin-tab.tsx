@@ -133,7 +133,7 @@ export function AcademyAdminTab({ headers }: { headers: Record<string, string> }
     setLessonsLoading(courseId);
     try {
       const r = await fetch(`${API_BASE}/api/academy/admin/courses/${courseId}/lessons`, { headers });
-      if (r.ok) setLessons(prev => ({ ...prev, [courseId]: await r.json() }));
+      if (r.ok) { const data = await r.json(); setLessons(prev => ({ ...prev, [courseId]: data })); }
     } catch { /* ignore */ }
     setLessonsLoading(null);
   }, [headers]);

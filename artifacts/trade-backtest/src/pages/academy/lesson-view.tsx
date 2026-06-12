@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import {
   ArrowLeft, CheckCircle2, Clock, BookOpen, ChevronDown,
   MessageSquare, X, Send, Loader2, Bot, User, Menu,
+  ChevronLeft, ChevronRight, Image,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -33,6 +34,70 @@ function renderMarkdown(text: string): string {
 }
 
 interface ChatMsg { role: "user" | "assistant"; content: string; }
+
+function ImageSlides({ urls }: { urls: string[] }) {
+  const [idx, setIdx] = useState(0);
+  const validUrls = urls.filter(u => u.trim());
+  if (validUrls.length === 0) return null;
+
+  const prev = () => setIdx(i => (i - 1 + validUrls.length) % validUrls.length);
+  const next = () => setIdx(i => (i + 1) % validUrls.length);
+
+  return (
+    <div style={{ marginBottom: "16px", borderRadius: "12px", overflow: "hidden", border: `1px solid ${BORDER}`, background: CARD }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: "7px", padding: "10px 14px", borderBottom: `1px solid ${BORDER}` }}>
+        <Image style={{ height: "12px", width: "12px", color: ACCENT }} />
+        <span style={{ fontSize: "12px", fontWeight: 600, color: "#FFFFFF" }}>Image Slides</span>
+        <span style={{ fontSize: "11px", color: TEXT, marginLeft: "auto" }}>{idx + 1} / {validUrls.length}</span>
+      </div>
+
+      {/* Main image */}
+      <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#0A0A0A", overflow: "hidden" }}>
+        <img
+          key={validUrls[idx]}
+          src={validUrls[idx]}
+          alt={`Slide ${idx + 1}`}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          onError={e => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+        />
+        {validUrls.length > 1 && (
+          <>
+            <button onClick={prev} style={{
+              position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)",
+              width: "32px", height: "32px", borderRadius: "50%", background: "rgba(0,0,0,0.6)",
+              border: `1px solid ${BORDER}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF",
+            }}>
+              <ChevronLeft style={{ height: "16px", width: "16px" }} />
+            </button>
+            <button onClick={next} style={{
+              position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)",
+              width: "32px", height: "32px", borderRadius: "50%", background: "rgba(0,0,0,0.6)",
+              border: `1px solid ${BORDER}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF",
+            }}>
+              <ChevronRight style={{ height: "16px", width: "16px" }} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Dot nav */}
+      {validUrls.length > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", gap: "6px", padding: "10px 14px" }}>
+          {validUrls.map((_, i) => (
+            <button key={i} onClick={() => setIdx(i)} style={{
+              width: i === idx ? "20px" : "7px", height: "7px",
+              borderRadius: "4px", border: "none", cursor: "pointer",
+              background: i === idx ? ACCENT : BORDER,
+              transition: "all 0.2s",
+              padding: 0,
+            }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AiTutorPanel({ lesson, onClose, token }: {
   lesson: AcademyLesson; onClose: () => void; token: string | null;
@@ -317,6 +382,11 @@ export function LessonView({ course, lesson, allLessons, onBack, onLessonSelect,
             </button>
           ))}
         </div>
+      )}
+
+      {/* Image Slides Carousel */}
+      {lesson.imageUrls && lesson.imageUrls.length > 0 && (
+        <ImageSlides urls={lesson.imageUrls} />
       )}
 
       {/* Lesson content */}
