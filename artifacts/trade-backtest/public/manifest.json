@@ -139,9 +139,11 @@
       "description": "Quick view of market prices and your latest backtest results",
       "tag": "markets-widget",
       "template": "generic-medium",
-      "ms_ac_template": "widgets/market-widget.json",
+      "ms_ac_template": "/widgets/market-widget.json",
       "data": "/api/klines?symbol=BTCUSDT&interval=1d&limit=1",
       "type": "application/json",
+      "auth": false,
+      "update": 3600,
       "screenshots": [
         {
           "src": "/icon-512.png",
@@ -152,6 +154,12 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }],
       "backgrounds": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
+  ],
+
+  "scope_extensions": [
+    { "origin": "https://tradelab.replit.app" },
+    { "origin": "https://*.replit.app" },
+    { "origin": "https://*.replit.dev" }
   ],
 
   "edge_side_panel": {
