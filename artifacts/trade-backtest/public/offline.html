@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <title>Trade Lab — Offline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #050505;
+      color: #f1f5f9;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 24px;
+      border-radius: 20px;
+      background: #111827;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon svg {
+      width: 44px;
+      height: 44px;
+      stroke: #6366f1;
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      line-height: 1.6;
+      max-width: 320px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 18px 22px;
+      max-width: 340px;
+      width: 100%;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.875rem;
+      color: #cbd5e1;
+    }
+
+    .feature:last-child { border-bottom: none; }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      flex-shrink: 0;
+    }
+
+    .dot.partial { background: #f59e0b; }
+
+    button {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 28px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      max-width: 340px;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #4f46e5; }
+    button:active { background: #4338ca; }
+
+    .status {
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="icon">
+    <svg viewBox="0 0 24 24">
+      <path d="M1 6l5 5 4-4 4 4 5-5"/>
+      <path d="M1 18h22"/>
+      <circle cx="12" cy="20" r="2"/>
+    </svg>
+  </div>
+
+  <h1>You're Offline</h1>
+  <p>No internet connection detected. Some Trade Lab features are still available from cache.</p>
+
+  <div class="card">
+    <div class="card-title">Available Offline</div>
+    <div class="feature"><span class="dot"></span> Previously viewed charts</div>
+    <div class="feature"><span class="dot"></span> Saved strategies</div>
+    <div class="feature"><span class="dot"></span> Backtest results</div>
+    <div class="feature"><span class="dot partial"></span> Journal notes (sync on reconnect)</div>
+    <div class="feature"><span class="dot partial"></span> Academy lessons (if visited)</div>
+  </div>
+
+  <button onclick="tryReload()">Try Again</button>
+  <div class="status" id="status">Waiting for connection…</div>
+
+  <script>
+    function tryReload() {
+      window.location.href = "/";
+    }
+
+    // Auto-reload when back online
+    window.addEventListener("online", () => {
+      document.getElementById("status").textContent = "Connection restored! Reloading…";
+      setTimeout(() => { window.location.href = "/"; }, 800);
+    });
+
+    // Poll for connectivity every 5s
+    setInterval(async () => {
+      try {
+        const res = await fetch("/manifest.json", { cache: "no-store" });
+        if (res.ok) {
+          document.getElementById("status").textContent = "Connection restored! Reloading…";
+          setTimeout(() => { window.location.href = "/"; }, 800);
+        }
+      } catch {
+        // Still offline
+      }
+    }, 5000);
+  </script>
+</body>
+</html>
