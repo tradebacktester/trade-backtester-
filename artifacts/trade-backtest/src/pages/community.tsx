@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Heart, Flag, Trash2, Send, X, AlertTriangle, CheckCircle,
   Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
-  Hash, Smile,
+  Hash, Smile, Search, Lock, ChevronLeft,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -316,6 +316,307 @@ function ChatBox({ adminToken }: { adminToken: string | null }) {
       {error && (
         <p className="text-[11px] text-center pb-2 px-3" style={{ color: "#f87171" }}>{error}</p>
       )}
+    </div>
+  );
+}
+
+// ── DMBox component ───────────────────────────────────────────────────────────
+interface Conversation {
+  partnerId: number;
+  partnerName: string;
+  lastMessage: string;
+  lastAt: string;
+  unread: number;
+}
+
+interface DM {
+  id: number;
+  fromUserId: number;
+  fromName: string;
+  toUserId: number;
+  toName: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+function DMBox() {
+  const { user, token: authToken } = useAuth();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activePartner, setActivePartner] = useState<{ id: number; name: string } | null>(null);
+  const [messages, setMessages] = useState<DM[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: number; name: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollBottom = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
+  const loadConversations = useCallback(async () => {
+    if (!authToken) return;
+    try {
+      const data = await apiFetch("/api/community/dm/conversations", {}, authToken) as Conversation[];
+      setConversations(data);
+    } catch { /* ignore */ }
+  }, [authToken]);
+
+  const loadMessages = useCallback(async (partnerId: number) => {
+    if (!authToken) return;
+    try {
+      const data = await apiFetch(`/api/community/dm/${partnerId}`, {}, authToken) as DM[];
+      setMessages(data);
+      setTimeout(scrollBottom, 50);
+    } catch { /* ignore */ }
+  }, [authToken, scrollBottom]);
+
+  useEffect(() => {
+    if (!authToken) return;
+    loadConversations();
+    pollRef.current = setInterval(() => {
+      loadConversations();
+      if (activePartner) loadMessages(activePartner.id);
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken, activePartner?.id]);
+
+  function selectPartner(id: number, name: string) {
+    setActivePartner({ id, name });
+    setShowSearch(false);
+    setSearchQ("");
+    setSearchResults([]);
+    loadMessages(id);
+    // decrement unread
+    setConversations(prev => prev.map(c => c.partnerId === id ? { ...c, unread: 0 } : c));
+  }
+
+  async function doSearch(q: string) {
+    if (!authToken || q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await apiFetch(`/api/community/dm/search?q=${encodeURIComponent(q)}`, {}, authToken) as { id: number; name: string }[];
+      setSearchResults(res);
+    } catch { /* ignore */ } finally { setSearching(false); }
+  }
+
+  function onSearchChange(q: string) {
+    setSearchQ(q);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => doSearch(q), 350);
+  }
+
+  async function send() {
+    const text = input.trim();
+    if (!text || !authToken || !activePartner) return;
+    setSending(true); setError("");
+    try {
+      const msg = await apiFetch(`/api/community/dm/${activePartner.id}`, {
+        method: "POST",
+        body: JSON.stringify({ content: text }),
+      }, authToken) as DM;
+      setMessages(prev => [...prev, msg]);
+      setInput("");
+      // update conversation list
+      setConversations(prev => {
+        const existing = prev.find(c => c.partnerId === activePartner.id);
+        if (existing) {
+          return [{ ...existing, lastMessage: msg.content, lastAt: msg.createdAt, unread: 0 }, ...prev.filter(c => c.partnerId !== activePartner.id)];
+        }
+        return [{ partnerId: activePartner.id, partnerName: activePartner.name, lastMessage: msg.content, lastAt: msg.createdAt, unread: 0 }, ...prev];
+      });
+      setTimeout(scrollBottom, 50);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to send.");
+    } finally { setSending(false); }
+  }
+
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  }
+
+  if (!authToken) {
+    return (
+      <div className="rounded-2xl flex flex-col items-center justify-center gap-3 py-16" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", height: 480 }}>
+        <Lock style={{ height: 28, width: 28, color: "hsl(var(--muted-foreground))" }} />
+        <p className="text-[14px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Sign in to use Direct Messages</p>
+        <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>DMs are private and end-to-end stored securely.</p>
+      </div>
+    );
+  }
+
+  const totalUnread = conversations.reduce((s, c) => s + c.unread, 0);
+
+  return (
+    <div className="flex rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)", height: 520 }}>
+
+      {/* ── Sidebar ── */}
+      <div className={`flex flex-col flex-shrink-0 ${activePartner ? "hidden sm:flex" : "flex"}`}
+        style={{ width: 240, borderRight: "1px solid var(--glass-border)" }}>
+
+        {/* Sidebar header */}
+        <div className="flex items-center justify-between px-3 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+          <div className="flex items-center gap-2">
+            <Lock style={{ height: 12, width: 12, color: "hsl(var(--muted-foreground))" }} />
+            <span className="text-[12px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>
+              Messages
+              {totalUnread > 0 && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#2962FF", color: "#fff" }}>{totalUnread}</span>}
+            </span>
+          </div>
+          <button onClick={() => { setShowSearch(v => !v); setSearchQ(""); setSearchResults([]); }}
+            className="h-7 w-7 flex items-center justify-center rounded-xl transition-colors"
+            style={{ background: showSearch ? "#2962FF" : "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+            <Search style={{ height: 11, width: 11, color: showSearch ? "#fff" : "hsl(var(--muted-foreground))" }} />
+          </button>
+        </div>
+
+        {/* Search / new DM */}
+        {showSearch && (
+          <div className="px-2 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+            <input
+              value={searchQ}
+              onChange={e => onSearchChange(e.target.value)}
+              placeholder="Search traders…"
+              autoFocus
+              className="w-full px-2.5 py-1.5 rounded-xl text-[12px] outline-none"
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
+            />
+            {searching && <p className="text-[11px] text-center py-1" style={{ color: "hsl(var(--muted-foreground))" }}>Searching…</p>}
+            {searchResults.map(u => (
+              <button key={u.id} onClick={() => selectPartner(u.id, u.name)}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-xl mt-1 text-left transition-colors"
+                style={{ background: "var(--glass-bg)" }}>
+                <Avatar name={u.name} size={7} />
+                <span className="text-[12px] font-medium" style={{ color: "hsl(var(--foreground))" }}>{u.name}</span>
+              </button>
+            ))}
+            {searchQ.length >= 2 && !searching && searchResults.length === 0 && (
+              <p className="text-[11px] text-center py-1" style={{ color: "hsl(var(--muted-foreground))" }}>No users found</p>
+            )}
+          </div>
+        )}
+
+        {/* Conversation list */}
+        <div className="flex-1 overflow-y-auto">
+          {conversations.length === 0 && !showSearch && (
+            <div className="flex flex-col items-center justify-center h-full gap-2 px-3">
+              <MessageSquare style={{ height: 22, width: 22, color: "hsl(var(--muted-foreground))" }} />
+              <p className="text-[11px] text-center" style={{ color: "hsl(var(--muted-foreground))" }}>No conversations yet. Tap 🔍 to find traders.</p>
+            </div>
+          )}
+          {conversations.map(c => (
+            <button key={c.partnerId} onClick={() => selectPartner(c.partnerId, c.partnerName)}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 transition-colors text-left"
+              style={activePartner?.id === c.partnerId
+                ? { background: "rgba(41,98,255,0.12)", borderLeft: "2px solid #2962FF" }
+                : { borderLeft: "2px solid transparent" }}>
+              <Avatar name={c.partnerName} size={8} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[12px] font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>{c.partnerName}</span>
+                  {c.unread > 0 && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: "#2962FF", color: "#fff" }}>{c.unread}</span>
+                  )}
+                </div>
+                <p className="text-[11px] truncate" style={{ color: "hsl(var(--muted-foreground))" }}>{c.lastMessage}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Thread panel ── */}
+      <div className={`flex-1 flex flex-col min-w-0 ${!activePartner && "hidden sm:flex"}`}>
+        {!activePartner ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <Lock style={{ height: 28, width: 28, color: "hsl(var(--muted-foreground))" }} />
+            <p className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Select a conversation</p>
+            <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>or search for a trader to message</p>
+          </div>
+        ) : (
+          <>
+            {/* Thread header */}
+            <div className="flex items-center gap-3 px-3 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+              <button onClick={() => setActivePartner(null)} className="sm:hidden h-7 w-7 flex items-center justify-center rounded-xl"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                <ChevronLeft style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
+              </button>
+              <Avatar name={activePartner.name} size={8} />
+              <div>
+                <p className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{activePartner.name}</p>
+                <div className="flex items-center gap-1">
+                  <Lock style={{ height: 9, width: 9, color: "hsl(var(--muted-foreground))" }} />
+                  <p className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>Private conversation</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1" style={{ scrollBehavior: "smooth" }}>
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full gap-2">
+                  <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Start your private conversation with <strong>{activePartner.name}</strong>
+                  </p>
+                </div>
+              )}
+              {messages.map((msg) => {
+                const isMe = user && msg.fromUserId === (user as { id: number }).id;
+                return (
+                  <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+                    {!isMe && <Avatar name={msg.fromName} size={6} />}
+                    <div
+                      className="px-3 py-1.5 rounded-2xl text-[13px] leading-relaxed break-words max-w-[78%]"
+                      style={{
+                        background: isMe ? "#2962FF" : "var(--glass-bg)",
+                        color: isMe ? "#fff" : "hsl(var(--foreground))",
+                        border: isMe ? "none" : "1px solid var(--glass-border)",
+                        borderBottomRightRadius: isMe ? 4 : undefined,
+                        borderBottomLeftRadius: !isMe ? 4 : undefined,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {msg.content}
+                      <span className="block text-[9px] mt-0.5 opacity-60">{chatTimeLabel(msg.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Input */}
+            <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--glass-border)" }}>
+              <input
+                value={input}
+                onChange={e => { setInput(e.target.value); setError(""); }}
+                onKeyDown={onKey}
+                placeholder={`Message ${activePartner.name}…`}
+                maxLength={500}
+                className="flex-1 px-3 py-1.5 rounded-xl text-[13px] outline-none"
+                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
+              />
+              <span className="text-[10px] font-mono flex-shrink-0" style={{ color: input.length > 450 ? "#f87171" : "hsl(var(--muted-foreground))" }}>
+                {input.length}/500
+              </span>
+              <button onClick={send} disabled={sending || !input.trim()}
+                className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-xl transition-all disabled:opacity-40"
+                style={{ background: "#2962FF", border: "none" }}>
+                <Send style={{ height: 13, width: 13, color: "#fff" }} />
+              </button>
+            </div>
+            {error && <p className="text-[11px] text-center pb-2 px-3" style={{ color: "#f87171" }}>{error}</p>}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -752,7 +1053,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
 // ── Main CommunityPage ────────────────────────────────────────────────────────
 export default function CommunityPage() {
   const { adminToken, token: authToken } = useAuth();
-  const [tab, setTab] = useState<"feed" | "chat">("feed");
+  const [tab, setTab] = useState<"feed" | "chat" | "dm">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -891,25 +1192,56 @@ export default function CommunityPage() {
         <button
           onClick={() => setTab("feed")}
           className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
-          style={tab === "feed"
-            ? { background: "#FFFFFF", color: "#050505" }
-            : { color: "hsl(var(--muted-foreground))" }}
+          style={tab === "feed" ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}
         >
           <Hash style={{ height: 13, width: 13 }} />Feed
         </button>
         <button
           onClick={() => setTab("chat")}
           className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
-          style={tab === "chat"
-            ? { background: "#FFFFFF", color: "#050505" }
-            : { color: "hsl(var(--muted-foreground))" }}
+          style={tab === "chat" ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}
         >
           <MessageSquare style={{ height: 13, width: 13 }} />Live Chat
           <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" }}>LIVE</span>
         </button>
+        <button
+          onClick={() => setTab("dm")}
+          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
+          style={tab === "dm" ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}
+        >
+          <Lock style={{ height: 13, width: 13 }} />DMs
+        </button>
       </div>
 
-      {tab === "chat" ? (
+      {tab === "dm" ? (
+        /* ── DM layout ── */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2">
+            <DMBox />
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>About DMs</p>
+              <ul className="flex flex-col gap-2">
+                {[
+                  "Messages are private between you and the recipient",
+                  "Sign in to send or receive DMs",
+                  "Use 🔍 to find traders by name",
+                  "Max 500 characters per message",
+                  "Conversations update every 3 seconds",
+                  "Unread messages show a badge",
+                ].map((g, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
+                    <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
+                      style={{ background: "rgba(41,98,255,0.15)", color: "#6ea8fe", border: "1px solid rgba(41,98,255,0.3)" }}>{i + 1}</span>
+                    {g}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ) : tab === "chat" ? (
         /* ── Chat layout ── */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2">

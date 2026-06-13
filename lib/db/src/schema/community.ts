@@ -1,6 +1,7 @@
 import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
+
 export const communityPostsTable = pgTable("community_posts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
@@ -39,6 +40,23 @@ export const communityMessagesTable = pgTable("community_messages", {
   index("community_messages_user_id_idx").on(t.userId),
 ]);
 
+export const directMessagesTable = pgTable("direct_messages", {
+  id: serial("id").primaryKey(),
+  fromUserId: integer("from_user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  fromName: text("from_name").notNull(),
+  toUserId: integer("to_user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  toName: text("to_name").notNull(),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("dm_from_user_idx").on(t.fromUserId),
+  index("dm_to_user_idx").on(t.toUserId),
+  index("dm_created_at_idx").on(t.createdAt),
+]);
+
 export type CommunityPost = typeof communityPostsTable.$inferSelect;
 export type CommunityReport = typeof communityReportsTable.$inferSelect;
 export type CommunityMessage = typeof communityMessagesTable.$inferSelect;
+export type DirectMessage = typeof directMessagesTable.$inferSelect;

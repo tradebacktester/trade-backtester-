@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, communityPostsTable, communityReportsTable, communityMessagesTable, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
-import { eq, desc, and, gt, gte, lt, sql } from "drizzle-orm";
+import { db, communityPostsTable, communityReportsTable, communityMessagesTable, directMessagesTable, subscriptionsTable, subscriptionPlansTable, usersTable } from "@workspace/db";
+import { eq, desc, and, gt, or, sql } from "drizzle-orm";
 import { verifyJwt } from "../lib/jwt";
 import { verifyAdminToken } from "../lib/admin-auth";
 
@@ -359,10 +359,9 @@ router.post("/community/chat", async (req, res): Promise<void> => {
     return;
   }
   const userId: number = payload.id;
-  const rawName = typeof payload.email === "string"
-    ? payload.email.split("@")[0]!.replace(/[.+_-]+/g, " ").trim()
-    : "";
-  const authorName = rawName.length >= 2 ? rawName : "User";
+  // Look up actual display name from users table
+  const [userRow] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+  const authorName = userRow?.name ?? "User";
 
   // Rate limit: 1 message per 2 seconds per user
   const twoSecAgo = new Date(Date.now() - 2_000);
@@ -410,6 +409,163 @@ router.delete("/community/chat/:id", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.update(communityMessagesTable).set({ isDeleted: true }).where(eq(communityMessagesTable.id, id));
   res.json({ id, deleted: true });
+});
+
+// ── DM routes ────────────────────────────────────────────────────────────────
+
+// Helper: extract auth'd userId + name or respond 401
+async function requireChatAuth(
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<{ userId: number; userName: string } | null> {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader || !process.env.JWT_SECRET) {
+    res.status(401).json({ error: "You must be signed in." });
+    return null;
+  }
+  const payload = verifyJwt(authHeader.replace("Bearer ", "").trim(), process.env.JWT_SECRET);
+  if (!payload || typeof payload.id !== "number") {
+    res.status(401).json({ error: "You must be signed in." });
+    return null;
+  }
+  const [row] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, payload.id));
+  return { userId: payload.id, userName: row?.name ?? "User" };
+}
+
+// GET /community/dm/conversations — list recent conversations for the current user
+router.get("/community/dm/conversations", async (req, res): Promise<void> => {
+  const auth = await requireChatAuth(req, res);
+  if (!auth) return;
+  const { userId } = auth;
+
+  // Get last message per conversation partner
+  const rows = await db
+    .select()
+    .from(directMessagesTable)
+    .where(and(
+      eq(directMessagesTable.isDeleted, false),
+      or(eq(directMessagesTable.fromUserId, userId), eq(directMessagesTable.toUserId, userId)),
+    ))
+    .orderBy(desc(directMessagesTable.createdAt))
+    .limit(500);
+
+  // Group by conversation partner
+  const convMap = new Map<number, {
+    partnerId: number; partnerName: string; lastMessage: string;
+    lastAt: string; unread: number;
+  }>();
+  for (const r of rows) {
+    const isFrom = r.fromUserId === userId;
+    const partnerId = isFrom ? r.toUserId : r.fromUserId;
+    const partnerName = isFrom ? r.toName : r.fromName;
+    if (!convMap.has(partnerId)) {
+      const unread = rows.filter(m => m.toUserId === userId && m.fromUserId === partnerId && !m.isRead).length;
+      convMap.set(partnerId, {
+        partnerId,
+        partnerName,
+        lastMessage: r.content,
+        lastAt: r.createdAt.toISOString(),
+        unread,
+      });
+    }
+  }
+  res.json([...convMap.values()]);
+});
+
+// GET /community/dm/:partnerId — messages between current user and partner
+router.get("/community/dm/:partnerId", async (req, res): Promise<void> => {
+  const auth = await requireChatAuth(req, res);
+  if (!auth) return;
+  const { userId } = auth;
+  const partnerId = parseInt(req.params["partnerId"] as string, 10);
+  if (isNaN(partnerId)) { res.status(400).json({ error: "Invalid partner id" }); return; }
+
+  const msgs = await db
+    .select()
+    .from(directMessagesTable)
+    .where(and(
+      eq(directMessagesTable.isDeleted, false),
+      or(
+        and(eq(directMessagesTable.fromUserId, userId), eq(directMessagesTable.toUserId, partnerId)),
+        and(eq(directMessagesTable.fromUserId, partnerId), eq(directMessagesTable.toUserId, userId)),
+      ),
+    ))
+    .orderBy(directMessagesTable.createdAt)
+    .limit(200);
+
+  // Mark unread messages from partner as read
+  await db.update(directMessagesTable)
+    .set({ isRead: true })
+    .where(and(
+      eq(directMessagesTable.fromUserId, partnerId),
+      eq(directMessagesTable.toUserId, userId),
+      eq(directMessagesTable.isRead, false),
+    ));
+
+  res.json(msgs.map(m => ({
+    id: m.id,
+    fromUserId: m.fromUserId,
+    fromName: m.fromName,
+    toUserId: m.toUserId,
+    toName: m.toName,
+    content: m.content,
+    isRead: m.isRead,
+    createdAt: m.createdAt.toISOString(),
+  })));
+});
+
+// POST /community/dm/:partnerId — send a DM
+router.post("/community/dm/:partnerId", async (req, res): Promise<void> => {
+  const auth = await requireChatAuth(req, res);
+  if (!auth) return;
+  const { userId, userName } = auth;
+  const partnerId = parseInt(req.params["partnerId"] as string, 10);
+  if (isNaN(partnerId) || partnerId === userId) { res.status(400).json({ error: "Invalid partner" }); return; }
+
+  // Look up partner's name
+  const [partnerRow] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, partnerId));
+  if (!partnerRow) { res.status(404).json({ error: "User not found" }); return; }
+
+  const { content } = req.body as { content?: string };
+  if (!content || typeof content !== "string") { res.status(400).json({ error: "Content required" }); return; }
+  const sanitized = stripHtml(content).trim();
+  if (sanitized.length < 1) { res.status(400).json({ error: "Message cannot be empty" }); return; }
+  if (sanitized.length > 500) { res.status(400).json({ error: "Max 500 characters" }); return; }
+
+  const [msg] = await db.insert(directMessagesTable).values({
+    fromUserId: userId,
+    fromName: userName,
+    toUserId: partnerId,
+    toName: partnerRow.name,
+    content: sanitized,
+  }).returning();
+
+  res.status(201).json({
+    id: msg!.id,
+    fromUserId: msg!.fromUserId,
+    fromName: msg!.fromName,
+    toUserId: msg!.toUserId,
+    toName: msg!.toName,
+    content: msg!.content,
+    isRead: msg!.isRead,
+    createdAt: msg!.createdAt.toISOString(),
+  });
+});
+
+// GET /community/dm/search — find users by name (for starting new DM)
+router.get("/community/dm/search", async (req, res): Promise<void> => {
+  const auth = await requireChatAuth(req, res);
+  if (!auth) return;
+  const q = (req.query["q"] as string ?? "").trim().toLowerCase();
+  if (q.length < 2) { res.json([]); return; }
+
+  const users = await db
+    .select({ id: usersTable.id, name: usersTable.name })
+    .from(usersTable)
+    .where(sql`lower(${usersTable.name}) like ${"%" + q + "%"}`)
+    .limit(10);
+
+  res.json(users.filter(u => u.id !== auth.userId));
 });
 
 // POST /admin/community/posts/:id/anonymize — M-007: overwrite spoofed authorName
