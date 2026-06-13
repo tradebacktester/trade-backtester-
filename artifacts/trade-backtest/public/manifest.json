@@ -99,5 +99,66 @@
       "protocol": "web+tradelab",
       "url": "/?action=%s"
     }
-  ]
+  ],
+
+  "file_handlers": [
+    {
+      "action": "/backtests",
+      "accept": {
+        "text/csv": [".csv"]
+      },
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }],
+      "launch_type": "single-client"
+    },
+    {
+      "action": "/strategies",
+      "accept": {
+        "application/json": [".json"]
+      },
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96", "type": "image/png" }],
+      "launch_type": "single-client"
+    }
+  ],
+
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.tradelab.app",
+      "id": "com.tradelab.app"
+    },
+    {
+      "platform": "webapp",
+      "url": "https://tradelab.replit.app/manifest.json"
+    }
+  ],
+
+  "widgets": [
+    {
+      "name": "Trade Lab Markets",
+      "short_name": "Markets",
+      "description": "Quick view of market prices and your latest backtest results",
+      "tag": "markets-widget",
+      "template": "generic-medium",
+      "ms_ac_template": "widgets/market-widget.json",
+      "data": "/api/klines?symbol=BTCUSDT&interval=1d&limit=1",
+      "type": "application/json",
+      "screenshots": [
+        {
+          "src": "/icon-512.png",
+          "sizes": "512x512",
+          "label": "Trade Lab Markets Widget"
+        }
+      ],
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }],
+      "backgrounds": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+
+  "note_taking": {
+    "new_note_url": "/journal"
+  }
 }
