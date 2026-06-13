@@ -109,9 +109,11 @@ app.use(
         connectSrc: ["'self'", "https://api.binance.com", "https://api.groq.com", "wss://stream.binance.com:9443"],
         fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
         frameSrc: ["'none'"],
+        frameAncestors: ["'self'", "https://*.replit.dev", "https://*.replit.app", "https://*.repl.co"],
       },
     },
     crossOriginEmbedderPolicy: false,
+    frameguard: false,
   }),
 );
 
