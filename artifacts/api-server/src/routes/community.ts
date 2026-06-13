@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, communityPostsTable, communityReportsTable, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
-import { eq, desc, and, gt, sql } from "drizzle-orm";
+import { db, communityPostsTable, communityReportsTable, communityMessagesTable, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
+import { eq, desc, and, gt, gte, lt, sql } from "drizzle-orm";
 import { verifyJwt } from "../lib/jwt";
 import { verifyAdminToken } from "../lib/admin-auth";
 
@@ -297,6 +297,119 @@ router.patch("/admin/community/reports/:id", async (req, res): Promise<void> => 
   if (!updated) { res.status(404).json({ error: "Report not found" }); return; }
 
   res.json({ id: updated.id, status: updated.status });
+});
+
+// ── Chat routes ─────────────────────────────────────────────────────────────
+
+// GET /community/chat — fetch messages (optionally since a timestamp)
+router.get("/community/chat", async (req, res): Promise<void> => {
+  const since = req.query["since"] as string | undefined;
+  const limit = 100;
+
+  let msgs;
+  if (since) {
+    const sinceDate = new Date(since);
+    msgs = await db
+      .select()
+      .from(communityMessagesTable)
+      .where(and(eq(communityMessagesTable.isDeleted, false), gt(communityMessagesTable.createdAt, sinceDate)))
+      .orderBy(desc(communityMessagesTable.createdAt))
+      .limit(limit);
+    msgs = msgs.reverse();
+  } else {
+    msgs = await db
+      .select()
+      .from(communityMessagesTable)
+      .where(eq(communityMessagesTable.isDeleted, false))
+      .orderBy(desc(communityMessagesTable.createdAt))
+      .limit(limit);
+    msgs = msgs.reverse();
+  }
+
+  // Build "online" set: authors who posted a message in the last 5 minutes
+  const fiveMinAgo = new Date(Date.now() - 5 * 60_000);
+  const recentAuthors = await db
+    .select({ authorName: communityMessagesTable.authorName })
+    .from(communityMessagesTable)
+    .where(and(eq(communityMessagesTable.isDeleted, false), gt(communityMessagesTable.createdAt, fiveMinAgo)));
+  const onlineNames = [...new Set(recentAuthors.map(r => r.authorName))];
+
+  res.json({
+    messages: msgs.map(m => ({
+      id: m.id,
+      userId: m.userId,
+      authorName: m.authorName,
+      content: m.content,
+      createdAt: m.createdAt.toISOString(),
+    })),
+    onlineNames,
+  });
+});
+
+// POST /community/chat — send a message (auth required)
+router.post("/community/chat", async (req, res): Promise<void> => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader || !process.env.JWT_SECRET) {
+    res.status(401).json({ error: "You must be signed in to chat." });
+    return;
+  }
+  const payload = verifyJwt(authHeader.replace("Bearer ", "").trim(), process.env.JWT_SECRET);
+  if (!payload || typeof payload.id !== "number") {
+    res.status(401).json({ error: "You must be signed in to chat." });
+    return;
+  }
+  const userId: number = payload.id;
+  const rawName = typeof payload.email === "string"
+    ? payload.email.split("@")[0]!.replace(/[.+_-]+/g, " ").trim()
+    : "";
+  const authorName = rawName.length >= 2 ? rawName : "User";
+
+  // Rate limit: 1 message per 2 seconds per user
+  const twoSecAgo = new Date(Date.now() - 2_000);
+  const [{ recentCount }] = await db
+    .select({ recentCount: sql<number>`cast(count(*) as int)` })
+    .from(communityMessagesTable)
+    .where(and(eq(communityMessagesTable.userId, userId), gt(communityMessagesTable.createdAt, twoSecAgo)));
+  if (recentCount >= 1) {
+    res.status(429).json({ error: "Please wait a moment before sending another message." });
+    return;
+  }
+
+  const { content } = req.body as { content?: string };
+  if (!content || typeof content !== "string") {
+    res.status(400).json({ error: "Message content is required." }); return;
+  }
+  const sanitized = stripHtml(content).trim();
+  if (sanitized.length < 1) { res.status(400).json({ error: "Message cannot be empty." }); return; }
+  if (sanitized.length > 300) { res.status(400).json({ error: "Message must be under 300 characters." }); return; }
+  const badWord = containsBannedWords(sanitized);
+  if (badWord) { res.status(400).json({ error: "Message contains language not allowed on this platform." }); return; }
+
+  const [msg] = await db.insert(communityMessagesTable).values({
+    userId,
+    authorName,
+    content: sanitized,
+  }).returning();
+
+  res.status(201).json({
+    id: msg!.id,
+    userId: msg!.userId,
+    authorName: msg!.authorName,
+    content: msg!.content,
+    createdAt: msg!.createdAt.toISOString(),
+  });
+});
+
+// DELETE /community/chat/:id — admin delete message
+router.delete("/community/chat/:id", async (req, res): Promise<void> => {
+  const token = req.headers["x-admin-token"] as string | undefined;
+  if (!token || !verifyAdminToken(token)) {
+    res.status(401).json({ error: "Unauthorized" }); return;
+  }
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.update(communityMessagesTable).set({ isDeleted: true }).where(eq(communityMessagesTable.id, id));
+  res.json({ id, deleted: true });
 });
 
 // POST /admin/community/posts/:id/anonymize — M-007: overwrite spoofed authorName

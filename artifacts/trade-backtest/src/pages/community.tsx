@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Heart, Flag, Trash2, Send, X, AlertTriangle, CheckCircle,
   Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
+  Hash, Smile,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -28,12 +29,28 @@ interface Report {
   createdAt: string;
 }
 
+interface ChatMessage {
+  id: number;
+  userId: number | null;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
 function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
   if (diff < 60) return "just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function chatTimeLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return isToday ? time : `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
 }
 
 function initials(name: string): string {
@@ -72,6 +89,238 @@ function Avatar({ name, size = 9 }: { name: string; size?: number }) {
   );
 }
 
+// ── Chat quick-emoji bar ──────────────────────────────────────────────────────
+const QUICK_EMOJIS = ["🚀", "📈", "📉", "💎", "🔥", "👀", "💰", "⚡", "🎯", "😅", "🤔", "💪"];
+
+// ── ChatBox component ─────────────────────────────────────────────────────────
+function ChatBox({ adminToken }: { adminToken: string | null }) {
+  const { user, token: authToken } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [onlineNames, setOnlineNames] = useState<string[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const latestIdRef = useRef<number>(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const scrollToBottom = useCallback((force = false) => {
+    const el = listRef.current;
+    if (!el) return;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (force || near) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  const loadMessages = useCallback(async (since?: string) => {
+    try {
+      const url = since ? `/api/community/chat?since=${encodeURIComponent(since)}` : "/api/community/chat";
+      const data = await apiFetch(url) as { messages: ChatMessage[]; onlineNames: string[] };
+      if (data.messages.length > 0) {
+        if (since) {
+          setMessages(prev => {
+            const ids = new Set(prev.map(m => m.id));
+            const fresh = data.messages.filter(m => !ids.has(m.id));
+            return [...prev, ...fresh].slice(-200);
+          });
+        } else {
+          setMessages(data.messages);
+          latestIdRef.current = data.messages[data.messages.length - 1]?.id ?? 0;
+        }
+        latestIdRef.current = data.messages[data.messages.length - 1]?.id ?? latestIdRef.current;
+      }
+      setOnlineNames(data.onlineNames ?? []);
+    } catch {
+      /* silently ignore polling errors */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMessages().then(() => setTimeout(() => scrollToBottom(true), 100));
+    pollRef.current = setInterval(() => {
+      const latest = messages[messages.length - 1];
+      loadMessages(latest?.createdAt);
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || !authToken) return;
+    if (text.length > 300) { setError("Max 300 characters."); return; }
+    setSending(true); setError("");
+    try {
+      const msg = await apiFetch("/api/community/chat", {
+        method: "POST",
+        body: JSON.stringify({ content: text }),
+      }, authToken) as ChatMessage;
+      setMessages(prev => [...prev, msg].slice(-200));
+      setInput("");
+      setShowEmoji(false);
+      latestIdRef.current = msg.id;
+      setTimeout(() => scrollToBottom(true), 50);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to send.");
+    } finally { setSending(false); }
+  }
+
+  async function deleteMsg(id: number) {
+    try {
+      await apiFetch(`/api/community/chat/${id}`, {
+        method: "DELETE",
+        headers: { "x-admin-token": adminToken ?? "" },
+      });
+      setMessages(prev => prev.filter(m => m.id !== id));
+    } catch { /* ignore */ }
+  }
+
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  }
+
+  const now = new Date();
+  const fiveMinAgo = new Date(now.getTime() - 5 * 60_000);
+
+  let prevAuthor = "";
+
+  return (
+    <div className="flex flex-col rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)", height: 520 }}>
+
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Live Chat</span>
+        </div>
+        <span className="text-[11px] font-mono ml-auto" style={{ color: "hsl(var(--muted-foreground))" }}>
+          {onlineNames.length > 0 ? `${onlineNames.length} active` : "—"}
+        </span>
+        {onlineNames.slice(0, 5).map(n => (
+          <Avatar key={n} name={n} size={6} />
+        ))}
+      </div>
+
+      {/* Message list */}
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5" style={{ scrollBehavior: "smooth" }}>
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full gap-2">
+            <MessageSquare style={{ height: 28, width: 28, color: "hsl(var(--muted-foreground))" }} />
+            <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>No messages yet. Say something!</p>
+          </div>
+        )}
+        {messages.map((msg, i) => {
+          const isMe = user && msg.authorName === user.name;
+          const isNewAuthor = msg.authorName !== prevAuthor;
+          prevAuthor = msg.authorName;
+          const isRecent = new Date(msg.createdAt) > fiveMinAgo;
+
+          return (
+            <div key={msg.id} className={`flex items-end gap-2 group ${isMe ? "flex-row-reverse" : "flex-row"} ${isNewAuthor && i > 0 ? "mt-3" : "mt-0.5"}`}>
+              {isNewAuthor && !isMe && (
+                <Avatar name={msg.authorName} size={7} />
+              )}
+              {!isNewAuthor && !isMe && <div style={{ width: 28, flexShrink: 0 }} />}
+
+              <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[75%]`}>
+                {isNewAuthor && (
+                  <span className="text-[10px] font-medium mb-0.5 px-1" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    {isMe ? "You" : msg.authorName}
+                    {isRecent && <span className="ml-1 text-green-400">●</span>}
+                    <span className="ml-1.5 font-normal opacity-60">{chatTimeLabel(msg.createdAt)}</span>
+                  </span>
+                )}
+                <div className="relative">
+                  <div
+                    className="px-3 py-1.5 rounded-2xl text-[13px] leading-relaxed break-words"
+                    style={{
+                      background: isMe ? "#2962FF" : "var(--glass-bg)",
+                      color: isMe ? "#fff" : "hsl(var(--foreground))",
+                      border: isMe ? "none" : "1px solid var(--glass-border)",
+                      borderBottomRightRadius: isMe ? 4 : undefined,
+                      borderBottomLeftRadius: !isMe ? 4 : undefined,
+                      maxWidth: "100%",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                  {adminToken && (
+                    <button
+                      onClick={() => deleteMsg(msg.id)}
+                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ background: "rgba(239,83,80,0.9)", border: "1px solid #ef5350" }}
+                    >
+                      <X style={{ height: 9, width: 9, color: "#fff" }} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Emoji bar */}
+      {showEmoji && (
+        <div className="flex gap-1 px-3 py-2 flex-wrap flex-shrink-0" style={{ borderTop: "1px solid var(--glass-border)", background: "var(--glass-bg)" }}>
+          {QUICK_EMOJIS.map(em => (
+            <button key={em} onClick={() => { setInput(v => v + em); setShowEmoji(false); inputRef.current?.focus(); }}
+              className="text-[18px] hover:scale-125 transition-transform">{em}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Input row */}
+      <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--glass-border)" }}>
+        {!authToken ? (
+          <p className="flex-1 text-[12px] text-center" style={{ color: "hsl(var(--muted-foreground))" }}>
+            Sign in to join the chat
+          </p>
+        ) : (
+          <>
+            <button
+              onClick={() => setShowEmoji(v => !v)}
+              className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-xl transition-colors"
+              style={{ background: showEmoji ? "rgba(41,98,255,0.2)" : "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))" }}
+            >
+              <Smile style={{ height: 14, width: 14 }} />
+            </button>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => { setInput(e.target.value); setError(""); }}
+              onKeyDown={onKey}
+              placeholder="Message the community…"
+              maxLength={300}
+              className="flex-1 px-3 py-1.5 rounded-xl text-[13px] outline-none"
+              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
+            />
+            <span className="text-[10px] font-mono flex-shrink-0" style={{ color: input.length > 260 ? "#f87171" : "hsl(var(--muted-foreground))" }}>
+              {input.length}/300
+            </span>
+            <button
+              onClick={send}
+              disabled={sending || !input.trim()}
+              className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-xl transition-all disabled:opacity-40"
+              style={{ background: "#2962FF", border: "none" }}
+            >
+              <Send style={{ height: 13, width: 13, color: "#fff" }} />
+            </button>
+          </>
+        )}
+      </div>
+      {error && (
+        <p className="text-[11px] text-center pb-2 px-3" style={{ color: "#f87171" }}>{error}</p>
+      )}
+    </div>
+  );
+}
+
+// ── ReportModal ───────────────────────────────────────────────────────────────
 function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth();
   const [reporterName, setReporterName] = useState(user?.name ?? "");
@@ -169,6 +418,7 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
   );
 }
 
+// ── PostCard ──────────────────────────────────────────────────────────────────
 function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
   post: Post; adminToken: string | null; onDelete: (id: number) => void;
   onReport: (post: Post) => void; likedIds: Set<number>; onLike: (id: number, liked: boolean) => void;
@@ -243,6 +493,7 @@ function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
   );
 }
 
+// ── CreatePostForm ────────────────────────────────────────────────────────────
 function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const { user, token: authToken } = useAuth();
   const [content, setContent] = useState("");
@@ -369,6 +620,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   );
 }
 
+// ── AdminReportsPanel ─────────────────────────────────────────────────────────
 function AdminReportsPanel({ adminToken }: { adminToken: string }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -497,8 +749,10 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
   );
 }
 
+// ── Main CommunityPage ────────────────────────────────────────────────────────
 export default function CommunityPage() {
   const { adminToken, token: authToken } = useAuth();
+  const [tab, setTab] = useState<"feed" | "chat">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -591,7 +845,6 @@ export default function CommunityPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Stats pills */}
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
               {[
                 { icon: MessageSquare, val: stats.posts, label: "Posts" },
@@ -633,142 +886,188 @@ export default function CommunityPage() {
         </p>
       </div>
 
-      {/* Main layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* Tab bar */}
+      <div className="flex gap-1 p-1 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+        <button
+          onClick={() => setTab("feed")}
+          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
+          style={tab === "feed"
+            ? { background: "#FFFFFF", color: "#050505" }
+            : { color: "hsl(var(--muted-foreground))" }}
+        >
+          <Hash style={{ height: 13, width: 13 }} />Feed
+        </button>
+        <button
+          onClick={() => setTab("chat")}
+          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
+          style={tab === "chat"
+            ? { background: "#FFFFFF", color: "#050505" }
+            : { color: "hsl(var(--muted-foreground))" }}
+        >
+          <MessageSquare style={{ height: 13, width: 13 }} />Live Chat
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" }}>LIVE</span>
+        </button>
+      </div>
 
-        {/* Feed */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} />
-
-          {loading ? (
-            <div className="flex flex-col gap-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="rounded-2xl p-4 animate-pulse"
-                  style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="h-9 w-9 rounded-full" style={{ background: "var(--glass-border)" }} />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 rounded w-24" style={{ background: "var(--glass-border)" }} />
-                      <div className="h-2.5 rounded w-16" style={{ background: "var(--glass-bg)" }} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-3 rounded w-full" style={{ background: "var(--glass-bg)" }} />
-                    <div className="h-3 rounded w-4/5" style={{ background: "var(--glass-bg)" }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="rounded-2xl p-10 text-center" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-              <AlertTriangle style={{ height: 28, width: 28, color: "#f59e0b", margin: "0 auto 12px" }} />
-              <p className="text-[13px] mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>{error}</p>
-              <button onClick={fetchPosts} className="px-4 py-2 rounded-xl text-[12px] font-medium"
-                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}>Retry</button>
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="rounded-2xl p-14 text-center" style={{ border: "1px dashed var(--glass-border)", background: "var(--card-bg)" }}>
-              <MessageSquare style={{ height: 32, width: 32, color: "hsl(var(--muted-foreground))", margin: "0 auto 12px" }} />
-              <p className="text-[15px] font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>No posts yet</p>
-              <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Be the first to share a trading idea!</p>
-            </div>
-          ) : (
-            <>
-              {posts.map(post => (
-                <PostCard key={post.id} post={post} adminToken={adminToken} onDelete={handleAdminDelete}
-                  onReport={setReportingPost} likedIds={likedIds} onLike={handleLike} />
-              ))}
-              {hasMore && (
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  className="w-full py-3 rounded-2xl text-[13px] font-medium transition-all flex items-center justify-center gap-2"
-                  style={{
-                    background: "var(--glass-bg)",
-                    border: "1px solid var(--glass-border)",
-                    color: "hsl(var(--muted-foreground))",
-                    opacity: loadingMore ? 0.6 : 1,
-                  }}
-                >
-                  {loadingMore ? (
-                    <>
-                      <RefreshCw style={{ height: 13, width: 13 }} className="animate-spin" />
-                      Loading…
-                    </>
-                  ) : (
-                    "Load more posts"
-                  )}
-                </button>
-              )}
-              {!hasMore && posts.length > 0 && (
-                <p className="text-center text-[11px] py-2" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  All {posts.length} posts loaded
-                </p>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="flex flex-col gap-4">
-          {/* Guidelines */}
-          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-            <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Community Guidelines</p>
-            <ul className="flex flex-col gap-2">
-              {[
-                "Be respectful and constructive",
-                "No financial advice or pump & dump",
-                "No offensive or abusive language",
-                "No spam or self-promotion links",
-                "Only post relevant trading content",
-                "Report posts that violate rules",
-              ].map((g, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
-                  <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
-                    style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
-                  {g}
-                </li>
-              ))}
-            </ul>
+      {tab === "chat" ? (
+        /* ── Chat layout ── */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2">
+            <ChatBox adminToken={adminToken} />
           </div>
-
-          {/* Top contributors */}
-          {posts.length > 0 && (
+          <div className="flex flex-col gap-4">
             <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Top Contributors</p>
-              <div className="flex flex-col gap-2.5">
-                {(() => {
-                  const map: Record<string, number> = {};
-                  posts.forEach(p => { map[p.authorName] = (map[p.authorName] ?? 0) + 1; });
-                  return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count], i) => (
-                    <div key={name} className="flex items-center gap-2.5">
-                      <span className="text-[10px] font-mono w-4 text-right flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }}>{i + 1}</span>
-                      <Avatar name={name} size={7} />
-                      <span className="text-[12px] font-medium flex-1 truncate" style={{ color: "hsl(var(--foreground))" }}>{name}</span>
-                      <span className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{count}p</span>
-                    </div>
-                  ));
-                })()}
+              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Chat Rules</p>
+              <ul className="flex flex-col gap-2">
+                {[
+                  "Keep it trading-focused",
+                  "No spam or repeated messages",
+                  "Be kind and constructive",
+                  "No pump & dump or financial advice",
+                  "English preferred for clarity",
+                  "Admins can remove messages",
+                ].map((g, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
+                    <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
+                      style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" }}>{i + 1}</span>
+                    {g}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
+              <div className="flex flex-wrap gap-1.5">
+                {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading"].map(tag => (
+                  <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer"
+                    style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>
+                    {tag}
+                  </span>
+                ))}
               </div>
             </div>
-          )}
+            {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
+          </div>
+        </div>
+      ) : (
+        /* ── Feed layout ── */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} />
 
-          {/* Trending topics */}
-          <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-            <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
-            <div className="flex flex-wrap gap-1.5">
-              {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#RiskManagement", "#Crypto"].map(tag => (
-                <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer"
-                  style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>
-                  {tag}
-                </span>
-              ))}
-            </div>
+            {loading ? (
+              <div className="flex flex-col gap-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="rounded-2xl p-4 animate-pulse"
+                    style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-9 w-9 rounded-full" style={{ background: "var(--glass-border)" }} />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3 rounded w-24" style={{ background: "var(--glass-border)" }} />
+                        <div className="h-2.5 rounded w-16" style={{ background: "var(--glass-bg)" }} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 rounded w-full" style={{ background: "var(--glass-bg)" }} />
+                      <div className="h-3 rounded w-4/5" style={{ background: "var(--glass-bg)" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="rounded-2xl p-10 text-center" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+                <AlertTriangle style={{ height: 28, width: 28, color: "#f59e0b", margin: "0 auto 12px" }} />
+                <p className="text-[13px] mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>{error}</p>
+                <button onClick={fetchPosts} className="px-4 py-2 rounded-xl text-[12px] font-medium"
+                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}>Retry</button>
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="rounded-2xl p-14 text-center" style={{ border: "1px dashed var(--glass-border)", background: "var(--card-bg)" }}>
+                <MessageSquare style={{ height: 32, width: 32, color: "hsl(var(--muted-foreground))", margin: "0 auto 12px" }} />
+                <p className="text-[15px] font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>No posts yet</p>
+                <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Be the first to share a trading idea!</p>
+              </div>
+            ) : (
+              <>
+                {posts.map(post => (
+                  <PostCard key={post.id} post={post} adminToken={adminToken} onDelete={handleAdminDelete}
+                    onReport={setReportingPost} likedIds={likedIds} onLike={handleLike} />
+                ))}
+                {hasMore && (
+                  <button onClick={loadMore} disabled={loadingMore}
+                    className="w-full py-3 rounded-2xl text-[13px] font-medium transition-all flex items-center justify-center gap-2"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))", opacity: loadingMore ? 0.6 : 1 }}>
+                    {loadingMore ? (
+                      <><RefreshCw style={{ height: 13, width: 13 }} className="animate-spin" />Loading…</>
+                    ) : "Load more posts"}
+                  </button>
+                )}
+                {!hasMore && posts.length > 0 && (
+                  <p className="text-center text-[11px] py-2" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    All {posts.length} posts loaded
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
-          {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Community Guidelines</p>
+              <ul className="flex flex-col gap-2">
+                {[
+                  "Be respectful and constructive",
+                  "No financial advice or pump & dump",
+                  "No offensive or abusive language",
+                  "No spam or self-promotion links",
+                  "Only post relevant trading content",
+                  "Report posts that violate rules",
+                ].map((g, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
+                    <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
+                      style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
+                    {g}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {posts.length > 0 && (
+              <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+                <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Top Contributors</p>
+                <div className="flex flex-col gap-2.5">
+                  {(() => {
+                    const map: Record<string, number> = {};
+                    posts.forEach(p => { map[p.authorName] = (map[p.authorName] ?? 0) + 1; });
+                    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count], i) => (
+                      <div key={name} className="flex items-center gap-2.5">
+                        <span className="text-[10px] font-mono w-4 text-right flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }}>{i + 1}</span>
+                        <Avatar name={name} size={7} />
+                        <span className="text-[12px] font-medium flex-1 truncate" style={{ color: "hsl(var(--foreground))" }}>{name}</span>
+                        <span className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{count}p</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
+              <div className="flex flex-wrap gap-1.5">
+                {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#RiskManagement", "#Crypto"].map(tag => (
+                  <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer"
+                    style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
+          </div>
         </div>
-      </div>
+      )}
 
       {reportingPost && (
         <ReportModal post={reportingPost} onClose={() => setReportingPost(null)} onDone={() => setReportingPost(null)} />

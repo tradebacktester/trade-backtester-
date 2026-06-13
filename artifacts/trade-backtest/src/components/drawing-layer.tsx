@@ -518,15 +518,18 @@ class DrawingController {
     const inp = document.getElementById("dl-text-inp") as HTMLInputElement;
     const btn = document.getElementById("dl-text-btn") as HTMLButtonElement;
     inp.value = ""; inp.focus();
+    let committed = false;
     const commit = (ok: boolean) => {
+      if (committed) return;
+      committed = true;
       const txt = inp.value.trim();
       ov!.style.display = "none";
       inp.onkeydown = null; inp.onblur = null; btn.onclick = null;
       if (ok && txt) { this._mkText(x, y, time, price, txt); this._fin(); }
     };
     inp.onkeydown = e => { if (e.key==="Enter"){e.preventDefault();commit(true);} if(e.key==="Escape"){e.preventDefault();commit(false);} };
-    inp.onblur    = () => setTimeout(() => commit(true), 100);
-    btn.onclick   = e => { e.preventDefault(); e.stopPropagation(); inp.onblur = null; commit(true); };
+    inp.onblur    = () => setTimeout(() => commit(true), 150);
+    btn.onclick   = e => { e.preventDefault(); e.stopPropagation(); commit(true); };
   }
 
   // ── Position tools ───────────────────────────────────────────────────────────
@@ -807,9 +810,15 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
       <div style={{ position: "absolute", left: 0, right: 0, top: isLong ? ty : ey, height: zoneH_tp, background: "rgba(38,166,154,0.10)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", left: 0, right: 0, top: isLong ? ey : sy, height: zoneH_sl, background: "rgba(239,83,80,0.10)", pointerEvents: "none" }} />
 
-      {/* ── Take-Profit line ─── */}
-      <div style={lineS(tpC, ty)}>
-        <div style={handleS(tpC)} onMouseDown={startDrag("target")} onTouchStart={startDrag("target")}>
+      {/* ── Take-Profit line (20 px hit-area, centred on 2 px visual bar) ─── */}
+      <div
+        style={{ position: "absolute", left: 0, right: 0, top: ty - 9, height: 20,
+          cursor: "ns-resize", pointerEvents: "all", zIndex: 40 }}
+        onMouseDown={startDrag("target")}
+        onTouchStart={startDrag("target")}
+      >
+        <div style={{ position: "absolute", left: 0, right: 0, top: 9, height: 2, background: tpC }} />
+        <div style={{ ...handleS(tpC), pointerEvents: "none" }}>
           <svg width="14" height="8" viewBox="0 0 14 8"><path d="M1 4h12M7 1l3 3-3 3" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
         </div>
         <span style={lbl(tpC, 44)}>TP {safeTarget.toFixed(safeTarget > 10 ? 2 : 4)} +{rewPctPx}%</span>
@@ -817,19 +826,26 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
         <span style={{ ...lbl(tpC + "cc", "auto"), right: 8 }}>R:R 1:{rr}</span>
       </div>
 
-      {/* ── Entry line ─── */}
-      <div style={lineS(enC, ey)}>
-        <div style={handleS(enC)} onMouseDown={startDrag("entry")} onTouchStart={startDrag("entry")}>
+      {/* ── Entry line (20 px hit-area) ─── */}
+      <div
+        style={{ position: "absolute", left: 0, right: 0, top: ey - 9, height: 20,
+          cursor: "ns-resize", pointerEvents: "all", zIndex: 40 }}
+        onMouseDown={startDrag("entry")}
+        onTouchStart={startDrag("entry")}
+      >
+        <div style={{ position: "absolute", left: 0, right: 0, top: 9, height: 2, background: enC }} />
+        <div style={{ ...handleS(enC), pointerEvents: "none" }}>
           <svg width="14" height="8" viewBox="0 0 14 8"><path d="M1 4h12" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
         </div>
         <span style={lbl(enC, 44)}>{isLong ? "▲ Long" : "▼ Short"} {safeEntry.toFixed(safeEntry > 10 ? 2 : 4)}</span>
         <span style={lblGhost(enC, "30%")}>
           {posSize > 0 ? `${posSize.toFixed(4)} units · ${fmt(riskUsd)} risk (${riskPct}%)` : `${fmt(acctSz)} account`}
         </span>
-        {/* Settings gear */}
+        {/* Settings gear — onClick avoids the double-fire caused by synthesized mousedown on touch */}
         <button
-          onMouseDown={e => { e.stopPropagation(); setShowSettings(s => !s); }}
-          onTouchStart={e => { e.stopPropagation(); setShowSettings(s => !s); }}
+          onMouseDown={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); setShowSettings(s => !s); }}
           style={{ position: "absolute", right: 30, top: "50%", transform: "translateY(-50%)",
             background: showSettings ? enC : "rgba(40,44,60,0.85)",
             border: `1px solid ${enC}88`, color: "#fff", width: 22, height: 22,
@@ -839,16 +855,23 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
         >⚙</button>
         {/* Remove */}
         <button
-          onClick={() => onRemove(pos.id)}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onRemove(pos.id); }}
           style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
             background: "rgba(239,83,80,0.85)", border: "none", color: "#fff",
             width: 20, height: 20, borderRadius: "50%", cursor: "pointer",
             fontSize: 14, lineHeight: "20px", textAlign: "center", pointerEvents: "all" }}>×</button>
       </div>
 
-      {/* ── Stop-Loss line ─── */}
-      <div style={lineS(slC, sy)}>
-        <div style={handleS(slC)} onMouseDown={startDrag("stop")} onTouchStart={startDrag("stop")}>
+      {/* ── Stop-Loss line (20 px hit-area) ─── */}
+      <div
+        style={{ position: "absolute", left: 0, right: 0, top: sy - 9, height: 20,
+          cursor: "ns-resize", pointerEvents: "all", zIndex: 40 }}
+        onMouseDown={startDrag("stop")}
+        onTouchStart={startDrag("stop")}
+      >
+        <div style={{ position: "absolute", left: 0, right: 0, top: 9, height: 2, background: slC }} />
+        <div style={{ ...handleS(slC), pointerEvents: "none" }}>
           <svg width="14" height="8" viewBox="0 0 14 8">
             <path d="M1 4h12M7 1l3 3-3 3" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"
               transform={isLong ? "rotate(180 7 4)" : ""} />

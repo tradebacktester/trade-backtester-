@@ -27,5 +27,18 @@ export const communityReportsTable = pgTable("community_reports", {
   index("community_reports_post_id_idx").on(t.postId),
 ]);
 
+export const communityMessagesTable = pgTable("community_messages", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+  authorName: text("author_name").notNull(),
+  content: text("content").notNull(),
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("community_messages_created_at_idx").on(t.createdAt),
+  index("community_messages_user_id_idx").on(t.userId),
+]);
+
 export type CommunityPost = typeof communityPostsTable.$inferSelect;
 export type CommunityReport = typeof communityReportsTable.$inferSelect;
+export type CommunityMessage = typeof communityMessagesTable.$inferSelect;
