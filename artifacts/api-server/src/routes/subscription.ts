@@ -33,9 +33,9 @@ const DEFAULT_PLANS = [
     sortOrder: 0,
     features: {
       maxBacktestsPerMonth: 5,
-      aiQueriesPerDay: 0,
+      aiQueriesPerDay: 5,
       maxLeverage: 5,
-      communityPost: false,
+      communityPost: true,
       replayMode: false,
       multiTfView: false,
       dataExport: false,
@@ -91,6 +91,17 @@ async function ensurePlans() {
   const existing = await db.select().from(subscriptionPlansTable);
   if (existing.length === 0) {
     await db.insert(subscriptionPlansTable).values(DEFAULT_PLANS);
+    return;
+  }
+  // Migrate: bump free plan from aiQueriesPerDay:0 → 5 so basic AI works out of the box
+  const freePlan = existing.find(p => p.isDefault);
+  if (freePlan) {
+    const feat = freePlan.features as Record<string, unknown>;
+    if (feat["aiQueriesPerDay"] === 0) {
+      await db.update(subscriptionPlansTable)
+        .set({ features: { ...feat, aiQueriesPerDay: 5, communityPost: true } })
+        .where(eq(subscriptionPlansTable.id, freePlan.id));
+    }
   }
 }
 

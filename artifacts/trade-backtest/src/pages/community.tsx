@@ -2,11 +2,141 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Heart, Flag, Trash2, Send, X, AlertTriangle, CheckCircle,
   Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
-  Hash, Smile, Search, Lock, ChevronLeft,
+  Hash, Smile, Search, Lock, ChevronLeft, TrendingUp, Zap,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 
+/* ── Styles injected once ───────────────────────────────────────────────────── */
+const ANIM_CSS = `
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulseGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52,199,89,0.4); }
+  50%       { box-shadow: 0 0 0 4px rgba(52,199,89,0); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.cm-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+}
+.cm-card-elevated {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+}
+.cm-pill {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+}
+.cm-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+  border-radius: 10px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.cm-btn-ghost:hover {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.85);
+}
+.cm-btn-primary {
+  background: #0A84FF;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.cm-btn-primary:hover:not(:disabled) {
+  background: #0071e3;
+  transform: scale(1.02);
+}
+.cm-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.cm-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.9);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.cm-input:focus {
+  border-color: rgba(10,132,255,0.5);
+}
+.cm-post-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.cm-post-card:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+}
+.cm-tab-btn {
+  position: relative;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+.cm-conv-item {
+  transition: background 0.12s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+.cm-conv-item:hover { background: rgba(255,255,255,0.04); }
+`;
+
+function StyleInjector() {
+  useEffect(() => {
+    const id = "community-anim-styles";
+    if (!document.getElementById(id)) {
+      const el = document.createElement("style");
+      el.id = id;
+      el.textContent = ANIM_CSS;
+      document.head.appendChild(el);
+    }
+    return () => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    };
+  }, []);
+  return null;
+}
+
+/* ── Interfaces ─────────────────────────────────────────────────────────────── */
 interface Post {
   id: number;
   userId: number | null;
@@ -37,12 +167,32 @@ interface ChatMessage {
   createdAt: string;
 }
 
+interface Conversation {
+  partnerId: number;
+  partnerName: string;
+  lastMessage: string;
+  lastAt: string;
+  unread: number;
+}
+
+interface DM {
+  id: number;
+  fromUserId: number;
+  fromName: string;
+  toUserId: number;
+  toName: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+/* ── Utils ──────────────────────────────────────────────────────────────────── */
 function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return "now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
 }
 
 function chatTimeLabel(iso: string): string {
@@ -57,7 +207,10 @@ function initials(name: string): string {
   return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
 
-const AVATAR_PALETTE = ["#1e3a5f", "#1e4d3a", "#4a1e5f", "#5f3a1e", "#1e1e5f", "#5f1e3a", "#1e5f5f", "#3a5f1e"];
+const AVATAR_PALETTE = [
+  "#1a3557", "#0d3d2b", "#3b1557", "#5a2d0c",
+  "#141457", "#4d0f2e", "#0d4d4d", "#2d4d0d"
+];
 function avatarColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -78,21 +231,28 @@ async function apiFetch(path: string, opts?: RequestInit, token?: string | null)
   return data;
 }
 
-function Avatar({ name, size = 9 }: { name: string; size?: number }) {
+/* ── Avatar ─────────────────────────────────────────────────────────────────── */
+function Avatar({ name, size = 36 }: { name: string; size?: number }) {
   return (
     <div
-      className={`h-${size} w-${size} rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0`}
-      style={{ background: avatarColor(name), minWidth: size * 4, minHeight: size * 4, width: size * 4, height: size * 4, fontSize: size * 1.3 }}
+      style={{
+        width: size, height: size, borderRadius: "50%",
+        background: avatarColor(name), flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "rgba(255,255,255,0.9)", fontWeight: 600,
+        fontSize: Math.max(10, size * 0.35),
+        letterSpacing: "-0.02em",
+      }}
     >
       {initials(name)}
     </div>
   );
 }
 
-// ── Chat quick-emoji bar ──────────────────────────────────────────────────────
+/* ── Emoji bar ──────────────────────────────────────────────────────────────── */
 const QUICK_EMOJIS = ["🚀", "📈", "📉", "💎", "🔥", "👀", "💰", "⚡", "🎯", "😅", "🤔", "💪"];
 
-// ── ChatBox component ─────────────────────────────────────────────────────────
+/* ── ChatBox ────────────────────────────────────────────────────────────────── */
 function ChatBox({ adminToken }: { adminToken: string | null }) {
   const { user, token: authToken } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -131,9 +291,7 @@ function ChatBox({ adminToken }: { adminToken: string | null }) {
         latestIdRef.current = data.messages[data.messages.length - 1]?.id ?? latestIdRef.current;
       }
       setOnlineNames(data.onlineNames ?? []);
-    } catch {
-      /* silently ignore polling errors */
-    }
+    } catch { /* silently ignore polling errors */ }
   }, []);
 
   useEffect(() => {
@@ -184,32 +342,34 @@ function ChatBox({ adminToken }: { adminToken: string | null }) {
 
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60_000);
-
   let prevAuthor = "";
 
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)", height: 520 }}>
-
+    <div className="cm-card flex flex-col overflow-hidden" style={{ height: 540 }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Live Chat</span>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", animation: "pulseGreen 2s ease-in-out infinite" }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>Live Chat</span>
         </div>
-        <span className="text-[11px] font-mono ml-auto" style={{ color: "hsl(var(--muted-foreground))" }}>
-          {onlineNames.length > 0 ? `${onlineNames.length} active` : "—"}
-        </span>
-        {onlineNames.slice(0, 5).map(n => (
-          <Avatar key={n} name={n} size={6} />
-        ))}
+        {onlineNames.length > 0 && (
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontVariantNumeric: "tabular-nums" }}>
+            {onlineNames.length} online
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {onlineNames.slice(0, 4).map(n => <Avatar key={n} name={n} size={22} />)}
+        </div>
       </div>
 
-      {/* Message list */}
-      <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5" style={{ scrollBehavior: "smooth" }}>
+      {/* Messages */}
+      <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-0.5"
+        style={{ scrollBehavior: "smooth" }}>
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2">
-            <MessageSquare style={{ height: 28, width: 28, color: "hsl(var(--muted-foreground))" }} />
-            <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>No messages yet. Say something!</p>
+            <MessageSquare style={{ height: 26, width: 26, color: "rgba(255,255,255,0.2)" }} />
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>No messages yet — say hi!</p>
           </div>
         )}
         {messages.map((msg, i) => {
@@ -219,41 +379,36 @@ function ChatBox({ adminToken }: { adminToken: string | null }) {
           const isRecent = new Date(msg.createdAt) > fiveMinAgo;
 
           return (
-            <div key={msg.id} className={`flex items-end gap-2 group ${isMe ? "flex-row-reverse" : "flex-row"} ${isNewAuthor && i > 0 ? "mt-3" : "mt-0.5"}`}>
-              {isNewAuthor && !isMe && (
-                <Avatar name={msg.authorName} size={7} />
-              )}
-              {!isNewAuthor && !isMe && <div style={{ width: 28, flexShrink: 0 }} />}
+            <div key={msg.id}
+              style={{ animation: `fadeInUp 0.2s ease both`, animationDelay: `${Math.min(i, 10) * 0.01}s` }}
+              className={`flex items-end gap-2 group ${isMe ? "flex-row-reverse" : "flex-row"} ${isNewAuthor && i > 0 ? "mt-3" : "mt-0.5"}`}>
+              {isNewAuthor && !isMe && <Avatar name={msg.authorName} size={26} />}
+              {!isNewAuthor && !isMe && <div style={{ width: 26, flexShrink: 0 }} />}
 
-              <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[75%]`}>
+              <div style={{ maxWidth: "75%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
                 {isNewAuthor && (
-                  <span className="text-[10px] font-medium mb-0.5 px-1" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginBottom: 3, paddingLeft: 4, paddingRight: 4 }}>
                     {isMe ? "You" : msg.authorName}
-                    {isRecent && <span className="ml-1 text-green-400">●</span>}
-                    <span className="ml-1.5 font-normal opacity-60">{chatTimeLabel(msg.createdAt)}</span>
+                    {isRecent && <span style={{ color: "#30D158", marginLeft: 4 }}>●</span>}
+                    <span style={{ marginLeft: 6, opacity: 0.7 }}>{chatTimeLabel(msg.createdAt)}</span>
                   </span>
                 )}
-                <div className="relative">
-                  <div
-                    className="px-3 py-1.5 rounded-2xl text-[13px] leading-relaxed break-words"
-                    style={{
-                      background: isMe ? "#2962FF" : "var(--glass-bg)",
-                      color: isMe ? "#fff" : "hsl(var(--foreground))",
-                      border: isMe ? "none" : "1px solid var(--glass-border)",
-                      borderBottomRightRadius: isMe ? 4 : undefined,
-                      borderBottomLeftRadius: !isMe ? 4 : undefined,
-                      maxWidth: "100%",
-                      wordBreak: "break-word",
-                    }}
-                  >
+                <div style={{ position: "relative" }}>
+                  <div style={{
+                    padding: "7px 12px",
+                    borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                    fontSize: 13, lineHeight: "1.45",
+                    wordBreak: "break-word",
+                    background: isMe ? "#0A84FF" : "rgba(255,255,255,0.07)",
+                    color: isMe ? "#fff" : "rgba(255,255,255,0.88)",
+                    border: isMe ? "none" : "1px solid rgba(255,255,255,0.08)",
+                  }}>
                     {msg.content}
                   </div>
                   {adminToken && (
-                    <button
-                      onClick={() => deleteMsg(msg.id)}
+                    <button onClick={() => deleteMsg(msg.id)}
                       className="absolute -top-2 -right-2 h-5 w-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ background: "rgba(239,83,80,0.9)", border: "1px solid #ef5350" }}
-                    >
+                      style={{ background: "rgba(255,69,58,0.9)", border: "none", cursor: "pointer" }}>
                       <X style={{ height: 9, width: 9, color: "#fff" }} />
                     </button>
                   )}
@@ -266,80 +421,58 @@ function ChatBox({ adminToken }: { adminToken: string | null }) {
 
       {/* Emoji bar */}
       {showEmoji && (
-        <div className="flex gap-1 px-3 py-2 flex-wrap flex-shrink-0" style={{ borderTop: "1px solid var(--glass-border)", background: "var(--glass-bg)" }}>
+        <div className="flex gap-1 px-3 py-2 flex-wrap flex-shrink-0"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}>
           {QUICK_EMOJIS.map(em => (
             <button key={em} onClick={() => { setInput(v => v + em); setShowEmoji(false); inputRef.current?.focus(); }}
-              className="text-[18px] hover:scale-125 transition-transform">{em}</button>
+              style={{ fontSize: 18, background: "none", border: "none", cursor: "pointer", transition: "transform 0.1s ease" }}
+              onMouseEnter={e => { (e.target as HTMLElement).style.transform = "scale(1.3)"; }}
+              onMouseLeave={e => { (e.target as HTMLElement).style.transform = "scale(1)"; }}>
+              {em}
+            </button>
           ))}
         </div>
       )}
 
-      {/* Input row */}
-      <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--glass-border)" }}>
+      {/* Input */}
+      <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
         {!authToken ? (
-          <p className="flex-1 text-[12px] text-center" style={{ color: "hsl(var(--muted-foreground))" }}>
+          <p className="flex-1 text-center" style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
             Sign in to join the chat
           </p>
         ) : (
           <>
-            <button
-              onClick={() => setShowEmoji(v => !v)}
-              className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-xl transition-colors"
-              style={{ background: showEmoji ? "rgba(41,98,255,0.2)" : "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))" }}
-            >
+            <button onClick={() => setShowEmoji(v => !v)}
+              className="cm-btn-ghost flex-shrink-0"
+              style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
+                background: showEmoji ? "rgba(10,132,255,0.2)" : undefined, borderColor: showEmoji ? "rgba(10,132,255,0.4)" : undefined }}>
               <Smile style={{ height: 14, width: 14 }} />
             </button>
-            <input
-              ref={inputRef}
-              value={input}
+            <input ref={inputRef} value={input}
               onChange={e => { setInput(e.target.value); setError(""); }}
               onKeyDown={onKey}
               placeholder="Message the community…"
               maxLength={300}
-              className="flex-1 px-3 py-1.5 rounded-xl text-[13px] outline-none"
-              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
-            />
-            <span className="text-[10px] font-mono flex-shrink-0" style={{ color: input.length > 260 ? "#f87171" : "hsl(var(--muted-foreground))" }}>
+              className="cm-input flex-1 px-3 py-1.5"
+              style={{ fontSize: 13 }} />
+            <span style={{ fontSize: 10, color: input.length > 260 ? "#FF453A" : "rgba(255,255,255,0.25)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
               {input.length}/300
             </span>
-            <button
-              onClick={send}
-              disabled={sending || !input.trim()}
-              className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-xl transition-all disabled:opacity-40"
-              style={{ background: "#2962FF", border: "none" }}
-            >
-              <Send style={{ height: 13, width: 13, color: "#fff" }} />
+            <button onClick={send} disabled={sending || !input.trim()}
+              className="cm-btn-primary flex-shrink-0"
+              style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Send style={{ height: 13, width: 13 }} />
             </button>
           </>
         )}
       </div>
-      {error && (
-        <p className="text-[11px] text-center pb-2 px-3" style={{ color: "#f87171" }}>{error}</p>
-      )}
+      {error && <p style={{ fontSize: 11, color: "#FF453A", textAlign: "center", paddingBottom: 8, paddingLeft: 12, paddingRight: 12 }}>{error}</p>}
     </div>
   );
 }
 
-// ── DMBox component ───────────────────────────────────────────────────────────
-interface Conversation {
-  partnerId: number;
-  partnerName: string;
-  lastMessage: string;
-  lastAt: string;
-  unread: number;
-}
-
-interface DM {
-  id: number;
-  fromUserId: number;
-  fromName: string;
-  toUserId: number;
-  toName: string;
-  content: string;
-  isRead: boolean;
-  createdAt: string;
-}
-
+/* ── DMBox ──────────────────────────────────────────────────────────────────── */
 function DMBox() {
   const { user, token: authToken } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -358,8 +491,7 @@ function DMBox() {
 
   const scrollBottom = useCallback(() => {
     const el = listRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
   const loadConversations = useCallback(async () => {
@@ -396,7 +528,6 @@ function DMBox() {
     setSearchQ("");
     setSearchResults([]);
     loadMessages(id);
-    // decrement unread
     setConversations(prev => prev.map(c => c.partnerId === id ? { ...c, unread: 0 } : c));
   }
 
@@ -426,12 +557,10 @@ function DMBox() {
       }, authToken) as DM;
       setMessages(prev => [...prev, msg]);
       setInput("");
-      // update conversation list
       setConversations(prev => {
         const existing = prev.find(c => c.partnerId === activePartner.id);
-        if (existing) {
+        if (existing)
           return [{ ...existing, lastMessage: msg.content, lastAt: msg.createdAt, unread: 0 }, ...prev.filter(c => c.partnerId !== activePartner.id)];
-        }
         return [{ partnerId: activePartner.id, partnerName: activePartner.name, lastMessage: msg.content, lastAt: msg.createdAt, unread: 0 }, ...prev];
       });
       setTimeout(scrollBottom, 50);
@@ -446,10 +575,14 @@ function DMBox() {
 
   if (!authToken) {
     return (
-      <div className="rounded-2xl flex flex-col items-center justify-center gap-3 py-16" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", height: 480 }}>
-        <Lock style={{ height: 28, width: 28, color: "hsl(var(--muted-foreground))" }} />
-        <p className="text-[14px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Sign in to use Direct Messages</p>
-        <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>DMs are private and end-to-end stored securely.</p>
+      <div className="cm-card flex flex-col items-center justify-center gap-4 py-20">
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <Lock style={{ height: 22, width: 22, color: "rgba(255,255,255,0.3)" }} />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.85)", marginBottom: 6 }}>Sign in to use Direct Messages</p>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>DMs are private and stored securely.</p>
+        </div>
       </div>
     );
   }
@@ -457,163 +590,158 @@ function DMBox() {
   const totalUnread = conversations.reduce((s, c) => s + c.unread, 0);
 
   return (
-    <div className="flex rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)", height: 520 }}>
-
-      {/* ── Sidebar ── */}
+    <div className="cm-card flex overflow-hidden" style={{ height: 540 }}>
+      {/* Sidebar */}
       <div className={`flex flex-col flex-shrink-0 ${activePartner ? "hidden sm:flex" : "flex"}`}
-        style={{ width: 240, borderRight: "1px solid var(--glass-border)" }}>
+        style={{ width: 240, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
 
-        {/* Sidebar header */}
-        <div className="flex items-center justify-between px-3 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+        <div className="flex items-center justify-between px-3 py-3 flex-shrink-0"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center gap-2">
-            <Lock style={{ height: 12, width: 12, color: "hsl(var(--muted-foreground))" }} />
-            <span className="text-[12px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>
               Messages
-              {totalUnread > 0 && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#2962FF", color: "#fff" }}>{totalUnread}</span>}
+              {totalUnread > 0 && (
+                <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "#0A84FF", color: "#fff" }}>
+                  {totalUnread}
+                </span>
+              )}
             </span>
           </div>
           <button onClick={() => { setShowSearch(v => !v); setSearchQ(""); setSearchResults([]); }}
-            className="h-7 w-7 flex items-center justify-center rounded-xl transition-colors"
-            style={{ background: showSearch ? "#2962FF" : "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-            <Search style={{ height: 11, width: 11, color: showSearch ? "#fff" : "hsl(var(--muted-foreground))" }} />
+            className="cm-btn-ghost"
+            style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+              background: showSearch ? "rgba(10,132,255,0.2)" : undefined }}>
+            <Search style={{ height: 11, width: 11 }} />
           </button>
         </div>
 
-        {/* Search / new DM */}
         {showSearch && (
-          <div className="px-2 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
-            <input
-              value={searchQ}
-              onChange={e => onSearchChange(e.target.value)}
-              placeholder="Search traders…"
-              autoFocus
-              className="w-full px-2.5 py-1.5 rounded-xl text-[12px] outline-none"
-              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
-            />
-            {searching && <p className="text-[11px] text-center py-1" style={{ color: "hsl(var(--muted-foreground))" }}>Searching…</p>}
+          <div className="px-2 py-2 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+            <input value={searchQ} onChange={e => onSearchChange(e.target.value)}
+              placeholder="Search traders…" autoFocus
+              className="cm-input w-full px-2.5 py-1.5"
+              style={{ fontSize: 12 }} />
+            {searching && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", paddingTop: 6 }}>Searching…</p>}
             {searchResults.map(u => (
               <button key={u.id} onClick={() => selectPartner(u.id, u.name)}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-xl mt-1 text-left transition-colors"
-                style={{ background: "var(--glass-bg)" }}>
-                <Avatar name={u.name} size={7} />
-                <span className="text-[12px] font-medium" style={{ color: "hsl(var(--foreground))" }}>{u.name}</span>
+                className="cm-conv-item flex items-center gap-2 px-2 py-2 rounded-xl mt-1">
+                <Avatar name={u.name} size={28} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>{u.name}</span>
               </button>
             ))}
             {searchQ.length >= 2 && !searching && searchResults.length === 0 && (
-              <p className="text-[11px] text-center py-1" style={{ color: "hsl(var(--muted-foreground))" }}>No users found</p>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", paddingTop: 6 }}>No users found</p>
             )}
           </div>
         )}
 
-        {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">
           {conversations.length === 0 && !showSearch && (
             <div className="flex flex-col items-center justify-center h-full gap-2 px-3">
-              <MessageSquare style={{ height: 22, width: 22, color: "hsl(var(--muted-foreground))" }} />
-              <p className="text-[11px] text-center" style={{ color: "hsl(var(--muted-foreground))" }}>No conversations yet. Tap 🔍 to find traders.</p>
+              <MessageSquare style={{ height: 20, width: 20, color: "rgba(255,255,255,0.2)" }} />
+              <p style={{ fontSize: 11, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>No conversations yet. Search for a trader to start.</p>
             </div>
           )}
           {conversations.map(c => (
             <button key={c.partnerId} onClick={() => selectPartner(c.partnerId, c.partnerName)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 transition-colors text-left"
+              className="cm-conv-item flex items-center gap-2.5 px-3 py-2.5"
               style={activePartner?.id === c.partnerId
-                ? { background: "rgba(41,98,255,0.12)", borderLeft: "2px solid #2962FF" }
+                ? { background: "rgba(10,132,255,0.12)", borderLeft: "2px solid #0A84FF" }
                 : { borderLeft: "2px solid transparent" }}>
-              <Avatar name={c.partnerName} size={8} />
-              <div className="flex-1 min-w-0">
+              <Avatar name={c.partnerName} size={32} />
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-[12px] font-semibold truncate" style={{ color: "hsl(var(--foreground))" }}>{c.partnerName}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.88)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.partnerName}
+                  </span>
                   {c.unread > 0 && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: "#2962FF", color: "#fff" }}>{c.unread}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 8, background: "#0A84FF", color: "#fff", flexShrink: 0 }}>
+                      {c.unread}
+                    </span>
                   )}
                 </div>
-                <p className="text-[11px] truncate" style={{ color: "hsl(var(--muted-foreground))" }}>{c.lastMessage}</p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {c.lastMessage}
+                </p>
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── Thread panel ── */}
-      <div className={`flex-1 flex flex-col min-w-0 ${!activePartner && "hidden sm:flex"}`}>
+      {/* Thread panel */}
+      <div className={`flex-1 flex flex-col min-w-0 ${!activePartner ? "hidden sm:flex" : ""}`}>
         {!activePartner ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
-            <Lock style={{ height: 28, width: 28, color: "hsl(var(--muted-foreground))" }} />
-            <p className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Select a conversation</p>
-            <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>or search for a trader to message</p>
+            <Lock style={{ height: 26, width: 26, color: "rgba(255,255,255,0.2)" }} />
+            <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Select a conversation</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>or search for a trader to message</p>
           </div>
         ) : (
           <>
-            {/* Thread header */}
-            <div className="flex items-center gap-3 px-3 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
-              <button onClick={() => setActivePartner(null)} className="sm:hidden h-7 w-7 flex items-center justify-center rounded-xl"
-                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-                <ChevronLeft style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
+            <div className="flex items-center gap-3 px-3 py-3 flex-shrink-0"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <button onClick={() => setActivePartner(null)} className="sm:hidden cm-btn-ghost"
+                style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <ChevronLeft style={{ height: 13, width: 13 }} />
               </button>
-              <Avatar name={activePartner.name} size={8} />
+              <Avatar name={activePartner.name} size={30} />
               <div>
-                <p className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{activePartner.name}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{activePartner.name}</p>
                 <div className="flex items-center gap-1">
-                  <Lock style={{ height: 9, width: 9, color: "hsl(var(--muted-foreground))" }} />
-                  <p className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>Private conversation</p>
+                  <Lock style={{ height: 9, width: 9, color: "rgba(255,255,255,0.3)" }} />
+                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Private</p>
                 </div>
               </div>
             </div>
 
-            {/* Messages */}
-            <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1" style={{ scrollBehavior: "smooth" }}>
+            <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1"
+              style={{ scrollBehavior: "smooth" }}>
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full gap-2">
-                  <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                    Start your private conversation with <strong>{activePartner.name}</strong>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
+                    Start your private conversation with <strong style={{ color: "rgba(255,255,255,0.7)" }}>{activePartner.name}</strong>
                   </p>
                 </div>
               )}
-              {messages.map((msg) => {
+              {messages.map(msg => {
                 const isMe = user && msg.fromUserId === (user as { id: number }).id;
                 return (
-                  <div key={msg.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                    {!isMe && <Avatar name={msg.fromName} size={6} />}
-                    <div
-                      className="px-3 py-1.5 rounded-2xl text-[13px] leading-relaxed break-words max-w-[78%]"
-                      style={{
-                        background: isMe ? "#2962FF" : "var(--glass-bg)",
-                        color: isMe ? "#fff" : "hsl(var(--foreground))",
-                        border: isMe ? "none" : "1px solid var(--glass-border)",
-                        borderBottomRightRadius: isMe ? 4 : undefined,
-                        borderBottomLeftRadius: !isMe ? 4 : undefined,
-                        wordBreak: "break-word",
-                      }}
-                    >
+                  <div key={msg.id} style={{ display: "flex", alignItems: "flex-end", gap: 8, flexDirection: isMe ? "row-reverse" : "row", animation: "fadeInUp 0.15s ease both" }}>
+                    {!isMe && <Avatar name={msg.fromName} size={24} />}
+                    <div style={{
+                      padding: "7px 12px", borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                      fontSize: 13, lineHeight: "1.45", wordBreak: "break-word", maxWidth: "78%",
+                      background: isMe ? "#0A84FF" : "rgba(255,255,255,0.07)",
+                      color: isMe ? "#fff" : "rgba(255,255,255,0.88)",
+                      border: isMe ? "none" : "1px solid rgba(255,255,255,0.08)",
+                    }}>
                       {msg.content}
-                      <span className="block text-[9px] mt-0.5 opacity-60">{chatTimeLabel(msg.createdAt)}</span>
+                      <span style={{ display: "block", fontSize: 9, marginTop: 2, opacity: 0.55 }}>{chatTimeLabel(msg.createdAt)}</span>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Input */}
-            <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--glass-border)" }}>
-              <input
-                value={input}
-                onChange={e => { setInput(e.target.value); setError(""); }}
+            <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              <input value={input} onChange={e => { setInput(e.target.value); setError(""); }}
                 onKeyDown={onKey}
                 placeholder={`Message ${activePartner.name}…`}
                 maxLength={500}
-                className="flex-1 px-3 py-1.5 rounded-xl text-[13px] outline-none"
-                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
-              />
-              <span className="text-[10px] font-mono flex-shrink-0" style={{ color: input.length > 450 ? "#f87171" : "hsl(var(--muted-foreground))" }}>
+                className="cm-input flex-1 px-3 py-1.5"
+                style={{ fontSize: 13 }} />
+              <span style={{ fontSize: 10, color: input.length > 450 ? "#FF453A" : "rgba(255,255,255,0.25)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
                 {input.length}/500
               </span>
               <button onClick={send} disabled={sending || !input.trim()}
-                className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-xl transition-all disabled:opacity-40"
-                style={{ background: "#2962FF", border: "none" }}>
-                <Send style={{ height: 13, width: 13, color: "#fff" }} />
+                className="cm-btn-primary flex-shrink-0"
+                style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Send style={{ height: 13, width: 13 }} />
               </button>
             </div>
-            {error && <p className="text-[11px] text-center pb-2 px-3" style={{ color: "#f87171" }}>{error}</p>}
+            {error && <p style={{ fontSize: 11, color: "#FF453A", textAlign: "center", paddingBottom: 8 }}>{error}</p>}
           </>
         )}
       </div>
@@ -621,7 +749,7 @@ function DMBox() {
   );
 }
 
-// ── ReportModal ───────────────────────────────────────────────────────────────
+/* ── ReportModal ────────────────────────────────────────────────────────────── */
 function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth();
   const [reporterName, setReporterName] = useState(user?.name ?? "");
@@ -656,60 +784,64 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}
-        style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
-
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "rgba(0,0,0,0.6)", animation: "fadeIn 0.15s ease" }}
+      onClick={onClose}>
+      <div style={{ width: "100%", maxWidth: 380, background: "rgba(18,18,22,0.98)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: "scaleIn 0.2s ease" }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center gap-2">
-            <Flag style={{ height: 14, width: 14, color: "#f87171" }} />
-            <span className="text-[14px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Report Post</span>
+            <Flag style={{ height: 14, width: 14, color: "#FF453A" }} />
+            <span style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>Report Post</span>
           </div>
-          <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-full"
-            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-            <X style={{ height: 12, width: 12, color: "hsl(var(--muted-foreground))" }} />
+          <button onClick={onClose} className="cm-btn-ghost"
+            style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X style={{ height: 12, width: 12 }} />
           </button>
         </div>
 
         {done ? (
-          <div className="px-5 py-10 flex flex-col items-center gap-3 text-center">
-            <CheckCircle style={{ height: 36, width: 36, color: "#4ade80" }} />
-            <p className="text-[14px] font-medium" style={{ color: "hsl(var(--foreground))" }}>Report submitted</p>
-            <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Our team will review it shortly.</p>
+          <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(52,199,89,0.15)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(52,199,89,0.3)" }}>
+              <CheckCircle style={{ height: 26, width: 26, color: "#30D158" }} />
+            </div>
+            <p style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>Report submitted</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Our team will review it shortly.</p>
           </div>
         ) : (
-          <div className="px-5 py-4 flex flex-col gap-3">
-            <div className="rounded-xl px-3 py-2.5 text-[12px] font-mono" style={{ background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)", maxHeight: 56, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "rgba(255,255,255,0.6)", fontFamily: "monospace", overflow: "hidden", maxHeight: 52 }}>
               {post.content.slice(0, 100)}{post.content.length > 100 ? "…" : ""}
             </div>
 
             <div>
-              <label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>Your name</label>
+              <label style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>Your name</label>
               <input value={reporterName} onChange={e => setReporterName(e.target.value)} placeholder="Display name"
-                className="mt-1.5 w-full px-3 py-2 rounded-xl text-[13px] outline-none transition-colors"
-                style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }} />
+                className="cm-input w-full px-3 py-2"
+                style={{ fontSize: 13, marginTop: 6 }} />
             </div>
 
             <div>
-              <label className="text-[10px] uppercase tracking-wider font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>Reason</label>
-              <div className="mt-1.5 flex flex-col gap-1">
+              <label style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>Reason</label>
+              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                 {REASONS.map(r => (
                   <button key={r} onClick={() => setReason(r)}
-                    className="text-left px-3 py-2 rounded-xl text-[12px] transition-all"
-                    style={reason === r
-                      ? { background: "#FFFFFF", color: "#050505", fontWeight: 600 }
-                      : { background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)" }}>
+                    style={{
+                      textAlign: "left", padding: "8px 12px", borderRadius: 10, fontSize: 12,
+                      background: reason === r ? "#0A84FF" : "rgba(255,255,255,0.05)",
+                      color: reason === r ? "#fff" : "rgba(255,255,255,0.75)",
+                      border: reason === r ? "none" : "1px solid rgba(255,255,255,0.08)",
+                      cursor: "pointer", transition: "all 0.12s ease",
+                    }}>
                     {r}
                   </button>
                 ))}
               </div>
             </div>
 
-            {error && <p className="text-[12px]" style={{ color: "#f87171" }}>{error}</p>}
+            {error && <p style={{ fontSize: 12, color: "#FF453A" }}>{error}</p>}
 
             <button onClick={submit} disabled={sending}
-              className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-50 mt-1"
-              style={{ background: "rgba(220,38,38,0.9)", color: "#fff", border: "1px solid rgba(220,38,38,0.4)" }}>
+              style={{ width: "100%", padding: "11px 0", borderRadius: 12, fontSize: 13, fontWeight: 600, background: "#FF453A", color: "#fff", border: "none", cursor: "pointer", opacity: sending ? 0.5 : 1, transition: "opacity 0.15s ease" }}>
               {sending ? "Submitting…" : "Submit Report"}
             </button>
           </div>
@@ -719,73 +851,102 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
   );
 }
 
-// ── PostCard ──────────────────────────────────────────────────────────────────
-function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
-  post: Post; adminToken: string | null; onDelete: (id: number) => void;
+/* ── PostCard ───────────────────────────────────────────────────────────────── */
+function PostCard({
+  post, adminToken, onDelete, onReport, likedIds, onLike, index,
+}: {
+  post: Post; adminToken: string | null; onDelete: (id: number) => Promise<boolean>;
   onReport: (post: Post) => void; likedIds: Set<number>; onLike: (id: number, liked: boolean) => void;
+  index: number;
 }) {
   const liked = likedIds.has(post.id);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    const ok = await onDelete(post.id);
+    if (!ok) {
+      setDeleteError("Delete failed. Token may have expired.");
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
 
   return (
-    <article className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        <Avatar name={post.authorName} size={9} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{post.authorName}</span>
-            <span className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{timeAgo(post.createdAt)}</span>
+    <article className="cm-post-card overflow-hidden"
+      style={{ animation: `fadeInUp 0.3s ease both`, animationDelay: `${Math.min(index, 12) * 0.04}s` }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "16px 16px 12px" }}>
+        <Avatar name={post.authorName} size={36} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{post.authorName}</span>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{timeAgo(post.createdAt)}</span>
           </div>
         </div>
       </div>
 
-      <div className="px-4 pb-3">
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: "hsl(var(--foreground))" }}>{post.content}</p>
+      <div style={{ padding: "0 16px 12px" }}>
+        <p style={{ fontSize: 13, lineHeight: "1.6", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap", wordBreak: "break-words" }}>
+          {post.content}
+        </p>
       </div>
 
       {post.imageUrl && (
-        <div className="px-4 pb-3">
-          <img src={post.imageUrl} alt="Post image" className="rounded-xl w-full object-cover"
-            style={{ maxHeight: 300, border: "1px solid var(--glass-border)" }}
+        <div style={{ padding: "0 16px 12px" }}>
+          <img src={post.imageUrl} alt="Post" style={{ borderRadius: 12, width: "100%", objectFit: "cover", maxHeight: 280, border: "1px solid rgba(255,255,255,0.08)" }}
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
         </div>
       )}
 
-      <div className="flex items-center gap-1 px-3 pb-3 pt-2" style={{ borderTop: "1px solid var(--glass-border)" }}>
+      {deleteError && (
+        <div style={{ margin: "0 16px 8px", padding: "7px 12px", borderRadius: 10, background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)", fontSize: 11, color: "#FF453A", display: "flex", alignItems: "center", gap: 6 }}>
+          <AlertTriangle style={{ height: 11, width: 11, flexShrink: 0 }} />{deleteError}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "10px 12px 12px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <button onClick={() => onLike(post.id, liked)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all"
-          style={liked
-            ? { background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }
-            : { color: "hsl(var(--muted-foreground))" }}>
-          <Heart style={{ height: 12, width: 12, fill: liked ? "#f87171" : "none" }} />
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 20,
+            fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.12s ease",
+            background: liked ? "rgba(255,69,58,0.12)" : "transparent",
+            color: liked ? "#FF453A" : "rgba(255,255,255,0.4)",
+            border: liked ? "1px solid rgba(255,69,58,0.25)" : "1px solid transparent",
+          }}>
+          <Heart style={{ height: 12, width: 12, fill: liked ? "#FF453A" : "none" }} />
           {post.likes > 0 ? post.likes : "Like"}
         </button>
 
         <button onClick={() => onReport(post)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] ml-auto transition-all"
-          style={{ color: "hsl(var(--muted-foreground))" }}>
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer", background: "transparent", border: "1px solid transparent", color: "rgba(255,255,255,0.3)", marginLeft: "auto", transition: "color 0.12s ease" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)"; }}>
           <Flag style={{ height: 11, width: 11 }} />
           Report
         </button>
 
         {adminToken && (
           confirmDelete ? (
-            <div className="flex items-center gap-1">
-              <button onClick={() => onDelete(post.id)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold"
-                style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.25)" }}>
-                <Trash2 style={{ height: 10, width: 10 }} /> Confirm
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button onClick={handleDelete} disabled={deleting}
+                style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "rgba(255,69,58,0.12)", color: "#FF453A", border: "1px solid rgba(255,69,58,0.3)" }}>
+                <Trash2 style={{ height: 9, width: 9 }} />
+                {deleting ? "…" : "Confirm"}
               </button>
-              <button onClick={() => setConfirmDelete(false)} className="px-2 py-1.5 text-[11px] rounded-xl"
-                style={{ color: "hsl(var(--muted-foreground))" }}>
+              <button onClick={() => { setConfirmDelete(false); setDeleteError(""); }}
+                style={{ padding: "5px 10px", borderRadius: 20, fontSize: 11, cursor: "pointer", background: "transparent", border: "none", color: "rgba(255,255,255,0.4)" }}>
                 Cancel
               </button>
             </div>
           ) : (
             <button onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px]"
-              style={{ color: "#f87171" }}>
-              <Shield style={{ height: 11, width: 11 }} />Delete
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 20, fontSize: 12, cursor: "pointer", background: "transparent", border: "1px solid transparent", color: "rgba(255,69,58,0.6)", transition: "all 0.12s ease" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#FF453A"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,69,58,0.3)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,69,58,0.6)"; (e.currentTarget as HTMLElement).style.borderColor = "transparent"; }}>
+              <Shield style={{ height: 10, width: 10 }} />Delete
             </button>
           )
         )}
@@ -794,7 +955,7 @@ function PostCard({ post, adminToken, onDelete, onReport, likedIds, onLike }: {
   );
 }
 
-// ── CreatePostForm ────────────────────────────────────────────────────────────
+/* ── CreatePostForm ─────────────────────────────────────────────────────────── */
 function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const { user, token: authToken } = useAuth();
   const [content, setContent] = useState("");
@@ -845,74 +1006,68 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const overLimit = charCount > 1200;
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--glass-border)" }}>
-        <Avatar name={displayName || "?"} size={9} />
-        <div className="flex-1 min-w-0">
+    <div className="cm-card overflow-hidden" style={{ animation: "fadeInUp 0.25s ease both" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <Avatar name={displayName || "?"} size={34} />
+        <div style={{ flex: 1, minWidth: 0 }}>
           {!user ? (
             <input value={displayName} onChange={e => setDisplayName(e.target.value)}
               placeholder="Your display name…"
-              className="w-full text-[13px] font-medium outline-none bg-transparent"
-              style={{ color: "hsl(var(--foreground))" }} />
+              className="cm-input w-full px-3 py-1.5"
+              style={{ fontSize: 13 }} />
           ) : (
-            <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{user.name}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{user.name}</span>
           )}
         </div>
       </div>
 
-      <div className="px-4 pt-3">
+      <div style={{ padding: "12px 16px 4px" }}>
         <textarea ref={textareaRef} value={content}
           onChange={e => { setContent(e.target.value); autoResize(); }}
           placeholder="Share a trading idea, insight, or chart pattern…"
-          className="w-full resize-none outline-none text-[13px] leading-relaxed bg-transparent"
-          style={{ color: "hsl(var(--foreground))", minHeight: 80 }}
+          style={{ width: "100%", resize: "none", outline: "none", fontSize: 13, lineHeight: "1.6", background: "transparent", color: "rgba(255,255,255,0.85)", minHeight: 72, border: "none" }}
           rows={3} />
       </div>
 
       {imagePreview && (
-        <div className="px-4 pb-3 relative">
-          <img src={imagePreview} alt="preview" className="rounded-xl w-full object-cover"
-            style={{ maxHeight: 180, border: "1px solid var(--glass-border)" }} />
+        <div style={{ padding: "0 16px 12px", position: "relative" }}>
+          <img src={imagePreview} alt="preview" style={{ borderRadius: 12, width: "100%", objectFit: "cover", maxHeight: 180, border: "1px solid rgba(255,255,255,0.08)" }} />
           <button onClick={() => { setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-            className="absolute top-2 right-6 h-6 w-6 flex items-center justify-center rounded-full"
-            style={{ background: "rgba(0,0,0,0.6)" }}>
+            style={{ position: "absolute", top: 6, right: 22, width: 24, height: 24, borderRadius: "50%", background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", border: "none", cursor: "pointer" }}>
             <X style={{ height: 11, width: 11, color: "#fff" }} />
           </button>
         </div>
       )}
 
       {error && (
-        <div className="mx-4 mb-2 px-3 py-2 rounded-xl text-[12px] flex items-center gap-2"
-          style={{ background: "rgba(220,38,38,0.07)", color: "#f87171", border: "1px solid rgba(220,38,38,0.18)" }}>
+        <div style={{ margin: "0 16px 8px", padding: "7px 12px", borderRadius: 10, background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)", fontSize: 12, color: "#FF453A", display: "flex", alignItems: "center", gap: 6 }}>
           <AlertTriangle style={{ height: 11, width: 11, flexShrink: 0 }} />{error}
         </div>
       )}
 
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleFileChange} />
 
-      <div className="flex items-center gap-2 px-4 py-3" style={{ borderTop: "1px solid var(--glass-border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 14px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <button onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
-          style={imagePreview
-            ? { background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }
-            : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+          className="cm-btn-ghost"
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 12, background: imagePreview ? "rgba(10,132,255,0.12)" : undefined, color: imagePreview ? "#0A84FF" : undefined, borderColor: imagePreview ? "rgba(10,132,255,0.3)" : undefined }}>
           <Upload style={{ height: 11, width: 11 }} />
-          {imagePreview ? "Change" : "Gallery"}
+          {imagePreview ? "Change" : "Photo"}
         </button>
         <button onClick={() => cameraInputRef.current?.click()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] transition-all"
-          style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+          className="cm-btn-ghost"
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 12 }}>
           <Camera style={{ height: 11, width: 11 }} />Camera
         </button>
 
-        <span className="text-[11px] ml-auto font-mono" style={{ color: overLimit ? "#f87171" : "hsl(var(--muted-foreground))" }}>
+        <span style={{ fontSize: 11, marginLeft: "auto", color: overLimit ? "#FF453A" : "rgba(255,255,255,0.25)", fontVariantNumeric: "tabular-nums" }}>
           {charCount}/1200
         </span>
 
         <button onClick={submit} disabled={sending || overLimit || !content.trim()}
-          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-40"
-          style={{ background: "#FFFFFF", color: "#050505" }}>
+          className="cm-btn-primary"
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 16px", fontSize: 13, fontWeight: 600 }}>
           <Send style={{ height: 12, width: 12 }} />
           {sending ? "Posting…" : "Post"}
         </button>
@@ -921,11 +1076,12 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   );
 }
 
-// ── AdminReportsPanel ─────────────────────────────────────────────────────────
+/* ── AdminReportsPanel ──────────────────────────────────────────────────────── */
 function AdminReportsPanel({ adminToken }: { adminToken: string }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "resolved" | "dismissed">("pending");
+  const [actionError, setActionError] = useState<Record<number, string>>({});
 
   async function load() {
     setLoading(true);
@@ -947,96 +1103,112 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
         body: JSON.stringify({ status }),
       });
       setReports(prev => prev.map(r => r.id === id ? { ...r, status: status as Report["status"] } : r));
-    } catch { /* ignore */ }
+    } catch (e) {
+      setActionError(prev => ({ ...prev, [id]: e instanceof Error ? e.message : "Failed" }));
+    }
   }
 
   async function deletePost(postId: number) {
+    setActionError(prev => ({ ...prev, [postId]: "" }));
     try {
       await apiFetch(`/api/community/${postId}`, {
         method: "DELETE",
         headers: { "x-admin-token": adminToken, "Content-Type": "application/json" },
       });
       setReports(prev => prev.map(r => r.postId === postId ? { ...r, postDeleted: true } : r));
-    } catch { /* ignore */ }
+    } catch (e) {
+      setActionError(prev => ({ ...prev, [postId]: e instanceof Error ? e.message : "Delete failed — token may be expired." }));
+    }
   }
 
   const filtered = reports.filter(r => filter === "all" ? true : r.status === filter);
   const pendingCount = reports.filter(r => r.status === "pending").length;
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--glass-border)" }}>
-        <div className="flex items-center gap-2">
-          <Shield style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
-          <span className="text-[13px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Reports</span>
+    <div className="cm-card overflow-hidden" style={{ animation: "fadeInUp 0.2s ease both" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Shield style={{ height: 13, width: 13, color: "#FF453A" }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>Reports</span>
           {pendingCount > 0 && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.22)" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: "rgba(255,69,58,0.12)", color: "#FF453A", border: "1px solid rgba(255,69,58,0.25)" }}>
               {pendingCount}
             </span>
           )}
         </div>
-        <button onClick={load} className="h-7 w-7 flex items-center justify-center rounded-full"
-          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-          <RefreshCw style={{ height: 11, width: 11, color: "hsl(var(--muted-foreground))" }} />
+        <button onClick={load} className="cm-btn-ghost"
+          style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <RefreshCw style={{ height: 11, width: 11 }} />
         </button>
       </div>
 
-      <div className="flex gap-1 p-2" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+      <div style={{ display: "flex", gap: 4, padding: 8, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         {(["pending", "all", "resolved", "dismissed"] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className="px-3 py-1 rounded-lg text-[11px] font-medium capitalize transition-all"
-            style={filter === f ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}>
+            style={{
+              padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 500, cursor: "pointer",
+              background: filter === f ? "rgba(255,255,255,0.1)" : "transparent",
+              color: filter === f ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
+              border: "none", textTransform: "capitalize",
+            }}>
             {f}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="px-4 py-8 text-center text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Loading…</div>
+        <div style={{ padding: "32px 16px", textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="px-4 py-8 text-center text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>No {filter === "all" ? "" : filter} reports.</div>
+        <div style={{ padding: "32px 16px", textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.3)" }}>No {filter === "all" ? "" : filter} reports.</div>
       ) : (
-        <div className="divide-y" style={{ borderColor: "var(--glass-border)" }}>
+        <div>
           {filtered.map(r => (
-            <div key={r.id} className="px-4 py-3 flex flex-col gap-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span className="text-[11px] font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>by {r.postAuthor}</span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                      r.status === "pending" ? "bg-amber-500/10 text-amber-400" :
-                      r.status === "resolved" ? "bg-green-500/10 text-green-400" : "bg-white/5 text-white/30"}`}>
+            <div key={r.id} style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>by {r.postAuthor}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 8,
+                      background: r.status === "pending" ? "rgba(255,214,10,0.1)" : r.status === "resolved" ? "rgba(52,199,89,0.1)" : "rgba(255,255,255,0.06)",
+                      color: r.status === "pending" ? "#FFD60A" : r.status === "resolved" ? "#30D158" : "rgba(255,255,255,0.3)",
+                    }}>
                       {r.status}
                     </span>
-                    {r.postDeleted && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">deleted</span>}
+                    {r.postDeleted && (
+                      <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 8, background: "rgba(255,69,58,0.1)", color: "#FF453A" }}>deleted</span>
+                    )}
                   </div>
-                  <p className="text-[11px] rounded-lg px-2.5 py-1.5 font-mono" style={{ background: "var(--glass-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)" }}>
+                  <p style={{ fontSize: 11, fontFamily: "monospace", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "6px 10px", color: "rgba(255,255,255,0.75)" }}>
                     {r.postContent.slice(0, 90)}{r.postContent.length > 90 ? "…" : ""}
                   </p>
-                  <p className="text-[11px] mt-1.5" style={{ color: "hsl(var(--muted-foreground))" }}>
-                    Reported by <strong>{r.reporterName}</strong>: {r.reason}
+                  <p style={{ fontSize: 11, marginTop: 6, color: "rgba(255,255,255,0.4)" }}>
+                    Reported by <strong style={{ color: "rgba(255,255,255,0.65)" }}>{r.reporterName}</strong>: {r.reason}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
+
+              {actionError[r.postId] && (
+                <div style={{ padding: "5px 10px", borderRadius: 8, background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)", fontSize: 11, color: "#FF453A", display: "flex", alignItems: "center", gap: 5 }}>
+                  <AlertTriangle style={{ height: 10, width: 10, flexShrink: 0 }} />{actionError[r.postId]}
+                </div>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 {!r.postDeleted && (
                   <button onClick={() => deletePost(r.postId)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium"
-                    style={{ background: "rgba(220,38,38,0.07)", color: "#f87171", border: "1px solid rgba(220,38,38,0.2)" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 500, cursor: "pointer", background: "rgba(255,69,58,0.08)", color: "#FF453A", border: "1px solid rgba(255,69,58,0.2)" }}>
                     <Trash2 style={{ height: 9, width: 9 }} />Delete Post
                   </button>
                 )}
                 {r.status === "pending" && (
                   <>
                     <button onClick={() => updateStatus(r.id, "resolved")}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium"
-                      style={{ background: "rgba(74,222,128,0.07)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.2)" }}>
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 500, cursor: "pointer", background: "rgba(52,199,89,0.08)", color: "#30D158", border: "1px solid rgba(52,199,89,0.2)" }}>
                       <CheckCircle style={{ height: 9, width: 9 }} />Resolve
                     </button>
                     <button onClick={() => updateStatus(r.id, "dismissed")}
-                      className="px-2.5 py-1 rounded-lg text-[11px]"
-                      style={{ color: "hsl(var(--muted-foreground))" }}>
+                      style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, cursor: "pointer", background: "transparent", border: "none", color: "rgba(255,255,255,0.35)" }}>
                       Dismiss
                     </button>
                   </>
@@ -1050,7 +1222,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
   );
 }
 
-// ── Main CommunityPage ────────────────────────────────────────────────────────
+/* ── CommunityPage ──────────────────────────────────────────────────────────── */
 export default function CommunityPage() {
   const { adminToken, token: authToken } = useAuth();
   const [tab, setTab] = useState<"feed" | "chat" | "dm">("feed");
@@ -1114,14 +1286,17 @@ export default function CommunityPage() {
     } catch { /* ignore */ }
   }
 
-  async function handleAdminDelete(id: number) {
+  async function handleAdminDelete(id: number): Promise<boolean> {
     try {
       await apiFetch(`/api/community/${id}`, {
         method: "DELETE",
         headers: { "x-admin-token": adminToken ?? "", "Content-Type": "application/json" },
       });
       setPosts(prev => prev.filter(p => p.id !== id));
-    } catch { /* ignore */ }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   const stats = {
@@ -1130,280 +1305,294 @@ export default function CommunityPage() {
     likes: posts.reduce((s, p) => s + p.likes, 0),
   };
 
+  const TABS = [
+    { key: "feed" as const, label: "Feed", icon: Hash },
+    { key: "chat" as const, label: "Live Chat", icon: MessageSquare, badge: "LIVE" },
+    { key: "dm"   as const, label: "DMs", icon: Lock },
+  ];
+
   return (
-    <div className="flex flex-col gap-5 pb-10" style={{ isolation: "isolate" }}>
+    <>
+      <StyleInjector />
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, paddingBottom: 40, isolation: "isolate" }}>
 
-      {/* Header */}
-      <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 70% 80% at 0% 100%, rgba(255,255,255,0.03) 0%, transparent 60%)" }} />
-        <div className="relative flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <MessageSquare style={{ height: 18, width: 18, color: "#FFFFFF" }} />
-              <h1 className="text-[20px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>Community</h1>
+        {/* ── Header ── */}
+        <div className="cm-card relative overflow-hidden" style={{ padding: "20px 24px", animation: "fadeInUp 0.3s ease both" }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 100% at 0% 100%, rgba(10,132,255,0.06) 0%, transparent 60%)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 40% 60% at 100% 0%, rgba(52,199,89,0.04) 0%, transparent 60%)", pointerEvents: "none" }} />
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <TrendingUp style={{ height: 16, width: 16, color: "#0A84FF" }} />
+                <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em", color: "rgba(255,255,255,0.95)" }}>Community</h1>
+              </div>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>Share trading ideas, insights, and chart setups with fellow traders.</p>
             </div>
-            <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>Share trading ideas, insights, and chart setups with fellow traders.</p>
-          </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               {[
                 { icon: MessageSquare, val: stats.posts, label: "Posts" },
                 { icon: Users, val: stats.members, label: "Members" },
                 { icon: Heart, val: stats.likes, label: "Likes" },
               ].map(s => (
-                <div key={s.label} className="flex items-center gap-1.5">
-                  <s.icon style={{ height: 11, width: 11, color: "hsl(var(--muted-foreground))" }} />
-                  <span className="text-[12px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>{s.val}</span>
-                  <span className="text-[10px] hidden sm:inline" style={{ color: "hsl(var(--muted-foreground))" }}>{s.label}</span>
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 20, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <s.icon style={{ height: 10, width: 10, color: "rgba(255,255,255,0.35)" }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>{s.val}</span>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{s.label}</span>
                 </div>
               ))}
-            </div>
 
-            <button onClick={fetchPosts} className="h-9 w-9 flex items-center justify-center rounded-xl transition-colors"
-              style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-              <RefreshCw style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
-            </button>
-
-            {adminToken && (
-              <button onClick={() => setShowAdminPanel(v => !v)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium"
-                style={showAdminPanel
-                  ? { background: "#FFFFFF", color: "#050505", border: "1px solid rgba(255,255,255,0.18)" }
-                  : { background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
-                <Shield style={{ height: 12, width: 12 }} />Admin
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Disclaimer */}
-      <div className="rounded-xl px-4 py-3 flex items-start gap-3"
-        style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
-        <AlertTriangle style={{ height: 13, width: 13, color: "#f59e0b", flexShrink: 0, marginTop: 2 }} />
-        <p className="text-[12px] leading-relaxed" style={{ color: "#fbbf24" }}>
-          All content is for <strong>educational purposes only</strong> — not financial advice. Trading involves significant risk of loss.
-        </p>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex gap-1 p-1 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-        <button
-          onClick={() => setTab("feed")}
-          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
-          style={tab === "feed" ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}
-        >
-          <Hash style={{ height: 13, width: 13 }} />Feed
-        </button>
-        <button
-          onClick={() => setTab("chat")}
-          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
-          style={tab === "chat" ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}
-        >
-          <MessageSquare style={{ height: 13, width: 13 }} />Live Chat
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" }}>LIVE</span>
-        </button>
-        <button
-          onClick={() => setTab("dm")}
-          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[13px] font-medium transition-all"
-          style={tab === "dm" ? { background: "#FFFFFF", color: "#050505" } : { color: "hsl(var(--muted-foreground))" }}
-        >
-          <Lock style={{ height: 13, width: 13 }} />DMs
-        </button>
-      </div>
-
-      {tab === "dm" ? (
-        /* ── DM layout ── */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2">
-            <DMBox />
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>About DMs</p>
-              <ul className="flex flex-col gap-2">
-                {[
-                  "Messages are private between you and the recipient",
-                  "Sign in to send or receive DMs",
-                  "Use 🔍 to find traders by name",
-                  "Max 500 characters per message",
-                  "Conversations update every 3 seconds",
-                  "Unread messages show a badge",
-                ].map((g, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
-                    <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
-                      style={{ background: "rgba(41,98,255,0.15)", color: "#6ea8fe", border: "1px solid rgba(41,98,255,0.3)" }}>{i + 1}</span>
-                    {g}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      ) : tab === "chat" ? (
-        /* ── Chat layout ── */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2">
-            <ChatBox adminToken={adminToken} />
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Chat Rules</p>
-              <ul className="flex flex-col gap-2">
-                {[
-                  "Keep it trading-focused",
-                  "No spam or repeated messages",
-                  "Be kind and constructive",
-                  "No pump & dump or financial advice",
-                  "English preferred for clarity",
-                  "Admins can remove messages",
-                ].map((g, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
-                    <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
-                      style={{ background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" }}>{i + 1}</span>
-                    {g}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
-              <div className="flex flex-wrap gap-1.5">
-                {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading"].map(tag => (
-                  <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer"
-                    style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-            {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
-          </div>
-        </div>
-      ) : (
-        /* ── Feed layout ── */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 flex flex-col gap-4">
-            <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} />
-
-            {loading ? (
-              <div className="flex flex-col gap-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="rounded-2xl p-4 animate-pulse"
-                    style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-9 w-9 rounded-full" style={{ background: "var(--glass-border)" }} />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="h-3 rounded w-24" style={{ background: "var(--glass-border)" }} />
-                        <div className="h-2.5 rounded w-16" style={{ background: "var(--glass-bg)" }} />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-3 rounded w-full" style={{ background: "var(--glass-bg)" }} />
-                      <div className="h-3 rounded w-4/5" style={{ background: "var(--glass-bg)" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : error ? (
-              <div className="rounded-2xl p-10 text-center" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-                <AlertTriangle style={{ height: 28, width: 28, color: "#f59e0b", margin: "0 auto 12px" }} />
-                <p className="text-[13px] mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>{error}</p>
-                <button onClick={fetchPosts} className="px-4 py-2 rounded-xl text-[12px] font-medium"
-                  style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}>Retry</button>
-              </div>
-            ) : posts.length === 0 ? (
-              <div className="rounded-2xl p-14 text-center" style={{ border: "1px dashed var(--glass-border)", background: "var(--card-bg)" }}>
-                <MessageSquare style={{ height: 32, width: 32, color: "hsl(var(--muted-foreground))", margin: "0 auto 12px" }} />
-                <p className="text-[15px] font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>No posts yet</p>
-                <p className="text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>Be the first to share a trading idea!</p>
-              </div>
-            ) : (
-              <>
-                {posts.map(post => (
-                  <PostCard key={post.id} post={post} adminToken={adminToken} onDelete={handleAdminDelete}
-                    onReport={setReportingPost} likedIds={likedIds} onLike={handleLike} />
-                ))}
-                {hasMore && (
-                  <button onClick={loadMore} disabled={loadingMore}
-                    className="w-full py-3 rounded-2xl text-[13px] font-medium transition-all flex items-center justify-center gap-2"
-                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))", opacity: loadingMore ? 0.6 : 1 }}>
-                    {loadingMore ? (
-                      <><RefreshCw style={{ height: 13, width: 13 }} className="animate-spin" />Loading…</>
-                    ) : "Load more posts"}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <button onClick={fetchPosts} className="cm-btn-ghost"
+                  style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <RefreshCw style={{ height: 13, width: 13 }} />
+                </button>
+                {adminToken && (
+                  <button onClick={() => setShowAdminPanel(v => !v)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 500, cursor: "pointer",
+                      background: showAdminPanel ? "#FF453A" : "rgba(255,255,255,0.06)",
+                      color: showAdminPanel ? "#fff" : "rgba(255,255,255,0.6)",
+                      border: showAdminPanel ? "none" : "1px solid rgba(255,255,255,0.1)",
+                      transition: "all 0.15s ease",
+                    }}>
+                    <Shield style={{ height: 12, width: 12 }} />Admin
                   </button>
                 )}
-                {!hasMore && posts.length > 0 && (
-                  <p className="text-center text-[11px] py-2" style={{ color: "hsl(var(--muted-foreground))" }}>
-                    All {posts.length} posts loaded
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Community Guidelines</p>
-              <ul className="flex flex-col gap-2">
-                {[
-                  "Be respectful and constructive",
-                  "No financial advice or pump & dump",
-                  "No offensive or abusive language",
-                  "No spam or self-promotion links",
-                  "Only post relevant trading content",
-                  "Report posts that violate rules",
-                ].map((g, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-[12px]" style={{ color: "hsl(var(--foreground))" }}>
-                    <span className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-px"
-                      style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>{i + 1}</span>
-                    {g}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {posts.length > 0 && (
-              <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-                <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Top Contributors</p>
-                <div className="flex flex-col gap-2.5">
-                  {(() => {
-                    const map: Record<string, number> = {};
-                    posts.forEach(p => { map[p.authorName] = (map[p.authorName] ?? 0) + 1; });
-                    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count], i) => (
-                      <div key={name} className="flex items-center gap-2.5">
-                        <span className="text-[10px] font-mono w-4 text-right flex-shrink-0" style={{ color: "hsl(var(--muted-foreground))" }}>{i + 1}</span>
-                        <Avatar name={name} size={7} />
-                        <span className="text-[12px] font-medium flex-1 truncate" style={{ color: "hsl(var(--foreground))" }}>{name}</span>
-                        <span className="text-[10px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>{count}p</span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
-            )}
-
-            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
-              <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trending Topics</p>
-              <div className="flex flex-wrap gap-1.5">
-                {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#RiskManagement", "#Crypto"].map(tag => (
-                  <span key={tag} className="text-[11px] px-2.5 py-1 rounded-full font-medium cursor-pointer"
-                    style={{ background: "var(--accent-cyan-dim)", color: "#FFFFFF", border: "1px solid var(--accent-cyan-border)" }}>
-                    {tag}
-                  </span>
-                ))}
               </div>
             </div>
-
-            {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
           </div>
         </div>
-      )}
 
-      {reportingPost && (
-        <ReportModal post={reportingPost} onClose={() => setReportingPost(null)} onDone={() => setReportingPost(null)} />
-      )}
-    </div>
+        {/* ── Disclaimer ── */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(255,214,10,0.05)", border: "1px solid rgba(255,214,10,0.15)", animation: "fadeInUp 0.35s ease both" }}>
+          <AlertTriangle style={{ height: 12, width: 12, color: "#FFD60A", flexShrink: 0, marginTop: 2 }} />
+          <p style={{ fontSize: 12, color: "rgba(255,214,10,0.85)", lineHeight: "1.5" }}>
+            All content is for <strong>educational purposes only</strong> — not financial advice. Trading involves significant risk of loss.
+          </p>
+        </div>
+
+        {/* ── Tab bar ── */}
+        <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", animation: "fadeInUp 0.4s ease both" }}>
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} className="cm-tab-btn flex-1"
+              style={{ color: tab === t.key ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.4)", background: tab === t.key ? "rgba(255,255,255,0.09)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <t.icon style={{ height: 12, width: 12 }} />
+              {t.label}
+              {t.badge && (
+                <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 5, background: "rgba(52,199,89,0.15)", color: "#30D158", border: "1px solid rgba(52,199,89,0.3)" }}>
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Tab Content ── */}
+        {tab === "dm" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2">
+              <DMBox />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div className="cm-card" style={{ padding: 16 }}>
+                <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>About DMs</p>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    "Messages are private between you and the recipient",
+                    "Sign in to send or receive DMs",
+                    "Use 🔍 to find traders by name",
+                    "Max 500 characters per message",
+                    "Conversations update every 3 seconds",
+                    "Unread messages show a badge",
+                  ].map((g, i) => (
+                    <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+                      <span style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(10,132,255,0.12)", border: "1px solid rgba(10,132,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#0A84FF", flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                      {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : tab === "chat" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2">
+              <ChatBox adminToken={adminToken} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div className="cm-card" style={{ padding: 16 }}>
+                <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>Chat Rules</p>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    "Keep it trading-focused",
+                    "No spam or repeated messages",
+                    "Be kind and constructive",
+                    "No pump & dump or financial advice",
+                    "English preferred for clarity",
+                    "Admins can remove messages",
+                  ].map((g, i) => (
+                    <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
+                      <span style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(52,199,89,0.1)", border: "1px solid rgba(52,199,89,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#30D158", flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                      {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="cm-card" style={{ padding: 16 }}>
+                <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>Trending Topics</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading"].map(tag => (
+                    <span key={tag} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, fontWeight: 500, background: "rgba(10,132,255,0.1)", color: "#0A84FF", border: "1px solid rgba(10,132,255,0.2)", cursor: "default" }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
+            </div>
+          </div>
+        ) : (
+          /* ── Feed ── */
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} />
+
+              {loading ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="cm-card" style={{ padding: 16, animation: "fadeIn 0.3s ease both" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.07)" }} />
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ height: 12, width: 96, borderRadius: 6, background: "rgba(255,255,255,0.07)" }} />
+                          <div style={{ height: 10, width: 60, borderRadius: 6, background: "rgba(255,255,255,0.04)" }} />
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ height: 11, width: "100%", borderRadius: 6, background: "rgba(255,255,255,0.05)" }} />
+                        <div style={{ height: 11, width: "75%", borderRadius: 6, background: "rgba(255,255,255,0.04)" }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="cm-card" style={{ padding: "40px 20px", textAlign: "center" }}>
+                  <AlertTriangle style={{ height: 26, width: 26, color: "#FFD60A", margin: "0 auto 10px" }} />
+                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 16 }}>{error}</p>
+                  <button onClick={fetchPosts} className="cm-btn-ghost"
+                    style={{ padding: "8px 20px", fontSize: 12 }}>Retry</button>
+                </div>
+              ) : posts.length === 0 ? (
+                <div className="cm-card" style={{ padding: "56px 20px", textAlign: "center", animation: "fadeInUp 0.3s ease both" }}>
+                  <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <MessageSquare style={{ height: 22, width: 22, color: "rgba(255,255,255,0.2)" }} />
+                  </div>
+                  <p style={{ fontSize: 16, fontWeight: 600, color: "rgba(255,255,255,0.75)", marginBottom: 6 }}>No posts yet</p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Be the first to share a trading idea!</p>
+                </div>
+              ) : (
+                <>
+                  {posts.map((post, i) => (
+                    <PostCard key={post.id} post={post} index={i} adminToken={adminToken}
+                      onDelete={handleAdminDelete} onReport={setReportingPost}
+                      likedIds={likedIds} onLike={handleLike} />
+                  ))}
+                  {hasMore && (
+                    <button onClick={loadMore} disabled={loadingMore}
+                      className="cm-btn-ghost"
+                      style={{ width: "100%", padding: "12px 0", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: loadingMore ? 0.6 : 1, borderRadius: 14 }}>
+                      {loadingMore ? <><RefreshCw style={{ height: 13, width: 13, animation: "spin 1s linear infinite" }} />Loading…</> : "Load more posts"}
+                    </button>
+                  )}
+                  {!hasMore && posts.length > 0 && (
+                    <p style={{ textAlign: "center", fontSize: 11, padding: "8px 0", color: "rgba(255,255,255,0.2)" }}>
+                      All {posts.length} posts loaded
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div className="cm-card" style={{ padding: 16, animation: "fadeInUp 0.35s ease both" }}>
+                <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>Community Guidelines</p>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    "Be respectful and constructive",
+                    "No financial advice or pump & dump",
+                    "No offensive or abusive language",
+                    "No spam or self-promotion links",
+                    "Only post relevant trading content",
+                    "Report posts that violate rules",
+                  ].map((g, i) => (
+                    <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
+                      <span style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(10,132,255,0.1)", border: "1px solid rgba(10,132,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#0A84FF", flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                      {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {posts.length > 0 && (
+                <div className="cm-card" style={{ padding: 16, animation: "fadeInUp 0.4s ease both" }}>
+                  <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>Top Contributors</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(() => {
+                      const map: Record<string, number> = {};
+                      posts.forEach(p => { map[p.authorName] = (map[p.authorName] ?? 0) + 1; });
+                      return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count], i) => (
+                        <div key={name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 10, fontFamily: "monospace", width: 14, textAlign: "right", color: "rgba(255,255,255,0.25)", flexShrink: 0 }}>{i + 1}</span>
+                          <Avatar name={name} size={26} />
+                          <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "rgba(255,255,255,0.8)" }}>{name}</span>
+                          <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>{count}p</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              <div className="cm-card" style={{ padding: 16, animation: "fadeInUp 0.45s ease both" }}>
+                <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "rgba(255,255,255,0.3)", marginBottom: 12 }}>Trending Topics</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {["#BTC", "#ETH", "#Options", "#SwingTrade", "#RSI", "#MACD", "#Fibonacci", "#DayTrading", "#RiskManagement", "#Crypto"].map(tag => (
+                    <span key={tag} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, fontWeight: 500, background: "rgba(10,132,255,0.08)", color: "#4DA6FF", border: "1px solid rgba(10,132,255,0.18)", cursor: "default" }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="cm-card" style={{ padding: 16, animation: "fadeInUp 0.5s ease both" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                  <Zap style={{ height: 12, width: 12, color: "#FFD60A" }} />
+                  <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, color: "rgba(255,255,255,0.3)" }}>Pro Tips</p>
+                </div>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {[
+                    "Include chart screenshots for better engagement",
+                    "Tag your setup type (#Breakout, #Reversal)",
+                    "Share your risk/reward before entry",
+                  ].map((tip, i) => (
+                    <li key={i} style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", paddingLeft: 12, borderLeft: "2px solid rgba(255,214,10,0.3)", lineHeight: 1.5 }}>
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {adminToken && showAdminPanel && <AdminReportsPanel adminToken={adminToken} />}
+            </div>
+          </div>
+        )}
+
+        {reportingPost && (
+          <ReportModal post={reportingPost} onClose={() => setReportingPost(null)} onDone={() => setReportingPost(null)} />
+        )}
+      </div>
+    </>
   );
 }

@@ -194,15 +194,16 @@ export default function PricingPage() {
   const { toast } = useToast();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [plansError, setPlansError] = useState(false);
   const [subscribing, setSubscribing] = useState<number | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [, navigate] = useLocation();
 
   useEffect(() => {
     fetch(`${API_BASE}/api/subscription/plans`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(data => { setPlans(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(() => { setPlansError(true); setLoading(false); });
   }, []);
 
   async function handleSubscribe(plan: SubscriptionPlan) {
@@ -237,7 +238,12 @@ export default function PricingPage() {
         return;
       }
 
-      await loadRazorpayScript();
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded || !window.Razorpay) {
+        toast({ title: "Payment unavailable", description: "Could not load the payment gateway. Please try again.", variant: "destructive" });
+        setSubscribing(null);
+        return;
+      }
       const rzp = new window.Razorpay({
         key: order.keyId,
         amount: order.amount,
@@ -304,6 +310,15 @@ export default function PricingPage() {
       </div>
 
       {/* ── Plan cards ───────────────────────────────────────────────── */}
+      {plansError && (
+        <div className="text-center py-10 mb-4 rounded-2xl" style={{ background: "var(--card-bg)", border: "1px solid hsl(var(--border))" }}>
+          <p className="text-[14px] mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Could not load plans. Please try again.</p>
+          <button onClick={() => { setPlansError(false); setLoading(true); fetch(`${API_BASE}/api/subscription/plans`).then(r => r.json()).then(d => { setPlans(d); setLoading(false); }).catch(() => { setPlansError(true); setLoading(false); }); }}
+            className="text-[13px] px-4 py-2 rounded-xl" style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))", border: "1px solid hsl(var(--border))", cursor: "pointer" }}>
+            Retry
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         {plans.map(plan => {
           const meta = PLANS_META[plan.slug];
