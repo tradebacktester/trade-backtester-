@@ -105,7 +105,8 @@
   --chart-4: 270 60% 55%;
   --chart-5: 0 72% 51%;
 
-  --app-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --app-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --app-font-display: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
   --radius: 0.875rem;
@@ -339,10 +340,15 @@ body {
   *::-webkit-scrollbar-track { background: transparent; }
   *::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.18); border-radius: 2px; }
   body { @apply font-sans antialiased bg-background text-foreground; }
-  /* Apple optical letter-spacing — large text tracks tight */
-  h1, h2 { letter-spacing: -0.030em; }
-  h3      { letter-spacing: -0.022em; }
-  h4, h5  { letter-spacing: -0.015em; }
+  /* Space Grotesk for all headings — bold, architectural, tight */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--app-font-display);
+    font-weight: 700;
+  }
+  h1       { letter-spacing: -0.040em; }
+  h2       { letter-spacing: -0.032em; }
+  h3       { letter-spacing: -0.026em; }
+  h4, h5   { letter-spacing: -0.018em; }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -648,8 +654,13 @@ input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   APPLE DESIGN UTILITIES — typography, specular, spring
+   PREMIUM DESIGN UTILITIES — Space Grotesk × Apple × Nothing Tech
    ════════════════════════════════════════════════════════════════════ */
+
+/* Space Grotesk display font helper */
+.font-display {
+  font-family: var(--app-font-display) !important;
+}
 
 /* Ultra-small tracked uppercase labels — Apple's section header treatment */
 .apple-label {
@@ -660,22 +671,73 @@ input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
   color: rgba(113, 113, 122, 0.70);
 }
 
-/* Apple display number — tabular, tight tracking, bold */
+/* Nothing-tech architectural label — spaced caps, monospace feel */
+.nothing-label {
+  font-family: var(--app-font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+/* Apple display number — tabular, tight tracking, bold — now Space Grotesk */
 .apple-num {
+  font-family: var(--app-font-display);
   font-size: 28px;
   font-weight: 700;
-  letter-spacing: -0.028em;
+  letter-spacing: -0.030em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 }
 .apple-num-lg {
+  font-family: var(--app-font-display);
   font-size: 38px;
   font-weight: 700;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.038em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
+}
+
+/* Nothing-tech dot grid background */
+.nothing-grid {
+  background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+:root:not(.dark) .nothing-grid {
+  background-image: radial-gradient(rgba(0,0,0,0.06) 1px, transparent 1px);
+}
+
+/* Architectural horizontal rule — fades at edges */
+.arch-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--glass-border) 20%, var(--glass-border) 80%, transparent 100%);
+  border: none;
+}
+
+/* Nothing-tech corner accent — stark L-shaped bracket */
+.nothing-bracket {
+  position: relative;
+}
+.nothing-bracket::before,
+.nothing-bracket::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  opacity: 0.3;
+}
+.nothing-bracket::before {
+  top: 0; left: 0;
+  border-top: 1px solid currentColor;
+  border-left: 1px solid currentColor;
+}
+.nothing-bracket::after {
+  bottom: 0; right: 0;
+  border-bottom: 1px solid currentColor;
+  border-right: 1px solid currentColor;
 }
 
 /* Glass specular top-edge highlight — simulates real glass refraction */
@@ -700,17 +762,62 @@ input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
   box-shadow: var(--shadow-card-hover), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
-/* Display heading tightening */
-.display-tight  { letter-spacing: -0.035em !important; }
-.display-snug   { letter-spacing: -0.025em !important; }
-.display-normal { letter-spacing: -0.015em !important; }
+/* Display heading tightening — now also applies Space Grotesk */
+.display-tight  { font-family: var(--app-font-display); letter-spacing: -0.040em !important; font-weight: 700; }
+.display-snug   { font-family: var(--app-font-display); letter-spacing: -0.030em !important; font-weight: 700; }
+.display-normal { font-family: var(--app-font-display); letter-spacing: -0.018em !important; font-weight: 600; }
 
 /* Tabular numbers for financial data */
 .tabular { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
 
 /* ════════════════════════════════════════════════════════════════════
-   ANIMATIONS
+   ANIMATIONS — Apple spring × Nothing tech precision
    ════════════════════════════════════════════════════════════════════ */
+
+/* Premium page enter — gentle vertical reveal */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade-up-sm { animation: fade-up 0.40s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Stagger helpers — add delay via inline style or nth-child */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.30s; }
+
+/* Nothing-tech line reveal — horizontal sweep */
+@keyframes reveal-line {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+.reveal-line { animation: reveal-line 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Text blur-in — like Nothing OS notifications */
+@keyframes text-emerge {
+  from { opacity: 0; filter: blur(6px); transform: translateY(4px); }
+  to   { opacity: 1; filter: blur(0);   transform: translateY(0); }
+}
+.text-emerge { animation: text-emerge 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Counter ticker — number roll up */
+@keyframes count-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.count-up { animation: count-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Nav dropdown — slightly tighter than scale-in */
+@keyframes dropdown-enter {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+}
+.dropdown-enter { animation: dropdown-enter 0.20s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @keyframes shimmer {
   0%   { background-position: -800px 0; }
   100% { background-position:  800px 0; }

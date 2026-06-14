@@ -194,15 +194,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Logo */}
         <Link href="/dashboard">
-          <span className="flex items-center gap-2.5 px-5 cursor-pointer select-none flex-shrink-0">
+          <span className="flex items-center gap-2.5 px-5 cursor-pointer select-none flex-shrink-0 group">
             <div className="h-7 w-7 rounded-xl overflow-hidden flex-shrink-0" style={{
               boxShadow: isDark
-                ? "0 0 0 1px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.4)"
+                ? "0 0 0 1px rgba(255,255,255,0.12), 0 2px 10px rgba(0,0,0,0.5)"
                 : "0 0 0 1px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.1)",
+              transition: "box-shadow 0.22s ease",
             }}>
               <img src="/logo.png" className="h-full w-full object-cover" alt="Trade Lab" />
             </div>
-            <span className="text-[13.5px] font-bold" style={{ color: "var(--nav-active-color)", letterSpacing: "-0.022em" }}>
+            <span style={{
+              fontFamily: "var(--app-font-display)",
+              fontSize: "14.5px",
+              fontWeight: 700,
+              letterSpacing: "-0.032em",
+              color: "var(--nav-active-color)",
+            }}>
               Trade Lab
             </span>
           </span>
@@ -227,16 +234,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <span
                     className="flex items-center gap-1.5 cursor-pointer select-none"
                     style={{
-                      padding: "5px 11px",
+                      padding: "5px 12px",
                       borderRadius: "10px",
                       fontSize: "13px",
+                      fontFamily: "var(--app-font-display)",
                       fontWeight: isActiveSection ? 600 : 500,
-                      letterSpacing: isActiveSection ? "-0.01em" : "0em",
+                      letterSpacing: isActiveSection ? "-0.018em" : "-0.010em",
                       border: `1px solid ${(isActiveSection || isOpen) ? "var(--nav-active-border)" : "transparent"}`,
                       background: (isActiveSection || isOpen) ? "var(--nav-active-bg)" : "transparent",
                       color: (isActiveSection || isOpen) ? "var(--nav-active-color)" : "var(--nav-dim-color)",
                       boxShadow: (isActiveSection || isOpen) ? "var(--shadow-tab-active)" : "none",
-                      transition: "all 0.18s ease",
+                      transition: "all 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
                       display: "flex",
                     }}
                   >
@@ -245,7 +253,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <ChevronDown style={{
                       height: "10px", width: "10px", flexShrink: 0,
                       transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.18s ease",
+                      transition: "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)",
                       opacity: 0.4,
                     }} />
                   </span>
@@ -254,31 +262,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {/* Hover dropdown mega-menu */}
                 {isOpen && (
                   <div
-                    className="glass-panel absolute top-[calc(100%+6px)] rounded-2xl p-2 scale-in"
+                    className="glass-panel absolute top-[calc(100%+8px)] rounded-2xl p-1.5 dropdown-enter"
                     style={{
                       zIndex: 200,
                       left: "50%",
                       transform: "translateX(-50%)",
-                      minWidth: section.items.length > 5 ? "480px" : "280px",
+                      minWidth: section.items.length > 5 ? "480px" : "272px",
                     }}
                     onMouseEnter={handleMenuEnter}
                     onMouseLeave={handleMenuLeave}
                   >
-                    <div className="text-[9px] font-mono uppercase tracking-widest px-2 py-1 mb-1"
-                      style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
+                    <div className="nothing-label px-2.5 pt-1.5 pb-1">
                       {section.label}
                     </div>
+                    <div className="arch-divider mx-2 mb-1.5" />
                     <div className={section.items.length > 5 ? "grid grid-cols-2 gap-0.5" : "flex flex-col gap-0.5"}>
-                      {section.items.map((item) => {
+                      {section.items.map((item, idx) => {
                         const active = isItemActive(item.url);
                         return (
                           <Link key={item.title} href={item.url}>
                             <span
-                              className="flex items-start gap-2.5 px-3 py-2 rounded-xl cursor-pointer"
+                              className="flex items-start gap-2.5 px-3 py-2 rounded-xl cursor-pointer fade-up-sm"
                               style={{
                                 background: active ? "var(--nav-active-bg)" : "transparent",
                                 color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
-                                transition: "background 0.12s ease, color 0.12s ease",
+                                transition: "background 0.14s ease, color 0.14s ease",
+                                animationDelay: `${idx * 0.03}s`,
                               }}
                               onMouseEnter={e => {
                                 if (!active) {
@@ -301,8 +310,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                                 <item.icon style={{ height: "12px", width: "12px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
                               </span>
                               <div className="flex flex-col min-w-0">
-                                <span className="text-[12px] font-medium leading-none mb-0.5">{item.title}</span>
-                                <span className="text-[10px] font-mono opacity-50 leading-tight">{item.desc}</span>
+                                <span style={{ fontSize: "12.5px", fontWeight: active ? 600 : 500, letterSpacing: "-0.012em", fontFamily: "var(--app-font-display)", lineHeight: 1, marginBottom: "3px" }}>{item.title}</span>
+                                <span className="nothing-label" style={{ letterSpacing: "0.08em" }}>{item.desc}</span>
                               </div>
                             </span>
                           </Link>
@@ -411,10 +420,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           )}
 
-          {/* Live indicator */}
-          <span className="flex items-center gap-1.5 text-[11px] font-mono ml-1" style={{ color: "var(--nav-dim-color)" }}>
+          {/* Live indicator — Nothing-tech dot */}
+          <span className="flex items-center gap-1.5 ml-1" style={{
+            fontFamily: "var(--app-font-mono)",
+            fontSize: "9.5px",
+            fontWeight: 500,
+            letterSpacing: "0.12em",
+            color: "var(--nav-dim-color)",
+          }}>
             <span className="h-1.5 w-1.5 rounded-full live-pulse"
-              style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.8)" }} />
+              style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.9)" }} />
             LIVE
           </span>
         </div>
