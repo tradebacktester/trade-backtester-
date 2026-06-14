@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "wouter";
 import {
   Heart, Flag, Trash2, Send, X, AlertTriangle, CheckCircle,
   Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
@@ -590,10 +591,10 @@ function DMBox() {
   const totalUnread = conversations.reduce((s, c) => s + c.unread, 0);
 
   return (
-    <div className="cm-card flex overflow-hidden" style={{ height: 540 }}>
+    <div className="cm-card flex overflow-hidden" style={{ minHeight: 440, height: "clamp(440px, 55vh, 620px)" }}>
       {/* Sidebar */}
-      <div className={`flex flex-col flex-shrink-0 ${activePartner ? "hidden sm:flex" : "flex"}`}
-        style={{ width: 240, borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+      <div className={`flex flex-col flex-shrink-0 ${activePartner ? "hidden sm:flex" : "flex w-full"} sm:w-60`}
+        style={{ borderRight: "1px solid rgba(255,255,255,0.07)" }}>
 
         <div className="flex items-center justify-between px-3 py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
@@ -618,7 +619,7 @@ function DMBox() {
         {showSearch && (
           <div className="px-2 py-2 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <input value={searchQ} onChange={e => onSearchChange(e.target.value)}
-              placeholder="Search traders…" autoFocus
+              placeholder="Search by name or user ID…" autoFocus
               className="cm-input w-full px-2.5 py-1.5"
               style={{ fontSize: 12 }} />
             {searching && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", paddingTop: 6 }}>Searching…</p>}
@@ -670,7 +671,7 @@ function DMBox() {
       </div>
 
       {/* Thread panel */}
-      <div className={`flex-1 flex flex-col min-w-0 ${!activePartner ? "hidden sm:flex" : ""}`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${!activePartner ? "hidden sm:flex" : "flex"}`}>
         {!activePartner ? (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <Lock style={{ height: 26, width: 26, color: "rgba(255,255,255,0.2)" }} />
@@ -882,7 +883,17 @@ function PostCard({
         <Avatar name={post.authorName} size={36} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{post.authorName}</span>
+            {post.userId ? (
+              <Link href={`/user/${post.userId}`}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)", cursor: "pointer", textDecoration: "none" }}
+                  onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                  onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>
+                  {post.authorName}
+                </span>
+              </Link>
+            ) : (
+              <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{post.authorName}</span>
+            )}
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{timeAgo(post.createdAt)}</span>
           </div>
         </div>

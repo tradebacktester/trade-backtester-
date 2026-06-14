@@ -552,18 +552,26 @@ router.post("/community/dm/:partnerId", async (req, res): Promise<void> => {
   });
 });
 
-// GET /community/dm/search — find users by name (for starting new DM)
+// GET /community/dm/search — find users by name or user ID (for starting new DM)
 router.get("/community/dm/search", async (req, res): Promise<void> => {
   const auth = await requireChatAuth(req, res);
   if (!auth) return;
   const q = (req.query["q"] as string ?? "").trim().toLowerCase();
   if (q.length < 2) { res.json([]); return; }
 
+  const isNumeric = /^\d+$/.test(q);
   const users = await db
     .select({ id: usersTable.id, name: usersTable.name })
     .from(usersTable)
-    .where(sql`lower(${usersTable.name}) like ${"%" + q + "%"}`)
-    .limit(10);
+    .where(
+      isNumeric
+        ? or(
+            sql`lower(${usersTable.name}) like ${"%" + q + "%"}`,
+            eq(usersTable.id, parseInt(q, 10)),
+          )
+        : sql`lower(${usersTable.name}) like ${"%" + q + "%"}`,
+    )
+    .limit(15);
 
   res.json(users.filter(u => u.id !== auth.userId));
 });

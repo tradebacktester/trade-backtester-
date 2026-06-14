@@ -51,6 +51,7 @@ import AcademyPage from "@/pages/academy/index";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
+import UserProfilePage from "@/pages/user-profile";
 
 const ChartPage = lazy(() => import("@/pages/chart"));
 
@@ -150,6 +151,8 @@ function Router() {
       <Route path="/profile" component={ProfilePage} />
       <Route path="/pricing" component={PricingPage} />
       <Route path="/billing" component={BillingPage} />
+
+      <Route path="/user/:id" component={UserProfilePage} />
 
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />

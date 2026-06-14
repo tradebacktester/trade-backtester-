@@ -4,9 +4,50 @@ import {
   tradesTable, equityCurveTable,
 } from "@workspace/db";
 import { eq, desc, inArray, and } from "drizzle-orm";
-import { runBacktest, generatePriceData, classifyRegimes, type RegimePeriod } from "../lib/backtest-engine";
+import { runBacktest, generatePriceData, classifyRegimes, type RegimePeriod, type OHLCVBar } from "../lib/backtest-engine";
+import { fetchYahooHistory, isYahooSupported } from "../lib/yahoo-finance";
 import { verifyJwt } from "../lib/jwt";
 import type { Request, Response, NextFunction } from "express";
+
+// ── Real historical data helpers (mirrors backtests.ts) ─────────────────────
+function toBinanceSymbol(symbol: string): string | null {
+  const upper = symbol.toUpperCase().replace("/", "").replace("-", "");
+  if (/^[A-Z0-9]+USDT$/.test(upper)) return upper;
+  return null;
+}
+
+async function fetchBinanceHistorical(symbol: string, startDate: string, endDate: string): Promise<OHLCVBar[] | null> {
+  const binanceSymbol = toBinanceSymbol(symbol);
+  if (!binanceSymbol) return null;
+  const startMs = new Date(startDate).getTime();
+  const endMs = new Date(endDate).getTime();
+  const allBars: OHLCVBar[] = [];
+  let from = startMs;
+  try {
+    while (from < endMs && allBars.length < 5000) {
+      const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=1d&startTime=${from}&endTime=${endMs}&limit=1000`;
+      const resp = await fetch(url);
+      if (!resp.ok) break;
+      const raw = await resp.json() as unknown[][];
+      if (!raw.length) break;
+      for (const k of raw) {
+        allBars.push({
+          date: new Date(k[0] as number).toISOString().split("T")[0]!,
+          open: parseFloat(k[1] as string),
+          high: parseFloat(k[2] as string),
+          low: parseFloat(k[3] as string),
+          close: parseFloat(k[4] as string),
+          volume: parseFloat(k[5] as string),
+        });
+      }
+      if (raw.length < 1000) break;
+      from = (raw[raw.length - 1][0] as number) + 86_400_000;
+    }
+    return allBars.length >= 50 ? allBars : null;
+  } catch {
+    return null;
+  }
+}
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "";
 
@@ -314,7 +355,11 @@ router.get("/backtests/:id/regime-analysis", requireAuth, async (req, res): Prom
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   if (bt.status !== "complete") { res.json({ regimes: [], summary: {} }); return; }
 
-  const bars = generatePriceData(bt.symbol, bt.startDate, bt.endDate);
+  // Fetch real market data; fall back to GBM simulation only if unavailable
+  let bars: OHLCVBar[];
+  const realBars = await fetchBinanceHistorical(bt.symbol, bt.startDate, bt.endDate)
+    ?? (isYahooSupported(bt.symbol) ? await fetchYahooHistory(bt.symbol, bt.startDate, bt.endDate).catch(() => null) : null);
+  bars = realBars ?? generatePriceData(bt.symbol, bt.startDate, bt.endDate);
 
   // Use stored trades — not a re-run
   const storedTrades = await db
