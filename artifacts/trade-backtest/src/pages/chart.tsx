@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useBinanceLivePrice, useBinancePrices } from "@/lib/use-binance-ws";
+import { ChartHeader }        from "@/components/trade/ChartHeader";
+import { ToolbarGroups }      from "@/components/trade/ToolbarGroups";
+import { FloatingActions }    from "@/components/trade/FloatingActions";
+import { TimeframeBar }       from "@/components/trade/TimeframeBar";
+import { AITradeCheck }       from "@/components/trade/AITradeCheck";
+import { TradeBottomSheet }   from "@/components/trade/TradeBottomSheet";
+import { StatsFloatingCard }  from "@/components/trade/StatsFloatingCard";
 import {
   createChart,
   createSeriesMarkers,
@@ -312,6 +319,8 @@ export default function ChartPage() {
   const [trades, setTrades] = useState<SimTrade[]>([]);
   const [equity, setEquity] = useState<number>(readPtCapital);
   const [showOrderPanel, setShowOrderPanel] = useState(true);
+  const [sheetState,     setSheetState]     = useState<"collapsed" | "half" | "full">("collapsed");
+  const [aiCheckExpanded, setAiCheckExpanded] = useState(false);
   const [chartOrderType, setChartOrderType] = useState<"market" | "limit" | "stop">("market");
   const [chartLimitPrice, setChartLimitPrice] = useState("");
   const [chartStopPrice, setChartStopPrice] = useState("");
@@ -1689,416 +1698,148 @@ export default function ChartPage() {
         </div>
       )}
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="rounded-xl px-3 sm:px-4 py-2.5 border" style={{ background: "rgba(10,12,20,0.95)", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", zIndex: 60 }}>
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight flex-shrink-0" style={{ background: "linear-gradient(135deg, hsl(190,90%,65%), hsl(210,80%,75%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Live Chart</h1>
-            {replayMode && <span className="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full border flex-shrink-0" style={{ background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }}>● REPLAY</span>}
-            {currentBar && !replayMode && (
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-sm sm:text-base font-mono font-bold flex-shrink-0" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${fmt(currentBar.close)}</span>
-                <span className="text-[11px] font-mono px-1.5 py-0.5 rounded flex-shrink-0" style={isUp ? { background: "rgba(52,211,153,0.1)", color: "hsl(150,90%,58%)" } : { background: "rgba(239,68,68,0.1)", color: "hsl(0,85%,62%)" }}>{isUp ? "+" : ""}{changePercent}%</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>{isSim ? `${displayCategory} · Sim` : displayCategory === "Crypto" ? "Binance · Live" : "Yahoo Finance · Delayed"}</span>
-            <button
-              onClick={toggleFullscreen}
-              title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
-              className="h-7 w-7 flex items-center justify-center rounded-lg transition-all hover:bg-white/10 flex-shrink-0"
-              style={isFullscreen ? { color: "hsl(190,90%,65%)", background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.25)" } : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1 flex-wrap" style={{ rowGap: "4px" }}>
-          {/* Indicators button */}
-          <div className="relative" ref={indicatorPanelRef}>
-            <button onClick={() => setShowIndicators(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={showIndicators ? { background: "rgba(0,229,255,0.12)", borderColor: "rgba(0,229,255,0.3)", color: "hsl(190,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-              <BarChart2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Indicators</span>
-              {indicators.filter(i => i.enabled).length > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold" style={{ background: "rgba(0,229,255,0.25)", color: "hsl(190,90%,70%)" }}>{indicators.filter(i => i.enabled).length}</span>
-              )}
-            </button>
-
-            {showIndicators && (
-              <div className="absolute left-0 top-full mt-1 z-50 rounded-xl p-3 w-64 flex flex-col gap-1" style={{ background: "hsl(222,28%,11%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)" }}>
-                <div className="flex items-center justify-between px-1 mb-1">
-                  <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Overlays</p>
-                  {indicators.some(i => i.isOverlay && i.enabled) && (
-                    <button onClick={() => setIndicators(prev => prev.map(i => i.isOverlay ? { ...i, enabled: false } : i))} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: "hsl(0,78%,65%)", background: "rgba(239,68,68,0.1)" }}>clear</button>
-                  )}
-                </div>
-                {indicators.filter(i => i.isOverlay).map(ind => (
-                  <div key={ind.id}>
-                    <div className="flex items-center rounded-lg px-2 py-1.5 transition-all"
-                      style={ind.enabled ? { background: "rgba(255,255,255,0.06)" } : {}}>
-                      <button className="flex items-center gap-2 flex-1 text-xs font-mono text-left transition-all"
-                        style={ind.enabled ? { color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }}
-                        onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}>
-                        <div className="w-2.5 h-0.5 rounded shrink-0" style={{ background: ind.color }} />
-                        {ind.label}
-                      </button>
-                      <div className="flex items-center gap-1">
-                        {ind.enabled && (
-                          <button onClick={e => { e.stopPropagation(); setExpandedIndicator(expandedIndicator === ind.id ? null : ind.id); }}
-                            className="p-0.5 rounded transition-all"
-                            style={{ color: expandedIndicator === ind.id ? "hsl(190,90%,60%)" : "hsl(220,14%,40%)" }}>
-                            <SlidersHorizontal className="h-2.5 w-2.5" />
-                          </button>
-                        )}
-                        {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
-                      </div>
-                    </div>
-                    {expandedIndicator === ind.id && ind.enabled && (
-                      <div className="flex items-center gap-2 px-2 pb-1.5 pt-1" onClick={e => e.stopPropagation()}>
-                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Period</label>
-                        <input type="number" min={1} max={500} value={ind.period}
-                          onChange={e => {
-                            const v = Math.max(1, Math.min(500, Number(e.target.value) || 1));
-                            setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, period: v } : i));
-                          }}
-                          className="w-14 text-xs font-mono text-center rounded px-1 py-0.5"
-                          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "hsl(220,14%,80%)" }} />
-                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Color</label>
-                        <input type="color" value={hslToHex(ind.color)}
-                          onChange={e => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, color: e.target.value } : i))}
-                          style={{ width: 22, height: 22, padding: 1, borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", cursor: "pointer" }} />
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.08)" }} />
-                <div className="flex items-center justify-between px-1 mb-1">
-                  <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Sub-pane</p>
-                  {indicators.some(i => !i.isOverlay && i.enabled) && (
-                    <button onClick={() => setIndicators(prev => prev.map(i => !i.isOverlay ? { ...i, enabled: false } : i))} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: "hsl(0,78%,65%)", background: "rgba(239,68,68,0.1)" }}>clear</button>
-                  )}
-                </div>
-                {indicators.filter(i => !i.isOverlay).map(ind => (
-                  <div key={ind.id}>
-                    <div className="flex items-center rounded-lg px-2 py-1.5 transition-all"
-                      style={ind.enabled ? { background: "rgba(255,255,255,0.06)" } : {}}>
-                      <button className="flex items-center gap-2 flex-1 text-xs font-mono text-left transition-all"
-                        style={ind.enabled ? { color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }}
-                        onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}>
-                        <div className="w-2.5 h-0.5 rounded shrink-0" style={{ background: ind.color }} />
-                        {ind.label}
-                      </button>
-                      <div className="flex items-center gap-1">
-                        {ind.enabled && (
-                          <button onClick={e => { e.stopPropagation(); setExpandedIndicator(expandedIndicator === ind.id ? null : ind.id); }}
-                            className="p-0.5 rounded transition-all"
-                            style={{ color: expandedIndicator === ind.id ? "hsl(190,90%,60%)" : "hsl(220,14%,40%)" }}>
-                            <SlidersHorizontal className="h-2.5 w-2.5" />
-                          </button>
-                        )}
-                        {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
-                      </div>
-                    </div>
-                    {expandedIndicator === ind.id && ind.enabled && (
-                      <div className="flex items-center gap-2 px-2 pb-1.5 pt-1" onClick={e => e.stopPropagation()}>
-                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Period</label>
-                        <input type="number" min={1} max={500} value={ind.period}
-                          onChange={e => {
-                            const v = Math.max(1, Math.min(500, Number(e.target.value) || 1));
-                            setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, period: v } : i));
-                          }}
-                          className="w-14 text-xs font-mono text-center rounded px-1 py-0.5"
-                          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "hsl(220,14%,80%)" }} />
-                        <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Color</label>
-                        <input type="color" value={hslToHex(ind.color)}
-                          onChange={e => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, color: e.target.value } : i))}
-                          style={{ width: 22, height: 22, padding: 1, borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", cursor: "pointer" }} />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Viral preset */}
-          <button onClick={() => { const allOn = VIRAL_INDICATOR_IDS.every(id => indicators.find(i => i.id === id)?.enabled); setIndicators(prev => prev.map(i => (VIRAL_INDICATOR_IDS as readonly string[]).includes(i.id) ? { ...i, enabled: !allOn } : i)); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={VIRAL_INDICATOR_IDS.every(id => indicators.find(i => i.id === id)?.enabled) ? { background: "rgba(251,115,22,0.18)", borderColor: "rgba(251,115,22,0.4)", color: "hsl(28,100%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <Flame className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Viral</span>
-          </button>
-
-          {/* Log/Linear scale toggle */}
-          <button onClick={() => setLogScale(v => !v)}
-            title={logScale ? "Switch to Linear scale" : "Switch to Log scale"}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={logScale ? { background: "rgba(139,92,246,0.18)", borderColor: "rgba(139,92,246,0.4)", color: "hsl(260,80%,75%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <span className="font-mono text-[10px] font-bold">{logScale ? "LOG" : "LIN"}</span>
-          </button>
-
-          {/* Multi-TF */}
-          <div className="flex items-center gap-1">
-            <button onClick={() => setShowMultiTf(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={showMultiTf ? { background: "rgba(100,180,255,0.12)", borderColor: "rgba(100,180,255,0.3)", color: "hsl(200,80%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-              <SplitSquareVertical className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Multi-TF</span>
-            </button>
-            {showMultiTf && (
-              <div onClick={e => e.stopPropagation()}>
-                <Select value={multiTfInterval} onValueChange={v => setMultiTfInterval(v as GetKlinesInterval)}>
-                  <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(100,180,255,0.25)", color: "hsl(200,80%,65%)", width: "4.5rem" }}><SelectValue /></SelectTrigger>
-                  <SelectContent>{INTERVALS.map(iv => <SelectItem key={iv.value} value={iv.value} className="text-xs font-mono">{iv.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          {/* Compare symbol */}
-          <div className="flex items-center gap-1">
-            <button onClick={() => setShowComparePanel(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={compareSymbol ? { background: "rgba(139,92,246,0.15)", borderColor: "rgba(139,92,246,0.35)", color: "hsl(260,80%,72%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-              <ArrowLeftRight className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{compareSymbol ? SYMBOLS.find(s => s.value === compareSymbol)?.label ?? compareSymbol : "Compare"}</span>
-            </button>
-            {showComparePanel && (
-              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                <Select value={compareSymbol ?? ""} onValueChange={v => { setCompareSymbol(v || null); setShowComparePanel(false); }}>
-                  <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(139,92,246,0.25)", color: "hsl(260,80%,72%)", width: "8rem" }}><SelectValue placeholder="Pick symbol" /></SelectTrigger>
-                  <SelectContent className="max-h-64">{SYMBOLS.filter(s => s.value !== symbol).map(s => <SelectItem key={s.value} value={s.value} className="text-xs font-mono">{s.label}</SelectItem>)}</SelectContent>
-                </Select>
-                {compareSymbol && <button onClick={() => { setCompareSymbol(null); setShowComparePanel(false); }} className="h-7 w-7 flex items-center justify-center rounded-lg" style={{ color: "hsl(0,78%,62%)", background: "rgba(239,68,68,0.1)" }}><X className="h-3 w-3" /></button>}
-              </div>
-            )}
-          </div>
-
-          {/* Price alerts */}
-          <button onClick={() => setShowAlertPanel(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={showAlertPanel ? { background: "rgba(245,158,11,0.15)", borderColor: "rgba(245,158,11,0.4)", color: "hsl(38,100%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <Bell className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Alerts</span>
-            {priceAlerts.length > 0 && <span className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold" style={{ background: "rgba(245,158,11,0.3)", color: "hsl(38,100%,70%)" }}>{priceAlerts.length}</span>}
-          </button>
-
-          {/* VPVR */}
-          <div className="relative flex items-center">
-            <button onClick={() => { setShowVPVR(v => !v); setShowVpvrSettings(false); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-l-lg border-y border-l transition-all"
-              style={showVPVR ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-              <Layers className="h-3.5 w-3.5" /> <span className="hidden sm:inline">VPVR</span>
-            </button>
-            <button onClick={() => setShowVpvrSettings(v => !v)}
-              className="flex items-center justify-center px-1.5 py-1.5 text-xs rounded-r-lg border transition-all"
-              style={showVpvrSettings ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,55%)" }}
-              title="VPVR opacity">
-              <SlidersHorizontal className="h-3 w-3" />
-            </button>
-            {showVpvrSettings && (
-              <div className="absolute top-full left-0 mt-1.5 z-50 rounded-xl p-3 shadow-xl flex flex-col gap-2" style={{ background: "rgba(10,12,18,0.97)", border: "1px solid rgba(52,211,153,0.25)", minWidth: 180 }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,60%)" }}>Opacity</span>
-                  <span className="text-[10px] font-mono font-semibold" style={{ color: "hsl(150,90%,65%)" }}>{Math.round(vpvrOpacity * 100)}%</span>
-                </div>
-                <input
-                  type="range" min={10} max={100} step={5}
-                  value={Math.round(vpvrOpacity * 100)}
-                  onChange={e => setVpvrOpacity(Number(e.target.value) / 100)}
-                  className="w-full accent-emerald-400 cursor-pointer"
-                  style={{ height: 4 }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Watchlist */}
-          <button onClick={() => setShowWatchlist(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={showWatchlist ? { background: "rgba(100,180,255,0.12)", borderColor: "rgba(100,180,255,0.3)", color: "hsl(200,80%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <List className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Watchlist</span>
-          </button>
-
-          {/* Save/Load layouts */}
-          <div className="flex items-center gap-1">
-            <button onClick={() => { setShowSaveLayout(v => !v); setShowLoadLayout(false); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={showSaveLayout ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-              <Save className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Save</span>
-            </button>
-            {savedLayouts.length > 0 && (
-              <button onClick={() => { setShowLoadLayout(v => !v); setShowSaveLayout(false); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-                style={showLoadLayout ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-                <BookOpen className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Layouts ({savedLayouts.length})</span>
-              </button>
-            )}
-          </div>
-
-          {/* Trade panel toggle */}
-          <button onClick={() => setShowOrderPanel(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={showOrderPanel ? { background: "rgba(52,211,153,0.12)", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Trade</span>
-          </button>
-
-          {/* Theme toggle */}
-          <button onClick={() => setChartTheme(t => t === "dark" ? "light" : "dark")} title="Toggle chart theme"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={chartTheme === "light" ? { background: "rgba(250,204,21,0.15)", borderColor: "rgba(250,204,21,0.35)", color: "hsl(48,95%,60%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            {chartTheme === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{chartTheme === "dark" ? "Dark" : "Light"}</span>
-          </button>
-
-          {/* Keyboard shortcuts */}
-          <button onClick={() => setShowShortcuts(v => !v)} title="Keyboard shortcuts (?)"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={showShortcuts ? { background: "rgba(139,92,246,0.15)", borderColor: "rgba(139,92,246,0.35)", color: "hsl(260,80%,72%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-            <Keyboard className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Shortcuts</span>
-          </button>
-
-          {!replayMode && (
-            <button onClick={handleRefresh} disabled={isFetching}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
-              <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} /> <span className="hidden sm:inline">Refresh</span>
-            </button>
-          )}
-
-          {!replayMode ? (
-            <button onClick={enterReplay} disabled={!klines || klines.length < MIN_CANDLES}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.28)", color: "hsl(38,100%,62%)" }}>
-              <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: "hsl(38,100%,60%)" }} />
-              <span className="hidden sm:inline">Replay</span>
-            </button>
-          ) : (
-            <button onClick={exitReplay} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all" style={{ background: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.2)", color: "hsl(38,100%,50%)" }}>
-              <X className="h-3 w-3" /> <span className="hidden sm:inline">Exit Replay</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Click-away to close panels */}
-      {showIndicators && <div className="fixed inset-0 z-40" onClick={() => setShowIndicators(false)} />}
-
-      {/* ── Keyboard Shortcuts Panel ────────────────────────────────── */}
+      {/* ── Keyboard Shortcuts ────────────────────────────────────── */}
       {showShortcuts && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.80)" }} onClick={() => setShowShortcuts(false)}>
           <div className="rounded-2xl border overflow-hidden w-full max-w-lg" style={{ background: "hsl(222,22%,10%)", borderColor: "rgba(255,255,255,0.1)", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }} onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="flex items-center gap-2">
-                <Keyboard className="h-4 w-4" style={{ color: "hsl(260,80%,72%)" }} />
-                <span className="font-mono font-bold text-sm" style={{ color: "hsl(220,14%,88%)" }}>Keyboard Shortcuts</span>
-              </div>
+              <div className="flex items-center gap-2"><Keyboard className="h-4 w-4" style={{ color: "hsl(260,80%,72%)" }} /><span className="font-mono font-bold text-sm" style={{ color: "hsl(220,14%,88%)" }}>Keyboard Shortcuts</span></div>
               <button onClick={() => setShowShortcuts(false)} className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-white/10" style={{ color: "hsl(220,14%,50%)" }}><X className="h-3.5 w-3.5" /></button>
             </div>
             <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-1.5 max-h-[70vh] overflow-y-auto">
-              {[
-                { section: "Chart Controls" },
-                { key: "?", label: "Toggle shortcuts panel" },
-                { section: "Replay Mode" },
-                { key: "→", label: "Step forward" },
-                { key: "←", label: "Step back" },
-                { key: "Space", label: "Play / pause" },
-                { key: "B", label: "Buy at current bar" },
-                { key: "S", label: "Sell at current bar" },
-              ].map((item, idx) =>
-                "section" in item ? (
-                  <div key={idx} className="col-span-2 pt-3 first:pt-0">
-                    <p className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "hsl(220,14%,38%)" }}>{item.section}</p>
-                  </div>
-                ) : (
-                  <div key={idx} className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono" style={{ color: "hsl(220,14%,60%)" }}>{item.label}</span>
-                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(220,14%,80%)" }}>{item.key}</kbd>
-                  </div>
-                )
+              {[{ section: "Chart Controls" }, { key: "?", label: "Toggle shortcuts panel" }, { section: "Replay Mode" }, { key: "→", label: "Step forward" }, { key: "←", label: "Step back" }, { key: "Space", label: "Play / pause" }, { key: "B", label: "Buy at current bar" }, { key: "S", label: "Sell at current bar" }].map((item, idx) =>
+                "section" in item
+                  ? <div key={idx} className="col-span-2 pt-3 first:pt-0"><p className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "hsl(220,14%,38%)" }}>{item.section}</p></div>
+                  : <div key={idx} className="flex items-center justify-between gap-2"><span className="text-xs font-mono" style={{ color: "hsl(220,14%,60%)" }}>{item.label}</span><kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(220,14%,80%)" }}>{item.key}</kbd></div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Alert panel (floating overlay) ─────────────────────────── */}
+      {/* ── Alert panel ───────────────────────────────────────────── */}
       {showAlertPanel && (
-        <div className="fixed z-[9990] top-[72px] right-4 w-72 rounded-2xl p-4 border shadow-2xl"
-          style={{ background: "hsl(222,28%,10%)", borderColor: "rgba(245,158,11,0.3)", boxShadow: "0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,158,11,0.1) inset" }}>
+        <div className="fixed z-[9990] top-[72px] right-4 w-72 rounded-2xl p-4 border shadow-2xl" style={{ background: "hsl(222,28%,10%)", borderColor: "rgba(245,158,11,0.3)", boxShadow: "0 8px 40px rgba(0,0,0,0.6),0 0 0 1px rgba(245,158,11,0.1) inset" }}>
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Bell className="h-3.5 w-3.5" style={{ color: "hsl(38,100%,55%)" }} />
-              <span className="text-[11px] font-mono uppercase tracking-widest font-bold" style={{ color: "hsl(38,100%,60%)" }}>Price Alerts</span>
-            </div>
+            <div className="flex items-center gap-2"><Bell className="h-3.5 w-3.5" style={{ color: "hsl(38,100%,55%)" }} /><span className="text-[11px] font-mono uppercase tracking-widest font-bold" style={{ color: "hsl(38,100%,60%)" }}>Price Alerts</span></div>
             <button onClick={() => setShowAlertPanel(false)} className="h-6 w-6 flex items-center justify-center rounded-lg transition-colors hover:bg-white/10" style={{ color: "hsl(220,14%,45%)" }}><X className="h-3 w-3" /></button>
           </div>
           <div className="flex gap-2 mb-1">
             <input type="text" inputMode="decimal" value={alertInput} onChange={e => { setAlertInput(e.target.value); setAlertError(""); }}
               placeholder={currentBar ? `e.g. ${fmt(currentBar.close)}` : "Enter price…"}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  const price = Number(String(alertInput).replace(/,/g, ""));
-                  if (!alertInput.trim()) { setAlertError("Enter a target price first"); return; }
-                  if (!price || price <= 0) { setAlertError("Enter a valid price"); return; }
-                  const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) };
-                  const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); setAlertError("");
-                }
-              }}
+              onKeyDown={e => { if (e.key === "Enter") { const price = Number(String(alertInput).replace(/,/g, "")); if (!alertInput.trim()) { setAlertError("Enter a target price first"); return; } if (!price || price <= 0) { setAlertError("Enter a valid price"); return; } const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) }; const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); setAlertError(""); } }}
               className="flex-1 text-xs font-mono px-2.5 py-2 rounded-xl outline-none" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${alertError ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.12)"}`, color: "hsl(220,14%,85%)" }} />
-            <button onClick={() => {
-              const price = Number(String(alertInput).replace(/,/g, ""));
-              if (!alertInput.trim()) { setAlertError("Enter a target price first"); return; }
-              if (!price || price <= 0) { setAlertError("Enter a valid price"); return; }
-              const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) };
-              const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); setAlertError("");
-            }} className="px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all hover:opacity-90 active:scale-95" style={{ background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.35)", color: "hsl(38,100%,65%)" }}>+ Add</button>
+            <button onClick={() => { const price = Number(String(alertInput).replace(/,/g, "")); if (!alertInput.trim()) { setAlertError("Enter a target price first"); return; } if (!price || price <= 0) { setAlertError("Enter a valid price"); return; } const a: PriceAlert = { id: Date.now(), price, triggered: false, label: fmt(price) }; const updated = [...priceAlerts, a]; setPriceAlerts(updated); saveAlerts(updated); setAlertInput(""); setAlertError(""); }} className="px-3 py-2 rounded-xl text-xs font-mono font-bold" style={{ background: "rgba(245,158,11,0.18)", border: "1px solid rgba(245,158,11,0.35)", color: "hsl(38,100%,65%)" }}>+ Add</button>
           </div>
           {alertError && <p className="text-[10px] font-mono mb-2" style={{ color: "hsl(0,85%,62%)" }}>{alertError}</p>}
           <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-            {priceAlerts.length === 0 && (
-              <p className="text-[11px] font-mono text-center py-4" style={{ color: "hsl(220,14%,38%)" }}>
-                No alerts yet — enter a price above and press Add
-              </p>
-            )}
+            {priceAlerts.length === 0 && <p className="text-[11px] font-mono text-center py-4" style={{ color: "hsl(220,14%,38%)" }}>No alerts yet — enter a price above and press Add</p>}
             {priceAlerts.map(a => (
               <div key={a.id} className="flex items-center gap-2 px-2.5 py-2 rounded-xl" style={{ background: a.triggered ? "rgba(239,68,68,0.07)" : "rgba(245,158,11,0.06)", border: `1px solid ${a.triggered ? "rgba(239,68,68,0.22)" : "rgba(245,158,11,0.18)"}` }}>
                 <Bell className="h-3 w-3 flex-shrink-0" style={{ color: a.triggered ? "hsl(0,85%,62%)" : "hsl(38,100%,55%)" }} />
                 <span className="flex-1 text-[12px] font-mono font-bold" style={{ color: a.triggered ? "hsl(0,85%,62%)" : "hsl(38,100%,68%)" }}>{fmt(a.price)}</span>
                 {a.triggered && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(239,68,68,0.15)", color: "hsl(0,85%,65%)" }}>HIT</span>}
-                <button onClick={() => { const updated = priceAlerts.filter(x => x.id !== a.id); setPriceAlerts(updated); saveAlerts(updated); }} className="h-5 w-5 flex items-center justify-center rounded-lg transition-colors hover:bg-red-500/20" style={{ color: "hsl(220,14%,42%)" }}><X className="h-2.5 w-2.5" /></button>
+                <button onClick={() => { const updated = priceAlerts.filter(x => x.id !== a.id); setPriceAlerts(updated); saveAlerts(updated); }} className="h-5 w-5 flex items-center justify-center rounded-lg" style={{ color: "hsl(220,14%,42%)" }}><X className="h-2.5 w-2.5" /></button>
               </div>
             ))}
           </div>
-          <p className="text-[9px] font-mono mt-2.5 text-center" style={{ color: "hsl(220,14%,32%)" }}>
-            Alerts trigger when the live price crosses your target
-          </p>
+          <p className="text-[9px] font-mono mt-2.5 text-center" style={{ color: "hsl(220,14%,32%)" }}>Alerts trigger when the live price crosses your target</p>
         </div>
       )}
 
-      {/* ── Save layout panel ──────────────────────────────────────── */}
+      {/* Click-away to close indicator panel */}
+      {showIndicators && <div className="fixed inset-0 z-40" onClick={() => setShowIndicators(false)} />}
+
+      {/* ── ChartHeader ───────────────────────────────────────────── */}
+      <ChartHeader
+        symbols={SYMBOLS}
+        symbol={symbol}
+        displayLabel={displayLabel}
+        displayCategory={displayCategory}
+        currentPrice={currentBar?.close ?? null}
+        changePercent={changePercent ?? "0.00"}
+        isUp={isUp}
+        isSim={isSim}
+        interval={interval}
+        replayMode={replayMode}
+        onSymbolChange={handleSymbolChange}
+        onSettingsClick={() => setShowShortcuts(true)}
+      />
+
+      {/* ── Indicators panel (fixed overlay) ─────────────────────── */}
+      {showIndicators && (
+        <div ref={indicatorPanelRef} className="fixed left-4 z-[60] rounded-xl p-3 w-64 flex flex-col gap-1 overflow-y-auto" style={{ top: "136px", maxHeight: "60vh", background: "hsl(222,28%,11%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 48px rgba(0,0,0,0.6)" }}>
+          <div className="flex items-center justify-between px-1 mb-1">
+            <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Overlays</p>
+            {indicators.some(i => i.isOverlay && i.enabled) && (<button onClick={() => setIndicators(prev => prev.map(i => i.isOverlay ? { ...i, enabled: false } : i))} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: "hsl(0,78%,65%)", background: "rgba(239,68,68,0.1)" }}>clear</button>)}
+          </div>
+          {indicators.filter(i => i.isOverlay).map(ind => (
+            <div key={ind.id}>
+              <div className="flex items-center rounded-lg px-2 py-1.5 transition-all" style={ind.enabled ? { background: "rgba(255,255,255,0.06)" } : {}}>
+                <button className="flex items-center gap-2 flex-1 text-xs font-mono text-left transition-all" style={ind.enabled ? { color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }} onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}>
+                  <div className="w-2.5 h-0.5 rounded shrink-0" style={{ background: ind.color }} />{ind.label}
+                </button>
+                <div className="flex items-center gap-1">
+                  {ind.enabled && (<button onClick={e => { e.stopPropagation(); setExpandedIndicator(expandedIndicator === ind.id ? null : ind.id); }} className="p-0.5 rounded" style={{ color: expandedIndicator === ind.id ? "hsl(190,90%,60%)" : "hsl(220,14%,40%)" }}><SlidersHorizontal className="h-2.5 w-2.5" /></button>)}
+                  {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
+                </div>
+              </div>
+              {expandedIndicator === ind.id && ind.enabled && (
+                <div className="flex items-center gap-2 px-2 pb-1.5 pt-1" onClick={e => e.stopPropagation()}>
+                  <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Period</label>
+                  <input type="number" min={1} max={500} value={ind.period} onChange={e => { const v = Math.max(1, Math.min(500, Number(e.target.value) || 1)); setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, period: v } : i)); }} className="w-14 text-xs font-mono text-center rounded px-1 py-0.5" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "hsl(220,14%,80%)" }} />
+                  <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Color</label>
+                  <input type="color" value={hslToHex(ind.color)} onChange={e => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, color: e.target.value } : i))} style={{ width: 22, height: 22, padding: 1, borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", cursor: "pointer" }} />
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="h-px my-1" style={{ background: "rgba(255,255,255,0.08)" }} />
+          <div className="flex items-center justify-between px-1 mb-1">
+            <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Sub-pane</p>
+            {indicators.some(i => !i.isOverlay && i.enabled) && (<button onClick={() => setIndicators(prev => prev.map(i => !i.isOverlay ? { ...i, enabled: false } : i))} className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: "hsl(0,78%,65%)", background: "rgba(239,68,68,0.1)" }}>clear</button>)}
+          </div>
+          {indicators.filter(i => !i.isOverlay).map(ind => (
+            <div key={ind.id}>
+              <div className="flex items-center rounded-lg px-2 py-1.5 transition-all" style={ind.enabled ? { background: "rgba(255,255,255,0.06)" } : {}}>
+                <button className="flex items-center gap-2 flex-1 text-xs font-mono text-left transition-all" style={ind.enabled ? { color: "hsl(220,14%,80%)" } : { color: "hsl(220,14%,50%)" }} onClick={() => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, enabled: !i.enabled } : i))}>
+                  <div className="w-2.5 h-0.5 rounded shrink-0" style={{ background: ind.color }} />{ind.label}
+                </button>
+                <div className="flex items-center gap-1">
+                  {ind.enabled && (<button onClick={e => { e.stopPropagation(); setExpandedIndicator(expandedIndicator === ind.id ? null : ind.id); }} className="p-0.5 rounded" style={{ color: expandedIndicator === ind.id ? "hsl(190,90%,60%)" : "hsl(220,14%,40%)" }}><SlidersHorizontal className="h-2.5 w-2.5" /></button>)}
+                  {ind.enabled && <Check className="h-3 w-3 shrink-0" style={{ color: ind.color }} />}
+                </div>
+              </div>
+              {expandedIndicator === ind.id && ind.enabled && (
+                <div className="flex items-center gap-2 px-2 pb-1.5 pt-1" onClick={e => e.stopPropagation()}>
+                  <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Period</label>
+                  <input type="number" min={1} max={500} value={ind.period} onChange={e => { const v = Math.max(1, Math.min(500, Number(e.target.value) || 1)); setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, period: v } : i)); }} className="w-14 text-xs font-mono text-center rounded px-1 py-0.5" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "hsl(220,14%,80%)" }} />
+                  <label className="text-[9px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>Color</label>
+                  <input type="color" value={hslToHex(ind.color)} onChange={e => setIndicators(prev => prev.map(i => i.id === ind.id ? { ...i, color: e.target.value } : i))} style={{ width: 22, height: 22, padding: 1, borderRadius: 4, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", cursor: "pointer" }} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Save layout (fixed overlay) ───────────────────────────── */}
       {showSaveLayout && (
-        <div className="rounded-xl p-3 border" style={{ background: "hsl(222,28%,10%)", borderColor: "rgba(52,211,153,0.2)" }}>
+        <div className="fixed left-4 z-[55] rounded-xl p-3 border w-72" style={{ top: "136px", background: "hsl(222,28%,10%)", borderColor: "rgba(52,211,153,0.2)" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(150,90%,55%)" }}>Save Layout</span>
             <button onClick={() => setShowSaveLayout(false)} className="h-5 w-5 flex items-center justify-center" style={{ color: "hsl(220,14%,40%)" }}><X className="h-3 w-3" /></button>
           </div>
           <div className="flex gap-2">
-            <input type="text" value={layoutName} onChange={e => setLayoutName(e.target.value)}
-              placeholder="Layout name (e.g. BTC Trend Setup)"
-              onKeyDown={e => { if (e.key === "Enter") handleSaveLayout(); }}
-              className="flex-1 text-xs font-mono px-2.5 py-1.5 rounded-lg outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }} />
-            <button onClick={handleSaveLayout} disabled={!layoutName.trim()}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold disabled:opacity-30"
-              style={{ background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" }}>Save</button>
+            <input type="text" value={layoutName} onChange={e => setLayoutName(e.target.value)} placeholder="Layout name" onKeyDown={e => { if (e.key === "Enter") handleSaveLayout(); }} className="flex-1 text-xs font-mono px-2.5 py-1.5 rounded-lg outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }} />
+            <button onClick={handleSaveLayout} disabled={!layoutName.trim()} className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold disabled:opacity-30" style={{ background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" }}>Save</button>
           </div>
-          <p className="text-[9px] font-mono mt-1.5" style={{ color: "hsl(220,14%,35%)" }}>Saves: {displayLabel} · {interval} · {indicators.filter(i => i.enabled).length} indicators</p>
         </div>
       )}
 
-      {/* ── Load layout panel ──────────────────────────────────────── */}
+      {/* ── Load layout (fixed overlay) ───────────────────────────── */}
       {showLoadLayout && savedLayouts.length > 0 && (
-        <div className="rounded-xl p-3 border" style={{ background: "hsl(222,28%,10%)", borderColor: "rgba(52,211,153,0.2)" }}>
+        <div className="fixed left-4 z-[55] rounded-xl p-3 border w-72" style={{ top: "136px", background: "hsl(222,28%,10%)", borderColor: "rgba(52,211,153,0.2)" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(150,90%,55%)" }}>Saved Layouts</span>
             <button onClick={() => setShowLoadLayout(false)} className="h-5 w-5 flex items-center justify-center" style={{ color: "hsl(220,14%,40%)" }}><X className="h-3 w-3" /></button>
@@ -2118,252 +1859,265 @@ export default function ChartPage() {
         </div>
       )}
 
-      {/* ── Controls row ───────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
-        <Select value={symbol} onValueChange={handleSymbolChange}>
-          <SelectTrigger className="h-8 text-xs font-mono border flex-shrink-0" disabled={replayMode} style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", minWidth: "7rem", maxWidth: "9rem" }}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="max-h-80">
-            {(["Crypto", "Futures", "Forex", "Indices", "Commodities", "Stocks"] as const).map(cat => {
-              const items = SYMBOLS.filter(s => s.category === cat);
-              if (!items.length) return null;
-              return (
-                <SelectGroup key={cat}>
-                  <SelectLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 py-1">{cat}</SelectLabel>
-                  {items.map(s => <SelectItem key={s.value} value={s.value} className="text-xs font-mono"><span>{s.label}</span>{s.sim && <span className="ml-1.5 text-[9px] opacity-50 font-sans">SIM</span>}</SelectItem>)}
-                </SelectGroup>
-              );
-            })}
-          </SelectContent>
-        </Select>
-
-        <div className="flex items-center gap-0.5 rounded-lg p-0.5 border flex-shrink-0" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
-          {INTERVALS.map(iv => (
-            <button key={iv.value} onClick={() => handleIntervalChange(iv.value)}
-              className="px-2 py-1 text-[11px] font-mono rounded-md transition-all"
-              style={interval === iv.value ? { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)" } : { color: "hsl(220,14%,55%)" }}>
-              {iv.label}
-            </button>
-          ))}
+      {/* ── VPVR settings (fixed overlay) ─────────────────────────── */}
+      {showVpvrSettings && (
+        <div className="fixed z-[55] rounded-xl p-3 shadow-xl flex flex-col gap-2" style={{ top: "136px", right: "16px", background: "rgba(10,12,18,0.97)", border: "1px solid rgba(52,211,153,0.25)", minWidth: 180 }}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,60%)" }}>VPVR Opacity</span>
+            <span className="text-[10px] font-mono font-semibold" style={{ color: "hsl(150,90%,65%)" }}>{Math.round(vpvrOpacity * 100)}%</span>
+          </div>
+          <input type="range" min={10} max={100} step={5} value={Math.round(vpvrOpacity * 100)} onChange={e => setVpvrOpacity(Number(e.target.value) / 100)} className="w-full accent-emerald-400 cursor-pointer" style={{ height: 4 }} />
+          <button onClick={() => setShowVpvrSettings(false)} className="text-[9px] font-mono text-center mt-1" style={{ color: "hsl(220,14%,40%)" }}>Close</button>
         </div>
+      )}
 
-        <div className="flex items-center gap-0.5 rounded-lg p-0.5 border flex-shrink-0" style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)" }}>
-          {CHART_TYPES.map(ct => (
-            <button key={ct.id} onClick={() => setChartType(ct.id)} title={ct.title}
-              className="px-2 py-1 text-[11px] font-mono rounded-md transition-all"
-              style={chartType === ct.id ? { background: "rgba(139,92,246,0.18)", color: "hsl(260,80%,75%)" } : { color: "hsl(220,14%,50%)" }}>
-              {ct.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Go to date */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <input type="date" value={goToDate} onChange={e => setGoToDate(e.target.value)}
-            className="h-8 text-xs font-mono px-2 rounded-lg border outline-none" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(220,14%,60%)", colorScheme: "dark" }} />
-          <button onClick={handleGoToDate} disabled={!goToDate} title="Jump to date"
-            className="h-8 w-8 flex items-center justify-center rounded-lg border transition-all disabled:opacity-30"
-            style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(220,14%,60%)" }}>
-            <CalendarClock className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {replayMode && currentDate && <span className="text-xs font-mono flex-shrink-0" style={{ color: "hsl(38,100%,65%)" }}>{currentDate}</span>}
-      </div>
-
-      {/* ── Replay toolbar ────────────────────────────────────────── */}
-      {replayMode && (
-        <div className="rounded-xl border" style={{ background: "linear-gradient(180deg, rgba(245,158,11,0.06) 0%, rgba(245,158,11,0.02) 100%)", borderColor: "rgba(245,158,11,0.18)" }}>
-          <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: "1px solid rgba(245,158,11,0.08)" }}>
-            <div className="flex items-center gap-0.5 flex-shrink-0">
-              <button onClick={jumpToStart} disabled={replayIndex <= MIN_CANDLES} title="Jump to start" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><SkipBack className="h-3 w-3" /></button>
-              <button onClick={stepBack} disabled={replayIndex <= MIN_CANDLES} title="Step back (←)" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><StepBack className="h-3.5 w-3.5" /></button>
-              <button onClick={() => setIsPlaying(p => !p)} disabled={replayIndex >= total} title={isPlaying ? "Pause" : "Play"}
-                className="h-8 w-8 flex items-center justify-center rounded-lg border transition-all disabled:opacity-25 mx-0.5"
-                style={isPlaying ? { background: "hsl(38,100%,52%)", borderColor: "transparent", color: "#000" } : { background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,62%)" }}>
-                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-px" />}
-              </button>
-              <button onClick={stepForward} disabled={replayIndex >= total} title="Step forward (→)" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><StepForward className="h-3.5 w-3.5" /></button>
-              <button onClick={jumpToEnd} disabled={replayIndex >= total} title="Jump to end" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><SkipForward className="h-3 w-3" /></button>
-            </div>
-
-            <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
-
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,35%)" }}>SPD</span>
-              {SPEEDS.map(s => (
-                <button key={s.value} onClick={() => setReplaySpeed(s.value)}
-                  className="px-1.5 py-0.5 text-[10px] font-mono rounded transition-all"
-                  style={replaySpeed === s.value ? { background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.28)" } : { color: "hsl(220,14%,38%)", border: "1px solid transparent" }}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
-
-            <div className="flex-1 flex items-center gap-2 min-w-0">
-              <input type="range" min={MIN_CANDLES} max={total} value={replayIndex}
-                onChange={e => { setIsPlaying(false); setReplayIndex(Number(e.target.value)); }}
-                className="flex-1 h-1 cursor-pointer rounded-full" style={{ accentColor: "hsl(38,100%,55%)" }} />
-            </div>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {currentDate && <span className="text-[10px] font-mono hidden md:block" style={{ color: "hsl(38,100%,55%)" }}>{currentDate}</span>}
-              {currentBar && <span className="text-sm font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${fmt(currentBar.close)}</span>}
-              <span className="text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.08)", color: "hsl(38,100%,50%)", minWidth: "3.5rem", textAlign: "center" }}>
-                {replayIndex}<span style={{ color: "hsl(220,14%,35%)" }}>/{total}</span>
-              </span>
-            </div>
-
-            <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
-            <button onClick={() => setReplaySidebarOpen(v => !v)}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono transition-all flex-shrink-0"
-              style={replaySidebarOpen ? { background: "rgba(52,211,153,0.15)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.28)" } : { background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              B/S
-            </button>
+      {/* ── Compare panel (fixed overlay) ─────────────────────────── */}
+      {showComparePanel && (
+        <div className="fixed z-[55] rounded-xl p-3 border" style={{ top: "136px", left: "16px", background: "rgba(10,12,18,0.97)", borderColor: "rgba(139,92,246,0.3)", boxShadow: "0 8px 40px rgba(0,0,0,0.6)" }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(260,80%,72%)" }}>Compare Symbol</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={compareSymbol ?? ""} onValueChange={v => { setCompareSymbol(v || null); setShowComparePanel(false); }}>
+              <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(139,92,246,0.25)", color: "hsl(260,80%,72%)", width: "10rem" }}><SelectValue placeholder="Pick symbol" /></SelectTrigger>
+              <SelectContent className="max-h-64">{SYMBOLS.filter(s => s.value !== symbol).map(s => <SelectItem key={s.value} value={s.value} className="text-xs font-mono">{s.label}</SelectItem>)}</SelectContent>
+            </Select>
+            {compareSymbol && <button onClick={() => { setCompareSymbol(null); setShowComparePanel(false); }} className="h-7 w-7 flex items-center justify-center rounded-lg" style={{ color: "hsl(0,78%,62%)", background: "rgba(239,68,68,0.1)" }}><X className="h-3 w-3" /></button>}
+            <button onClick={() => setShowComparePanel(false)} className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-white/10" style={{ color: "hsl(220,14%,45%)" }}><X className="h-3 w-3" /></button>
           </div>
         </div>
       )}
 
-      {/* ── Chart area ──────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-2 flex-1 min-h-0">
-
-        {/* ── Charts column ────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto">
-
-          {/* Main chart */}
-          <div className="relative rounded-xl overflow-hidden"
-            style={{ flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto", height: (hasSubChart || showMultiTf) ? (isFullscreen ? "min(46dvh, 46dvh)" : "min(320px, 42vh)") : (isFullscreen ? "clamp(500px, calc(100dvh - 210px), 100dvh)" : "clamp(420px, calc(100vh - 260px), 700px)"), minHeight: (hasSubChart || showMultiTf) ? "200px" : "380px", border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)", boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
-            {isLoading && <div className="absolute inset-0 z-10 p-4"><Skeleton className="w-full h-full" /></div>}
-            {error && !isLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3 text-center p-6">
-                  <AlertCircle className="h-8 w-8 text-destructive" />
-                  <p className="text-sm text-muted-foreground">{(error as { data?: { error?: string } })?.data?.error ?? "Failed to load chart data"}</p>
-                  <Button size="sm" variant="outline" onClick={handleRefresh}>Try again</Button>
-                </div>
-              </div>
-            )}
-
-            <div ref={chartContainerRef} className="absolute inset-0" />
-
-            {/* ── Drawing tools overlay ──────────────────────────── */}
-            <DrawingToolbar
-              activeTool={activeTool}
-              onToolChange={setActiveTool}
-              layerHandle={drawingHandle}
-            />
-
-            {/* Escape-to-deselect hint */}
-            {activeTool !== "cursor" && (
-              <div
-                style={{
-                  position: "absolute", bottom: "12px", left: "56px", zIndex: 20,
-                  display: "flex", alignItems: "center", gap: "5px",
-                  padding: "4px 8px", borderRadius: "8px",
-                  background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.12)",
-                  color: "hsl(220,14%,65%)", fontSize: "10px", fontFamily: "monospace",
-                  pointerEvents: "none",
-                }}
-              >
-                <kbd style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "4px", padding: "1px 4px", fontSize: "9px" }}>Esc</kbd>
-                to deselect
-              </div>
-            )}
-            <ErrorBoundary fallback={null}>
-            <DrawingLayer
-              chartRef={chartRef}
-              seriesRef={candleSeriesRef}
-              containerRef={chartContainerRef}
-              activeTool={activeTool}
-              onToolChange={setActiveTool}
-              symbol={symbol}
-              interval={interval}
-              onHandleReady={setDrawingHandle}
-            />
-            </ErrorBoundary>
-
-            {/* Position drawing tool overlay */}
-            <PositionOverlay
-              positions={positionTools.filter(p => p.symbol === symbol)}
-              candleSeries={candleSeriesRef.current}
-              chart={chartRef.current}
-              container={chartContainerRef.current}
-              selectedId={selectedPosId}
-              onSelect={setSelectedPosId}
-              onUpdate={handlePosUpdate}
-              onDelete={handlePosDelete}
-              onUpdateSizing={handlePosSizing}
-              token={token}
-            />
-
-            {/* VPVR overlay */}
-            {showVPVR && vpvrBuckets.length > 0 && (
-              <div className="absolute top-0 right-0 bottom-0 pointer-events-none" style={{ width: "80px", zIndex: 8, padding: "4px 0" }}>
-                <svg width="80" height="100%" viewBox={`0 0 80 ${vpvrBuckets.length * 10}`} preserveAspectRatio="none" style={{ display: "block" }}>
-                  {vpvrBuckets.map((b, i) => (
-                    <rect key={i} x={80 - b.pct * 0.6} y={i * 10} width={b.pct * 0.6} height={9}
-                      fill={b.pct > 70
-                        ? `hsla(38,100%,55%,${vpvrOpacity})`
-                        : `hsla(190,90%,55%,${vpvrOpacity * 0.58})`} />
-                  ))}
-                </svg>
-              </div>
-            )}
-
-            {/* Watermark */}
-            <div className="absolute top-3 left-3 pointer-events-none select-none" style={{ zIndex: 5 }}>
-              <span className="text-4xl font-bold font-mono" style={{ color: "rgba(255,255,255,0.025)" }}>{displayLabel}</span>
-            </div>
-
-            {/* OHLC display */}
-            {displayBar && (
-              <div className="absolute top-2 left-3 pointer-events-none select-none flex items-center gap-2 flex-wrap" style={{ zIndex: 6 }}>
-                {(["open","high","low","close"] as const).map(k => (
-                  <span key={k} className="text-[10px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>
-                    <span style={{ color: "hsl(220,14%,35%)" }}>{k.charAt(0).toUpperCase()} </span>
-                    <span style={{ color: k === "high" ? "hsl(150,90%,58%)" : k === "low" ? "hsl(0,85%,62%)" : "hsl(220,14%,65%)" }}>{fmt(displayBar[k])}</span>
-                  </span>
-                ))}
-                {displayBar.volume !== undefined && <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>V <span style={{ color: "hsl(220,14%,50%)" }}>{(displayBar.volume / 1e6).toFixed(2)}M</span></span>}
-                {compareSymbol && <span className="text-[10px] font-mono px-1 rounded" style={{ background: "rgba(139,92,246,0.1)", color: "hsl(260,80%,70%)" }}>vs {SYMBOLS.find(s => s.value === compareSymbol)?.label}</span>}
-              </div>
-            )}
-
-            {replayMode && replayIndex >= total && total > 0 && (
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 25 }}>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: "rgba(10,12,18,0.88)", border: "1px solid rgba(245,158,11,0.3)" }}>
-                  <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: "hsl(38,100%,58%)" }} />
-                  <span className="text-xs font-mono" style={{ color: "hsl(38,100%,62%)" }}>End of data</span>
-                  <span className="text-xs font-mono" style={{ color: "hsl(220,14%,40%)" }}>—</span>
-                  <span className="text-xs font-mono" style={{ color: "hsl(220,14%,50%)" }}>all {total} bars shown</span>
-                </div>
-              </div>
-            )}
-
+      {/* ── Watchlist panel (fixed overlay) ───────────────────────── */}
+      {showWatchlist && (
+        <div className="fixed z-[55] rounded-xl border overflow-hidden" style={{ top: "136px", right: "16px", width: 264, maxHeight: "60vh", background: "hsl(222,22%,9%)", borderColor: "rgba(100,180,255,0.2)", boxShadow: "0 8px 40px rgba(0,0,0,0.6)" }}>
+          <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(200,80%,60%)" }}>Watchlist</span>
+            <button onClick={() => setShowWatchlist(false)} className="h-5 w-5 flex items-center justify-center" style={{ color: "hsl(220,14%,40%)" }}><X className="h-3 w-3" /></button>
           </div>
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(60vh - 36px)" }}>
+            {watchlistData.map(sym => (
+              <button key={sym.value} onClick={() => { handleSymbolChange(sym.value); setShowWatchlist(false); }} className="w-full flex items-center gap-2 px-3 py-2 transition-all text-left" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: sym.value === symbol ? "rgba(100,180,255,0.08)" : "transparent" }}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-mono font-semibold" style={{ color: "hsl(220,14%,75%)" }}>{sym.label}</p>
+                    {sym.isLive && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0 animate-pulse" style={{ background: "hsl(150,90%,55%)" }} title="Live price" />}
+                  </div>
+                  <p className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>${fmt(sym.lastPrice)}</p>
+                </div>
+                <svg width="60" height="20" viewBox="0 0 60 20" className="flex-shrink-0">
+                  <polyline points={sym.sparkPoints} fill="none" stroke={sym.change >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)"} strokeWidth="1.2" />
+                </svg>
+                <span className="text-[10px] font-mono font-bold flex-shrink-0" style={{ color: sym.change >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{sym.change >= 0 ? "+" : ""}{sym.change.toFixed(2)}%</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {/* ── Sub-chart ─────────────────────────────────────────── */}
-          {hasSubChart && (
-            <div className="relative rounded-xl overflow-hidden border flex-shrink-0" style={{ height: 120, borderColor: "rgba(255,255,255,0.06)" }}>
-              <div className="absolute flex items-center gap-1.5 px-3 pt-2 pb-0 z-10 pointer-events-none flex-wrap">
-                {hasRSI       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>RSI 14</span>}
-                {hasMACD      && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>MACD 12/26/9</span>}
-                {hasATR       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "hsl(260,80%,72%)", border: "1px solid rgba(139,92,246,0.2)" }}>ATR 14</span>}
-                {hasStoch     && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.12)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.2)" }}>Stoch 14/3</span>}
-                {hasOBV       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>OBV</span>}
-                {hasWilliamsR && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>%R 14</span>}
-                {hasCCI       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "hsl(260,80%,72%)", border: "1px solid rgba(139,92,246,0.2)" }}>CCI 20</span>}
-                {hasADX       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.12)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.2)" }}>ADX 14</span>}
+      {/* ── Main content ──────────────────────────────────────────── */}
+      <div style={{ position: "relative" }}>
+
+        {/* ToolbarGroups overlay */}
+        <ToolbarGroups
+          indicators={indicators}
+          showIndicators={showIndicators}
+          onToggleIndicators={() => setShowIndicators(v => !v)}
+          showMultiTf={showMultiTf}
+          onToggleMultiTf={() => setShowMultiTf(v => !v)}
+          showVPVR={showVPVR}
+          onToggleVPVR={() => { setShowVPVR(v => !v); setShowVpvrSettings(false); }}
+          showComparePanel={showComparePanel}
+          onToggleCompare={() => setShowComparePanel(v => !v)}
+          showOrderPanel={showOrderPanel}
+          onToggleOrderPanel={() => { const next = !showOrderPanel; setShowOrderPanel(next); setSheetState(next ? "half" : "collapsed"); }}
+          showAlertPanel={showAlertPanel}
+          onToggleAlertPanel={() => setShowAlertPanel(v => !v)}
+          replayMode={replayMode}
+          onEnterReplay={enterReplay}
+          onExitReplay={exitReplay}
+          showWatchlist={showWatchlist}
+          onToggleWatchlist={() => setShowWatchlist(v => !v)}
+          showSaveLayout={showSaveLayout}
+          onToggleSaveLayout={() => { setShowSaveLayout(v => !v); setShowLoadLayout(false); }}
+          showLoadLayout={showLoadLayout}
+          onToggleLoadLayout={() => { setShowLoadLayout(v => !v); setShowSaveLayout(false); }}
+          savedLayouts={savedLayouts}
+          chartTheme={chartTheme}
+          onThemeToggle={() => setChartTheme(t => t === "dark" ? "light" : "dark")}
+          showShortcuts={showShortcuts}
+          onToggleShortcuts={() => setShowShortcuts(v => !v)}
+          onRefresh={handleRefresh}
+          isFetching={isFetching}
+          klines={klines}
+          isSim={isSim}
+        />
+
+        {/* ── Main chart canvas ──────────────────────────────────── */}
+        <div className="relative rounded-xl overflow-hidden mt-14"
+          style={{ height: (hasSubChart || showMultiTf) ? (isFullscreen ? "min(46dvh,46dvh)" : "min(320px,42vh)") : (isFullscreen ? "clamp(500px,calc(100dvh - 210px),100dvh)" : "clamp(420px,calc(100vh - 260px),700px)"), minHeight: (hasSubChart || showMultiTf) ? "200px" : "380px", border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)", boxShadow: "0 25px 60px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+
+          {isLoading && <div className="absolute inset-0 z-10 p-4"><Skeleton className="w-full h-full" /></div>}
+          {error && !isLoading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3 text-center p-6">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+                <p className="text-sm text-muted-foreground">{(error as { data?: { error?: string } })?.data?.error ?? "Failed to load chart data"}</p>
+                <Button size="sm" variant="outline" onClick={handleRefresh}>Try again</Button>
               </div>
-              <div ref={subChartContainerRef} className="w-full h-full" />
             </div>
           )}
 
-          {/* ── Multi-TF chart ─────────────────────────────────────── */}
-          {showMultiTf && (
+          <div ref={chartContainerRef} className="absolute inset-0" />
+
+          {/* FloatingActions overlay */}
+          <FloatingActions
+            onAlertClick={() => setShowAlertPanel(v => !v)}
+            onSaveClick={() => { setShowSaveLayout(v => !v); setShowLoadLayout(false); }}
+            onPlayPause={() => setIsPlaying(p => !p)}
+            hasActiveAlerts={priceAlerts.length > 0}
+            replayMode={replayMode}
+            isPlaying={isPlaying}
+            onEnterReplay={enterReplay}
+          />
+
+          {/* StatsFloatingCard overlay */}
+          <StatsFloatingCard
+            trades={trades}
+            wins={wins}
+            winRate={winRate}
+            hasPosition={!!position}
+            equityGainPct={equityGainPct}
+          />
+
+          {/* Drawing tools */}
+          <DrawingToolbar activeTool={activeTool} onToolChange={setActiveTool} layerHandle={drawingHandle} />
+
+          {activeTool !== "cursor" && (
+            <div style={{ position: "absolute", bottom: "12px", left: "56px", zIndex: 20, display: "flex", alignItems: "center", gap: "5px", padding: "4px 8px", borderRadius: "8px", background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(220,14%,65%)", fontSize: "10px", fontFamily: "monospace", pointerEvents: "none" }}>
+              <kbd style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "4px", padding: "1px 4px", fontSize: "9px" }}>Esc</kbd>
+              to deselect
+            </div>
+          )}
+
+          <ErrorBoundary fallback={null}>
+            <DrawingLayer chartRef={chartRef} seriesRef={candleSeriesRef} containerRef={chartContainerRef} activeTool={activeTool} onToolChange={setActiveTool} symbol={symbol} interval={interval} onHandleReady={setDrawingHandle} />
+          </ErrorBoundary>
+
+          <PositionOverlay positions={positionTools.filter(p => p.symbol === symbol)} candleSeries={candleSeriesRef.current} chart={chartRef.current} container={chartContainerRef.current} selectedId={selectedPosId} onSelect={setSelectedPosId} onUpdate={handlePosUpdate} onDelete={handlePosDelete} onUpdateSizing={handlePosSizing} token={token} />
+
+          {showVPVR && vpvrBuckets.length > 0 && (
+            <div className="absolute top-0 right-0 bottom-0 pointer-events-none" style={{ width: "80px", zIndex: 8, padding: "4px 0" }}>
+              <svg width="80" height="100%" viewBox={`0 0 80 ${vpvrBuckets.length * 10}`} preserveAspectRatio="none" style={{ display: "block" }}>
+                {vpvrBuckets.map((b, i) => (
+                  <rect key={i} x={80 - b.pct * 0.6} y={i * 10} width={b.pct * 0.6} height={9} fill={b.pct > 70 ? `hsla(38,100%,55%,${vpvrOpacity})` : `hsla(190,90%,55%,${vpvrOpacity * 0.58})`} />
+                ))}
+              </svg>
+            </div>
+          )}
+
+          <div className="absolute top-3 left-3 pointer-events-none select-none" style={{ zIndex: 5 }}>
+            <span className="text-4xl font-bold font-mono" style={{ color: "rgba(255,255,255,0.025)" }}>{displayLabel}</span>
+          </div>
+
+          {displayBar && (
+            <div className="absolute top-2 left-3 pointer-events-none select-none flex items-center gap-2 flex-wrap" style={{ zIndex: 6 }}>
+              {(["open","high","low","close"] as const).map(k => (
+                <span key={k} className="text-[10px] font-mono" style={{ color: "hsl(220,14%,45%)" }}>
+                  <span style={{ color: "hsl(220,14%,35%)" }}>{k.charAt(0).toUpperCase()} </span>
+                  <span style={{ color: k === "high" ? "hsl(150,90%,58%)" : k === "low" ? "hsl(0,85%,62%)" : "hsl(220,14%,65%)" }}>{fmt(displayBar[k])}</span>
+                </span>
+              ))}
+              {displayBar.volume !== undefined && <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>V <span style={{ color: "hsl(220,14%,50%)" }}>{(displayBar.volume / 1e6).toFixed(2)}M</span></span>}
+              {compareSymbol && <span className="text-[10px] font-mono px-1 rounded" style={{ background: "rgba(139,92,246,0.1)", color: "hsl(260,80%,70%)" }}>vs {SYMBOLS.find(s => s.value === compareSymbol)?.label}</span>}
+            </div>
+          )}
+
+          {replayMode && replayIndex >= total && total > 0 && (
+            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 25 }}>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: "rgba(10,12,18,0.88)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: "hsl(38,100%,58%)" }} />
+                <span className="text-xs font-mono" style={{ color: "hsl(38,100%,62%)" }}>End of data</span>
+                <span className="text-xs font-mono" style={{ color: "hsl(220,14%,40%)" }}>—</span>
+                <span className="text-xs font-mono" style={{ color: "hsl(220,14%,50%)" }}>all {total} bars shown</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Replay toolbar ─────────────────────────────────────── */}
+        {replayMode && (
+          <div className="rounded-xl border" style={{ background: "linear-gradient(180deg,rgba(245,158,11,0.06) 0%,rgba(245,158,11,0.02) 100%)", borderColor: "rgba(245,158,11,0.18)" }}>
+            <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: "1px solid rgba(245,158,11,0.08)" }}>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button onClick={jumpToStart} disabled={replayIndex <= MIN_CANDLES} title="Jump to start" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><SkipBack className="h-3 w-3" /></button>
+                <button onClick={stepBack} disabled={replayIndex <= MIN_CANDLES} title="Step back (←)" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><StepBack className="h-3.5 w-3.5" /></button>
+                <button onClick={() => setIsPlaying(p => !p)} disabled={replayIndex >= total} title={isPlaying ? "Pause" : "Play"}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border transition-all disabled:opacity-25 mx-0.5"
+                  style={isPlaying ? { background: "hsl(38,100%,52%)", borderColor: "transparent", color: "#000" } : { background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,62%)" }}>
+                  {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-px" />}
+                </button>
+                <button onClick={stepForward} disabled={replayIndex >= total} title="Step forward (→)" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><StepForward className="h-3.5 w-3.5" /></button>
+                <button onClick={jumpToEnd} disabled={replayIndex >= total} title="Jump to end" className="h-7 w-7 flex items-center justify-center rounded-lg transition-all disabled:opacity-25 hover:bg-white/5" style={{ color: "hsl(220,14%,55%)" }}><SkipForward className="h-3 w-3" /></button>
+              </div>
+              <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,35%)" }}>SPD</span>
+                {SPEEDS.map(s => (
+                  <button key={s.value} onClick={() => setReplaySpeed(s.value)} className="px-1.5 py-0.5 text-[10px] font-mono rounded transition-all"
+                    style={replaySpeed === s.value ? { background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.28)" } : { color: "hsl(220,14%,38%)", border: "1px solid transparent" }}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <input type="range" min={MIN_CANDLES} max={total} value={replayIndex} onChange={e => { setIsPlaying(false); setReplayIndex(Number(e.target.value)); }} className="flex-1 h-1 cursor-pointer rounded-full" style={{ accentColor: "hsl(38,100%,55%)" }} />
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {currentDate && <span className="text-[10px] font-mono hidden md:block" style={{ color: "hsl(38,100%,55%)" }}>{currentDate}</span>}
+                {currentBar && <span className="text-sm font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${fmt(currentBar.close)}</span>}
+                <span className="text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.08)", color: "hsl(38,100%,50%)", minWidth: "3.5rem", textAlign: "center" }}>
+                  {replayIndex}<span style={{ color: "hsl(220,14%,35%)" }}>/{total}</span>
+                </span>
+              </div>
+              <div className="w-px h-4 flex-shrink-0" style={{ background: "rgba(255,255,255,0.07)" }} />
+              <button onClick={() => setSheetState(s => s === "collapsed" ? "half" : "collapsed")}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono transition-all flex-shrink-0"
+                style={sheetState !== "collapsed" ? { background: "rgba(52,211,153,0.15)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.28)" } : { background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                B/S
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Sub-chart ─────────────────────────────────────────── */}
+        {hasSubChart && (
+          <div className="relative rounded-xl overflow-hidden border flex-shrink-0" style={{ height: 120, borderColor: "rgba(255,255,255,0.06)" }}>
+            <div className="absolute flex items-center gap-1.5 px-3 pt-2 pb-0 z-10 pointer-events-none flex-wrap">
+              {hasRSI       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>RSI 14</span>}
+              {hasMACD      && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>MACD 12/26/9</span>}
+              {hasATR       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "hsl(260,80%,72%)", border: "1px solid rgba(139,92,246,0.2)" }}>ATR 14</span>}
+              {hasStoch     && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.12)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.2)" }}>Stoch 14/3</span>}
+              {hasOBV       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>OBV</span>}
+              {hasWilliamsR && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>%R 14</span>}
+              {hasCCI       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "hsl(260,80%,72%)", border: "1px solid rgba(139,92,246,0.2)" }}>CCI 20</span>}
+              {hasADX       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.12)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.2)" }}>ADX 14</span>}
+            </div>
+            <div ref={subChartContainerRef} className="w-full h-full" />
+          </div>
+        )}
+
+        {/* ── Multi-TF chart ────────────────────────────────────── */}
+        {showMultiTf && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(200,80%,60%)" }}>MTF Interval</span>
+              <Select value={multiTfInterval} onValueChange={v => setMultiTfInterval(v as GetKlinesInterval)}>
+                <SelectTrigger className="h-7 text-[10px] font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(100,180,255,0.25)", color: "hsl(200,80%,65%)", width: "5rem" }}><SelectValue /></SelectTrigger>
+                <SelectContent>{INTERVALS.map(iv => <SelectItem key={iv.value} value={iv.value} className="text-xs font-mono">{iv.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
             <div className="relative rounded-xl overflow-hidden border flex-shrink-0" style={{ height: 200, borderColor: "rgba(100,180,255,0.2)" }}>
               <div className="absolute flex items-center gap-2 px-3 pt-2 z-10 pointer-events-none">
                 <span className="text-[9px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(100,180,255,0.12)", color: "hsl(200,80%,70%)", border: "1px solid rgba(100,180,255,0.25)" }}>
@@ -2372,485 +2126,56 @@ export default function ChartPage() {
               </div>
               <div ref={multiTfContainerRef} className="w-full h-full" />
             </div>
-          )}
-        </div>
-
-        {/* ── Sidebars ─────────────────────────────────────────────── */}
-        <div className="w-full lg:w-[264px] flex flex-col gap-3 overflow-y-auto shrink-0">
-
-          {/* Watchlist panel */}
-          {showWatchlist && (
-            <div className="rounded-xl border overflow-hidden" style={{ background: "hsl(222,22%,9%)", borderColor: "rgba(100,180,255,0.2)" }}>
-              <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(200,80%,60%)" }}>Watchlist</span>
-                <button onClick={() => setShowWatchlist(false)} className="h-5 w-5 flex items-center justify-center" style={{ color: "hsl(220,14%,40%)" }}><X className="h-3 w-3" /></button>
-              </div>
-              <div className="overflow-y-auto max-h-64">
-                {watchlistData.map(sym => (
-                  <button key={sym.value} onClick={() => handleSymbolChange(sym.value)}
-                    className="w-full flex items-center gap-2 px-3 py-2 transition-all text-left"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: sym.value === symbol ? "rgba(100,180,255,0.08)" : "transparent" }}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <p className="text-xs font-mono font-semibold" style={{ color: "hsl(220,14%,75%)" }}>{sym.label}</p>
-                        {sym.isLive && <span className="h-1.5 w-1.5 rounded-full flex-shrink-0 animate-pulse" style={{ background: "hsl(150,90%,55%)" }} title="Live price" />}
-                      </div>
-                      <p className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>${fmt(sym.lastPrice)}</p>
-                    </div>
-                    <svg width="60" height="20" viewBox="0 0 60 20" className="flex-shrink-0">
-                      <polyline points={sym.sparkPoints} fill="none" stroke={sym.change >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)"} strokeWidth="1.2" />
-                    </svg>
-                    <span className="text-[10px] font-mono font-bold flex-shrink-0" style={{ color: sym.change >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
-                      {sym.change >= 0 ? "+" : ""}{sym.change.toFixed(2)}%
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Paper Trade panel */}
-          {showOrderPanel && !replayMode && (
-            <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(52,211,153,0.15)" }}>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "hsl(150,90%,55%)" }}>Paper Trade</span>
-                {(trades.length > 0 || position) && (
-                  <button onClick={resetTrading} className="flex items-center gap-1 text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}><RotateCcw className="h-2.5 w-2.5" /> Reset</button>
-                )}
-              </div>
-
-              <div>
-                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Order Type</p>
-                <div className="flex gap-0.5 p-0.5 rounded-lg border" style={{ background: "rgba(255,255,255,0.025)", borderColor: "rgba(255,255,255,0.07)" }}>
-                  {(["market", "limit", "stop"] as const).map(ot => (
-                    <button key={ot} onClick={() => setChartOrderType(ot)}
-                      className="flex-1 py-1.5 text-[10px] font-mono rounded-md transition-all"
-                      style={chartOrderType === ot ? { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.25)" } : { color: "hsl(220,14%,45%)", border: "1px solid transparent" }}>
-                      {ot.charAt(0).toUpperCase() + ot.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {chartOrderType !== "market" && (
-                <div>
-                  <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>{chartOrderType === "limit" ? "Limit Price" : "Stop Price"}</p>
-                  <input type="number" value={chartOrderType === "limit" ? chartLimitPrice : chartStopPrice} onChange={e => chartOrderType === "limit" ? setChartLimitPrice(e.target.value) : setChartStopPrice(e.target.value)} placeholder={currentBar ? fmt(currentBar.close) : "price"} className="w-full text-xs font-mono px-2.5 py-2 rounded-lg outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(220,14%,80%)" }} />
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,40%)" }}>Leverage</p>
-                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.1)", color: "hsl(38,95%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>{chartLeverage}x</span>
-                </div>
-                <div className="flex gap-1 flex-wrap">
-                  {[1, 2, 5, 10, 25].map(lev => (
-                    <button key={lev} onClick={() => setChartLeverage(lev)} className="px-2 py-0.5 text-[10px] font-mono rounded transition-all"
-                      style={chartLeverage === lev ? { background: "rgba(245,158,11,0.14)", color: "hsl(38,95%,65%)", border: "1px solid rgba(245,158,11,0.28)" } : { background: "rgba(255,255,255,0.04)", color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                      {lev}x
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {position && (
-                <div className="rounded-lg p-3 border" style={{ background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.15)" }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)" }} />
-                      <span className="text-xs font-mono font-semibold" style={{ color: "hsl(150,90%,60%)" }}>{position.side.toUpperCase()} {chartLeverage}x</span>
-                    </div>
-                    <div className="flex items-center gap-1"><div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "hsl(190,90%,55%)" }} /><span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(190,90%,55%)" }}>Live</span></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1 text-xs font-mono mb-2">
-                    <div><p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>Entry</p><p className="font-bold">${fmt(position.price)}</p></div>
-                    <div><p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>Current</p><p className="font-bold">${fmt(liveChartPrice)}</p></div>
-                  </div>
-                  {unrealizedPnl !== null && unrealizedPct !== null && (
-                    <div className="pt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                      <p className="text-[9px] font-mono uppercase tracking-widest mb-1" style={{ color: "hsl(220,14%,40%)" }}>Unrealized P&L</p>
-                      <p className="text-base font-mono font-bold" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(unrealizedPnl)}</p>
-                      <p className="text-[10px] font-mono mt-0.5" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,50%)" : "hsl(0,78%,55%)" }}>{fmtPct(unrealizedPct)}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div><p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>Equity</p><p className="font-bold" style={{ color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p></div>
-                <div><p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "hsl(220,14%,40%)" }}>P&L</p><p className="font-bold" style={{ color: totalPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(totalPnl)}</p></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: position?.side === "short" ? "CLOSE SHORT" : "BUY LONG", disabled: !currentBar || position?.side === "long",
-                    onClick: () => { if (!currentBar) return; if (chartOrderType === "market") handleBuy(currentBar); else { const p = Number(chartOrderType === "limit" ? chartLimitPrice : chartStopPrice); if (p) setPendingChartOrders(prev => [...prev, { id: Date.now(), side: "buy" as const, orderType: chartOrderType as "limit"|"stop", price: p }]); } },
-                    style: { background: "linear-gradient(135deg, hsl(150,80%,28%), hsl(150,80%,22%))", borderColor: "rgba(52,211,153,0.3)", color: "hsl(150,90%,65%)" } },
-                  { label: position?.side === "long" ? "CLOSE LONG" : "SELL SHORT", disabled: !currentBar || position?.side === "short",
-                    onClick: () => { if (currentBar) handleSell(currentBar, position ?? undefined); },
-                    style: { background: "linear-gradient(135deg, hsl(0,70%,28%), hsl(0,70%,22%))", borderColor: "rgba(239,68,68,0.3)", color: "hsl(0,85%,70%)" } },
-                ].map(btn => (
-                  <button key={btn.label} disabled={btn.disabled} onClick={btn.onClick}
-                    className="flex items-center justify-center py-2 rounded-lg border font-mono font-bold text-xs transition-all disabled:opacity-25"
-                    style={btn.disabled ? { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "hsl(220,14%,40%)" } : btn.style}>
-                    {btn.label}
-                  </button>
-                ))}
-              </div>
-              {livePrice > 0 && <p className="text-[10px] text-center font-mono" style={{ color: "hsl(220,14%,35%)" }}>price ${fmt(livePrice)}</p>}
-
-              {/* ── Ghost Mode mini widget (live panel) ── */}
-              {token && !position && (
-                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
-                  <button type="button" onClick={() => setGhostOpen(v => !v)}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
-                    style={{ color: ghostOpen ? "#8b5cf6" : "hsl(220,14%,38%)", background: "transparent" }}>
-                    <Sparkles className="h-2.5 w-2.5 flex-shrink-0" />Ghost Mode
-                    <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
-                  </button>
-                  {ghostOpen && (
-                    <div className="px-2.5 pb-2.5 flex flex-col gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div className="flex gap-1 pt-2">
-                        {(["long","short"] as const).map(s => (
-                          <button key={s} type="button" onClick={() => { setGhostSide(s); setGhostResult(null); }}
-                            className="flex-1 py-1 rounded text-[9px] font-mono font-semibold capitalize transition-all"
-                            style={ghostSide === s
-                              ? { background: s === "long" ? "rgba(52,211,153,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${s === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`, color: s === "long" ? "hsl(150,90%,60%)" : "hsl(0,85%,62%)" }
-                              : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }}>
-                            {s}
-                          </button>
-                        ))}
-                        <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
-                          className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6" }}>
-                          {ghostLoading ? <span className="animate-spin text-[8px]">⟳</span> : "Run"}
-                        </button>
-                      </div>
-                      {ghostResult && ghostResult.hasHistory && (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>Similarity</span>
-                            <span className="text-[9px] font-mono font-bold" style={{ color: "#8b5cf6" }}>{ghostResult.similarityScore}%</span>
-                          </div>
-                          {[
-                            { label: "Win Rate",  value: `${ghostResult.winRate}%`,     color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
-                            { label: "Avg Return",value: `${ghostResult.avgReturn >= 0 ? "+" : ""}${ghostResult.avgReturn}%`, color: ghostResult.avgReturn >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
-                            { label: "Avg DD",    value: `-${ghostResult.avgDrawdown}%`, color: ghostResult.avgDrawdown <= 10 ? "hsl(150,90%,50%)" : ghostResult.avgDrawdown <= 20 ? "hsl(38,100%,55%)" : "hsl(0,85%,60%)" },
-                          ].map(row => (
-                            <div key={row.label} className="flex items-center justify-between">
-                              <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>{row.label}</span>
-                              <span className="text-[9px] font-mono font-bold" style={{ color: row.color }}>{row.value}</span>
-                            </div>
-                          ))}
-                          {ghostResult.closestMatch && (
-                            <div className="rounded px-2 py-1 mt-0.5"
-                              style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.18)" }}>
-                              <p className="text-[8px] font-mono" style={{ color: "#8b5cf6" }}>Closest: {ghostResult.closestMatch.symbol} {ghostResult.closestMatch.side.toUpperCase()} · {ghostResult.closestMatch.pnlPercent >= 0 ? "+" : ""}{ghostResult.closestMatch.pnlPercent}%</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {ghostResult && !ghostResult.hasHistory && (
-                        <p className="text-[9px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>{ghostResult.message ?? "No matching history."}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {pendingChartOrders.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,38%)" }}>Pending ({pendingChartOrders.length})</p>
-                  {pendingChartOrders.map(o => (
-                    <div key={o.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      <p className="flex-1 text-[10px] font-mono" style={{ color: o.side === "buy" ? "hsl(150,80%,55%)" : "hsl(0,78%,60%)" }}>{o.side.toUpperCase()} {o.orderType.toUpperCase()} @ ${fmt(o.price)}</p>
-                      <button onClick={() => setPendingChartOrders(prev => prev.filter(p => p.id !== o.id))} className="h-5 w-5 flex items-center justify-center rounded" style={{ color: "hsl(0,78%,60%)" }}><X className="h-3 w-3" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Replay simulator ──────────────────────────────────── */}
-          {replayMode && (replaySidebarOpen || showOrderPanel) && (
-            <div className="flex flex-col gap-3">
-              <div className="rounded-xl border overflow-hidden" style={{ background: "linear-gradient(160deg, rgba(245,158,11,0.07) 0%, rgba(245,158,11,0.02) 100%)", borderColor: "rgba(245,158,11,0.18)" }}>
-                <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid rgba(245,158,11,0.1)" }}>
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "hsl(38,100%,60%)" }} />
-                    <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(38,100%,55%)" }}>Replay Mode</span>
-                  </div>
-                  <button onClick={resetTrading} className="flex items-center gap-1 text-[10px] font-mono" style={{ color: "hsl(220,14%,38%)" }}><RotateCcw className="h-2.5 w-2.5" /> Reset</button>
-                </div>
-                <div className="px-3 py-2.5">
-                  {currentDate && <p className="text-[10px] font-mono mb-1" style={{ color: "hsl(38,100%,50%)" }}>{currentDate}</p>}
-                  {currentBar ? (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-mono font-bold" style={{ color: isUp ? "hsl(150,90%,60%)" : "hsl(0,85%,62%)" }}>${fmt(currentBar.close)}</span>
-                      {changePercent && <span className="text-xs font-mono" style={{ color: isUp ? "hsl(150,90%,50%)" : "hsl(0,85%,55%)" }}>{isUp ? "+" : ""}{changePercent}%</span>}
-                    </div>
-                  ) : <div className="h-7 flex items-center"><span className="text-xs font-mono" style={{ color: "hsl(220,14%,35%)" }}>Waiting for data…</span></div>}
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                      <div className="h-full rounded-full transition-all duration-150" style={{ width: `${replayProgress}%`, background: "linear-gradient(90deg, hsl(38,100%,45%), hsl(38,100%,60%))" }} />
-                    </div>
-                    <span className="text-[9px] font-mono tabular-nums flex-shrink-0" style={{ color: "hsl(220,14%,40%)" }}>{replayProgress.toFixed(0)}%</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)", borderColor: "rgba(255,255,255,0.07)" }}>
-                <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,42%)" }}>Position</span>
-                  {currentBar && <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,32%)" }}>at close ${fmt(currentBar.close)}</span>}
-                </div>
-                <div className="px-3 py-2.5">
-                  {position ? (
-                    <div className="rounded-lg px-3 py-2.5 mb-3 border" style={position.side === "short" ? { background: "rgba(239,68,68,0.05)", borderColor: "rgba(239,68,68,0.18)" } : { background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.18)" }}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: position.side === "short" ? "hsl(0,85%,62%)" : "hsl(150,90%,55%)" }} />
-                          <span className="text-[10px] font-mono font-semibold uppercase" style={{ color: position.side === "short" ? "hsl(0,85%,65%)" : "hsl(150,90%,60%)" }}>{position.side === "short" ? "Short" : "Long"}</span>
-                        </div>
-                        <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}>{fmtDate(position.time)}</span>
-                      </div>
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs font-mono" style={{ color: "hsl(220,14%,50%)" }}>Entry <span className="text-sm font-bold" style={{ color: "hsl(220,14%,75%)" }}>${fmt(position.price)}</span></span>
-                        {unrealizedPnl !== null && unrealizedPct !== null && (
-                          <div className="text-right">
-                            <p className="text-sm font-mono font-bold leading-none" style={{ color: unrealizedPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(unrealizedPnl)}</p>
-                            <p className="text-[10px] font-mono" style={{ color: unrealizedPnl >= 0 ? "hsl(150,80%,45%)" : "hsl(0,75%,55%)" }}>{fmtPct(unrealizedPct)}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-lg px-3 py-2.5 mb-3 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
-                      <p className="text-[10px] font-mono" style={{ color: "hsl(220,14%,32%)" }}>No open position</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button disabled={!currentBar || position?.side === "long"} onClick={() => currentBar && handleBuy(currentBar)}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border font-mono font-bold text-sm transition-all disabled:opacity-20"
-                      style={(!currentBar || position?.side === "long") ? { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" } : { background: "linear-gradient(160deg, hsl(150,75%,22%), hsl(150,75%,17%))", borderColor: "rgba(52,211,153,0.28)", color: "hsl(150,90%,65%)" }}>
-                      <TrendingUp className="h-3.5 w-3.5" />{position?.side === "short" ? "CLOSE" : "BUY"}<span className="text-[9px] opacity-50">[B]</span>
-                    </button>
-                    <button disabled={!currentBar || position?.side === "short"} onClick={() => currentBar && handleSell(currentBar, position ?? undefined)}
-                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border font-mono font-bold text-sm transition-all disabled:opacity-20"
-                      style={(!currentBar || position?.side === "short") ? { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" } : { background: "linear-gradient(160deg, hsl(0,65%,24%), hsl(0,65%,18%))", borderColor: "rgba(239,68,68,0.28)", color: "hsl(0,85%,68%)" }}>
-                      <TrendingDown className="h-3.5 w-3.5" />{position?.side === "long" ? "CLOSE" : "SELL"}<span className="text-[9px] opacity-50">[S]</span>
-                    </button>
-                  </div>
-
-                  {/* ── Ghost Mode mini widget (replay panel) ── */}
-                  {token && !position && (
-                    <div className="mt-2 rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.07)"}` }}>
-                      <button type="button" onClick={() => setGhostOpen(v => !v)}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
-                        style={{ color: ghostOpen ? "#8b5cf6" : "hsl(220,14%,38%)", background: "transparent" }}>
-                        <Sparkles className="h-2.5 w-2.5" />Ghost Mode
-                        <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
-                      </button>
-                      {ghostOpen && (
-                        <div className="px-2.5 pb-2.5 flex flex-col gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                          <div className="flex gap-1 pt-2">
-                            {(["long","short"] as const).map(s => (
-                              <button key={s} type="button" onClick={() => { setGhostSide(s); setGhostResult(null); }}
-                                className="flex-1 py-1 rounded text-[9px] font-mono font-semibold capitalize transition-all"
-                                style={ghostSide === s
-                                  ? { background: s === "long" ? "rgba(52,211,153,0.15)" : "rgba(239,68,68,0.15)", border: `1px solid ${s === "long" ? "rgba(52,211,153,0.3)" : "rgba(239,68,68,0.3)"}`, color: s === "long" ? "hsl(150,90%,60%)" : "hsl(0,85%,62%)" }
-                                  : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "hsl(220,14%,38%)" }}>
-                                {s}
-                              </button>
-                            ))}
-                            <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
-                              className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
-                              style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6" }}>
-                              {ghostLoading ? "…" : "Run"}
-                            </button>
-                          </div>
-                          {ghostResult && ghostResult.hasHistory && (
-                            <div className="flex flex-col gap-1">
-                              {[
-                                { label: "Similarity", value: `${ghostResult.similarityScore}%`,  color: "#8b5cf6" },
-                                { label: "Win Rate",   value: `${ghostResult.winRate}%`,           color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
-                                { label: "Avg Return", value: `${ghostResult.avgReturn >= 0 ? "+" : ""}${ghostResult.avgReturn}%`, color: ghostResult.avgReturn >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
-                                { label: "Avg DD",     value: `-${ghostResult.avgDrawdown}%`,      color: ghostResult.avgDrawdown <= 10 ? "hsl(150,90%,50%)" : "hsl(0,85%,60%)" },
-                              ].map(row => (
-                                <div key={row.label} className="flex items-center justify-between">
-                                  <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>{row.label}</span>
-                                  <span className="text-[9px] font-mono font-bold" style={{ color: row.color }}>{row.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {ghostResult && !ghostResult.hasHistory && (
-                            <p className="text-[9px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>{ghostResult.message ?? "No matching history."}</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-xl border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)", borderColor: "rgba(255,255,255,0.07)" }}>
-                <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,42%)" }}>Session</span>
-                  <button
-                    onClick={() => setAccountModalOpen(true)}
-                    className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors"
-                    style={{ color: "hsl(220,14%,40%)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
-                    title="Configure paper trading account"
-                  >Setup</button>
-                </div>
-                <div className="px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div><p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Equity</p><p className="text-sm font-mono font-bold leading-none" style={{ color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p><p className="text-[10px] font-mono mt-0.5" style={{ color: equityGain >= 0 ? "hsl(150,70%,40%)" : "hsl(0,70%,48%)" }}>{fmtPct(equityGainPct)}</p></div>
-                  <div><p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Realized P&L</p><p className="text-sm font-mono font-bold leading-none" style={{ color: totalPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(totalPnl)}</p><p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,38%)" }}>{trades.length} trade{trades.length !== 1 ? "s" : ""}</p></div>
-                  <div><p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Win Rate</p><p className="text-sm font-mono font-bold leading-none" style={{ color: trades.length > 0 ? (winRate >= 50 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)") : "hsl(220,14%,45%)" }}>{trades.length > 0 ? `${winRate.toFixed(0)}%` : "—"}</p><p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,38%)" }}>{trades.length > 0 ? `${wins}W · ${trades.length - wins}L` : "no trades yet"}</p></div>
-                  <div><p className="text-[9px] font-mono uppercase tracking-wider mb-0.5" style={{ color: "hsl(220,14%,36%)" }}>Capital</p><p className="text-sm font-mono font-bold leading-none" style={{ color: "hsl(220,14%,58%)" }}>${ptCapital.toLocaleString()}</p><p className="text-[10px] font-mono mt-0.5" style={{ color: "hsl(220,14%,35%)" }}>starting</p></div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)", borderColor: "rgba(255,255,255,0.07)" }}>
-                <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "hsl(220,14%,42%)" }}>Trade Log</span>
-                  {trades.length > 0 && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "hsl(220,14%,45%)" }}>{trades.length}</span>}
-                </div>
-                {trades.length === 0 ? (
-                  <div className="px-3 py-5 text-center"><p className="text-[10px] font-mono leading-relaxed" style={{ color: "hsl(220,14%,30%)" }}>No closed trades yet.<br />Press <kbd className="px-1 rounded" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>B</kbd> to buy, <kbd className="px-1 rounded" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>S</kbd> to sell.</p></div>
-                ) : (
-                  <div className="overflow-y-auto max-h-[180px] px-2 py-2 space-y-1.5">
-                    {[...trades].reverse().map((t, i) => (
-                      <div key={t.id} className="rounded-lg px-2.5 py-2 border" style={t.pnl >= 0 ? { background: "rgba(52,211,153,0.04)", borderColor: "rgba(52,211,153,0.12)" } : { background: "rgba(239,68,68,0.04)", borderColor: "rgba(239,68,68,0.1)" }}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>#{trades.length - i}</span>
-                          <span className="text-xs font-mono font-bold" style={{ color: t.pnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>{fmtPnl(t.pnl)} <span className="text-[10px] font-normal opacity-75">({fmtPct(t.pnlPct)})</span></span>
-                        </div>
-                        <div className="flex items-center gap-1 text-[10px] font-mono" style={{ color: "hsl(220,14%,42%)" }}>
-                          <span style={{ color: "hsl(150,80%,50%)" }}>B</span><span>${fmt(t.entryPrice)}</span>
-                          <span style={{ color: "hsl(220,14%,30%)" }}>→</span>
-                          <span style={{ color: "hsl(0,75%,60%)" }}>S</span><span>${fmt(t.exitPrice)}</span>
-                        </div>
-                        <div className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(220,14%,30%)" }}>{fmtDate(t.entryTime)} → {fmtDate(t.exitTime)}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Demo Account Overview (below chart, scroll to see) ───────── */}
-      <div className="mx-auto w-full px-3 pb-6 mt-4 max-w-[1600px]">
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(52,211,153,0.18)", background: "linear-gradient(135deg, rgba(52,211,153,0.04) 0%, rgba(255,255,255,0.01) 100%)" }}>
-          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(52,211,153,0.1)" }}>
-            <div className="flex items-center gap-2.5">
-              <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)" }} />
-              <span className="text-[11px] font-mono font-bold uppercase tracking-widest" style={{ color: "hsl(150,90%,60%)" }}>Demo Account</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.08)", color: "hsl(150,70%,50%)", border: "1px solid rgba(52,211,153,0.15)" }}>Paper Trading</span>
-            </div>
-            <button
-              onClick={() => setAccountModalOpen(true)}
-              className="text-[10px] font-mono px-3 py-1 rounded-lg transition-all"
-              style={{ background: "rgba(52,211,153,0.08)", color: "hsl(150,80%,55%)", border: "1px solid rgba(52,211,153,0.15)" }}
-            >
-              Configure
-            </button>
           </div>
+        )}
 
-          <div className="px-5 py-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-              <div className="rounded-xl p-3.5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Equity</p>
-                <p className="text-lg font-mono font-bold leading-none" style={{ color: equityGain >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
-                  ${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </p>
-                <p className="text-[10px] font-mono mt-1" style={{ color: equityGain >= 0 ? "hsl(150,70%,45%)" : "hsl(0,70%,50%)" }}>
-                  {fmtPct(equityGainPct)} from ${ptCapital.toLocaleString()}
-                </p>
-              </div>
+        {/* ── TimeframeBar ─────────────────────────────────────────── */}
+        <TimeframeBar interval={interval} onChange={handleIntervalChange} />
 
-              <div className="rounded-xl p-3.5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Realized P&L</p>
-                <p className="text-lg font-mono font-bold leading-none" style={{ color: totalPnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
-                  {fmtPnl(totalPnl)}
-                </p>
-                <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,38%)" }}>
-                  {trades.length} closed trade{trades.length !== 1 ? "s" : ""}
-                </p>
-              </div>
+        {/* ── AITradeCheck ─────────────────────────────────────────── */}
+        <AITradeCheck
+          symbol={symbol}
+          ghostResult={ghostResult}
+          ghostLoading={ghostLoading}
+          ghostSide={ghostSide}
+          onGhostSideChange={s => { setGhostSide(s); setGhostResult(null); }}
+          onRunGhost={runGhostMode}
+          expanded={aiCheckExpanded}
+          onToggle={() => setAiCheckExpanded(v => !v)}
+          token={token}
+        />
 
-              <div className="rounded-xl p-3.5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Win Rate</p>
-                <p className="text-lg font-mono font-bold leading-none" style={{ color: trades.length > 0 ? (winRate >= 50 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)") : "hsl(220,14%,45%)" }}>
-                  {trades.length > 0 ? `${winRate.toFixed(0)}%` : "—"}
-                </p>
-                <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,38%)" }}>
-                  {trades.length > 0 ? `${wins}W · ${trades.length - wins}L` : "no trades yet"}
-                </p>
-              </div>
-
-              <div className="rounded-xl p-3.5" style={{ background: position ? "rgba(52,211,153,0.05)" : "rgba(255,255,255,0.025)", border: `1px solid ${position ? "rgba(52,211,153,0.18)" : "rgba(255,255,255,0.06)"}` }}>
-                <p className="text-[9px] font-mono uppercase tracking-widest mb-1.5" style={{ color: "hsl(220,14%,40%)" }}>Open Position</p>
-                {position ? (
-                  <>
-                    <p className="text-lg font-mono font-bold leading-none" style={{ color: position.side === "long" ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
-                      {position.side.toUpperCase()}
-                    </p>
-                    <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,40%)" }}>
-                      Entry @ ${fmt(position.price)}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-lg font-mono font-bold leading-none" style={{ color: "hsl(220,14%,40%)" }}>None</p>
-                    <p className="text-[10px] font-mono mt-1" style={{ color: "hsl(220,14%,32%)" }}>use Buy/Sell above</p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {trades.length > 0 && (
-              <div>
-                <p className="text-[9px] font-mono uppercase tracking-widest mb-2.5" style={{ color: "hsl(220,14%,35%)" }}>Recent Trades</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {[...trades].reverse().slice(0, 6).map((t, i) => (
-                    <div key={t.id} className="rounded-xl px-3.5 py-2.5" style={t.pnl >= 0 ? { background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.12)" } : { background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.1)" }}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>#{trades.length - i}</span>
-                        <span className="text-sm font-mono font-bold" style={{ color: t.pnl >= 0 ? "hsl(150,90%,58%)" : "hsl(0,85%,62%)" }}>
-                          {fmtPnl(t.pnl)} <span className="text-[10px] font-normal opacity-70">({fmtPct(t.pnlPct)})</span>
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono" style={{ color: "hsl(220,14%,42%)" }}>
-                        <span style={{ color: "hsl(150,80%,50%)" }}>B</span><span>${fmt(t.entryPrice)}</span>
-                        <span style={{ color: "hsl(220,14%,28%)" }}>→</span>
-                        <span style={{ color: "hsl(0,75%,60%)" }}>S</span><span>${fmt(t.exitPrice)}</span>
-                      </div>
-                      <div className="text-[9px] font-mono mt-0.5" style={{ color: "hsl(220,14%,28%)" }}>
-                        {fmtDate(t.entryTime)} → {fmtDate(t.exitTime)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {trades.length === 0 && !position && (
-              <div className="flex items-center justify-center py-4">
-                <p className="text-[11px] font-mono text-center leading-relaxed" style={{ color: "hsl(220,14%,30%)" }}>
-                  No trades yet. Use the order panel above to place your first paper trade.<br />
-                  Press <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>B</kbd> to buy or <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>S</kbd> to sell.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* ── TradeBottomSheet ─────────────────────────────────────── */}
+        <TradeBottomSheet
+          equity={equity}
+          totalPnl={totalPnl}
+          trades={trades}
+          wins={wins}
+          winRate={winRate}
+          ptCapital={ptCapital}
+          equityGain={equityGain}
+          equityGainPct={equityGainPct}
+          position={position}
+          symbol={symbol}
+          displayLabel={displayLabel}
+          chartLeverage={chartLeverage}
+          onLeverageChange={setChartLeverage}
+          orderType={chartOrderType}
+          onOrderTypeChange={setChartOrderType}
+          limitPrice={chartLimitPrice}
+          onLimitPriceChange={setChartLimitPrice}
+          stopPrice={chartStopPrice}
+          onStopPriceChange={setChartStopPrice}
+          currentPrice={currentBar?.close ?? null}
+          onBuy={() => { if (!currentBar) return; if (chartOrderType === "market") handleBuy(currentBar); else { const p = Number(chartOrderType === "limit" ? chartLimitPrice : chartStopPrice); if (p) setPendingChartOrders(prev => [...prev, { id: Date.now(), side: "buy" as const, orderType: chartOrderType as "limit" | "stop", price: p }]); } }}
+          onSell={() => { if (currentBar) handleSell(currentBar, position ?? undefined); }}
+          onReset={resetTrading}
+          onOpenAccountModal={() => setAccountModalOpen(true)}
+          hasAccount={ptCapital > 0}
+          replayMode={replayMode}
+          sheetState={sheetState}
+          onSheetStateChange={setSheetState}
+        />
       </div>
     </div>
   );
