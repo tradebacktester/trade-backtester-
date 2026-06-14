@@ -713,13 +713,14 @@ class DrawingController {
 interface PTProps {
   pos:      PosDraw;
   series:   ISeriesApi<"Candlestick"> | null;
+  chart:    IChartApi | null;
   syncTick: number;
   onUpdate: (id: string, patch: Partial<PosDraw>) => void;
   onRemove: (id: string) => void;
   containerH: number;
 }
 
-function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, containerH }: PTProps) {
+function PositionTool({ pos, series, chart, syncTick: _tick, onUpdate, onRemove, containerH }: PTProps) {
   const [showSettings, setShowSettings] = useState(false);
   const drag = useRef<{ field: "entry"|"stop"|"target"; startY: number; startPrice: number } | null>(null);
 
@@ -756,8 +757,11 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
   function startDrag(field: "entry"|"stop"|"target") {
     return (e: React.MouseEvent | React.TouchEvent) => {
       e.stopPropagation();
+      e.preventDefault();
       const startY = "touches" in e ? e.touches[0].clientY : e.clientY;
       drag.current = { field, startY, startPrice: pos[field] };
+      // Disable chart pan/scroll while dragging so the coordinate system stays stable
+      chart?.applyOptions({ handleScroll: false, handleScale: false });
       const onMove = (ev: MouseEvent | TouchEvent) => {
         if (!drag.current || !series) return;
         const cy = "touches" in ev ? (ev as TouchEvent).touches[0].clientY : (ev as MouseEvent).clientY;
@@ -767,6 +771,8 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
       };
       const onUp = () => {
         drag.current = null;
+        // Restore chart interactivity after drag ends
+        chart?.applyOptions({ handleScroll: true, handleScale: true });
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
         document.removeEventListener("touchmove", onMove as any);
@@ -841,27 +847,33 @@ function PositionTool({ pos, series, syncTick: _tick, onUpdate, onRemove, contai
         <span style={lblGhost(enC, "30%")}>
           {posSize > 0 ? `${posSize.toFixed(4)} units · ${fmt(riskUsd)} risk (${riskPct}%)` : `${fmt(acctSz)} account`}
         </span>
-        {/* Settings gear — onClick avoids the double-fire caused by synthesized mousedown on touch */}
+        {/* Remove — stays inside the entry hit-area div; it's a fire-and-forget action that doesn't need to stay open */}
         <button
-          onMouseDown={e => e.stopPropagation()}
-          onTouchStart={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); setShowSettings(s => !s); }}
-          style={{ position: "absolute", right: 30, top: "50%", transform: "translateY(-50%)",
-            background: showSettings ? enC : "rgba(40,44,60,0.85)",
-            border: `1px solid ${enC}88`, color: "#fff", width: 22, height: 22,
-            borderRadius: 4, cursor: "pointer", fontSize: 12, lineHeight: "22px",
-            textAlign: "center", pointerEvents: "all" }}
-          title="Position sizing settings"
-        >⚙</button>
-        {/* Remove */}
-        <button
-          onMouseDown={e => e.stopPropagation()}
+          onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
+          onTouchStart={e => { e.stopPropagation(); e.preventDefault(); }}
           onClick={e => { e.stopPropagation(); onRemove(pos.id); }}
           style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
             background: "rgba(239,83,80,0.85)", border: "none", color: "#fff",
             width: 20, height: 20, borderRadius: "50%", cursor: "pointer",
             fontSize: 14, lineHeight: "20px", textAlign: "center", pointerEvents: "all" }}>×</button>
       </div>
+
+      {/* ── Settings gear — positioned as a sibling OUTSIDE the entry line drag hit-area
+           so its mousedown never races with startDrag("entry"). The button uses its own
+           onMouseDown/onTouchStart stopPropagation to swallow the event before it can
+           reach the chart container's native click listener. ─── */}
+      <button
+        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
+        onTouchStart={e => { e.stopPropagation(); e.preventDefault(); }}
+        onClick={e => { e.stopPropagation(); setShowSettings(s => !s); }}
+        style={{ position: "absolute", right: 30, top: ey - 9, height: 20, width: 26,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: showSettings ? enC : "rgba(40,44,60,0.85)",
+          border: `1px solid ${enC}88`, color: "#fff",
+          borderRadius: 4, cursor: "pointer", fontSize: 12,
+          pointerEvents: "all", zIndex: 50 }}
+        title="Position sizing settings"
+      >⚙</button>
 
       {/* ── Stop-Loss line (20 px hit-area) ─── */}
       <div
@@ -1067,6 +1079,7 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
           key={pos.id}
           pos={pos}
           series={seriesRef.current}
+          chart={chartRef.current}
           syncTick={syncTick}
           containerH={containerRef.current?.clientHeight ?? 600}
           onUpdate={(id, patch) => { ctrlRef.current?.updatePos(id, patch); }}

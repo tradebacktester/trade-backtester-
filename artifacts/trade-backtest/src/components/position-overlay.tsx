@@ -122,7 +122,7 @@ function DragLine({
 // ── Main overlay ────────────────────────────────────────────────────────────
 
 export function PositionOverlay({
-  positions, candleSeries, container,
+  positions, candleSeries, chart, container,
   selectedId, onSelect, onUpdate, onDelete, onUpdateSizing, token,
 }: PositionOverlayProps) {
   const [coords,  setCoords]  = useState<Record<number, Coords>>({});
@@ -207,9 +207,11 @@ export function PositionOverlay({
   const handleMouseUp = useCallback(() => {
     draggingRef.current = null;
     setDragging(null);
+    // Restore chart interactivity after drag ends
+    chart?.applyOptions({ handleScroll: true, handleScale: true });
     if (onMoveRef.current) window.removeEventListener("mousemove", onMoveRef.current);
     if (onUpRef.current)   window.removeEventListener("mouseup",   onUpRef.current);
-  }, []);
+  }, [chart]);
 
   const startDrag = useCallback((posId: number, line: "entry" | "sl" | "tp") => {
     const state = { posId, line };
@@ -217,9 +219,11 @@ export function PositionOverlay({
     setDragging(state);
     onMoveRef.current = handleMouseMove;
     onUpRef.current   = handleMouseUp;
+    // Disable chart pan/scroll so the coordinate system stays stable while dragging
+    chart?.applyOptions({ handleScroll: false, handleScale: false });
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup",   handleMouseUp);
-  }, [handleMouseMove, handleMouseUp]);
+  }, [chart, handleMouseMove, handleMouseUp]);
 
   // ── AI analysis ──────────────────────────────────────────────────────────
   const runAi = useCallback(async (pos: PositionTool) => {
