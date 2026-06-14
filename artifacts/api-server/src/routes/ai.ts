@@ -44,10 +44,42 @@ function checkAiRateLimit(userId: number): boolean {
   return true;
 }
 
+const DEFAULT_PLANS_SEED = [
+  {
+    name: "Free", slug: "free",
+    description: "Get started with basic trading tools and limited backtests.",
+    priceMonthly: 0, currency: "INR", isDefault: true, isActive: true, sortOrder: 0,
+    features: { maxBacktestsPerMonth: 5, aiQueriesPerDay: 5, maxLeverage: 5, communityPost: true, replayMode: false, multiTfView: false, dataExport: false, priorityBadge: false, allIndicators: false },
+  },
+  {
+    name: "Pro", slug: "pro",
+    description: "Unlimited backtests, all indicators, AI assistance, and replay mode.",
+    priceMonthly: 49900, currency: "INR", isDefault: false, isActive: true, sortOrder: 1,
+    features: { maxBacktestsPerMonth: -1, aiQueriesPerDay: 50, maxLeverage: 25, communityPost: true, replayMode: true, multiTfView: true, dataExport: false, priorityBadge: false, allIndicators: true },
+  },
+  {
+    name: "Elite", slug: "elite",
+    description: "Everything in Pro plus unlimited AI, data export, and priority badge.",
+    priceMonthly: 99900, currency: "INR", isDefault: false, isActive: true, sortOrder: 2,
+    features: { maxBacktestsPerMonth: -1, aiQueriesPerDay: -1, maxLeverage: 100, communityPost: true, replayMode: true, multiTfView: true, dataExport: true, priorityBadge: true, allIndicators: true },
+  },
+];
+
+async function ensurePlansSeeded(): Promise<void> {
+  try {
+    const existing = await db.select({ id: subscriptionPlansTable.id }).from(subscriptionPlansTable).limit(1);
+    if (existing.length === 0) {
+      await db.insert(subscriptionPlansTable).values(DEFAULT_PLANS_SEED);
+    }
+  } catch { /* allow through */ }
+}
+
 async function checkAiPlanLimit(userId: number): Promise<{ allowed: boolean; error?: string }> {
   let dailyLimit = 0; // Default to deny — will be overridden by the plan record
 
   try {
+    await ensurePlansSeeded();
+
     const [activeSub] = await db
       .select({ planId: subscriptionsTable.planId })
       .from(subscriptionsTable)
@@ -74,7 +106,7 @@ async function checkAiPlanLimit(userId: number): Promise<{ allowed: boolean; err
         .limit(1);
       const lim = (freePlan?.features as { aiQueriesPerDay?: number } | null)?.aiQueriesPerDay;
       if (typeof lim === "number") dailyLimit = lim;
-      else dailyLimit = 0; // Deny if no free plan found
+      else dailyLimit = 5; // Safe fallback — allow basic access if no plan found
     }
   } catch {
     return { allowed: true }; // Allow through on DB error
