@@ -1447,16 +1447,22 @@ export default function Dashboard() {
       {/* Paper Trading Section */}
       <PaperTradingSection />
 
-      {/* Stat cards */}
+      {/* Stat cards — staggered fade-up on mount */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        <StatCard icon={TrendingUp}  label="Best Return"    accent={C.positive} value={isLoading ? null : fmtPct(summary?.bestReturn)} isLoading={isLoading} tooltip="Highest total return % across all completed backtests" />
-        <StatCard icon={Percent}     label="Avg Win Rate"   value={isLoading ? null : analytics ? `${analytics.avgWR.toFixed(1)}%` : "—"} isLoading={isLoading} tooltip="Average % of winning trades across all backtests" />
-        <StatCard icon={Target}      label="Profit Factor"  value={isLoading ? null : analytics ? fmtNum(analytics.avgPF) : "—"} isLoading={isLoading} tooltip="Gross profit ÷ gross loss — values >1.0 are profitable" />
-        <StatCard icon={Zap}         label="Avg Sharpe"     value={isLoading ? null : analytics ? fmtNum(analytics.avgSharpe) : "—"} isLoading={isLoading} tooltip="Risk-adjusted return — higher is better (>1.0 = good)" />
-        <StatCard icon={Clock}       label="Total Backtests" value={isLoading ? null : (summary?.totalBacktests ?? 0)} isLoading={isLoading} tooltip="Total number of backtests run on this account" />
-        <StatCard icon={Shield}      label="Avg Drawdown"   accent={C.negative} value={isLoading ? null : analytics ? `-${Math.abs(analytics.avgDD).toFixed(1)}%` : "—"} isLoading={isLoading} tooltip="Average max drawdown — worst peak-to-trough decline" />
-        <StatCard icon={DollarSign}  label="Best Trade"     accent={C.positive} value={isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—"} isLoading={isLoading} tooltip="Best total return across all your completed backtests" />
-        <StatCard icon={Activity}    label="Total Trades"   value={isLoading ? null : (summary?.totalTrades ?? 0)} isLoading={isLoading} tooltip="Total individual trades simulated across all backtests" />
+        {[
+          { icon: TrendingUp, label: "Best Return",     accent: C.positive, value: isLoading ? null : fmtPct(summary?.bestReturn),                       tooltip: "Highest total return % across all completed backtests" },
+          { icon: Percent,    label: "Avg Win Rate",    accent: undefined,  value: isLoading ? null : analytics ? `${analytics.avgWR.toFixed(1)}%` : "—", tooltip: "Average % of winning trades across all backtests" },
+          { icon: Target,     label: "Profit Factor",   accent: undefined,  value: isLoading ? null : analytics ? fmtNum(analytics.avgPF) : "—",          tooltip: "Gross profit ÷ gross loss — values >1.0 are profitable" },
+          { icon: Zap,        label: "Avg Sharpe",      accent: undefined,  value: isLoading ? null : analytics ? fmtNum(analytics.avgSharpe) : "—",      tooltip: "Risk-adjusted return — higher is better (>1.0 = good)" },
+          { icon: Clock,      label: "Total Backtests", accent: undefined,  value: isLoading ? null : (summary?.totalBacktests ?? 0),                     tooltip: "Total number of backtests run on this account" },
+          { icon: Shield,     label: "Avg Drawdown",    accent: C.negative, value: isLoading ? null : analytics ? `-${Math.abs(analytics.avgDD).toFixed(1)}%` : "—", tooltip: "Average max drawdown — worst peak-to-trough decline" },
+          { icon: DollarSign, label: "Best Trade",      accent: C.positive, value: isLoading ? null : analytics ? fmtPct(analytics.bestReturn) : "—",     tooltip: "Best total return across all your completed backtests" },
+          { icon: Activity,   label: "Total Trades",    accent: undefined,  value: isLoading ? null : (summary?.totalTrades ?? 0),                        tooltip: "Total individual trades simulated across all backtests" },
+        ].map((card, idx) => (
+          <div key={card.label} className="fade-up" style={{ animationDelay: `${0.05 + idx * 0.04}s` }}>
+            <StatCard {...card} isLoading={isLoading} />
+          </div>
+        ))}
       </div>
 
       {/* Trader DNA Command Center */}

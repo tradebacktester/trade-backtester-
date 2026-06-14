@@ -568,8 +568,12 @@ function ChatPanel({ token }: { token: string }) {
         body: JSON.stringify({ messages: newMessages }),
       });
       const data = await res.json();
-      if (!res.ok) setError(data.error || "Failed to get a response.");
-      else setMessages(m => [...m, { role: "assistant", content: data.message }]);
+      if (!res.ok) {
+        const isKeyErr = res.status === 503 || data.code === "ai_key_invalid";
+        setError(isKeyErr
+          ? "AI is currently offline for maintenance. Please try again later."
+          : (data.error || "Failed to get a response."));
+      } else setMessages(m => [...m, { role: "assistant", content: data.message }]);
     } catch { setError("Network error. Please check your connection."); }
     finally { setLoading(false); }
   }
@@ -577,33 +581,41 @@ function ChatPanel({ token }: { token: string }) {
   return (
     <div className="flex flex-col gap-3">
       {messages.length === 0 && (
-        <Card>
-          <div className="p-6 flex flex-col items-center gap-4 text-center relative overflow-hidden">
-            <div className="pointer-events-none absolute inset-0"
-              style={{ background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)" }} />
-            <div className="relative h-14 w-14 rounded-2xl flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)" }}>
-              <Brain className="h-7 w-7" style={{ color: BLUE }} />
-            </div>
-            <div className="relative">
-              <p className="text-[14px] font-bold" style={{ color: "hsl(var(--foreground))" }}>AI Trading Assistant</p>
-              <p className="text-[12px] mt-1 max-w-xs mx-auto leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
-                Ask anything about trading strategies, technical analysis, risk management, or market concepts.
-              </p>
-            </div>
+        <div className="rounded-2xl p-6 flex flex-col items-center gap-5 text-center relative overflow-hidden fade-up"
+          style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="pointer-events-none absolute inset-0 nothing-grid" style={{ opacity: 0.4 }} />
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: "radial-gradient(ellipse 70% 60% at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 70%)" }} />
+          <div className="relative h-14 w-14 rounded-2xl flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 0 30px rgba(255,255,255,0.04)" }}>
+            <Brain className="h-7 w-7 breathe" style={{ color: BLUE }} />
           </div>
-        </Card>
+          <div className="relative">
+            <p style={{ fontFamily: "var(--app-font-display)", fontSize: "16px", fontWeight: 700, letterSpacing: "-0.025em", color: "hsl(var(--foreground))" }}>AI Trading Assistant</p>
+            <p className="text-[12px] mt-1.5 max-w-xs mx-auto leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
+              Ask anything about trading strategies, technical analysis, risk management, or market concepts.
+            </p>
+          </div>
+          <div className="arch-divider w-3/4" />
+          <p className="nothing-label">Type a question or pick a suggestion below</p>
+        </div>
       )}
 
       {messages.length === 0 && (
         <div className="flex flex-col gap-1.5">
           <SectionLabel>Suggested Questions</SectionLabel>
-          {SUGGESTED_QUESTIONS.map(q => (
+          {SUGGESTED_QUESTIONS.map((q, idx) => (
             <button key={q} onClick={() => sendMessage(q)}
-              className="text-left px-4 py-2.5 rounded-xl text-[13px] transition-all"
-              style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = BLUE_BD; e.currentTarget.style.color = BLUE; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--glass-border)"; e.currentTarget.style.color = "hsl(var(--muted-foreground))"; }}>
+              className="text-left px-4 py-3 rounded-xl fade-up"
+              style={{
+                background: "var(--card-bg)", border: "1px solid var(--glass-border)",
+                color: "hsl(var(--muted-foreground))",
+                fontFamily: "var(--app-font-display)", fontSize: "13px", fontWeight: 500, letterSpacing: "-0.008em",
+                transition: "all 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
+                animationDelay: `${0.05 + idx * 0.04}s`,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = BLUE_BD; e.currentTarget.style.color = BLUE; e.currentTarget.style.background = "var(--glass-bg)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--glass-border)"; e.currentTarget.style.color = "hsl(var(--muted-foreground))"; e.currentTarget.style.background = "var(--card-bg)"; }}>
               {q}
             </button>
           ))}
@@ -611,35 +623,53 @@ function ChatPanel({ token }: { token: string }) {
       )}
 
       {messages.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           {messages.map((msg, i) => (
-            <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+            <div key={i} className={`flex gap-2.5 fade-up-sm ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+              style={{ animationDelay: `${i * 0.03}s` }}>
               <div className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                 style={msg.role === "user"
-                  ? { background: BLUE, border: "1px solid rgba(255,255,255,0.18)" }
+                  ? { background: "rgba(255,255,255,0.95)", border: "1px solid rgba(255,255,255,0.25)", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }
                   : { background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}>
                 {msg.role === "user"
                   ? <User className="h-3.5 w-3.5" style={{ color: "#050505" }} />
                   : <Bot className="h-3.5 w-3.5" style={{ color: BLUE }} />}
               </div>
-              <div className="rounded-2xl px-4 py-3 max-w-[85%] text-[13px] leading-relaxed"
-                style={msg.role === "user"
-                  ? { background: BLUE, color: "#050505", fontWeight: 600, borderBottomRightRadius: 4 }
-                  : { background: "var(--card-bg)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)", borderBottomLeftRadius: 4 }}>
+              <div className="px-4 py-3 max-w-[85%] leading-relaxed"
+                style={{
+                  fontSize: "13px",
+                  borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                  ...(msg.role === "user"
+                    ? {
+                        background: "rgba(255,255,255,0.95)",
+                        color: "#0a0a0a",
+                        fontWeight: 500,
+                        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+                        fontFamily: "var(--app-font-display)",
+                        letterSpacing: "-0.008em",
+                      }
+                    : {
+                        background: "var(--card-bg)",
+                        color: "hsl(var(--foreground))",
+                        border: "1px solid var(--glass-border)",
+                        boxShadow: "var(--shadow-2xs)",
+                      }),
+                }}>
                 {msg.content}
               </div>
             </div>
           ))}
           {loading && (
-            <div className="flex gap-3">
+            <div className="flex gap-2.5">
               <div className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                 style={{ background: BLUE_BG, border: `1px solid ${BLUE_BD}` }}>
                 <Bot className="h-3.5 w-3.5" style={{ color: BLUE }} />
               </div>
-              <div className="rounded-2xl px-4 py-3 flex items-center gap-1.5"
-                style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)" }}>
+              <div className="px-4 py-3 flex items-center gap-2"
+                style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", borderRadius: "18px 18px 18px 4px" }}>
                 <span className="h-1.5 w-1.5 rounded-full live-pulse" style={{ background: BLUE }} />
-                <span className="text-[11px] font-mono" style={{ color: "hsl(var(--muted-foreground))" }}>Thinking…</span>
+                <span className="h-1.5 w-1.5 rounded-full live-pulse" style={{ background: BLUE, animationDelay: "0.2s" }} />
+                <span className="h-1.5 w-1.5 rounded-full live-pulse" style={{ background: BLUE, animationDelay: "0.4s" }} />
               </div>
             </div>
           )}
@@ -648,9 +678,18 @@ function ChatPanel({ token }: { token: string }) {
       )}
 
       {error && (
-        <div className="flex items-start gap-2 rounded-xl px-4 py-3 text-[12px]"
-          style={{ background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.2)", color: "#f87171" }}>
-          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />{error}
+        <div className="flex items-start gap-3 rounded-2xl px-4 py-4 fade-up-sm"
+          style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.18)" }}>
+          <div className="h-7 w-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+            style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)" }}>
+            <AlertTriangle className="h-3.5 w-3.5" style={{ color: "#f87171" }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-semibold mb-0.5" style={{ color: "#f87171", fontFamily: "var(--app-font-display)", letterSpacing: "-0.010em" }}>
+              {error.includes("offline") ? "Service Offline" : "Error"}
+            </p>
+            <p className="text-[12px] leading-relaxed" style={{ color: "rgba(248,113,113,0.75)" }}>{error}</p>
+          </div>
         </div>
       )}
 
@@ -898,7 +937,7 @@ export default function AiAssistant() {
     tab === id ? { display: "flex", flexDirection: "column", gap: 12 } : { display: "none" };
 
   return (
-    <div className="flex flex-col gap-4 pb-8">
+    <div className="flex flex-col gap-4 pb-8 fade-up">
 
       {/* Header */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
@@ -926,8 +965,8 @@ export default function AiAssistant() {
               </div>
             </div>
             <div className="min-w-0">
-              <h1 className="text-[20px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>AI Market Assistant</h1>
-              <p className="text-[11px] font-mono mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>Live market intelligence · Powered by AI</p>
+              <h1 style={{ fontFamily: "var(--app-font-display)", fontSize: "20px", fontWeight: 700, letterSpacing: "-0.030em", color: "hsl(var(--foreground))", lineHeight: 1.1 }}>AI Market Assistant</h1>
+              <p className="mt-0.5 nothing-label" style={{ letterSpacing: "0.09em" }}>Live market intelligence · Powered by AI</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -945,17 +984,24 @@ export default function AiAssistant() {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex p-1 rounded-2xl gap-1 overflow-x-auto scrollbar-none"
+      {/* Tab bar — Space Grotesk labels */}
+      <div className="flex p-1 rounded-2xl gap-0.5 overflow-x-auto scrollbar-none"
         style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
         {TABS.map(t => {
           const active = tab === t.id;
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12px] font-semibold whitespace-nowrap px-2 min-w-0 transition-all"
-              style={active
-                ? { background: "var(--card-bg)", color: BLUE, border: `1px solid ${BLUE_BD}`, boxShadow: "var(--shadow-tab-active)" }
-                : { color: "hsl(var(--muted-foreground))", border: "1px solid transparent" }}>
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl whitespace-nowrap px-2 min-w-0"
+              style={{
+                fontFamily: "var(--app-font-display)",
+                fontSize: "12px",
+                fontWeight: active ? 600 : 500,
+                letterSpacing: active ? "-0.012em" : "-0.006em",
+                transition: "all 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
+                ...(active
+                  ? { background: "var(--card-bg)", color: BLUE, border: `1px solid ${BLUE_BD}`, boxShadow: "var(--shadow-tab-active)" }
+                  : { color: "hsl(var(--muted-foreground))", border: "1px solid transparent" }),
+              }}>
               <t.Icon className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="hidden sm:inline">{t.label}</span>
             </button>

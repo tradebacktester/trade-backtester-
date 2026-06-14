@@ -168,6 +168,26 @@ function groqClient(): OpenAI {
   return new OpenAI({ apiKey, baseURL: "https://api.groq.com/openai/v1" });
 }
 
+/** Detect if an error is a Groq/OpenAI authentication failure */
+function isAuthError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { status?: number; message?: string; code?: string };
+  return e.status === 401 || e.code === "invalid_api_key" || (typeof e.message === "string" && e.message.includes("Invalid API Key"));
+}
+
+/** Unified AI error responder — detects key errors vs transient failures */
+function handleAiError(err: unknown, res: Response, context = "ai error"): void {
+  logger.error(err, context);
+  if (isAuthError(err)) {
+    res.status(503).json({
+      error: "AI service is currently offline. The API key needs to be refreshed — please contact support.",
+      code: "ai_key_invalid",
+    });
+  } else {
+    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+  }
+}
+
 const SYSTEM_PROMPT = `You are an expert trading and financial markets educator. Help users learn about:
 - Trading strategies (momentum, mean reversion, breakout, swing, scalping, etc.)
 - Technical analysis (chart patterns, candlesticks, support/resistance, indicators)
@@ -218,8 +238,7 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
     const message = completion.choices[0]?.message?.content ?? "Sorry, I couldn't generate a response.";
     res.json({ message });
   } catch (err) {
-    logger.error(err, "ai/chat error");
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    handleAiError(err, res, "ai/chat error");
   }
 });
 
@@ -313,8 +332,7 @@ Your narrative should:
     const narrative = completion.choices[0]?.message?.content ?? "Unable to generate autopsy.";
     res.json({ narrative });
   } catch (err) {
-    logger.error(err, "ai/autopsy error");
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    handleAiError(err, res, "ai/autopsy error");
   }
 });
 
@@ -382,8 +400,7 @@ Response shape (use exactly these keys):
     const parsed = JSON.parse(content);
     res.json(parsed);
   } catch (err) {
-    logger.error(err, "ai/build-strategy error");
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    handleAiError(err, res, "ai/build-strategy error");
   }
 });
 
@@ -482,8 +499,7 @@ Key bias signals to check:
     const parsed = JSON.parse(content);
     res.json(parsed);
   } catch (err) {
-    logger.error(err, "ai/bias-report error");
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    handleAiError(err, res, "ai/bias-report error");
   }
 });
 
@@ -595,8 +611,7 @@ ${topTrades}`;
     const story = completion.choices[0]?.message?.content ?? "Unable to generate story.";
     res.json({ story });
   } catch (err) {
-    logger.error(err, "ai/narrative error");
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    handleAiError(err, res, "ai/narrative error");
   }
 });
 
@@ -703,8 +718,7 @@ Diagnose this trader's personality type and recommend the 2-3 strategy types tha
     const parsed = JSON.parse(content);
     res.json(parsed);
   } catch (err) {
-    logger.error(err, "ai/psych-match error");
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    handleAiError(err, res, "ai/psych-match error");
   }
 });
 
@@ -775,8 +789,7 @@ In 2-3 sentences explain: (1) why this trade ${trade.pnl >= 0 ? "succeeded" : "f
     const analysis = completion.choices[0]?.message?.content?.trim() ?? "Unable to generate analysis.";
     res.json({ analysis });
   } catch (err) {
-    logger.error(err, "ai/analyze-trade error");
-    res.status(500).json({ error: "AI analysis failed. Please try again." });
+    handleAiError(err, res, "ai/analyze-trade error");
   }
 });
 
@@ -852,8 +865,7 @@ Respond with a JSON object containing these exact fields:
     const parsed = JSON.parse(raw);
     res.json(parsed);
   } catch (err) {
-    logger.error(err, "ai/dna-narrative error");
-    res.status(500).json({ error: "AI analysis failed. Please try again." });
+    handleAiError(err, res, "ai/dna-narrative error");
   }
 });
 
@@ -910,8 +922,7 @@ Keep each bullet under 18 words. No preamble, just the 4 bullets.`;
     const analysis = completion.choices[0]?.message?.content ?? "Unable to analyze position.";
     res.json({ analysis });
   } catch (err) {
-    logger.error(err, "ai/analyze-position error");
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    handleAiError(err, res, "ai/analyze-position error");
   }
 });
 
@@ -1371,8 +1382,7 @@ router.get("/ai/twin-profile", requireAuth, async (req, res) => {
       backtestCount: profile.backtestCount,
     });
   } catch (err) {
-    logger.error(err, "ai/twin-profile error");
-    res.status(500).json({ error: "Failed to load trader profile." });
+    handleAiError(err, res, "ai/twin-profile error");
   }
 });
 
@@ -1485,8 +1495,7 @@ PROPOSED TRADE:
       preferredSide: profileData.preferredSide,
     });
   } catch (err) {
-    logger.error(err, "ai/twin-analysis error");
-    res.status(500).json({ error: "AI service temporarily unavailable." });
+    handleAiError(err, res, "ai/twin-analysis error");
   }
 });
 
@@ -1575,8 +1584,7 @@ Top strategies: ${profile.strategyStats.slice(0, 2).map(s => `${s.type} (avg ret
     await db.insert(coachCacheTable).values({ userId, date: today, briefingData: briefing as any });
     res.json(briefing);
   } catch (err) {
-    logger.error(err, "ai/daily-coach error");
-    res.status(500).json({ error: "AI service temporarily unavailable." });
+    handleAiError(err, res, "ai/daily-coach error");
   }
 });
 
@@ -1682,8 +1690,7 @@ router.post("/ai/pre-trade-check", requireAuth, async (req, res) => {
       tip,
     });
   } catch (err) {
-    logger.error(err, "ai/pre-trade-check error");
-    res.status(500).json({ error: "Pre-trade check temporarily unavailable." });
+    handleAiError(err, res, "ai/pre-trade-check error");
   }
 });
 
