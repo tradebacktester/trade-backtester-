@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronUp, UserCheck, UserX, Crown, CreditCard, Zap,
   Plus, Edit2, ToggleLeft, ToggleRight, Gift, Trash2, Star,
   X, Check, Package, AlertCircle, Calendar, Hash, KeyRound, Copy, Clock,
-  GraduationCap, BookOpen, BarChart2,
+  GraduationCap, BookOpen, BarChart2, Tag, Percent,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -32,6 +32,10 @@ interface AdminPayment {
   razorpayPaymentId: string | null; amount: number; currency: string;
   status: string; createdAt: string; userName: string | null; userEmail: string | null; planName: string | null;
 }
+interface AdminCoupon {
+  id: number; code: string; discountPercent: number; planSlug: string;
+  maxUses: number | null; usedCount: number; isActive: boolean; createdAt: string;
+}
 
 const FEATURE_LABELS: Record<string, string> = {
   maxBacktestsPerMonth: "Backtests/month",
@@ -57,9 +61,9 @@ const SUBS_STAT_ICONS = {
 };
 
 const PLAN_ACCENT: Record<string, { color: string; bg: string; border: string }> = {
-  free:  { color: "hsl(var(--muted-foreground))",               bg: "rgba(0,0,0,0.05)",          border: "rgba(0,0,0,0.12)" },
-  pro:   { color: "hsl(265,89%,60%)",   bg: "rgba(139,92,246,0.08)",     border: "rgba(139,92,246,0.25)" },
-  elite: { color: "hsl(38,100%,50%)",   bg: "rgba(245,158,11,0.08)",     border: "rgba(245,158,11,0.28)" },
+  free:  { color: "hsl(var(--muted-foreground))", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.10)" },
+  pro:   { color: "#c0c0c0",                      bg: "rgba(255,255,255,0.08)", border: "rgba(255,255,255,0.20)" },
+  elite: { color: "#e8e8e8",                      bg: "rgba(255,255,255,0.12)", border: "rgba(255,255,255,0.28)" },
 };
 
 function planAccent(slug: string) {
@@ -71,7 +75,7 @@ interface PendingReset {
   userId: number; userEmail: string | null; userName: string | null;
 }
 
-type Tab = "users" | "policies" | "plans" | "subscribers" | "payments" | "resets" | "academy";
+type Tab = "users" | "policies" | "plans" | "subscribers" | "payments" | "resets" | "academy" | "coupons";
 
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
@@ -131,6 +135,14 @@ export default function AdminPanel() {
   const [resets, setResets] = useState<PendingReset[]>([]);
   const [resetsLoading, setResetsLoading] = useState(true);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  // ── Coupons ──
+  const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(true);
+  const [showNewCoupon, setShowNewCoupon] = useState(false);
+  const [newCoupon, setNewCoupon] = useState({ code: "", discountPercent: "10", planSlug: "all", maxUses: "" });
+  const [creatingCoupon, setCreatingCoupon] = useState(false);
+  const [couponCreateError, setCouponCreateError] = useState("");
 
   useEffect(() => { if (!adminToken) { setLocation("/admin"); return; } }, [adminToken]);
 
@@ -203,10 +215,20 @@ export default function AdminPanel() {
     finally { setResetsLoading(false); }
   }, [headers]);
 
+  const fetchCoupons = useCallback(async () => {
+    setCouponsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/coupons`, { headers });
+      if (res.status === 401) { setAdminToken(null); setLocation("/admin"); return; }
+      if (res.ok) setCoupons(await res.json());
+    } catch { }
+    finally { setCouponsLoading(false); }
+  }, [headers, setAdminToken, setLocation]);
+
   useEffect(() => {
     if (!adminToken) return;
-    fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments(); fetchResets();
-  }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments, fetchResets]);
+    fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments(); fetchResets(); fetchCoupons();
+  }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments, fetchResets, fetchCoupons]);
 
   async function toggleBan(user: AdminUser) {
     const reason = !user.banned ? (banReason[user.id] || null) : null;
@@ -319,6 +341,7 @@ export default function AdminPanel() {
     ["payments", CreditCard, "Payments"],
     ["resets", KeyRound, "Resets"],
     ["academy", GraduationCap, "Academy"],
+    ["coupons", Tag, "Coupons"],
   ];
 
   // Memoized so these three array passes only re-run when subs or the filter changes,
@@ -1108,6 +1131,176 @@ export default function AdminPanel() {
       {(tab === "academy" || visitedTabs.has("academy")) && (
         <div className={tab !== "academy" ? "hidden" : "flex flex-col gap-4"}>
           <AcademyAdminTab />
+        </div>
+      )}
+
+      {/* ── Coupons tab ── */}
+      {visitedTabs.has("coupons") && (
+        <div className={tab !== "coupons" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+            <div className="flex items-center gap-2">
+              <Tag style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+              <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Coupon Codes</span>
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))" }}>{coupons.length}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={fetchCoupons} className="p-1.5 rounded-lg transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
+                <RefreshCw style={{ height: "13px", width: "13px" }} />
+              </button>
+              <button onClick={() => { setShowNewCoupon(v => !v); setCouponCreateError(""); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                style={{ background: showNewCoupon ? "var(--glass-bg)" : "#FFFFFF", color: showNewCoupon ? "hsl(var(--muted-foreground))" : "#050505", border: "1px solid var(--glass-border)" }}>
+                <Plus style={{ height: "11px", width: "11px" }} />
+                New Coupon
+              </button>
+            </div>
+          </div>
+
+          {/* Create form */}
+          {showNewCoupon && (
+            <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--glass-border)", background: "rgba(255,255,255,0.03)" }}>
+              <div className="grid grid-cols-2 gap-3 mb-3 sm:grid-cols-4">
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-[10px] font-medium block mb-1" style={{ color: "hsl(var(--muted-foreground))" }}>CODE *</label>
+                  <input
+                    value={newCoupon.code}
+                    onChange={e => setNewCoupon(v => ({ ...v, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") }))}
+                    placeholder="SUMMER20"
+                    className="w-full px-3 py-2 rounded-xl text-sm font-mono tracking-wider outline-none"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium block mb-1" style={{ color: "hsl(var(--muted-foreground))" }}>DISCOUNT %</label>
+                  <input
+                    type="number" min="1" max="100"
+                    value={newCoupon.discountPercent}
+                    onChange={e => setNewCoupon(v => ({ ...v, discountPercent: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium block mb-1" style={{ color: "hsl(var(--muted-foreground))" }}>PLAN</label>
+                  <select
+                    value={newCoupon.planSlug}
+                    onChange={e => setNewCoupon(v => ({ ...v, planSlug: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}>
+                    <option value="all">All plans</option>
+                    <option value="pro">Pro only</option>
+                    <option value="elite">Elite only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium block mb-1" style={{ color: "hsl(var(--muted-foreground))" }}>MAX USES</label>
+                  <input
+                    type="number" min="1"
+                    value={newCoupon.maxUses}
+                    onChange={e => setNewCoupon(v => ({ ...v, maxUses: e.target.value }))}
+                    placeholder="∞"
+                    className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                    style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--foreground))" }}
+                  />
+                </div>
+              </div>
+              {couponCreateError && <p className="text-xs mb-2" style={{ color: "#f87171" }}>{couponCreateError}</p>}
+              <button
+                disabled={creatingCoupon || !newCoupon.code || !newCoupon.discountPercent}
+                onClick={async () => {
+                  setCreatingCoupon(true); setCouponCreateError("");
+                  try {
+                    const res = await fetch(`${API_BASE}/api/admin/coupons`, {
+                      method: "POST", headers,
+                      body: JSON.stringify({ code: newCoupon.code, discountPercent: parseInt(newCoupon.discountPercent), planSlug: newCoupon.planSlug, maxUses: newCoupon.maxUses || undefined }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) { setCoupons(cs => [data, ...cs]); setShowNewCoupon(false); setNewCoupon({ code: "", discountPercent: "10", planSlug: "all", maxUses: "" }); }
+                    else setCouponCreateError(data.error ?? "Failed to create coupon");
+                  } catch { setCouponCreateError("Network error"); } finally { setCreatingCoupon(false); }
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                style={{ background: "#FFFFFF", color: "#050505", opacity: (!newCoupon.code || !newCoupon.discountPercent) ? 0.5 : 1 }}>
+                {creatingCoupon ? <RefreshCw style={{ height: "11px", width: "11px" }} className="animate-spin" /> : <Plus style={{ height: "11px", width: "11px" }} />}
+                Create Coupon
+              </button>
+            </div>
+          )}
+
+          {/* Coupon list */}
+          {couponsLoading ? (
+            <div className="flex items-center justify-center py-12 text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>Loading coupons…</div>
+          ) : coupons.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <Tag style={{ height: "28px", width: "28px", color: "hsl(var(--muted-foreground))" }} />
+              <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>No coupons yet</p>
+            </div>
+          ) : (
+            <div>
+              {coupons.map((c, i) => (
+                <div key={c.id} className="px-5 py-4 flex items-center justify-between gap-4"
+                  style={{ borderBottom: i < coupons.length - 1 ? "1px solid var(--glass-border)" : "none", opacity: c.isActive ? 1 : 0.5 }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="h-9 w-9 rounded-xl flex-shrink-0 flex items-center justify-center"
+                      style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                      <Percent style={{ height: "14px", width: "14px", color: "hsl(var(--muted-foreground))" }} />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold font-mono tracking-wider" style={{ color: "hsl(var(--foreground))" }}>{c.code}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                          style={{ background: "rgba(255,255,255,0.08)", color: "hsl(var(--foreground))", border: "1px solid var(--glass-border)" }}>
+                          {c.discountPercent}% OFF
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full"
+                          style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+                          {c.planSlug === "all" ? "Any plan" : c.planSlug}
+                        </span>
+                        {!c.isActive && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full"
+                            style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.2)" }}>Inactive</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          Used: <span className="font-semibold" style={{ color: c.usedCount > 0 ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}>{c.usedCount}</span>
+                          {c.maxUses !== null && <span style={{ color: "hsl(var(--muted-foreground))" }}>/{c.maxUses}</span>}
+                        </span>
+                        <span className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                          Created {new Date(c.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={async () => {
+                        const res = await fetch(`${API_BASE}/api/admin/coupons/${c.id}`, {
+                          method: "PATCH", headers, body: JSON.stringify({ isActive: !c.isActive }),
+                        });
+                        if (res.ok) { const updated = await res.json(); setCoupons(cs => cs.map(x => x.id === c.id ? updated : x)); }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                      style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+                      {c.isActive ? <ToggleRight style={{ height: "12px", width: "12px", color: "#4ade80" }} /> : <ToggleLeft style={{ height: "12px", width: "12px" }} />}
+                      {c.isActive ? "Active" : "Inactive"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Delete coupon ${c.code}? This cannot be undone.`)) return;
+                        const res = await fetch(`${API_BASE}/api/admin/coupons/${c.id}`, { method: "DELETE", headers });
+                        if (res.ok) setCoupons(cs => cs.filter(x => x.id !== c.id));
+                      }}
+                      className="p-1.5 rounded-xl transition-colors"
+                      style={{ color: "#f87171", border: "1px solid rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.06)" }}>
+                      <Trash2 style={{ height: "12px", width: "12px" }} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

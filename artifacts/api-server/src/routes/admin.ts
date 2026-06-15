@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
-import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable, adminAuditLogTable, passwordResetsTable } from "@workspace/db";
+import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable, adminAuditLogTable, passwordResetsTable, couponsTable, couponUsagesTable } from "@workspace/db";
 import { eq, and, desc, gt, lt, count as drizzleCount, isNull } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
 import { makeAdminToken, verifyAdminToken } from "../lib/admin-auth";
@@ -283,6 +283,59 @@ router.get("/admin/payments", requireAdmin, async (_req, res): Promise<void> => 
     .limit(200);
 
   res.json(pmts.map(p => ({ ...p, createdAt: p.createdAt.toISOString() })));
+});
+
+// ── Coupon management ─────────────────────────────────────────────────────────
+
+router.get("/admin/coupons", requireAdmin, async (_req, res): Promise<void> => {
+  const coupons = await db.select().from(couponsTable).orderBy(desc(couponsTable.createdAt));
+  res.json(coupons.map(c => ({ ...c, createdAt: c.createdAt.toISOString() })));
+});
+
+router.post("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
+  const { code, discountPercent, planSlug, maxUses } = req.body;
+  if (!code || discountPercent === undefined) { res.status(400).json({ error: "code and discountPercent required" }); return; }
+  const pct = parseInt(discountPercent);
+  if (isNaN(pct) || pct < 1 || pct > 100) { res.status(400).json({ error: "discountPercent must be 1–100" }); return; }
+  try {
+    const [coupon] = await db.insert(couponsTable).values({
+      code: String(code).toUpperCase().trim(),
+      discountPercent: pct,
+      planSlug: planSlug ?? "all",
+      maxUses: maxUses ? parseInt(maxUses) : null,
+      isActive: true,
+    }).returning();
+    const adminId = (req.headers["x-admin-token"] as string ?? "").slice(0, 8) + "…";
+    await auditLog("create_coupon", adminId, null, { code: coupon!.code, discountPercent: pct });
+    res.status(201).json({ ...coupon, createdAt: coupon!.createdAt.toISOString() });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("unique") || msg.includes("duplicate")) {
+      res.status(409).json({ error: "Coupon code already exists" }); return;
+    }
+    res.status(500).json({ error: "Failed to create coupon" });
+  }
+});
+
+router.patch("/admin/coupons/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  const { isActive, maxUses, discountPercent } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (isActive !== undefined) updates["isActive"] = isActive;
+  if (maxUses !== undefined) updates["maxUses"] = maxUses === null ? null : parseInt(maxUses);
+  if (discountPercent !== undefined) updates["discountPercent"] = parseInt(discountPercent);
+  const [updated] = await db.update(couponsTable)
+    .set(updates as Partial<{ code: string; discountPercent: number; planSlug: string; maxUses: number | null; isActive: boolean }>)
+    .where(eq(couponsTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Coupon not found" }); return; }
+  res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+});
+
+router.delete("/admin/coupons/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  const [deleted] = await db.delete(couponsTable).where(eq(couponsTable.id, id)).returning();
+  if (!deleted) { res.status(404).json({ error: "Coupon not found" }); return; }
+  res.json({ success: true });
 });
 
 // ── Password reset requests — list active (unused, unexpired) tokens ──────────

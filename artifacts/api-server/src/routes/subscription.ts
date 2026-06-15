@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { verifyJwt } from "../lib/jwt";
 import { createHmac } from "crypto";
-import { db, subscriptionPlansTable, subscriptionsTable, paymentsTable, usersTable } from "@workspace/db";
+import { db, subscriptionPlansTable, subscriptionsTable, paymentsTable, usersTable, couponsTable, couponUsagesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
@@ -158,11 +158,34 @@ router.get("/subscription/status", async (req, res): Promise<void> => {
   });
 });
 
+router.post("/subscription/validate-coupon", async (req, res): Promise<void> => {
+  const userId = extractUserId(req);
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { code, planSlug } = req.body as { code: string; planSlug?: string };
+  if (!code) { res.json({ valid: false, error: "Coupon code required" }); return; }
+
+  const [coupon] = await db.select().from(couponsTable)
+    .where(eq(couponsTable.code, code.toUpperCase().trim()))
+    .limit(1);
+
+  if (!coupon) { res.json({ valid: false, error: "Invalid coupon code" }); return; }
+  if (!coupon.isActive) { res.json({ valid: false, error: "This coupon is no longer active" }); return; }
+  if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+    res.json({ valid: false, error: "This coupon has reached its usage limit" }); return;
+  }
+  if (coupon.planSlug !== "all" && planSlug && planSlug !== coupon.planSlug) {
+    res.json({ valid: false, error: `This coupon is only valid for the ${coupon.planSlug} plan` }); return;
+  }
+
+  res.json({ valid: true, discountPercent: coupon.discountPercent, planSlug: coupon.planSlug, code: coupon.code });
+});
+
 router.post("/subscription/create-order", async (req, res): Promise<void> => {
   const userId = extractUserId(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { planId } = req.body as { planId: number };
+  const { planId, couponCode } = req.body as { planId: number; couponCode?: string };
   if (!planId) { res.status(400).json({ error: "planId required" }); return; }
 
   const [plan] = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.id, planId)).limit(1);
@@ -170,12 +193,26 @@ router.post("/subscription/create-order", async (req, res): Promise<void> => {
   if (!plan.isActive) { res.status(400).json({ error: "Plan is not available" }); return; }
   if (plan.priceMonthly === 0) { res.status(400).json({ error: "Free plan requires no payment" }); return; }
 
+  // Apply coupon discount if provided
+  let finalAmount = plan.priceMonthly;
+  let appliedCoupon: { id: number; code: string; discountPercent: number } | null = null;
+  if (couponCode) {
+    const [coupon] = await db.select().from(couponsTable)
+      .where(eq(couponsTable.code, couponCode.toUpperCase().trim())).limit(1);
+    if (coupon && coupon.isActive && (coupon.maxUses === null || coupon.usedCount < coupon.maxUses)
+      && (coupon.planSlug === "all" || coupon.planSlug === plan.slug)) {
+      const discount = Math.round(plan.priceMonthly * coupon.discountPercent / 100);
+      finalAmount = Math.max(100, plan.priceMonthly - discount);
+      appliedCoupon = { id: coupon.id, code: coupon.code, discountPercent: coupon.discountPercent };
+    }
+  }
+
   const razorpay = getRazorpayInstance();
 
   let razorpayOrderId: string;
   if (razorpay) {
     const order = await razorpay.orders.create({
-      amount: plan.priceMonthly,
+      amount: finalAmount,
       currency: plan.currency,
       receipt: `order_${userId}_${planId}_${Date.now()}`,
     });
@@ -188,14 +225,17 @@ router.post("/subscription/create-order", async (req, res): Promise<void> => {
     userId,
     planId,
     razorpayOrderId,
-    amount: plan.priceMonthly,
+    amount: finalAmount,
     currency: plan.currency,
     status: "pending",
   });
 
   res.json({
     orderId: razorpayOrderId,
-    amount: plan.priceMonthly,
+    amount: finalAmount,
+    originalAmount: plan.priceMonthly,
+    discountPercent: appliedCoupon?.discountPercent ?? 0,
+    couponCode: appliedCoupon?.code ?? null,
     currency: plan.currency,
     keyId: RAZORPAY_KEY_ID,
     planName: plan.name,
@@ -206,11 +246,12 @@ router.post("/subscription/verify", async (req, res): Promise<void> => {
   const userId = extractUserId(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { razorpayOrderId, razorpayPaymentId, razorpaySignature, planId } = req.body as {
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature, planId, couponCode } = req.body as {
     razorpayOrderId: string;
     razorpayPaymentId: string;
     razorpaySignature: string;
     planId: number;
+    couponCode?: string;
   };
 
   // Fail closed: if Razorpay is not configured, reject ALL verify requests.
@@ -256,6 +297,18 @@ router.post("/subscription/verify", async (req, res): Promise<void> => {
   await db.update(paymentsTable)
     .set({ subscriptionId: sub!.id })
     .where(eq(paymentsTable.razorpayOrderId, razorpayOrderId));
+
+  // Record coupon usage if a coupon was applied
+  if (couponCode) {
+    const [coupon] = await db.select().from(couponsTable)
+      .where(eq(couponsTable.code, couponCode.toUpperCase().trim())).limit(1);
+    if (coupon) {
+      await db.insert(couponUsagesTable).values({ couponId: coupon.id, userId, orderId: razorpayOrderId });
+      await db.update(couponsTable)
+        .set({ usedCount: coupon.usedCount + 1 })
+        .where(eq(couponsTable.id, coupon.id));
+    }
+  }
 
   res.json({ success: true, subscription: sub });
 });

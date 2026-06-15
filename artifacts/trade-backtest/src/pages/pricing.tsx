@@ -50,25 +50,25 @@ const PLANS_META: Record<string, {
     shadow: "none",
   },
   pro: {
-    icon: <Zap className="h-5 w-5" style={{ color: "hsl(265,89%,70%)" }} />,
-    accent: "hsl(265,89%,70%)",
-    accentBg: "rgba(139,92,246,0.1)",
-    accentBorder: "rgba(139,92,246,0.28)",
-    gradient: "linear-gradient(135deg, hsl(265,89%,60%) 0%, hsl(285,89%,58%) 100%)",
+    icon: <Zap className="h-5 w-5" style={{ color: "#c0c0c0" }} />,
+    accent: "#c0c0c0",
+    accentBg: "rgba(255,255,255,0.08)",
+    accentBorder: "rgba(255,255,255,0.20)",
+    gradient: "linear-gradient(135deg, #666 0%, #333 100%)",
     cardBg: "var(--card-bg)",
-    cardBorder: "rgba(139,92,246,0.3)",
-    shadow: "0 0 0 1px rgba(139,92,246,0.28), 0 12px 40px rgba(139,92,246,0.2)",
+    cardBorder: "rgba(255,255,255,0.22)",
+    shadow: "0 0 0 1px rgba(255,255,255,0.16), 0 12px 40px rgba(0,0,0,0.40)",
     badge: "Most Popular",
   },
   elite: {
-    icon: <Crown className="h-5 w-5" style={{ color: "hsl(38,100%,62%)" }} />,
-    accent: "hsl(38,100%,60%)",
-    accentBg: "rgba(245,158,11,0.1)",
-    accentBorder: "rgba(245,158,11,0.3)",
-    gradient: "linear-gradient(135deg, hsl(38,100%,50%) 0%, hsl(20,100%,52%) 100%)",
+    icon: <Crown className="h-5 w-5" style={{ color: "#e8e8e8" }} />,
+    accent: "#e8e8e8",
+    accentBg: "rgba(255,255,255,0.12)",
+    accentBorder: "rgba(255,255,255,0.28)",
+    gradient: "linear-gradient(135deg, #b0b0b0 0%, #666 100%)",
     cardBg: "var(--card-bg)",
-    cardBorder: "rgba(245,158,11,0.3)",
-    shadow: "0 0 0 1px rgba(245,158,11,0.25), 0 12px 40px rgba(245,158,11,0.18)",
+    cardBorder: "rgba(255,255,255,0.28)",
+    shadow: "0 0 0 1px rgba(255,255,255,0.22), 0 12px 40px rgba(0,0,0,0.50)",
   },
 };
 
@@ -198,12 +198,17 @@ export default function PricingPage() {
   const [subscribing, setSubscribing] = useState<number | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [, navigate] = useLocation();
+  const [pendingCoupon, setPendingCoupon] = useState<{ code: string; discountPercent: number; planSlug: string } | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/subscription/plans`)
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(data => { setPlans(data); setLoading(false); })
       .catch(() => { setPlansError(true); setLoading(false); });
+    const saved = localStorage.getItem("tt_pending_coupon");
+    if (saved) {
+      try { setPendingCoupon(JSON.parse(saved)); } catch { localStorage.removeItem("tt_pending_coupon"); }
+    }
   }, []);
 
   async function handleSubscribe(plan: SubscriptionPlan) {
@@ -217,10 +222,11 @@ export default function PricingPage() {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
+      const applicableCoupon = pendingCoupon && (pendingCoupon.planSlug === "all" || pendingCoupon.planSlug === plan.slug) ? pendingCoupon : null;
       const orderRes = await fetch(`${API_BASE}/api/subscription/create-order`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ planId: plan.id }),
+        body: JSON.stringify({ planId: plan.id, couponCode: applicableCoupon?.code }),
       });
       const order = await orderRes.json();
       if (!orderRes.ok) {
@@ -262,9 +268,10 @@ export default function PricingPage() {
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
               planId: plan.id,
+              couponCode: applicableCoupon?.code,
             }),
           });
-          if (verifyRes.ok) { refresh(); navigate("/billing"); }
+          if (verifyRes.ok) { if (applicableCoupon) { localStorage.removeItem("tt_pending_coupon"); setPendingCoupon(null); } refresh(); navigate("/billing"); }
           else { toast({ title: "Verification failed", description: "Payment could not be verified. Please contact support.", variant: "destructive" }); }
         },
       });
@@ -293,9 +300,9 @@ export default function PricingPage() {
         <div
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium mb-5"
           style={{
-            background: "rgba(139,92,246,0.08)",
-            border: "1px solid rgba(139,92,246,0.18)",
-            color: "hsl(265,89%,60%)",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            color: "hsl(var(--muted-foreground))",
           }}
         >
           <Crown className="h-3 w-3" />
@@ -364,19 +371,35 @@ export default function PricingPage() {
               </div>
 
               {/* Price */}
-              <div className="mb-6">
-                {isFree ? (
-                  <p className="text-[32px] font-bold" style={{ color: "hsl(var(--foreground))" }}>
-                    ₹0
-                    <span className="text-[13px] font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>/mo</span>
-                  </p>
-                ) : (
-                  <p className="text-[32px] font-bold" style={{ color: "hsl(var(--foreground))" }}>
-                    ₹{(plan.priceMonthly / 100).toLocaleString("en-IN")}
-                    <span className="text-[13px] font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>/mo</span>
-                  </p>
-                )}
-              </div>
+              {(() => {
+                const coupon = pendingCoupon && !isFree && (pendingCoupon.planSlug === "all" || pendingCoupon.planSlug === plan.slug) ? pendingCoupon : null;
+                const discounted = coupon ? Math.round(plan.priceMonthly * (1 - coupon.discountPercent / 100)) : null;
+                return (
+                  <div className="mb-6">
+                    {isFree ? (
+                      <p className="text-[32px] font-bold" style={{ color: "hsl(var(--foreground))" }}>
+                        ₹0<span className="text-[13px] font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>/mo</span>
+                      </p>
+                    ) : discounted !== null ? (
+                      <div>
+                        <p className="text-[32px] font-bold" style={{ color: "hsl(var(--foreground))" }}>
+                          ₹{(discounted / 100).toLocaleString("en-IN")}
+                          <span className="text-[13px] font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>/mo</span>
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[12px] line-through" style={{ color: "hsl(var(--muted-foreground))" }}>₹{(plan.priceMonthly / 100).toLocaleString("en-IN")}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.25)" }}>-{coupon!.discountPercent}%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[32px] font-bold" style={{ color: "hsl(var(--foreground))" }}>
+                        ₹{(plan.priceMonthly / 100).toLocaleString("en-IN")}
+                        <span className="text-[13px] font-normal" style={{ color: "hsl(var(--muted-foreground))" }}>/mo</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Feature list */}
               <div className="flex flex-col gap-2.5 flex-1 mb-6">
