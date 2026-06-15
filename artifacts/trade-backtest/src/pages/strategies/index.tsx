@@ -19,7 +19,7 @@ const SAMPLE_STRATEGIES = [
     description: "Buy when the 20 EMA crosses above the 50 EMA; sell when it crosses back below. A classic trend-following system suited to strong trending markets.",
     type: "trend", backtestType: "ema_crossover", timeframe: "1h", symbol: "BTC/USDT", winRate: 61, sharpe: 1.82,
     sample: true, icon: TrendingUp,
-    color: "hsl(150,80%,50%)", colorBg: "rgba(52,211,153,0.1)", colorBorder: "rgba(52,211,153,0.2)",
+    color: "rgba(255,255,255,0.75)", colorBg: "rgba(255,255,255,0.07)", colorBorder: "rgba(255,255,255,0.16)",
     defaultParams: { fastPeriod: 9, slowPeriod: 21 } as Record<string, number>,
   },
   {
@@ -28,7 +28,7 @@ const SAMPLE_STRATEGIES = [
     description: "Enter long when RSI(14) dips below 30 (oversold) and exit when it reclaims 70. Works best in ranging, mean-reverting markets.",
     type: "reversal", backtestType: "rsi", timeframe: "4h", symbol: "ETH/USDT", winRate: 55, sharpe: 1.41,
     sample: true, icon: Activity,
-    color: "hsl(260,80%,65%)", colorBg: "rgba(139,92,246,0.1)", colorBorder: "rgba(139,92,246,0.2)",
+    color: "rgba(255,255,255,0.65)", colorBg: "rgba(255,255,255,0.05)", colorBorder: "rgba(255,255,255,0.12)",
     defaultParams: { period: 14, oversold: 30, overbought: 70 } as Record<string, number>,
   },
   {
@@ -37,7 +37,7 @@ const SAMPLE_STRATEGIES = [
     description: "Enter on a close above the 20-period high accompanied by volume ≥ 2× the 20-period average. Captures high-conviction momentum moves.",
     type: "breakout", backtestType: "breakout", timeframe: "1d", symbol: "BTC/USDT", winRate: 48, sharpe: 1.65,
     sample: true, icon: Zap,
-    color: "hsl(38,100%,55%)", colorBg: "rgba(245,158,11,0.1)", colorBorder: "rgba(245,158,11,0.2)",
+    color: "rgba(255,255,255,0.75)", colorBg: "rgba(255,255,255,0.07)", colorBorder: "rgba(255,255,255,0.16)",
     defaultParams: { entryPeriod: 20, exitPeriod: 10 } as Record<string, number>,
   },
   {
@@ -46,22 +46,22 @@ const SAMPLE_STRATEGIES = [
     description: "Identify 20-period swing highs/lows as support and resistance. Enter on confirmed breakout candle with at least 1% follow-through.",
     type: "breakout", backtestType: "breakout", timeframe: "1h", symbol: "SOL/USDT", winRate: 52, sharpe: 1.58,
     sample: true, icon: Target,
-    color: "hsl(190,90%,55%)", colorBg: "rgba(0,229,255,0.1)", colorBorder: "rgba(0,229,255,0.2)",
+    color: "rgba(255,255,255,0.75)", colorBg: "rgba(255,255,255,0.07)", colorBorder: "rgba(255,255,255,0.16)",
     defaultParams: { entryPeriod: 20, exitPeriod: 10 } as Record<string, number>,
   },
 ];
 
 const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  trend:          { bg: "rgba(52,211,153,0.08)",  text: "hsl(150,80%,55%)",  border: "rgba(52,211,153,0.2)" },
-  reversal:       { bg: "rgba(139,92,246,0.08)",  text: "hsl(260,80%,70%)",  border: "rgba(139,92,246,0.2)" },
-  breakout:       { bg: "rgba(245,158,11,0.08)",  text: "hsl(38,100%,60%)",  border: "rgba(245,158,11,0.2)" },
-  ema_crossover:  { bg: "rgba(52,211,153,0.08)",  text: "hsl(150,80%,55%)",  border: "rgba(52,211,153,0.2)" },
-  sma_crossover:  { bg: "rgba(100,180,255,0.08)", text: "hsl(200,80%,65%)",  border: "rgba(100,180,255,0.2)" },
-  rsi:            { bg: "rgba(139,92,246,0.08)",  text: "hsl(260,80%,70%)",  border: "rgba(139,92,246,0.2)" },
-  macd:           { bg: "rgba(0,229,255,0.08)",   text: "hsl(190,90%,65%)",  border: "rgba(0,229,255,0.2)" },
-  bollinger_bands:{ bg: "rgba(245,158,11,0.08)",  text: "hsl(38,100%,60%)",  border: "rgba(245,158,11,0.2)" },
-  ict_ob:         { bg: "rgba(239,68,68,0.08)",   text: "hsl(0,85%,62%)",    border: "rgba(239,68,68,0.2)" },
-  default:        { bg: "rgba(100,180,255,0.08)", text: "hsl(200,80%,65%)",  border: "rgba(100,180,255,0.2)" },
+  trend:          { bg: "rgba(255,255,255,0.07)", text: "rgba(255,255,255,0.80)", border: "rgba(255,255,255,0.16)" },
+  reversal:       { bg: "rgba(255,255,255,0.05)", text: "rgba(255,255,255,0.65)", border: "rgba(255,255,255,0.12)" },
+  breakout:       { bg: "rgba(255,255,255,0.07)", text: "rgba(255,255,255,0.80)", border: "rgba(255,255,255,0.16)" },
+  ema_crossover:  { bg: "rgba(255,255,255,0.07)", text: "rgba(255,255,255,0.80)", border: "rgba(255,255,255,0.16)" },
+  sma_crossover:  { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.72)", border: "rgba(255,255,255,0.14)" },
+  rsi:            { bg: "rgba(255,255,255,0.05)", text: "rgba(255,255,255,0.65)", border: "rgba(255,255,255,0.12)" },
+  macd:           { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.72)", border: "rgba(255,255,255,0.14)" },
+  bollinger_bands:{ bg: "rgba(255,255,255,0.07)", text: "rgba(255,255,255,0.80)", border: "rgba(255,255,255,0.16)" },
+  ict_ob:         { bg: "rgba(255,255,255,0.05)", text: "rgba(255,255,255,0.65)", border: "rgba(255,255,255,0.12)" },
+  default:        { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.72)", border: "rgba(255,255,255,0.14)" },
 };
 
 function typeStyle(type: string) {
@@ -153,9 +153,11 @@ function StrategyCard({
     <div
       className="rounded-2xl border flex flex-col transition-all duration-200 hover:translate-y-[-2px]"
       style={{
-        background: "linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01))",
-        borderColor: "rgba(255,255,255,0.07)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)",
+        background: "linear-gradient(160deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0.01) 100%)",
+        borderColor: "rgba(255,255,255,0.13)",
+        backdropFilter: "blur(20px) saturate(150%)",
+        WebkitBackdropFilter: "blur(20px) saturate(150%)",
+        boxShadow: "0 4px 28px rgba(0,0,0,0.50), 0 1px 0 rgba(255,255,255,0.18) inset, 0 -1px 0 rgba(255,255,255,0.04) inset",
       }}
     >
       <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3 flex items-start gap-3">

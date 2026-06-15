@@ -15,10 +15,10 @@ import { QuizzesTab } from "./quiz-tab";
 import { CertificatesTab } from "./certificates-tab";
 import { LessonView } from "./lesson-view";
 
-const ACCENT = "#22D3EE";
-const BORDER = "#262626";
-const CARD = "#171717";
-const TEXT = "#A1A1AA";
+const ACCENT = "rgba(255,255,255,0.88)";
+const BORDER = "rgba(255,255,255,0.10)";
+const CARD = "rgba(255,255,255,0.05)";
+const TEXT = "rgba(255,255,255,0.45)";
 
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },

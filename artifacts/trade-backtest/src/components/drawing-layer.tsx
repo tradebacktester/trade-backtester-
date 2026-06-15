@@ -104,6 +104,9 @@ class DrawingController {
   _pendingXY: { x: number; y: number } | null = null;
   _b: { click:(e:MouseEvent)=>void; move:(e:MouseEvent)=>void; key:(e:KeyboardEvent)=>void;
         ts:(e:TouchEvent)=>void; tm:(e:TouchEvent)=>void; te:(e:TouchEvent)=>void };
+  // Two-finger pinch/pan state — chart navigation
+  _pinch: { prevDist: number; prevMidX: number } | null = null;
+  _isPinching = false;
 
   constructor(
     fab: Fab, container: HTMLElement,
@@ -386,17 +389,80 @@ class DrawingController {
     if (e.key === "v" || e.key === "V") { this.onToolChange("cursor"); this.setTool("cursor"); }
   }
 
+  // ── Touch helpers ────────────────────────────────────────────────────────────
+  private _pd(e: TouchEvent): number {
+    if (e.touches.length < 2) return 0;
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  private _pmx(e: TouchEvent): number {
+    if (e.touches.length < 2) return 0;
+    return (e.touches[0].clientX + e.touches[1].clientX) / 2;
+  }
+
   // ── Touch ────────────────────────────────────────────────────────────────────
-  private _onTS(e: TouchEvent) { if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault(); }
-  private _onTM(e: TouchEvent) {
+  // Two-finger → chart zoom/pan via LightWeight Charts API (pinch = zoom, two-finger drag = scroll)
+  // One  finger → drawing tool (when a drawing tool is active)
+  private _onTS(e: TouchEvent) {
+    if (e.touches.length >= 2) {
+      e.preventDefault();
+      this._isPinching = true;
+      this._pinch = { prevDist: this._pd(e), prevMidX: this._pmx(e) };
+      return;
+    }
+    this._isPinching = false;
     if (this.tool === "cursor" || this.tool === "eraser") return;
-    e.preventDefault();  // Must be synchronous (passive:false listener)
+    e.preventDefault();
+  }
+  private _onTM(e: TouchEvent) {
+    if (e.touches.length >= 2) {
+      e.preventDefault();
+      this._isPinching = true;
+      const chart = this.chartRef.current;
+      if (!chart) return;
+      if (!this._pinch) { this._pinch = { prevDist: this._pd(e), prevMidX: this._pmx(e) }; return; }
+
+      const newDist = this._pd(e);
+      const newMidX = this._pmx(e);
+      const range = chart.timeScale().getVisibleLogicalRange();
+      if (range) {
+        const span = range.to - range.from;
+        // Pinch: scale by ratio of previous vs current finger distance
+        const scaleRatio = newDist > 1 ? this._pinch.prevDist / newDist : 1;
+        const newSpan = Math.max(3, span * scaleRatio);
+        // Pan: mid-point horizontal drag (pixels → bars)
+        const rect = this.container.getBoundingClientRect();
+        const pixPerBar = rect.width / Math.max(span, 1);
+        const panBars = -(newMidX - this._pinch.prevMidX) / pixPerBar;
+        // Zoom centered on pinch midpoint
+        const midRatio = Math.max(0, Math.min(1, (newMidX - rect.left) / rect.width));
+        const zoomCenter = range.from + span * midRatio;
+        const newFrom = zoomCenter - newSpan * midRatio + panBars;
+        const newTo   = zoomCenter + newSpan * (1 - midRatio) + panBars;
+        chart.timeScale().setVisibleLogicalRange({ from: newFrom, to: newTo });
+      }
+      this._pinch = { prevDist: newDist, prevMidX: newMidX };
+      return;
+    }
+    // Single touch — drawing (only when a drawing tool is active)
+    if (this._isPinching) return;
+    if (this.tool === "cursor" || this.tool === "eraser") return;
+    e.preventDefault();
     const { x, y } = this._xy(e);
-    this._schedulePreview(x, y);  // RAF-throttled, same path as mouse
+    this._schedulePreview(x, y);
   }
   private _onTE(e: TouchEvent) {
-    if (this.tool === "cursor" || this.tool === "eraser") return; e.preventDefault();
-    const { x, y } = this._xy(e); this._handlePt(x, y);
+    if (e.touches.length === 0) {
+      // All fingers lifted — end any pinch sequence; do NOT fire a drawing click
+      if (this._isPinching) { this._isPinching = false; this._pinch = null; return; }
+      this._pinch = null;
+    }
+    if (this._isPinching && e.touches.length < 2) { this._isPinching = false; return; }
+    if (this.tool === "cursor" || this.tool === "eraser") return;
+    e.preventDefault();
+    const { x, y } = this._xy(e);
+    this._handlePt(x, y);
   }
 
   // ── Cancel ──────────────────────────────────────────────────────────────────

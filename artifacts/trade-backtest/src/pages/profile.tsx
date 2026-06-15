@@ -100,16 +100,20 @@ export default function ProfilePage() {
 
       {/* Hero card */}
       <div className="rounded-3xl p-6 relative overflow-hidden" style={{
-        background: "linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(168,85,247,0.06) 100%)",
-        border: "1px solid rgba(99,102,241,0.2)",
+        background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)",
+        border: "1px solid rgba(255,255,255,0.14)",
+        backdropFilter: "blur(24px) saturate(160%)",
+        WebkitBackdropFilter: "blur(24px) saturate(160%)",
+        boxShadow: "0 4px 32px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20)",
       }}>
-        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 80% at 0% 0%, rgba(99,102,241,0.12) 0%, transparent 60%)" }} />
+        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 55% 70% at 0% 0%, rgba(255,255,255,0.06) 0%, transparent 60%)" }} />
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5">
           {/* Avatar */}
           <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0" style={{
-            background: "linear-gradient(135deg, #6366f1, #a855f7)",
+            background: "linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.07))",
             color: "#fff",
-            boxShadow: "0 4px 24px rgba(99,102,241,0.4)",
+            border: "1px solid rgba(255,255,255,0.24)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.28)",
           }}>
             {user.name.charAt(0).toUpperCase()}
           </div>
@@ -149,10 +153,10 @@ export default function ProfilePage() {
       <div>
         <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Trading Statistics</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatBox label="Backtests" value={totalBacktests} icon={BarChart2} color="#6366f1" sub="total runs" />
-          <StatBox label="Strategies" value={totalStrategies} icon={Target} color="#0ea5e9" sub="created" />
+          <StatBox label="Backtests" value={totalBacktests} icon={BarChart2} color="rgba(255,255,255,0.65)" sub="total runs" />
+          <StatBox label="Strategies" value={totalStrategies} icon={Target} color="rgba(255,255,255,0.65)" sub="created" />
           <StatBox label="Avg Return" value={`${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(1)}%`} icon={TrendingUp} color={avgReturn >= 0 ? "#22c55e" : "#ef4444"} sub="across all backtests" />
-          <StatBox label="Win Rate" value={`${avgWinRate.toFixed(1)}%`} icon={Activity} color="#f59e0b" sub="average" />
+          <StatBox label="Win Rate" value={`${avgWinRate.toFixed(1)}%`} icon={Activity} color="rgba(255,255,255,0.65)" sub="average" />
         </div>
       </div>
 
@@ -208,14 +212,14 @@ export default function ProfilePage() {
       <div>
         <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Achievements</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <AchievementRow icon={Zap} label="First Backtest" desc="Run your first strategy backtest" unlocked={totalBacktests >= 1} color="#6366f1" />
-          <AchievementRow icon={Target} label="Strategist" desc="Create 5 trading strategies" unlocked={totalStrategies >= 5} color="#0ea5e9" />
-          <AchievementRow icon={BarChart2} label="Power User" desc="Complete 10 backtests" unlocked={totalBacktests >= 10} color="#f59e0b" />
-          <AchievementRow icon={Trophy} label="Veteran Trader" desc="Complete 100 backtests" unlocked={totalBacktests >= 100} color="#f59e0b" />
-          <AchievementRow icon={TrendingUp} label="Strategy Master" desc="Create 10 unique strategies" unlocked={totalStrategies >= 10} color="#22c55e" />
-          <AchievementRow icon={Star} label="Alpha Seeker" desc="Achieve 50%+ return in a backtest" unlocked={backtestArray.some(b => Number(b.totalReturn ?? 0) >= 50)} color="#ec4899" />
-          <AchievementRow icon={Brain} label="AI Pioneer" desc="Use AI to generate a strategy" unlocked={backtestArray.some(b => (b as any).isAiGenerated)} color="#a855f7" />
-          <AchievementRow icon={Shield} label="Risk Manager" desc="Run 5 stress tests" unlocked={false} color="#14b8a6" />
+          <AchievementRow icon={Zap} label="First Backtest" desc="Run your first strategy backtest" unlocked={totalBacktests >= 1} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={Target} label="Strategist" desc="Create 5 trading strategies" unlocked={totalStrategies >= 5} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={BarChart2} label="Power User" desc="Complete 10 backtests" unlocked={totalBacktests >= 10} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={Trophy} label="Veteran Trader" desc="Complete 100 backtests" unlocked={totalBacktests >= 100} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={TrendingUp} label="Strategy Master" desc="Create 10 unique strategies" unlocked={totalStrategies >= 10} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={Star} label="Alpha Seeker" desc="Achieve 50%+ return in a backtest" unlocked={backtestArray.some(b => Number(b.totalReturn ?? 0) >= 50)} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={Brain} label="AI Pioneer" desc="Use AI to generate a strategy" unlocked={backtestArray.some(b => (b as any).isAiGenerated)} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={Shield} label="Risk Manager" desc="Run 5 stress tests" unlocked={false} color="rgba(255,255,255,0.80)" />
         </div>
       </div>
 
@@ -224,9 +228,9 @@ export default function ProfilePage() {
         <p className="text-[10px] uppercase tracking-widest font-mono mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>Account</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { label: "Subscription & Plans", desc: "Manage your plan", icon: CreditCard, href: "/pricing", color: "#6366f1" },
-            { label: "Billing History", desc: "View invoices", icon: BarChart2, href: "/billing", color: "#0ea5e9" },
-            { label: "Settings", desc: "Preferences & security", icon: Settings, href: "/settings", color: "#f59e0b" },
+            { label: "Subscription & Plans", desc: "Manage your plan", icon: CreditCard, href: "/pricing", color: "rgba(255,255,255,0.65)" },
+            { label: "Billing History", desc: "View invoices", icon: BarChart2, href: "/billing", color: "rgba(255,255,255,0.65)" },
+            { label: "Settings", desc: "Preferences & security", icon: Settings, href: "/settings", color: "rgba(255,255,255,0.65)" },
           ].map(item => (
             <Link key={item.href} href={item.href}>
               <div className="p-4 rounded-2xl border cursor-pointer group hover:scale-[1.01] transition-all" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }}>

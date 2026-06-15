@@ -62,15 +62,16 @@ const ANIM_CSS = `
   color: rgba(255,255,255,0.85);
 }
 .cm-btn-primary {
-  background: #0A84FF;
-  color: #fff;
+  background: rgba(255,255,255,0.92);
+  color: #050505;
   border: none;
   border-radius: 10px;
   transition: all 0.15s ease;
   cursor: pointer;
+  font-weight: 600;
 }
 .cm-btn-primary:hover:not(:disabled) {
-  background: #0071e3;
+  background: rgba(255,255,255,1);
   transform: scale(1.02);
 }
 .cm-btn-primary:disabled {
@@ -86,7 +87,7 @@ const ANIM_CSS = `
   transition: border-color 0.15s ease;
 }
 .cm-input:focus {
-  border-color: rgba(10,132,255,0.5);
+  border-color: rgba(255,255,255,0.30);
 }
 .cm-post-card {
   background: rgba(255,255,255,0.03);
