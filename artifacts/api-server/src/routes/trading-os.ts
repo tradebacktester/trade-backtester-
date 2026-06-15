@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import {
   db, backtestsTable, tradesTable, journalEntriesTable, paperTradesTable,
 } from "@workspace/db";
-import { extractTraderProfile, type TraderProfile } from "../lib/pattern-extractor";
+import { extractTraderProfile, GHOST_ARCHETYPES, type TraderProfile } from "../lib/pattern-extractor";
 import { verifyJwt } from "../lib/jwt";
 import OpenAI from "openai";
 import pino from "pino";
@@ -260,12 +260,12 @@ router.post("/trading-os/ghost", async (req: Request, res: Response): Promise<vo
     const durationDays = typeof b["durationDays"] === "number" ? b["durationDays"] : 1;
 
     const profile  = await extractTraderProfile(userId);
-    const allTrades = [...profile.winningTrades, ...profile.losingTrades];
+    const personalTrades = [...profile.winningTrades, ...profile.losingTrades];
 
-    if (allTrades.length === 0) {
-      res.json({ similarityScore: 0, matches: [], stats: null, message: "No historical trades to compare against. Run backtests first." });
-      return;
-    }
+    // Fall back to platform archetype library when no personal history exists so Ghost Mode
+    // gives meaningful comparisons from day one instead of a dead-end empty state.
+    const isArchetypeFallback = personalTrades.length === 0;
+    const allTrades = isArchetypeFallback ? GHOST_ARCHETYPES : personalTrades;
 
     const scored = allTrades.map(trade => {
       let score = 0;
@@ -316,6 +316,8 @@ router.post("/trading-os/ghost", async (req: Request, res: Response): Promise<vo
         avgWinReturn:   Math.round(avgWinRet * 100) / 100,
         avgLossReturn:  Math.round(avgLossRet * 100) / 100,
       } : null,
+      isArchetypeFallback,
+      archetypeNote: isArchetypeFallback ? "Showing platform-wide trade patterns. Run backtests to unlock your personal Ghost Mode." : undefined,
     });
   } catch (err) {
     logger.error(err, "trading-os/ghost error");
@@ -463,15 +465,51 @@ router.get("/trading-os/coach-briefing", async (req: Request, res: Response): Pr
     const profile = await extractTraderProfile(userId);
 
     if (profile.totalTrades === 0 && profile.backtestCount === 0) {
-      res.json({
-        greeting:      "Welcome to Trade Lab, Trader.",
-        keyInsight:    "Your coaching journey starts with your first backtest. Run one now to unlock your personalized daily briefing.",
-        sessionAdvice: "Explore the Strategy Lab to get started.",
-        todayGoal:     "Complete your first backtest and journal the results.",
-        warning:       null,
-        generatedAt:   new Date().toISOString(),
-        source:        "system",
-      });
+      // New user — generate an AI-powered onboarding briefing with a trading lesson for the day.
+      const groqKey = process.env["GROQ_API_KEY"];
+      if (!groqKey) {
+        res.json({
+          greeting: "Welcome to TradeLab, Trader.",
+          keyInsight: "Your coaching journey starts with your first backtest. Run one now to unlock personalized daily briefings.",
+          sessionAdvice: "Start with a simple SMA Crossover strategy on BTCUSDT to learn the platform.",
+          todayGoal: "Complete your first backtest and review the equity curve.",
+          warning: null,
+          generatedAt: new Date().toISOString(),
+          source: "system",
+        });
+        return;
+      }
+      const openai = new OpenAI({ apiKey: groqKey, baseURL: "https://api.groq.com/openai/v1" });
+      const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+      const onboardPrompt = `You are a world-class trading coach welcoming a brand new trader to TradeLab on ${today}. Generate an inspiring, actionable first-day coaching briefing. Respond ONLY with valid JSON:
+{
+  "greeting": "<personalized welcome that feels human and energizing, 1 sentence>",
+  "keyInsight": "<a genuinely useful trading principle or market insight for today — make it specific and educational, 2 sentences>",
+  "sessionAdvice": "<concrete first step they should take on TradeLab today — specific feature name and action>",
+  "todayGoal": "<one clear, achievable goal for their first session on the platform>",
+  "warning": "<one common beginner mistake to avoid — keep it concise>"
+}`;
+      try {
+        const aiResp = await openai.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: onboardPrompt }],
+          max_tokens: 400,
+          temperature: 0.75,
+          response_format: { type: "json_object" },
+        });
+        const parsed = JSON.parse(aiResp.choices[0]?.message?.content ?? "{}");
+        res.json({ ...parsed, generatedAt: new Date().toISOString(), source: "ai_onboarding" });
+      } catch {
+        res.json({
+          greeting: "Welcome to TradeLab, Trader.",
+          keyInsight: "The best traders are students first. Start by exploring the Strategy Lab and running your first backtest.",
+          sessionAdvice: "Create an SMA Crossover strategy on BTCUSDT and run a 1-year backtest to see how it performs.",
+          todayGoal: "Complete your first backtest and review the equity curve and trade list.",
+          warning: "Avoid over-optimizing parameters on your first run — let the data speak first.",
+          generatedAt: new Date().toISOString(),
+          source: "system",
+        });
+      }
       return;
     }
 

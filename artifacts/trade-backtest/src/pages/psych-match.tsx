@@ -123,6 +123,59 @@ function StatChip({ label, value, color }: { label: string; value: string; color
   );
 }
 
+const PSYCH_QUESTIONS = [
+  {
+    id: "holdDuration",
+    q: "How long do you plan to hold most trades?",
+    options: ["Under 4 hours", "Several hours to 1 day", "2–5 days", "1–4 weeks"],
+    values: ["intraday", "day", "swing_short", "swing_long"],
+  },
+  {
+    id: "lossReaction",
+    q: "When a trade moves 5% against you, you typically:",
+    options: ["Cut it immediately — capital preservation first", "Wait for my stop loss level", "Hold and re-evaluate my thesis", "Scale in at a better price"],
+    values: ["cut", "stop", "hold", "add"],
+  },
+  {
+    id: "riskTolerance",
+    q: "What average loss per trade are you comfortable with?",
+    options: ["Under 1% of account", "1–3% of account", "3–7% of account", "7%+ of account"],
+    values: ["ultra_low", "low", "medium", "high"],
+  },
+  {
+    id: "tradeFreq",
+    q: "How many trades per week feels optimal to you?",
+    options: ["20+ trades (very active)", "5–20 trades", "1–5 trades", "0–1 trade (very selective)"],
+    values: ["very_high", "high", "low", "very_low"],
+  },
+  {
+    id: "philosophy",
+    q: "Your trading approach aligns most with:",
+    options: ["\u201cThe trend is my friend\u201d \u2014 follow momentum", "Counter-trend \u2014 catch reversals at extremes", "Breakouts from consolidation zones", "Range trading \u2014 buy lows, sell highs"],
+    values: ["trend", "reversal", "breakout", "range"],
+  },
+];
+
+function answersToProfile(a: Record<string, string>): TradeProfile {
+  const holdMap: Record<string, number>      = { intraday: 0.3, day: 0.8, swing_short: 3.5, swing_long: 14 };
+  const lossRatioMap: Record<string, number> = { cut: 0.3, stop: 0.6, hold: 1.0, add: 1.8 };
+  const lossPctMap: Record<string, number>   = { ultra_low: 0.8, low: 2, medium: 5, high: 9 };
+  const freqMap: Record<string, number>      = { very_high: 40, high: 12, low: 3, very_low: 1 };
+  const holdDays  = holdMap[a["holdDuration"] ?? ""]    ?? 3.5;
+  const lossRatio = lossRatioMap[a["lossReaction"] ?? ""] ?? 0.6;
+  const lossPct   = lossPctMap[a["riskTolerance"] ?? ""] ?? 2;
+  const freq      = freqMap[a["tradeFreq"] ?? ""]       ?? 3;
+  const isTrend   = a["philosophy"] === "trend" || a["philosophy"] === "breakout";
+  const winRate   = isTrend ? 56 : 44;
+  const winPct    = Number((lossPct * 1.6).toFixed(2));
+  const pf        = Number(((winPct * (winRate / 100)) / (lossPct * (1 - winRate / 100))).toFixed(2));
+  return {
+    totalTrades: 0, winRate, avgHoldingDays: holdDays, avgWinPct: winPct, avgLossPct: lossPct,
+    profitFactor: pf, maxConsecutiveLosses: Math.ceil(2.5 / Math.max(winRate / 100, 0.3)),
+    avgTradesPerBacktest: freq, preferredSymbols: ["BTCUSDT"], lossToleranceRatio: lossRatio, backtestCount: 0,
+  };
+}
+
 export default function PsychMatchPage() {
   const { user, token } = useAuth();
   const { toast } = useToast();
@@ -131,6 +184,8 @@ export default function PsychMatchPage() {
   const [result, setResult] = useState<PsychResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [questStep, setQuestStep] = useState(0);
+  const [questAnswers, setQuestAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!token) { setLoadingProfile(false); return; }
@@ -207,6 +262,32 @@ export default function PsychMatchPage() {
     }
     buildProfile();
   }, [token]);
+
+  async function handleQuestionnaireAnalyze() {
+    if (!token) return;
+    const unanswered = PSYCH_QUESTIONS.find(q => !questAnswers[q.id]);
+    if (unanswered) { setError(`Please answer: "${unanswered.q}"`); return; }
+    setLoading(true); setError(null); setResult(null);
+    try {
+      const syntheticProfile = answersToProfile(questAnswers);
+      const questionnaire = {
+        holdDuration:  PSYCH_QUESTIONS[0]!.options[PSYCH_QUESTIONS[0]!.values.indexOf(questAnswers["holdDuration"] ?? "")] ?? questAnswers["holdDuration"],
+        lossReaction:  PSYCH_QUESTIONS[1]!.options[PSYCH_QUESTIONS[1]!.values.indexOf(questAnswers["lossReaction"] ?? "")] ?? questAnswers["lossReaction"],
+        riskTolerance: PSYCH_QUESTIONS[2]!.options[PSYCH_QUESTIONS[2]!.values.indexOf(questAnswers["riskTolerance"] ?? "")] ?? questAnswers["riskTolerance"],
+        tradeFrequency:PSYCH_QUESTIONS[3]!.options[PSYCH_QUESTIONS[3]!.values.indexOf(questAnswers["tradeFreq"] ?? "")] ?? questAnswers["tradeFreq"],
+        philosophy:    PSYCH_QUESTIONS[4]!.options[PSYCH_QUESTIONS[4]!.values.indexOf(questAnswers["philosophy"] ?? "")] ?? questAnswers["philosophy"],
+      };
+      const res = await fetch(`${API}/ai/psych-match`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ profile: syntheticProfile, questionnaire }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Analysis failed"); return; }
+      setResult(data);
+    } catch { setError("Failed to connect to AI service."); }
+    finally { setLoading(false); }
+  }
 
   async function handleAnalyze() {
     if (!profile || !token) return;
@@ -295,26 +376,100 @@ export default function PsychMatchPage() {
           <Loader2 className="h-6 w-6 animate-spin" style={{ color: A.purple }} />
         </div>
       ) : !profile ? (
-        <div className="rounded-2xl p-10 flex flex-col items-center gap-4 text-center"
-          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-          <div className="h-14 w-14 rounded-2xl flex items-center justify-center"
-            style={{ background: "hsl(var(--border))" }}>
-            <AlertCircle className="h-7 w-7" style={{ color: "hsl(var(--muted-foreground))" }} />
+        /* ── Questionnaire mode — no backtest history yet ────────────────────── */
+        !result ? (
+          <div className="rounded-2xl overflow-hidden"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+            {/* Header + progress counter */}
+            <div className="px-5 pt-4 pb-3 flex items-center gap-3"
+              style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+              <div className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: `${A.purple}20`, border: `1px solid ${A.purple}30` }}>
+                <Brain className="h-4 w-4" style={{ color: A.purple }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold leading-none" style={{ color: "hsl(var(--foreground))" }}>
+                  Personality Assessment
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  No backtests yet? Answer 5 questions to get your match.
+                </p>
+              </div>
+              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full flex-shrink-0"
+                style={{ background: `${A.purple}12`, color: A.purple, border: `1px solid ${A.purple}25` }}>
+                {questStep + 1}&nbsp;/&nbsp;{PSYCH_QUESTIONS.length}
+              </span>
+            </div>
+            {/* Progress bar */}
+            <div className="h-0.5 w-full" style={{ background: "hsl(var(--border))" }}>
+              <div className="h-full transition-all duration-300 ease-out"
+                style={{ background: A.purple, width: `${((questStep + 1) / PSYCH_QUESTIONS.length) * 100}%` }} />
+            </div>
+            {/* Question body */}
+            <div className="p-5 space-y-4">
+              <p className="text-sm font-semibold leading-snug" style={{ color: "hsl(var(--foreground))" }}>
+                {PSYCH_QUESTIONS[questStep]!.q}
+              </p>
+              <div className="space-y-2">
+                {PSYCH_QUESTIONS[questStep]!.options.map((opt, idx) => {
+                  const val = PSYCH_QUESTIONS[questStep]!.values[idx]!;
+                  const isSelected = questAnswers[PSYCH_QUESTIONS[questStep]!.id] === val;
+                  return (
+                    <button key={idx}
+                      onClick={() => setQuestAnswers(prev => ({ ...prev, [PSYCH_QUESTIONS[questStep]!.id]: val }))}
+                      className="w-full text-left px-4 py-3 rounded-xl text-sm transition-all"
+                      style={{
+                        background: isSelected ? `${A.purple}18` : "hsl(var(--background))",
+                        border: isSelected ? `1.5px solid ${A.purple}60` : "1px solid hsl(var(--border))",
+                        color: isSelected ? A.purple : "hsl(var(--foreground))",
+                        fontWeight: isSelected ? 600 : 400,
+                      }}>
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Nav row */}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  onClick={() => setQuestStep(s => Math.max(0, s - 1))}
+                  disabled={questStep === 0}
+                  className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity"
+                  style={{ border: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                  ← Back
+                </button>
+                {questStep < PSYCH_QUESTIONS.length - 1 ? (
+                  <button
+                    onClick={() => setQuestStep(s => s + 1)}
+                    disabled={!questAnswers[PSYCH_QUESTIONS[questStep]!.id]}
+                    className="text-xs px-4 py-1.5 rounded-lg font-medium disabled:opacity-40 transition-all"
+                    style={{
+                      background: questAnswers[PSYCH_QUESTIONS[questStep]!.id] ? A.purple : "hsl(var(--border))",
+                      color: questAnswers[PSYCH_QUESTIONS[questStep]!.id] ? "#fff" : "hsl(var(--muted-foreground))",
+                    }}>
+                    Next →
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleQuestionnaireAnalyze}
+                    disabled={!questAnswers[PSYCH_QUESTIONS[questStep]!.id] || loading}
+                    className="flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg font-semibold disabled:opacity-50 transition-all"
+                    style={{ background: `linear-gradient(135deg, ${A.indigo}, ${A.purple})`, color: "#fff" }}>
+                    {loading
+                      ? <><Loader2 className="h-3 w-3 animate-spin" />Analyzing…</>
+                      : <><Brain className="h-3 w-3" />Get My Match</>}
+                  </button>
+                )}
+              </div>
+              {error && (
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs"
+                  style={{ background: `${A.red}10`, border: `1px solid ${A.red}28`, color: A.red }}>
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" /> {error}
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>
-              No completed backtests yet
-            </p>
-            <p className="text-xs max-w-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
-              Run at least one complete backtest with trades to generate your psychology profile.
-            </p>
-          </div>
-          <Link href="/backtests/new">
-            <Button size="sm" style={{ background: A.indigo, color: "#fff" }}>
-              Run a Backtest
-            </Button>
-          </Link>
-        </div>
+        ) : null
       ) : (
         <div className="rounded-2xl overflow-hidden"
           style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
@@ -553,7 +708,7 @@ export default function PsychMatchPage() {
           {/* Re-analyze */}
           <div className="flex items-center gap-3 pt-1">
             <button
-              onClick={handleAnalyze}
+              onClick={profile ? handleAnalyze : handleQuestionnaireAnalyze}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-105"
               style={{

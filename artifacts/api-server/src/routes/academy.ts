@@ -1305,4 +1305,60 @@ Difficulty level: ${diff}. Make content practical, actionable, and trader-focuse
   }
 });
 
+// Auto-seed: called once on server startup if the courses table is empty.
+export async function ensureAcademySeed(): Promise<void> {
+  const existing = await db.select({ id: academyCoursesTable.id }).from(academyCoursesTable).limit(1);
+  if (existing.length > 0) return; // already seeded
+
+  logger.info("Academy table empty — running auto-seed…");
+  let added = 0;
+  for (const c of SEED_COURSES) {
+    const dup = await db.select({ id: academyCoursesTable.id })
+      .from(academyCoursesTable).where(sql`lower(title) = lower(${c.title})`).limit(1);
+    if (dup.length > 0) continue;
+
+    const [inserted] = await db.insert(academyCoursesTable).values(c).returning({ id: academyCoursesTable.id });
+    const courseId = inserted.id;
+    added++;
+
+    const lessons = SEED_LESSONS[c.title];
+    if (lessons) {
+      for (let i = 0; i < lessons.length; i++) {
+        const l = lessons[i];
+        await db.insert(academyLessonsTable).values({
+          courseId,
+          title: `${c.title}: ${l.titleSuffix}`,
+          type: l.type,
+          content: l.content,
+          estimatedMinutes: l.estimatedMinutes,
+          sortOrder: i + 1,
+        });
+      }
+    } else {
+      await db.insert(academyLessonsTable).values({
+        courseId,
+        title: `${c.title}: Introduction`,
+        type: "article",
+        content: `# ${c.title}\n\n${c.description}\n\nThis lesson is coming soon.`,
+        estimatedMinutes: c.estimatedMinutes,
+        sortOrder: 1,
+      });
+    }
+
+    const quizzes = SEED_QUIZZES[c.title];
+    if (quizzes) {
+      for (let i = 0; i < quizzes.length; i++) {
+        const q = quizzes[i];
+        await db.insert(academyQuizQuestionsTable).values({ courseId, ...q, sortOrder: i + 1 });
+      }
+    } else {
+      await db.insert(academyQuizQuestionsTable).values([
+        { courseId, sortOrder: 1, question: `What is the primary focus of ${c.title}?`, type: "mcq", options: ["Technical analysis only", "The core concepts covered in this module", "Fundamental analysis", "News trading"], correctIndex: 1, explanation: `${c.title} focuses on the key concepts described in this module.` },
+        { courseId, sortOrder: 2, question: `${c.title} is only relevant to professional traders.`, type: "true_false", options: ["True", "False"], correctIndex: 1, explanation: "The concepts are valuable for traders at all levels." },
+      ]);
+    }
+  }
+  logger.info(`Academy auto-seed complete: ${added} courses added.`);
+}
+
 export default router;

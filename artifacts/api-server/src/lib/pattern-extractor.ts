@@ -253,3 +253,38 @@ export async function extractTraderProfile(userId: number): Promise<TraderProfil
     backtestCount: completed.length,
   };
 }
+
+// Representative archetype trades used as Ghost Mode baseline when a user has no personal history.
+// Covers crypto, forex, stocks, and commodities with realistic win/loss distributions.
+export const GHOST_ARCHETYPES: Array<{
+  symbol: string; side: string; durationDays: number; pnlPercent: number; pnl: number;
+  strategyType: string; entryDate: string; exitDate: string; entryPrice: number; exitPrice: number;
+}> = [
+  { symbol: "BTCUSDT",  side: "long",  durationDays: 3.2, pnlPercent:  8.4,  pnl:  840,  strategyType: "sma_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "BTCUSDT",  side: "long",  durationDays: 1.1, pnlPercent: -2.3,  pnl: -230,  strategyType: "rsi",             entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "BTCUSDT",  side: "short", durationDays: 2.5, pnlPercent:  5.1,  pnl:  510,  strategyType: "macd",            entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "BTCUSDT",  side: "short", durationDays: 0.9, pnlPercent: -3.8,  pnl: -380,  strategyType: "ema_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "ETHUSDT",  side: "long",  durationDays: 5.5, pnlPercent: 12.1,  pnl: 1210,  strategyType: "macd",            entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "ETHUSDT",  side: "long",  durationDays: 0.8, pnlPercent: -3.1,  pnl: -310,  strategyType: "bollinger_bands", entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "ETHUSDT",  side: "short", durationDays: 4.2, pnlPercent:  7.8,  pnl:  780,  strategyType: "ema_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "SOLUSDT",  side: "long",  durationDays: 2.1, pnlPercent: 15.4,  pnl: 1540,  strategyType: "ema_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "SOLUSDT",  side: "long",  durationDays: 1.5, pnlPercent: -4.2,  pnl: -420,  strategyType: "sma_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "BNBUSDT",  side: "long",  durationDays: 4.8, pnlPercent:  6.3,  pnl:  630,  strategyType: "macd",            entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "XRPUSDT",  side: "long",  durationDays: 3.5, pnlPercent:  9.7,  pnl:  970,  strategyType: "rsi",             entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "XRPUSDT",  side: "short", durationDays: 1.2, pnlPercent: -5.6,  pnl: -560,  strategyType: "bollinger_bands", entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "ADAUSDT",  side: "long",  durationDays: 7.1, pnlPercent: 18.2,  pnl: 1820,  strategyType: "sma_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "DOGEUSDT", side: "long",  durationDays: 2.4, pnlPercent: -2.8,  pnl: -280,  strategyType: "macd",            entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "AVAXUSDT", side: "long",  durationDays: 3.9, pnlPercent: 11.5,  pnl: 1150,  strategyType: "ema_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "LINKUSDT", side: "long",  durationDays: 2.7, pnlPercent:  7.2,  pnl:  720,  strategyType: "rsi",             entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "EURUSD",   side: "long",  durationDays: 1.5, pnlPercent:  0.8,  pnl:   80,  strategyType: "ema_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "EURUSD",   side: "short", durationDays: 2.1, pnlPercent: -0.5,  pnl:  -50,  strategyType: "macd",            entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "GBPUSD",   side: "long",  durationDays: 3.2, pnlPercent:  1.2,  pnl:  120,  strategyType: "bollinger_bands", entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "USDJPY",   side: "short", durationDays: 4.5, pnlPercent:  1.8,  pnl:  180,  strategyType: "sma_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "AUDUSD",   side: "long",  durationDays: 2.8, pnlPercent: -0.9,  pnl:  -90,  strategyType: "rsi",             entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "AAPL",     side: "long",  durationDays: 8.3, pnlPercent:  5.4,  pnl:  540,  strategyType: "sma_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "NVDA",     side: "long",  durationDays: 5.1, pnlPercent: 14.2,  pnl: 1420,  strategyType: "macd",            entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "NVDA",     side: "long",  durationDays: 2.4, pnlPercent: -6.8,  pnl: -680,  strategyType: "rsi",             entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "TSLA",     side: "long",  durationDays: 6.2, pnlPercent:  8.9,  pnl:  890,  strategyType: "ema_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "XAUUSD",   side: "long",  durationDays: 3.8, pnlPercent:  2.1,  pnl:  210,  strategyType: "bollinger_bands", entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+  { symbol: "WTIUSD",   side: "short", durationDays: 2.5, pnlPercent:  3.4,  pnl:  340,  strategyType: "sma_crossover",   entryDate: "", exitDate: "", entryPrice: 0, exitPrice: 0 },
+];

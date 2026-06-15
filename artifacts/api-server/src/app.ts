@@ -6,6 +6,7 @@ import pinoHttp from "pino-http";
 import path from "path";
 import fs from "fs";
 import router from "./routes";
+import { ensureAcademySeed } from "./routes/academy";
 import { logger } from "./lib/logger";
 import { createRateLimit } from "./lib/rate-limit";
 import { db, alertsTable, alertNotificationsTable } from "@workspace/db";
@@ -90,6 +91,9 @@ async function runAlertEvaluationLoop() {
 }
 
 setInterval(() => { runAlertEvaluationLoop().catch(() => {}); }, 30_000);
+
+// Auto-seed academy courses on startup (no-op if already seeded)
+ensureAcademySeed().catch(err => logger.error({ err }, "Academy auto-seed failed"));
 
 // ── Security headers (S-12) ───────────────────────────────────────────────────
 // helmet() sets X-Frame-Options, X-Content-Type-Options, HSTS, Referrer-Policy,
