@@ -292,7 +292,12 @@ function makeChartOptions(hideTimeScale = false, logScale = false, theme: "dark"
 
 export default function ChartPage() {
   // ── Core state ─────────────────────────────────────────────────────
-  const [symbol, setSymbol] = useState("BTCUSDT");
+  const [symbol, setSymbol] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlSym = params.get("symbol");
+    if (urlSym) return urlSym;
+    return localStorage.getItem("market_sel_last_symbol") ?? "BTCUSDT";
+  });
   const [interval, setInterval] = useState<GetKlinesInterval>(GetKlinesInterval["1d"]);
   const [ohlcDisplay, setOhlcDisplay] = useState<OhlcState>(null);
 

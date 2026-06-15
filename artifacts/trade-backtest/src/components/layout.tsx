@@ -20,8 +20,9 @@ const SECTIONS = [
     id: "trade",
     label: "Trade",
     icon: CandlestickChart,
-    primary: "/chart",
+    primary: "/market",
     items: [
+      { title: "Markets",        url: "/market",  icon: Globe,            desc: "Browse & discover all assets" },
       { title: "Live Charts",    url: "/chart",   icon: CandlestickChart, desc: "Advanced charting & analysis" },
       { title: "Paper Trading",  url: "/demo",    icon: Play,             desc: "Simulated trading practice" },
       { title: "Alert Engine",   url: "/alerts",  icon: Bell,             desc: "Multi-condition smart alerts" },
@@ -114,7 +115,7 @@ const SECTIONS = [
 
 /* ── Route → section mapping ───────────────────────────────────────── */
 const ROUTE_SECTION: Record<string, string> = {
-  "/chart": "trade",       "/demo": "trade",        "/alerts": "trade",
+  "/chart": "trade",       "/demo": "trade",        "/alerts": "trade",  "/market": "trade",
   "/ai": "research",       "/news": "research",    "/calculator": "research",
   "/marketplace": "research",
   "/strategies": "strategy-lab",  "/backtests": "strategy-lab",
@@ -137,7 +138,7 @@ function getActiveSection(location: string): string | null {
 /* ── Mobile dock — exactly 5 primary items ─────────────────────────── */
 // Home item opens the overflow sheet (community, account, theme, auth)
 const DOCK_ITEMS = [
-  { title: "Trade",    url: "/chart",      icon: CandlestickChart, sectionId: "trade" },
+  { title: "Trade",    url: "/market",     icon: CandlestickChart, sectionId: "trade" },
   { title: "Research", url: "/ai",         icon: Search,           sectionId: "research" },
   { title: "Home",     url: null,          icon: LayoutDashboard,  sectionId: null,         home: true },
   { title: "Strategy", url: "/strategies", icon: FlaskConical,     sectionId: "strategy-lab" },

@@ -34,6 +34,7 @@ import CommunityPage from "@/pages/community";
 import PricingPage from "@/pages/pricing";
 import BillingPage from "@/pages/billing";
 import ToolsPage from "@/pages/tools";
+import MarketSelectionPage from "@/pages/market-selection";
 import AiBuilder from "@/pages/strategies/ai-builder";
 import StressTestPage from "@/pages/stress-test";
 import StrategyDnaPage from "@/pages/strategy-dna";
@@ -122,6 +123,7 @@ function Router() {
       <Route path="/backtests/batch" component={BatchBacktest} />
       <Route path="/backtests/:id" component={BacktestDetail} />
 
+      <Route path="/market" component={MarketSelectionPage} />
       <Route path="/chart" component={() => (
         <Suspense fallback={<ChartFallback />}>
           <ChartPage />
