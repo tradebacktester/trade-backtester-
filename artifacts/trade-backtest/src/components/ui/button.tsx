@@ -17,11 +17,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "rounded-xl border text-primary-foreground" +
-          " [background:linear-gradient(135deg,hsl(250,100%,65%)_0%,hsl(270,100%,60%)_100%)]" +
-          " [border-color:rgba(255,255,255,0.22)]" +
-          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.28),var(--shadow-btn)]" +
-          " hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.36),var(--shadow-btn-hover),0_0_40px_rgba(99,102,241,0.35)] hover:-translate-y-px hover:scale-[1.01]" +
+          "rounded-xl border text-[#0a0a0a]" +
+          " [background:linear-gradient(170deg,#ffffff_0%,#d1d1d6_100%)]" +
+          " [border-color:rgba(255,255,255,0.60)]" +
+          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.90),inset_0_-1px_0_rgba(0,0,0,0.12),var(--shadow-btn)]" +
+          " hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.08),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.01]" +
           " active:scale-[0.98] active:translate-y-0 active:[box-shadow:var(--shadow-btn-active)]",
         destructive:
           "rounded-xl border text-destructive-foreground" +
@@ -53,10 +53,10 @@ const buttonVariants = cva(
           " active:scale-[0.98]",
         cyan:
           "rounded-xl font-bold text-white backdrop-blur-[44px]" +
-          " [background:linear-gradient(135deg,rgba(99,102,241,0.80)_0%,rgba(139,92,246,0.80)_100%)]" +
+          " [background:rgba(255,255,255,0.12)]" +
           " [border:1px_solid_rgba(255,255,255,0.22)]" +
-          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.28),var(--shadow-btn)]" +
-          " hover:[background:linear-gradient(135deg,rgba(99,102,241,0.90)_0%,rgba(139,92,246,0.90)_100%)] hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.36),var(--shadow-btn-hover),0_0_50px_rgba(99,102,241,0.40)] hover:-translate-y-px hover:scale-[1.02]" +
+          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.30),var(--shadow-btn)]" +
+          " hover:[background:rgba(255,255,255,0.18)] hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.40),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
           " active:scale-[0.97]",
         link: "text-primary underline-offset-4 hover:underline font-medium",
       },

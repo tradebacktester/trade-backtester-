@@ -185,48 +185,48 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   DARK THEME — iPhone Liquid Glass / Spatial UI
-   Deep space navy + vivid gradient orbs + true glass translucency
+   DARK THEME — Apple Black / Grey / White Glass
+   Pure black + white specular highlights + true glass translucency
    ════════════════════════════════════════════════════════════════════ */
 .dark {
-  --background: 232 60% 5%;          /* #070A14 deep space navy */
-  --foreground: 0 0% 98%;
-  --border: 235 30% 14%;             /* dark navy border */
+  --background: 0 0% 4%;             /* #0a0a0a pure near-black */
+  --foreground: 0 0% 97%;
+  --border: 0 0% 14%;                /* dark grey border */
 
-  --card: 234 35% 9%;                /* #0F1220 elevated surface */
-  --card-foreground: 0 0% 98%;
-  --card-border: 235 30% 14%;
+  --card: 0 0% 8%;                   /* #141414 elevated dark surface */
+  --card-foreground: 0 0% 97%;
+  --card-border: 0 0% 14%;
 
-  --popover: 234 40% 7%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 235 25% 12%;
+  --popover: 0 0% 7%;
+  --popover-foreground: 0 0% 97%;
+  --popover-border: 0 0% 12%;
 
-  --primary: 250 100% 68%;           /* vivid indigo-violet */
-  --primary-foreground: 0 0% 100%;
+  --primary: 0 0% 100%;              /* pure white */
+  --primary-foreground: 0 0% 4%;     /* black text on white button */
 
-  --secondary: 234 35% 9%;
+  --secondary: 0 0% 10%;
   --secondary-foreground: 0 0% 90%;
 
-  --muted: 234 30% 8%;
-  --muted-foreground: 235 15% 55%;
+  --muted: 0 0% 8%;
+  --muted-foreground: 0 0% 50%;
 
-  --accent: 234 35% 9%;
-  --accent-foreground: 0 0% 98%;
+  --accent: 0 0% 10%;
+  --accent-foreground: 0 0% 97%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --sidebar: 232 60% 5%;
-  --sidebar-foreground: 235 15% 65%;
-  --sidebar-border: 235 25% 12%;
-  --sidebar-primary: 250 100% 68%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 234 35% 9%;
+  --sidebar: 0 0% 4%;
+  --sidebar-foreground: 0 0% 60%;
+  --sidebar-border: 0 0% 12%;
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 0 0% 4%;
+  --sidebar-accent: 0 0% 10%;
   --sidebar-accent-foreground: 0 0% 90%;
-  --sidebar-ring: 250 60% 50%;
+  --sidebar-ring: 0 0% 70%;
 
-  --input: 235 25% 12%;
-  --ring: 250 100% 68%;
+  --input: 0 0% 12%;
+  --ring: 0 0% 70%;
 
   --chart-1: 250 100% 72%;
   --chart-2: 160 70% 52%;
@@ -237,20 +237,20 @@
   /* Card glass surface — truly translucent liquid glass */
   --card-bg: rgba(255,255,255,0.05);
 
-  /* Dark liquid glass tokens — iPhone Spatial UI */
+  /* Dark liquid glass tokens — Apple Black/Grey/White */
   --glass-bg:            rgba(255,255,255,0.08);
-  --glass-bg-strong:     rgba(20,24,50,0.82);
-  --glass-border:        rgba(255,255,255,0.16);
-  --glass-border-strong: rgba(255,255,255,0.28);
+  --glass-bg-strong:     rgba(18,18,18,0.92);
+  --glass-border:        rgba(255,255,255,0.14);
+  --glass-border-strong: rgba(255,255,255,0.26);
   --glass-specular:      rgba(255,255,255,0.22);
-  --nav-bg:              rgba(10,12,28,0.70);
-  --nav-border:          rgba(255,255,255,0.14);
-  --surface-bg:          rgba(15,18,40,0.75);
-  --sheet-bg:            rgba(10,12,28,0.90);
+  --nav-bg:              rgba(8,8,8,0.78);
+  --nav-border:          rgba(255,255,255,0.12);
+  --surface-bg:          rgba(12,12,12,0.82);
+  --sheet-bg:            rgba(8,8,8,0.92);
   --nav-active-bg:       rgba(255,255,255,0.14);
-  --nav-active-border:   rgba(255,255,255,0.28);
+  --nav-active-border:   rgba(255,255,255,0.26);
   --nav-active-color:    #FFFFFF;
-  --nav-dim-color:       #818CF8;
+  --nav-dim-color:       rgba(255,255,255,0.50);
 
   --opaque-button-border-intensity: 12;
   --elevate-1: rgba(255,255,255,0.04);
@@ -267,35 +267,35 @@
   --shadow-lg:   0 4px 12px rgba(0,0,0,0.80), 0 14px 36px rgba(0,0,0,0.65);
   --shadow-xl:   0 6px 16px rgba(0,0,0,0.85), 0 20px 48px rgba(0,0,0,0.70);
   --shadow-2xl:  0 10px 24px rgba(0,0,0,0.90), 0 32px 70px rgba(0,0,0,0.75);
-  --shadow-nav:  0 1px 0 rgba(255,255,255,0.08), 0 6px 40px rgba(0,0,0,0.80), 0 0 80px rgba(99,102,241,0.08);
+  --shadow-nav:  0 1px 0 rgba(255,255,255,0.10), 0 6px 40px rgba(0,0,0,0.85);
   --shadow-card: 0 2px 8px rgba(0,0,0,0.60), 0 8px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 0 rgba(255,255,255,0.04);
-  --shadow-card-hover: 0 4px 14px rgba(0,0,0,0.65), 0 16px 40px rgba(0,0,0,0.55), 0 0 80px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.24);
-  --shadow-btn:  0 1px 4px rgba(0,0,0,0.70), 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20);
-  --shadow-btn-hover: 0 2px 8px rgba(0,0,0,0.75), 0 6px 20px rgba(0,0,0,0.60), 0 0 30px rgba(99,102,241,0.20), inset 0 1px 0 rgba(255,255,255,0.28);
+  --shadow-card-hover: 0 4px 14px rgba(0,0,0,0.65), 0 16px 40px rgba(0,0,0,0.55), 0 0 60px rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.24);
+  --shadow-btn:  0 1px 4px rgba(0,0,0,0.70), 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28);
+  --shadow-btn-hover: 0 2px 8px rgba(0,0,0,0.75), 0 6px 20px rgba(0,0,0,0.60), 0 0 30px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.36);
   --shadow-btn-active: 0 0 3px rgba(0,0,0,0.65), inset 0 1px 0 rgba(0,0,0,0.20);
   --shadow-tab-active: 0 2px 6px rgba(0,0,0,0.70), 0 4px 14px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.18);
   --shadow-dropdown: 0 8px 24px rgba(0,0,0,0.80), 0 24px 60px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.14);
   --shadow-modal: 0 12px 40px rgba(0,0,0,0.90), 0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.12);
   --shadow-sheet: 0 -4px 20px rgba(0,0,0,0.75), 0 -20px 60px rgba(0,0,0,0.65);
   --shadow-chart: 0 2px 6px rgba(0,0,0,0.70), 0 6px 20px rgba(0,0,0,0.50);
-  --shadow-input-focus: 0 0 0 3px rgba(99,102,241,0.25), 0 2px 6px rgba(0,0,0,0.55);
+  --shadow-input-focus: 0 0 0 3px rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.55);
   --shadow-inner-sm: inset 0 1px 3px rgba(0,0,0,0.60);
   --shadow-inner:    inset 0 2px 8px rgba(0,0,0,0.70);
 
-  /* Premium glow shadows — colored depth */
-  --shadow-glow-cyan:   0 0 24px rgba(6,182,212,0.22), 0 0 60px rgba(6,182,212,0.08);
-  --shadow-glow-indigo: 0 0 20px rgba(99,102,241,0.35), 0 0 50px rgba(99,102,241,0.14);
-  --shadow-glow-green:  0 0 20px rgba(34,197,94,0.32),  0 0 50px rgba(34,197,94,0.12);
-  --shadow-glow-red:    0 0 20px rgba(239,68,68,0.32),  0 0 50px rgba(239,68,68,0.12);
-  --shadow-glow-white:  0 0 24px rgba(255,255,255,0.14), 0 0 60px rgba(255,255,255,0.06);
+  /* Premium glow shadows — white/grey only */
+  --shadow-glow-cyan:   0 0 24px rgba(255,255,255,0.12), 0 0 60px rgba(255,255,255,0.04);
+  --shadow-glow-indigo: 0 0 20px rgba(255,255,255,0.14), 0 0 50px rgba(255,255,255,0.05);
+  --shadow-glow-green:  0 0 20px rgba(34,197,94,0.32),   0 0 50px rgba(34,197,94,0.12);
+  --shadow-glow-red:    0 0 20px rgba(239,68,68,0.32),   0 0 50px rgba(239,68,68,0.12);
+  --shadow-glow-white:  0 0 24px rgba(255,255,255,0.18), 0 0 60px rgba(255,255,255,0.07);
 
   /* Dock — premium liquid glass */
-  --dock-bg: rgba(10,12,30,0.82);
-  --dock-border: rgba(255,255,255,0.16);
-  --dock-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px rgba(255,255,255,0.08), 0 10px 50px rgba(0,0,0,0.85), 0 30px 90px rgba(0,0,0,0.60);
-  --dock-active-bg: rgba(255,255,255,0.12);
-  --dock-active-border: rgba(255,255,255,0.22);
-  --dock-active-glow: 0 0 20px rgba(99,102,241,0.30), 0 0 50px rgba(99,102,241,0.10);
+  --dock-bg: rgba(8,8,8,0.88);
+  --dock-border: rgba(255,255,255,0.14);
+  --dock-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px rgba(255,255,255,0.08), 0 10px 50px rgba(0,0,0,0.90), 0 30px 90px rgba(0,0,0,0.65);
+  --dock-active-bg: rgba(255,255,255,0.14);
+  --dock-active-border: rgba(255,255,255,0.24);
+  --dock-active-glow: 0 0 20px rgba(255,255,255,0.14), 0 0 50px rgba(255,255,255,0.05);
 
   /* Apple spring easing system */
   --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);

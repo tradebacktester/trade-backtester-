@@ -188,19 +188,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const orbBg = isDark
     ? [
-        "radial-gradient(120% 100% at 0% 0%,    rgba(99,102,241,0.70) 0%, transparent 50%)",
-        "radial-gradient(120% 100% at 100% 100%, rgba(6,182,212,0.55)  0%, transparent 50%)",
-        "radial-gradient(120% 100% at 100% 0%,  rgba(139,92,246,0.64)  0%, transparent 50%)",
-        "radial-gradient(120% 100% at 0% 100%,  rgba(236,72,153,0.46)  0%, transparent 50%)",
-        "radial-gradient(70%  70%  at 50% 50%,  rgba(59,130,246,0.28)  0%, transparent 60%)",
-        "#060916",
+        "radial-gradient(ellipse 90% 70% at 15% 20%,  rgba(255,255,255,0.05) 0%, transparent 65%)",
+        "radial-gradient(ellipse 70% 55% at 85% 80%,  rgba(255,255,255,0.04) 0%, transparent 65%)",
+        "radial-gradient(ellipse 60% 50% at 80% 10%,  rgba(255,255,255,0.03) 0%, transparent 60%)",
+        "radial-gradient(ellipse 50% 40% at 20% 90%,  rgba(255,255,255,0.03) 0%, transparent 60%)",
+        "#050505",
       ].join(",")
     : [
-        "radial-gradient(120% 100% at 0% 0%,    rgba(199,210,254,0.90) 0%, transparent 50%)",
-        "radial-gradient(120% 100% at 100% 100%, rgba(165,243,252,0.85) 0%, transparent 50%)",
-        "radial-gradient(120% 100% at 100% 0%,  rgba(216,180,254,0.88) 0%, transparent 50%)",
-        "radial-gradient(120% 100% at 0% 100%,  rgba(252,211,218,0.80) 0%, transparent 50%)",
-        "#e8e8f8",
+        "radial-gradient(ellipse 80% 60% at 15% 20%,  rgba(0,0,0,0.04) 0%, transparent 60%)",
+        "radial-gradient(ellipse 60% 50% at 85% 85%,  rgba(0,0,0,0.03) 0%, transparent 60%)",
+        "#f5f5f7",
       ].join(",");
 
   return (
