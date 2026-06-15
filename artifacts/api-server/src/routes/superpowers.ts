@@ -4,7 +4,7 @@ import {
   tradesTable, equityCurveTable,
 } from "@workspace/db";
 import { eq, desc, inArray, and } from "drizzle-orm";
-import { runBacktest, generatePriceData, classifyRegimes, type RegimePeriod, type OHLCVBar } from "../lib/backtest-engine";
+import { runBacktest, classifyRegimes, type RegimePeriod, type OHLCVBar } from "../lib/backtest-engine";
 import { fetchYahooHistory, isYahooSupported } from "../lib/yahoo-finance";
 import { verifyJwt } from "../lib/jwt";
 import type { Request, Response, NextFunction } from "express";
@@ -355,11 +355,14 @@ router.get("/backtests/:id/regime-analysis", requireAuth, async (req, res): Prom
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
   if (bt.status !== "complete") { res.json({ regimes: [], summary: {} }); return; }
 
-  // Fetch real market data; fall back to GBM simulation only if unavailable
-  let bars: OHLCVBar[];
+  // Fetch real market data — Binance for crypto, Yahoo Finance for stocks/forex/indices
   const realBars = await fetchBinanceHistorical(bt.symbol, bt.startDate, bt.endDate)
     ?? (isYahooSupported(bt.symbol) ? await fetchYahooHistory(bt.symbol, bt.startDate, bt.endDate).catch(() => null) : null);
-  bars = realBars ?? generatePriceData(bt.symbol, bt.startDate, bt.endDate);
+  if (!realBars) {
+    res.status(404).json({ error: `Historical market data not available for ${bt.symbol} in the requested date range. Only crypto (via Binance) and major stocks, forex, and indices (via Yahoo Finance) are supported.` });
+    return;
+  }
+  const bars: OHLCVBar[] = realBars;
 
   // Use stored trades — not a re-run
   const storedTrades = await db

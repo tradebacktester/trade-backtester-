@@ -10,6 +10,8 @@ const YAHOO_SYMBOL_MAP: Record<string, string> = {
   NZDUSD: "NZDUSD=X", EURGBP: "EURGBP=X", EURJPY: "EURJPY=X",
   GBPJPY: "GBPJPY=X", CHFJPY: "CHFJPY=X",
   "EUR/USD": "EURUSD=X", "GBP/USD": "GBPUSD=X", "USD/JPY": "USDJPY=X",
+  // Indices — short aliases used in ASSETS list
+  SPX: "^GSPC", NDX: "^NDX",
   SPX500: "^GSPC", NAS100: "^NDX", DOW30: "^DJI",
   UK100: "^FTSE", GER40: "^GDAXI", JPN225: "^N225",
   XAUUSD: "GC=F", XAGUSD: "SI=F", WTIUSD: "CL=F",

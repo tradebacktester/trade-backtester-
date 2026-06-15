@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useSimPrice } from "@/lib/use-sim-price";
+import { useBinanceLivePrice } from "@/lib/use-binance-ws";
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle,
   type IChartApi, type ISeriesApi, type CandlestickSeriesOptions,
@@ -742,7 +742,7 @@ function SetupScreen({ onStart }: { onStart: (balance: number) => void }) {
 function MarketRow({ sym, isSelected, onClick }: {
   sym: typeof DEMO_SYMBOLS[0]; isSelected: boolean; onClick: () => void;
 }) {
-  const price = useSimPrice(sym.price);
+  const price = useBinanceLivePrice(sym.value, false, sym.price);
   const isUp  = sym.change >= 0;
   return (
     <button
@@ -790,7 +790,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
   const [chartInterval, setChartInterval]     = useState("1m");
   const [activeIndicators, setActiveIndicators] = useState<string[]>([]);
   const [showIndMenu, setShowIndMenu]         = useState(false);
-  const livePrice = useSimPrice(selectedSymbol.price);
+  const livePrice = useBinanceLivePrice(selectedSymbol.value, false, selectedSymbol.price);
 
   const openPositions    = trades.filter(t => t.status === "open");
   const closedTrades     = trades.filter(t => t.status === "closed");
