@@ -56,53 +56,53 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   LIGHT THEME — Apple / Notion / Linear
-   #F8F9FB bg | #FFFFFF surface | #111111 text | rgba(0,0,0,0.06) borders
+   LIGHT THEME — Spatial UI / Liquid Glass / iOS 26
+   Frosted pearl glass over soft pastel gradient orbs
    ════════════════════════════════════════════════════════════════════ */
 :root {
-  --background: 213 22% 98%;         /* #F8F9FB cool off-white */
+  --background: 240 30% 97%;         /* #F5F5FC cool lavender-white */
   --foreground: 0 0% 7%;             /* #111111 near-black */
-  --border: 220 14% 90%;             /* soft grey */
+  --border: 240 14% 88%;             /* soft purple-grey */
 
-  --card: 0 0% 100%;                 /* pure white — glass effect via override */
+  --card: 0 0% 100%;
   --card-foreground: 0 0% 7%;
-  --card-border: 220 14% 91%;
+  --card-border: 240 14% 89%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 7%;
-  --popover-border: 220 14% 90%;
+  --popover-border: 240 14% 88%;
 
-  --primary: 220 14% 11%;            /* #18181B dark charcoal */
+  --primary: 250 80% 50%;            /* vivid indigo */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 213 15% 94%;          /* #EEF1F5 secondary bg */
-  --secondary-foreground: 220 14% 11%;
+  --secondary: 240 20% 93%;
+  --secondary-foreground: 240 14% 11%;
 
-  --muted: 213 15% 94%;              /* #EEF1F5 */
-  --muted-foreground: 220 9% 46%;    /* #6B7280 */
+  --muted: 240 20% 93%;
+  --muted-foreground: 240 9% 46%;
 
-  --accent: 213 15% 92%;
+  --accent: 240 20% 91%;
   --accent-foreground: 0 0% 7%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --sidebar: 213 22% 98%;
-  --sidebar-foreground: 220 14% 13%;
-  --sidebar-border: 220 14% 90%;
-  --sidebar-primary: 220 14% 11%;
+  --sidebar: 240 30% 97%;
+  --sidebar-foreground: 240 14% 13%;
+  --sidebar-border: 240 14% 88%;
+  --sidebar-primary: 250 80% 50%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 213 15% 94%;
+  --sidebar-accent: 240 20% 93%;
   --sidebar-accent-foreground: 0 0% 7%;
-  --sidebar-ring: 220 14% 40%;
+  --sidebar-ring: 240 14% 40%;
 
-  --input: 213 14% 91%;
-  --ring: 220 14% 25%;
+  --input: 240 14% 89%;
+  --ring: 250 80% 50%;
 
-  --chart-1: 211 100% 65%;
+  --chart-1: 250 80% 60%;
   --chart-2: 142 72% 40%;
   --chart-3: 38 90% 50%;
-  --chart-4: 270 60% 55%;
+  --chart-4: 280 60% 60%;
   --chart-5: 0 72% 51%;
 
   --app-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
@@ -111,21 +111,22 @@
   --app-font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
   --radius: 0.875rem;
 
-  /* Card glass surface — used by ALL card inline styles */
-  --card-bg: rgba(255,255,255,0.80);
+  /* Card glass surface — liquid glass, truly translucent */
+  --card-bg: rgba(255,255,255,0.55);
 
-  /* Light glass tokens — frosted soft white glass */
-  --glass-bg:            rgba(255,255,255,0.75);
-  --glass-bg-strong:     rgba(255,255,255,0.96);
-  --glass-border:        rgba(0,0,0,0.06);
-  --glass-border-strong: rgba(0,0,0,0.10);
-  --nav-bg:              rgba(248,249,251,0.90);
-  --nav-border:          rgba(0,0,0,0.05);
-  --surface-bg:          rgba(238,241,245,0.92);
-  --sheet-bg:            rgba(255,255,255,0.98);
-  --nav-active-bg:       rgba(0,0,0,0.05);
-  --nav-active-border:   rgba(0,0,0,0.09);
-  --nav-active-color:    #111111;
+  /* Light liquid glass tokens — iOS 26 frosted pearl */
+  --glass-bg:            rgba(255,255,255,0.50);
+  --glass-bg-strong:     rgba(255,255,255,0.82);
+  --glass-border:        rgba(255,255,255,0.70);
+  --glass-border-strong: rgba(255,255,255,0.90);
+  --glass-specular:      rgba(255,255,255,0.80);
+  --nav-bg:              rgba(248,248,255,0.72);
+  --nav-border:          rgba(255,255,255,0.60);
+  --surface-bg:          rgba(240,240,255,0.65);
+  --sheet-bg:            rgba(255,255,255,0.90);
+  --nav-active-bg:       rgba(99,102,241,0.12);
+  --nav-active-border:   rgba(99,102,241,0.22);
+  --nav-active-color:    #3730a3;
   --nav-dim-color:       #6B7280;
 
   --opaque-button-border-intensity: -6;
@@ -184,116 +185,117 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   DARK THEME — Apple Vision Pro / Apple Intelligence
-   #050505 bg | #0B0B0D secondary | #111214 surface | #FFFFFF accent
+   DARK THEME — iPhone Liquid Glass / Spatial UI
+   Deep space navy + vivid gradient orbs + true glass translucency
    ════════════════════════════════════════════════════════════════════ */
 .dark {
-  --background: 0 0% 2%;            /* #050505 pure luxury black */
-  --foreground: 0 0% 100%;          /* #FFFFFF */
-  --border: 0 0% 9%;                /* near-black border */
+  --background: 232 60% 5%;          /* #070A14 deep space navy */
+  --foreground: 0 0% 98%;
+  --border: 235 30% 14%;             /* dark navy border */
 
-  --card: 240 4% 7%;                /* #111214 elevated surface */
+  --card: 234 35% 9%;                /* #0F1220 elevated surface */
   --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 10%;
+  --card-border: 235 30% 14%;
 
-  --popover: 240 7% 4%;             /* #0B0B0D */
+  --popover: 234 40% 7%;
   --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 8%;
+  --popover-border: 235 25% 12%;
 
-  --primary: 0 0% 100%;             /* White — no blue */
-  --primary-foreground: 0 0% 4%;
+  --primary: 250 100% 68%;           /* vivid indigo-violet */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 240 4% 7%;
+  --secondary: 234 35% 9%;
   --secondary-foreground: 0 0% 90%;
 
-  --muted: 240 7% 4%;
-  --muted-foreground: 240 4% 63%;   /* #A1A1AA */
+  --muted: 234 30% 8%;
+  --muted-foreground: 235 15% 55%;
 
-  --accent: 240 4% 7%;
+  --accent: 234 35% 9%;
   --accent-foreground: 0 0% 98%;
 
-  --destructive: 0 72% 51%;         /* #EF4444 */
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --sidebar: 0 0% 2%;
-  --sidebar-foreground: 240 4% 70%;
-  --sidebar-border: 0 0% 8%;
-  --sidebar-primary: 0 0% 100%;
-  --sidebar-primary-foreground: 0 0% 4%;
-  --sidebar-accent: 240 4% 7%;
+  --sidebar: 232 60% 5%;
+  --sidebar-foreground: 235 15% 65%;
+  --sidebar-border: 235 25% 12%;
+  --sidebar-primary: 250 100% 68%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 234 35% 9%;
   --sidebar-accent-foreground: 0 0% 90%;
-  --sidebar-ring: 0 0% 60%;
+  --sidebar-ring: 250 60% 50%;
 
-  --input: 0 0% 8%;
-  --ring: 0 0% 80%;
+  --input: 235 25% 12%;
+  --ring: 250 100% 68%;
 
-  --chart-1: 0 0% 85%;
-  --chart-2: 142 65% 50%;
-  --chart-3: 38 90% 58%;
-  --chart-4: 260 70% 68%;
-  --chart-5: 0 72% 51%;
+  --chart-1: 250 100% 72%;
+  --chart-2: 160 70% 52%;
+  --chart-3: 38 95% 60%;
+  --chart-4: 280 80% 72%;
+  --chart-5: 0 72% 55%;
 
-  /* Card glass surface */
-  --card-bg: rgba(17,18,20,0.85);
+  /* Card glass surface — truly translucent liquid glass */
+  --card-bg: rgba(255,255,255,0.05);
 
-  /* Dark glass tokens — Apple Vision Pro spec */
-  --glass-bg:            rgba(255,255,255,0.04);
-  --glass-bg-strong:     rgba(11,11,13,0.98);
-  --glass-border:        rgba(255,255,255,0.08);
-  --glass-border-strong: rgba(255,255,255,0.13);
-  --nav-bg:              rgba(5,5,5,0.90);
-  --nav-border:          rgba(255,255,255,0.06);
-  --surface-bg:          rgba(17,18,20,0.96);
-  --sheet-bg:            rgba(8,8,10,0.98);
-  --nav-active-bg:       rgba(255,255,255,0.11);
-  --nav-active-border:   rgba(255,255,255,0.20);
+  /* Dark liquid glass tokens — iPhone Spatial UI */
+  --glass-bg:            rgba(255,255,255,0.08);
+  --glass-bg-strong:     rgba(20,24,50,0.82);
+  --glass-border:        rgba(255,255,255,0.16);
+  --glass-border-strong: rgba(255,255,255,0.28);
+  --glass-specular:      rgba(255,255,255,0.22);
+  --nav-bg:              rgba(10,12,28,0.70);
+  --nav-border:          rgba(255,255,255,0.14);
+  --surface-bg:          rgba(15,18,40,0.75);
+  --sheet-bg:            rgba(10,12,28,0.90);
+  --nav-active-bg:       rgba(255,255,255,0.14);
+  --nav-active-border:   rgba(255,255,255,0.28);
   --nav-active-color:    #FFFFFF;
-  --nav-dim-color:       #71717A;
+  --nav-dim-color:       #818CF8;
 
   --opaque-button-border-intensity: 12;
-  --elevate-1: rgba(255,255,255,0.02);
-  --elevate-2: rgba(255,255,255,0.04);
-  --button-outline: rgba(255,255,255,0.10);
-  --badge-outline: rgba(255,255,255,0.06);
+  --elevate-1: rgba(255,255,255,0.04);
+  --elevate-2: rgba(255,255,255,0.07);
+  --button-outline: rgba(255,255,255,0.16);
+  --badge-outline: rgba(255,255,255,0.10);
 
-  /* Shadows — pure black depth, no navy */
-  --shadow-2xs:  0 1px 2px rgba(0,0,0,0.65), 0 1px 4px rgba(0,0,0,0.45);
-  --shadow-xs:   0 1px 2px rgba(0,0,0,0.70), 0 2px 8px rgba(0,0,0,0.50);
-  --shadow-sm:   0 1px 3px rgba(0,0,0,0.70), 0 4px 12px rgba(0,0,0,0.50);
-  --shadow:      0 2px 4px rgba(0,0,0,0.75), 0 6px 18px rgba(0,0,0,0.55);
-  --shadow-md:   0 2px 6px rgba(0,0,0,0.75), 0 8px 22px rgba(0,0,0,0.60);
-  --shadow-lg:   0 4px 8px rgba(0,0,0,0.75), 0 12px 30px rgba(0,0,0,0.60);
-  --shadow-xl:   0 4px 12px rgba(0,0,0,0.80), 0 18px 44px rgba(0,0,0,0.65);
-  --shadow-2xl:  0 8px 20px rgba(0,0,0,0.85), 0 28px 60px rgba(0,0,0,0.70);
-  --shadow-nav:  0 1px 0 rgba(255,255,255,0.04), 0 4px 28px rgba(0,0,0,0.85);
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.70), 0 4px 16px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.05);
-  --shadow-card-hover: 0 2px 6px rgba(0,0,0,0.75), 0 10px 28px rgba(0,0,0,0.60), 0 0 60px rgba(255,255,255,0.03), 0 0 0 1px rgba(255,255,255,0.10);
-  --shadow-btn:  0 1px 3px rgba(0,0,0,0.70), 0 2px 8px rgba(0,0,0,0.55);
-  --shadow-btn-hover: 0 2px 5px rgba(0,0,0,0.75), 0 4px 14px rgba(0,0,0,0.60), 0 0 24px rgba(255,255,255,0.05);
-  --shadow-btn-active: 0 0px 2px rgba(0,0,0,0.65);
-  --shadow-tab-active: 0 1px 3px rgba(0,0,0,0.70), 0 3px 10px rgba(0,0,0,0.55);
-  --shadow-dropdown: 0 4px 12px rgba(0,0,0,0.85), 0 12px 36px rgba(0,0,0,0.70), 0 0 0 1px rgba(255,255,255,0.07);
-  --shadow-modal: 0 8px 24px rgba(0,0,0,0.92), 0 24px 64px rgba(0,0,0,0.78), 0 0 0 1px rgba(255,255,255,0.07);
-  --shadow-sheet: 0 -2px 10px rgba(0,0,0,0.72), 0 -12px 48px rgba(0,0,0,0.65);
-  --shadow-chart: 0 1px 3px rgba(0,0,0,0.70), 0 4px 16px rgba(0,0,0,0.50);
-  --shadow-input-focus: 0 0 0 3px rgba(255,255,255,0.08), 0 1px 4px rgba(0,0,0,0.55);
-  --shadow-inner-sm: inset 0 1px 2px rgba(0,0,0,0.55);
-  --shadow-inner:    inset 0 1px 6px rgba(0,0,0,0.65);
+  /* Shadows — deep space depth with colored glow */
+  --shadow-2xs:  0 1px 2px rgba(0,0,0,0.70), 0 1px 4px rgba(0,0,0,0.50);
+  --shadow-xs:   0 1px 3px rgba(0,0,0,0.75), 0 2px 8px rgba(0,0,0,0.55);
+  --shadow-sm:   0 2px 4px rgba(0,0,0,0.75), 0 4px 14px rgba(0,0,0,0.55);
+  --shadow:      0 2px 6px rgba(0,0,0,0.80), 0 6px 20px rgba(0,0,0,0.60);
+  --shadow-md:   0 3px 8px rgba(0,0,0,0.80), 0 10px 24px rgba(0,0,0,0.65);
+  --shadow-lg:   0 4px 12px rgba(0,0,0,0.80), 0 14px 36px rgba(0,0,0,0.65);
+  --shadow-xl:   0 6px 16px rgba(0,0,0,0.85), 0 20px 48px rgba(0,0,0,0.70);
+  --shadow-2xl:  0 10px 24px rgba(0,0,0,0.90), 0 32px 70px rgba(0,0,0,0.75);
+  --shadow-nav:  0 1px 0 rgba(255,255,255,0.08), 0 6px 40px rgba(0,0,0,0.80), 0 0 80px rgba(99,102,241,0.08);
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.60), 0 8px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 0 rgba(255,255,255,0.04);
+  --shadow-card-hover: 0 4px 14px rgba(0,0,0,0.65), 0 16px 40px rgba(0,0,0,0.55), 0 0 80px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.24);
+  --shadow-btn:  0 1px 4px rgba(0,0,0,0.70), 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20);
+  --shadow-btn-hover: 0 2px 8px rgba(0,0,0,0.75), 0 6px 20px rgba(0,0,0,0.60), 0 0 30px rgba(99,102,241,0.20), inset 0 1px 0 rgba(255,255,255,0.28);
+  --shadow-btn-active: 0 0 3px rgba(0,0,0,0.65), inset 0 1px 0 rgba(0,0,0,0.20);
+  --shadow-tab-active: 0 2px 6px rgba(0,0,0,0.70), 0 4px 14px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.18);
+  --shadow-dropdown: 0 8px 24px rgba(0,0,0,0.80), 0 24px 60px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.14);
+  --shadow-modal: 0 12px 40px rgba(0,0,0,0.90), 0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.12);
+  --shadow-sheet: 0 -4px 20px rgba(0,0,0,0.75), 0 -20px 60px rgba(0,0,0,0.65);
+  --shadow-chart: 0 2px 6px rgba(0,0,0,0.70), 0 6px 20px rgba(0,0,0,0.50);
+  --shadow-input-focus: 0 0 0 3px rgba(99,102,241,0.25), 0 2px 6px rgba(0,0,0,0.55);
+  --shadow-inner-sm: inset 0 1px 3px rgba(0,0,0,0.60);
+  --shadow-inner:    inset 0 2px 8px rgba(0,0,0,0.70);
 
-  /* Premium glow shadows — neutral white, no blue */
-  --shadow-glow-cyan:   0 0 20px rgba(255,255,255,0.07), 0 0 60px rgba(255,255,255,0.02);
-  --shadow-glow-indigo: 0 0 16px rgba(139,92,246,0.25), 0 0 40px rgba(139,92,246,0.08);
-  --shadow-glow-green:  0 0 16px rgba(34,197,94,0.28),  0 0 40px rgba(34,197,94,0.10);
-  --shadow-glow-red:    0 0 16px rgba(239,68,68,0.28),  0 0 40px rgba(239,68,68,0.10);
-  --shadow-glow-white:  0 0 20px rgba(255,255,255,0.10), 0 0 60px rgba(255,255,255,0.04);
+  /* Premium glow shadows — colored depth */
+  --shadow-glow-cyan:   0 0 24px rgba(6,182,212,0.22), 0 0 60px rgba(6,182,212,0.08);
+  --shadow-glow-indigo: 0 0 20px rgba(99,102,241,0.35), 0 0 50px rgba(99,102,241,0.14);
+  --shadow-glow-green:  0 0 20px rgba(34,197,94,0.32),  0 0 50px rgba(34,197,94,0.12);
+  --shadow-glow-red:    0 0 20px rgba(239,68,68,0.32),  0 0 50px rgba(239,68,68,0.12);
+  --shadow-glow-white:  0 0 24px rgba(255,255,255,0.14), 0 0 60px rgba(255,255,255,0.06);
 
-  /* Dock — pure luxury black glass */
-  --dock-bg: rgba(5,5,5,0.96);
-  --dock-border: rgba(255,255,255,0.08);
-  --dock-shadow: 0 0 0 0.5px rgba(255,255,255,0.05), 0 8px 40px rgba(0,0,0,0.92), 0 24px 80px rgba(0,0,0,0.60);
-  --dock-active-bg: rgba(255,255,255,0.08);
-  --dock-active-border: rgba(255,255,255,0.14);
-  --dock-active-glow: 0 0 14px rgba(255,255,255,0.08);
+  /* Dock — premium liquid glass */
+  --dock-bg: rgba(10,12,30,0.82);
+  --dock-border: rgba(255,255,255,0.16);
+  --dock-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px rgba(255,255,255,0.08), 0 10px 50px rgba(0,0,0,0.85), 0 30px 90px rgba(0,0,0,0.60);
+  --dock-active-bg: rgba(255,255,255,0.12);
+  --dock-active-border: rgba(255,255,255,0.22);
+  --dock-active-glow: 0 0 20px rgba(99,102,241,0.30), 0 0 50px rgba(99,102,241,0.10);
 
   /* Apple spring easing system */
   --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -322,6 +324,30 @@ body {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'kern' 1, 'ss01' on;
   background-color: hsl(var(--background));
+}
+
+/* ════ LIQUID GLASS ORBS — page-level gradient background ═══════════
+   These vivid radial gradients are what glass panels blur OVER,
+   creating the iPhone liquid glass / frosted depth effect.
+   Applied via pseudo-element so they're always viewport-fixed.
+   ════════════════════════════════════════════════════════════════════ */
+.dark body {
+  background-color: #070a14;
+  background-image:
+    radial-gradient(ellipse 75% 60% at 10% 15%, rgba(99,102,241,0.36) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(6,182,212,0.26) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 80% 5%,  rgba(139,92,246,0.30) 0%, transparent 60%),
+    radial-gradient(ellipse 45% 40% at 20% 80%, rgba(236,72,153,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 35% at 55% 50%, rgba(59,130,246,0.14) 0%, transparent 60%);
+}
+
+:root:not(.dark) body {
+  background-color: #f0f0fc;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 10% 15%, rgba(199,210,254,0.60) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 88% 80%, rgba(165,243,252,0.50) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 75% 5%,  rgba(216,180,254,0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 35% at 25% 80%, rgba(252,211,218,0.40) 0%, transparent 60%);
 }
 
 #root {
@@ -359,7 +385,7 @@ body {
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  background: hsl(var(--background));
+  background: transparent;
 }
 
 .tt-main {
@@ -402,23 +428,27 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   GLASSMORPHISM SYSTEM
+   LIQUID GLASS SYSTEM — iPhone Spatial UI
+   True frosted glass: translucent + specular highlights + blur
    ════════════════════════════════════════════════════════════════════ */
 .glass-nav {
   background: var(--nav-bg);
-  backdrop-filter: blur(44px) saturate(200%);
-  -webkit-backdrop-filter: blur(44px) saturate(200%);
+  backdrop-filter: blur(60px) saturate(240%) brightness(1.06);
+  -webkit-backdrop-filter: blur(60px) saturate(240%) brightness(1.06);
   border-bottom: 1px solid var(--nav-border);
   box-shadow: var(--shadow-nav);
 }
 .dark .glass-nav {
-  box-shadow: var(--shadow-nav), inset 0 -1px 0 rgba(255,255,255,0.02);
+  box-shadow: var(--shadow-nav), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+:root:not(.dark) .glass-nav {
+  box-shadow: 0 1px 0 rgba(255,255,255,0.70), 0 4px 32px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.90);
 }
 
 .glass-card {
   background: var(--glass-bg);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-card);
   border-radius: 1.375rem;
@@ -430,27 +460,40 @@ body {
   transform: translateY(-2px);
 }
 .dark .glass-card {
-  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: var(--shadow-card);
 }
 .dark .glass-card:hover {
-  box-shadow: var(--shadow-card-hover), inset 0 1px 0 rgba(255,255,255,0.09);
+  box-shadow: var(--shadow-card-hover);
+}
+:root:not(.dark) .glass-card {
+  box-shadow: 0 2px 8px rgba(99,102,241,0.08), 0 8px 24px rgba(99,102,241,0.05), inset 0 1px 0 rgba(255,255,255,0.85);
+}
+:root:not(.dark) .glass-card:hover {
+  box-shadow: 0 4px 16px rgba(99,102,241,0.14), 0 12px 40px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.95);
 }
 
 .glass-panel {
   background: var(--glass-bg-strong);
-  backdrop-filter: blur(60px) saturate(200%);
-  -webkit-backdrop-filter: blur(60px) saturate(200%);
+  backdrop-filter: blur(70px) saturate(240%) brightness(1.06);
+  -webkit-backdrop-filter: blur(70px) saturate(240%) brightness(1.06);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-dropdown);
 }
+.dark .glass-panel {
+  box-shadow: var(--shadow-dropdown), inset 0 1px 0 rgba(255,255,255,0.14);
+}
+:root:not(.dark) .glass-panel {
+  background: rgba(255,255,255,0.75);
+  box-shadow: 0 8px 32px rgba(99,102,241,0.10), 0 24px 60px rgba(99,102,241,0.06), inset 0 1px 0 rgba(255,255,255,0.95);
+}
 
 /* ════════════════════════════════════════════════════════════════════
-   PREMIUM CARD SYSTEM — 3D depth layers
+   PREMIUM CARD SYSTEM — full liquid glass treatment
    ════════════════════════════════════════════════════════════════════ */
 .premium-card {
-  background: rgba(255,255,255,0.80);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.08);
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.08);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-card);
   border-radius: 1.375rem;
@@ -459,27 +502,85 @@ body {
   overflow: hidden;
 }
 .dark .premium-card {
-  background: rgba(14,14,16,0.82);
-  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.07);
+  box-shadow: var(--shadow-card);
 }
 .premium-card::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 40%;
+  height: 50%;
   border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.20) 0%, transparent 100%);
   pointer-events: none;
+  z-index: 0;
 }
 .dark .premium-card::before {
-  background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, transparent 100%);
 }
 .premium-card:hover {
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-2px);
 }
 .dark .premium-card:hover {
-  box-shadow: var(--shadow-card-hover), inset 0 1px 0 rgba(255,255,255,0.09);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ════ Global glass surface — applies blur to all card surfaces ═════ */
+.dark .bg-card,
+.dark [class*="rounded"][style*="card-bg"] {
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* Liquid glass — strong variant for modals, drawers, panels */
+.liquid-glass {
+  backdrop-filter: blur(60px) saturate(240%) brightness(1.08);
+  -webkit-backdrop-filter: blur(60px) saturate(240%) brightness(1.08);
+  border: 1px solid var(--glass-border);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 5%, var(--glass-specular, rgba(255,255,255,0.25)) 30%, var(--glass-specular, rgba(255,255,255,0.25)) 70%, transparent 95%);
+  pointer-events: none;
+  z-index: 1;
+}
+.dark .liquid-glass {
+  background: rgba(255,255,255,0.08);
+  box-shadow: var(--shadow-card);
+}
+:root:not(.dark) .liquid-glass {
+  background: rgba(255,255,255,0.58);
+  box-shadow: 0 4px 20px rgba(99,102,241,0.10), inset 0 1px 0 rgba(255,255,255,0.90);
+}
+
+/* Liquid glass button surface */
+.liquid-glass-btn {
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 100%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.dark .liquid-glass-btn {
+  background: rgba(255,255,255,0.10);
+}
+:root:not(.dark) .liquid-glass-btn {
+  background: rgba(255,255,255,0.65);
 }
 
 .depth-card {
@@ -519,27 +620,25 @@ body {
    ════════════════════════════════════════════════════════════════════ */
 .tt-float-dock {
   position: fixed;
-  bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px));
-  /* Center without transform: left+right+margin:auto avoids promoting the
-     element into a separate compositing tree (position:fixed + transform
-     creates a detached compositor layer on Android Chrome that misregisters
-     against the scroll-content tiles, producing horizontal tear lines). */
+  bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px));
   left: 0;
   right: 0;
   margin: 0 auto;
   width: fit-content;
-  min-width: 260px;
+  min-width: 280px;
   z-index: 50;
-  background: var(--dock-bg, rgba(8,9,18,0.92));
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  border: 1px solid var(--dock-border, rgba(255,255,255,0.1));
-  border-radius: 28px;
-  padding: 8px 10px;
-  box-shadow: var(--dock-shadow, 0 8px 40px rgba(0,0,0,0.7));
+  background: var(--dock-bg, rgba(10,12,30,0.82));
+  backdrop-filter: blur(60px) saturate(240%) brightness(1.06);
+  -webkit-backdrop-filter: blur(60px) saturate(240%) brightness(1.06);
+  border: 1px solid var(--dock-border, rgba(255,255,255,0.16));
+  border-radius: 32px;
+  padding: 10px 14px;
+  box-shadow: var(--dock-shadow);
   display: flex;
   align-items: center;
   gap: 2px;
+  /* Specular top edge — real glass effect */
+  position: fixed;
 }
 
 .dock-item {
@@ -565,32 +664,30 @@ body {
   box-shadow: var(--dock-active-glow, 0 0 12px rgba(255,255,255,0.08));
 }
 
-/* Light dock — frosted white glass (only when dark class is absent) */
+/* Light dock — pearl frosted glass */
 :root:not(.dark) .tt-float-dock {
-  background: rgba(255,255,255,0.88);
-  border-color: rgba(0,0,0,0.06);
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.10);
-  --dock-active-bg: rgba(0,0,0,0.06);
-  --dock-active-border: rgba(0,0,0,0.11);
-  --dock-active-glow: none;
+  background: rgba(255,255,255,0.68);
+  border-color: rgba(255,255,255,0.80);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.90), 0 2px 16px rgba(99,102,241,0.12), 0 8px 32px rgba(99,102,241,0.08);
+  --dock-active-bg: rgba(99,102,241,0.12);
+  --dock-active-border: rgba(99,102,241,0.24);
+  --dock-active-glow: 0 0 20px rgba(99,102,241,0.25);
 }
 
-/* Dark dock — pure luxury black glass */
+/* Dark dock — deep space liquid glass */
 .dark .tt-float-dock {
-  background: rgba(5,5,5,0.96);
-  border-color: rgba(255,255,255,0.08);
-  box-shadow: 0 0 0 0.5px rgba(255,255,255,0.05), 0 8px 40px rgba(0,0,0,0.92);
+  background: rgba(10,12,30,0.82);
+  border-color: rgba(255,255,255,0.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px rgba(255,255,255,0.08), 0 12px 60px rgba(0,0,0,0.85), 0 0 80px rgba(99,102,241,0.10);
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   GLOBAL GLASS CARD SURFACE
-   Only apply background colour — no blanket backdrop-filter on cards.
-   backdrop-filter on every card causes GPU compositing layer bleed-through
-   (ghost rendering) on mobile and during scroll/animation. Apply it only
-   to explicit glass elements (.glass-card, .glass-panel etc.).
+   GLOBAL GLASS CARD SURFACE — liquid glass for all card surfaces
    ════════════════════════════════════════════════════════════════════ */
 .bg-card {
   background: var(--card-bg) !important;
+  backdrop-filter: blur(40px) saturate(200%) brightness(1.06);
+  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.06);
 }
 .dark .bg-card {
   background: var(--card-bg) !important;
@@ -740,26 +837,68 @@ input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
   border-right: 1px solid currentColor;
 }
 
-/* Glass specular top-edge highlight — simulates real glass refraction */
+/* ════════════════════════════════════════════════════════════════════
+   SPECULAR CARD — iPhone liquid glass specular edge highlight
+   The top edge glows like real glass catching light
+   ════════════════════════════════════════════════════════════════════ */
 .specular-card {
   position: relative;
   overflow: hidden;
 }
-.specular-card::after {
+.specular-card::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 10%;
-  right: 10%;
+  left: 5%;
+  right: 5%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10) 40%, rgba(255,255,255,0.10) 60%, transparent);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,0.0) 5%,
+    rgba(255,255,255,0.35) 25%,
+    rgba(255,255,255,0.50) 50%,
+    rgba(255,255,255,0.35) 75%,
+    rgba(255,255,255,0.0) 95%,
+    transparent 100%
+  );
   pointer-events: none;
+  z-index: 2;
+}
+.specular-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 45%;
+  border-radius: inherit;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.10) 0%,
+    rgba(255,255,255,0.04) 40%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
 }
 .dark .specular-card {
-  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.055);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: var(--card-bg);
 }
 .dark .specular-card:hover {
-  box-shadow: var(--shadow-card-hover), inset 0 1px 0 rgba(255,255,255,0.08);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+:root:not(.dark) .specular-card {
+  backdrop-filter: blur(40px) saturate(200%) brightness(1.06);
+  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.06);
+  background: var(--card-bg);
+  box-shadow: 0 2px 10px rgba(99,102,241,0.08), 0 8px 24px rgba(99,102,241,0.05), inset 0 1px 0 rgba(255,255,255,0.85);
+}
+:root:not(.dark) .specular-card:hover {
+  box-shadow: 0 4px 20px rgba(99,102,241,0.14), 0 14px 40px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.95);
+  transform: translateY(-1px);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 /* Display heading tightening — now also applies Space Grotesk */
@@ -909,30 +1048,56 @@ input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
   .glass-nav {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: var(--nav-bg-solid, rgba(5,5,5,0.99)) !important;
+    background: rgba(8,10,22,0.98) !important;
   }
   :root:not(.dark) .glass-nav {
-    background: rgba(248,249,251,0.99) !important;
+    background: rgba(246,246,252,0.99) !important;
   }
 
   .glass-card {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: var(--card-bg-solid, rgba(11,11,13,0.99)) !important;
+    background: rgba(14,17,36,0.96) !important;
   }
   :root:not(.dark) .glass-card {
-    background: rgba(255,255,255,0.99) !important;
+    background: rgba(248,248,255,0.97) !important;
   }
 
   .glass-panel {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: var(--glass-bg-strong) !important;
+    background: rgba(12,14,32,0.97) !important;
+  }
+  :root:not(.dark) .glass-panel {
+    background: rgba(250,250,255,0.97) !important;
+  }
+
+  .liquid-glass, .liquid-glass-btn, .specular-card, .bg-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .specular-card {
+    background: rgba(14,17,36,0.97) !important;
+  }
+  :root:not(.dark) .specular-card {
+    background: rgba(250,250,255,0.98) !important;
+  }
+
+  .bg-card {
+    background: rgba(14,17,36,0.97) !important;
+  }
+  :root:not(.dark) .bg-card {
+    background: rgba(250,250,255,0.98) !important;
   }
 
   .premium-card {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    background: rgba(14,17,36,0.97) !important;
+  }
+  :root:not(.dark) .premium-card {
+    background: rgba(250,250,255,0.98) !important;
   }
 
   /* CRITICAL: move dock from position:fixed to in-flow.

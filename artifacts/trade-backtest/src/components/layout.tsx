@@ -186,8 +186,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
     hoverTimerRef.current = setTimeout(() => setHoverSection(null), 120);
   }
 
+  const orbBg = isDark
+    ? [
+        "radial-gradient(120% 100% at 0% 0%,    rgba(99,102,241,0.70) 0%, transparent 50%)",
+        "radial-gradient(120% 100% at 100% 100%, rgba(6,182,212,0.55)  0%, transparent 50%)",
+        "radial-gradient(120% 100% at 100% 0%,  rgba(139,92,246,0.64)  0%, transparent 50%)",
+        "radial-gradient(120% 100% at 0% 100%,  rgba(236,72,153,0.46)  0%, transparent 50%)",
+        "radial-gradient(70%  70%  at 50% 50%,  rgba(59,130,246,0.28)  0%, transparent 60%)",
+        "#060916",
+      ].join(",")
+    : [
+        "radial-gradient(120% 100% at 0% 0%,    rgba(199,210,254,0.90) 0%, transparent 50%)",
+        "radial-gradient(120% 100% at 100% 100%, rgba(165,243,252,0.85) 0%, transparent 50%)",
+        "radial-gradient(120% 100% at 100% 0%,  rgba(216,180,254,0.88) 0%, transparent 50%)",
+        "radial-gradient(120% 100% at 0% 100%,  rgba(252,211,218,0.80) 0%, transparent 50%)",
+        "#e8e8f8",
+      ].join(",");
+
   return (
-    <div className="tt-root">
+    <div className="tt-root" style={{ background: orbBg }}>
 
       {/* ── DESKTOP TOP NAV ──────────────────────────────────────────── */}
       <header className="glass-nav fixed top-0 inset-x-0 z-50 hidden md:flex items-center h-[56px]">

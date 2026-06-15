@@ -7,7 +7,7 @@ const Card = React.forwardRef<
     glass?: boolean;
     glow?: "cyan" | "indigo" | "green" | "none";
   }
->(({ className, glass = false, glow = "none", ...props }, ref) => (
+>(({ className, glass = true, glow = "none", ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
@@ -16,7 +16,7 @@ const Card = React.forwardRef<
       "transition-timing-function-[cubic-bezier(0.34,1.2,0.64,1)]",
       "relative overflow-hidden",
       glass
-        ? "backdrop-blur-[24px] saturate-[180%]"
+        ? "backdrop-blur-[44px] [filter:saturate(220%)_brightness(1.06)]"
         : "bg-card",
       glow === "cyan" && "hover:glow-cyan",
       glow === "indigo" && "hover:glow-indigo",
@@ -31,15 +31,22 @@ const Card = React.forwardRef<
     }}
     {...props}
   >
-    {/* Premium glass shine overlay */}
+    {/* Specular top-edge highlight — real glass catching light */}
     <div
-      className="pointer-events-none absolute inset-0 rounded-[22px]"
+      className="pointer-events-none absolute inset-x-0 top-0 z-[2]"
       style={{
-        background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%)",
-        zIndex: 0,
+        height: "1px",
+        background: "linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.40) 25%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0.40) 75%, transparent 95%)",
       }}
     />
-    <div className="relative z-[1]" style={{ display: "contents" }}>
+    {/* Inner top glow — depth gradient */}
+    <div
+      className="pointer-events-none absolute inset-0 rounded-[22px] z-[1]"
+      style={{
+        background: "linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 35%, transparent 100%)",
+      }}
+    />
+    <div className="relative z-[3]" style={{ display: "contents" }}>
       {props.children}
     </div>
   </div>
