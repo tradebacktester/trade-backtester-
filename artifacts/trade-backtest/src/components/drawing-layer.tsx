@@ -182,10 +182,13 @@ class DrawingController {
       if (!upper) return;
 
       if (t === "cursor") {
-        upper.style.pointerEvents = "all";
+        // Keep pointer-events NONE so chart pan/zoom events pass through the
+        // fabric canvas to the LW chart underneath. Drawing selection is handled
+        // via the container-level click listener using fab.findTarget() below.
+        upper.style.pointerEvents = "none";
         upper.style.cursor = "default";
-        this.fab.selection     = !this.locked;
-        this.fab.skipTargetFind = this.locked;
+        this.fab.selection     = false;   // fabric box-select disabled (upper canvas has no events)
+        this.fab.skipTargetFind = true;
         this._selectable(!this.locked);
         chart?.applyOptions({ handleScroll: true, handleScale: true });
       } else if (t === "eraser") {
@@ -252,9 +255,24 @@ class DrawingController {
 
   // ── Click / tap ─────────────────────────────────────────────────────────────
   private _onClick(e: MouseEvent) {
-    if (this.tool === "cursor" || this.tool === "eraser") return;
+    if (this.tool === "eraser") return;
     // Suppress clicks that originated from a touch (touchend fires click too)
     if ((e as any).sourceCapabilities?.firesTouchEvents) return;
+
+    if (this.tool === "cursor") {
+      // Upper canvas has pointer-events:none so we handle selection here.
+      // Use findTarget to check if a drawing object is under the click point.
+      if (this.locked) return;
+      const target = this.fab.findTarget(e) as FObj | null;
+      if (target && !target._isPreview) {
+        this.fab.setActiveObject(target);
+      } else {
+        this.fab.discardActiveObject();
+      }
+      this.fab.requestRenderAll();
+      return;
+    }
+
     const { x, y } = this._xy(e);
     this._handlePt(x, y);
   }
@@ -427,7 +445,8 @@ class DrawingController {
     this.fab.getObjects().forEach((o: FObj) => { if (!o._isPreview) o.set({ opacity: this.visible ? 1 : 0 }); });
     const upper = this.fab.upperCanvasEl as HTMLElement;
     if (!this.visible) upper.style.pointerEvents = "none";
-    else if (this.tool === "cursor") upper.style.pointerEvents = "all";
+    else if (this.tool === "eraser") upper.style.pointerEvents = "all";
+    // cursor mode always keeps upper canvas pointer-events:none so chart events pass through
     this.fab.requestRenderAll();
     return this.visible;
   }
