@@ -127,6 +127,8 @@ const CHART_SYMBOL_MAP: Record<string, string> = {
   BDI: "CL=F", CAPESIZE: "CL=F", VLCC: "CL=F",
   // Economic → proxy
   GDP: "SPY", CPI: "TLT", FEDFUNDS: "^TNX",
+  // Commodities (core category)
+  SILVER: "SI=F", CRUDE_OIL: "CL=F", NATURAL_GAS: "NG=F",
 };
 function toChartSymbol(sym: string): string { return CHART_SYMBOL_MAP[sym] ?? sym; }
 
@@ -229,12 +231,12 @@ const STATIC_ASSETS: ScreenerRow[] = [
   sa("XLY",  "XLY",  "Consumer Discretionary",     "sector-idx", 210.60, 0.45, 1.65, 1_350_000_000, 57, "bullish", "bullish", 61, 10),
 
   // ── Global Markets ────────────────────────────────────────────────────────
-  sa("NIFTY50",   "NIFTY",    "NIFTY 50 (India)",        "global", 23_485, 0.48, 1.82, 8_200_000_000, 57, "bullish", "bullish", 61, 1),
-  sa("BANKNIFTY", "BANKNIFTY","Bank NIFTY (India)",      "global", 50_820, 0.62, 2.20, 5_400_000_000, 59, "bullish", "bullish", 64, 2),
-  sa("DAX",       "DAX",      "DAX 40 (Germany)",        "global", 18_840, 0.35, 1.25, 6_800_000_000, 55, "bullish", "bullish", 59, 3),
-  sa("FTSE100",   "FTSE",     "FTSE 100 (UK)",           "global", 8_220, 0.18, 0.65, 5_100_000_000, 53, "neutral", "bullish", 55, 4),
-  sa("NIKKEI225", "N225",     "Nikkei 225 (Japan)",      "global", 38_510, -0.42, -1.20, 7_200_000_000, 47, "neutral", "bearish", 44, 5),
-  sa("HANGSENG",  "HSI",      "Hang Seng (Hong Kong)",   "global", 18_480, 0.85, 2.85, 6_500_000_000, 55, "bullish", "neutral", 58, 6),
+  sa("NIFTY50",   "NIFTY",    "NIFTY 50 (India)",        "indices", 23_485, 0.48, 1.82, 8_200_000_000, 57, "bullish", "bullish", 61, 5),
+  sa("BANKNIFTY", "BANKNIFTY","Bank NIFTY (India)",      "indices", 50_820, 0.62, 2.20, 5_400_000_000, 59, "bullish", "bullish", 64, 6),
+  sa("DAX",       "DAX",      "DAX 40 (Germany)",        "indices", 18_840, 0.35, 1.25, 6_800_000_000, 55, "bullish", "bullish", 59, 7),
+  sa("FTSE100",   "FTSE",     "FTSE 100 (UK)",           "indices", 8_220, 0.18, 0.65, 5_100_000_000, 53, "neutral", "bullish", 55, 8),
+  sa("NIKKEI225", "N225",     "Nikkei 225 (Japan)",      "indices", 38_510, -0.42, -1.20, 7_200_000_000, 47, "neutral", "bearish", 44, 9),
+  sa("HANGSENG",  "HSI",      "Hang Seng (Hong Kong)",   "indices", 18_480, 0.85, 2.85, 6_500_000_000, 55, "bullish", "neutral", 58, 10),
   sa("CSI300",    "CSI300",   "CSI 300 (China)",         "global", 3_920, 0.42, 1.52, 9_800_000_000, 53, "neutral", "bullish", 55, 7),
   sa("KOSPI",     "KOSPI",    "KOSPI (South Korea)",     "global", 2_742, 0.28, 0.95, 4_200_000_000, 52, "neutral", "bullish", 54, 8),
   sa("ASX200",    "ASX200",   "ASX 200 (Australia)",     "global", 8_082, 0.22, 0.80, 3_100_000_000, 54, "neutral", "bullish", 56, 9),
@@ -306,6 +308,20 @@ const STATIC_ASSETS: ScreenerRow[] = [
   sa("SUPRAMAX",  "BSI",     "Baltic Supramax Index",    "freight", 1_128, -0.38, -1.35, 0, 44, "neutral", "bearish", 42, 4),
   sa("VLCC",      "VLCC",    "VLCC Tanker Rate ($/day)", "freight", 42_800, 0.82, 2.92, 0, 55, "bullish", "bullish", 58, 5),
   sa("HANDY",     "BHI",     "Baltic Handysize Index",   "freight", 682, -0.28, -1.02, 0, 45, "neutral", "bearish", 43, 6),
+
+  // ── Indices — static fallbacks + US / global majors ──────────────────────
+  // SPX & NDX: same symbols as live screener → filtered out when live data is present
+  sa("SPX",        "SPX",   "S&P 500 Index",              "indices",  5_280, 0.38,  1.72, 45_000_000_000, 57, "bullish", "bullish", 61, 1),
+  sa("NDX",        "NDX",   "NASDAQ 100 Index",            "indices", 18_620, 0.61,  2.35, 32_000_000_000, 59, "bullish", "bullish", 64, 2),
+  sa("DOWJONES",   "DJ30",  "Dow Jones Industrial Avg",    "indices", 40_200, 0.28,  1.05, 12_000_000_000, 54, "neutral", "bullish", 57, 3),
+  sa("RUSSELL2000","RUT",   "Russell 2000",                "indices",  2_082, -0.18, -0.65, 8_500_000_000, 46, "neutral", "bearish", 44, 4),
+
+  // ── Commodities — core category ───────────────────────────────────────────
+  // Gold is live via screener (XAUUSD); these add the remaining staples
+  sa("SILVER",      "XAG",  "Silver",                     "commodities", 28.40, 0.55,  2.30, 18_000_000_000, 54, "bullish", "bullish", 58, 2),
+  sa("CRUDE_OIL",   "OIL",  "Crude Oil (WTI)",            "commodities", 78.20, -0.31, -1.20, 95_000_000_000, 48, "neutral", "bearish", 45, 3),
+  sa("NATURAL_GAS", "GAS",  "Natural Gas",                "commodities",  2.82, -1.05, -3.80, 18_000_000_000, 38, "bearish", "bearish", 34, 4),
+  sa("COPPER",      "XCU",  "Copper",                     "commodities",  4.48, 0.42,  1.80, 12_000_000_000, 56, "bullish", "bullish", 60, 5),
 ];
 
 // Symbol set for fast lookup
@@ -788,7 +804,7 @@ export default function MarketSelectionPage() {
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <p style={{ fontSize: "10.5px", color: sub, marginTop: "24px", letterSpacing: "0.02em", opacity: 0.55 }}>
-        {allRows.length} assets across {ALL_CATS.length - 1} markets · Crypto via Binance · Equities & FX via Yahoo Finance · Futures, Bonds & Exotic markets are simulated · AI scores computed locally
+        {allRows.length} assets across {ALL_CATS.length - 1} markets · Crypto via Binance · Equities, FX & Indices via Yahoo Finance · Futures, Bonds, Commodities & Exotic markets simulated · AI scores computed locally
       </p>
 
       <style>{`

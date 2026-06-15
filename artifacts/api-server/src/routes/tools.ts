@@ -68,6 +68,7 @@ const ASSETS = [
   { symbol: "TSLA",     name: "Tesla",           ticker: "TSLA",    sector: "Auto/Tech", mcap: 53, base: 185,    assetType: "stock" },
   { symbol: "AMZN",     name: "Amazon",          ticker: "AMZN",    sector: "Tech",      mcap: 54, base: 188,    assetType: "stock" },
   { symbol: "GOOGL",    name: "Alphabet",        ticker: "GOOGL",   sector: "Tech",      mcap: 55, base: 170,    assetType: "stock" },
+  { symbol: "META",     name: "Meta Platforms",  ticker: "META",    sector: "Tech",      mcap: 56, base: 480,    assetType: "stock" },
   // ── Indices (Yahoo Finance)
   { symbol: "SPX",      name: "S&P 500",         ticker: "SPX",     sector: "Index",     mcap: 60, base: 5280,   assetType: "index" },
   { symbol: "NDX",      name: "Nasdaq 100",      ticker: "NDX",     sector: "Index",     mcap: 61, base: 18420,  assetType: "index" },
