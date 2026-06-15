@@ -8,6 +8,7 @@ import {
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
   UserCircle, Calculator, Play, Search, ChevronDown,
   Cpu, Globe, Plus, Layers, TestTube, Bell, GraduationCap, Map, Library, FileText, Trophy, Award,
+  TrendingUp, Calendar,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -24,7 +25,6 @@ const SECTIONS = [
       { title: "Live Charts",    url: "/chart",   icon: CandlestickChart, desc: "Advanced charting & analysis" },
       { title: "Paper Trading",  url: "/demo",    icon: Play,             desc: "Simulated trading practice" },
       { title: "Alert Engine",   url: "/alerts",  icon: Bell,             desc: "Multi-condition smart alerts" },
-      { title: "Tools",          url: "/tools",   icon: Wrench,           desc: "Drawing & analysis tools" },
     ],
   },
   {
@@ -70,6 +70,21 @@ const SECTIONS = [
     ],
   },
   {
+    id: "tools",
+    label: "Tools",
+    icon: Wrench,
+    primary: "/tools",
+    items: [
+      { title: "Screener",       url: "/tools", icon: Search,      desc: "Scan markets by momentum & volume" },
+      { title: "Heat Map",       url: "/tools", icon: BarChart2,   desc: "Visual market performance grid" },
+      { title: "Depth Chart",    url: "/tools", icon: Activity,    desc: "Order book & market depth" },
+      { title: "Correlation",    url: "/tools", icon: TrendingUp,  desc: "Cross-asset correlation matrix" },
+      { title: "Econ Calendar",  url: "/tools", icon: Calendar,    desc: "Upcoming economic events" },
+      { title: "Risk Calculator",url: "/tools", icon: Calculator,  desc: "Position sizing & risk calc" },
+      { title: "Funding Rates",  url: "/tools", icon: Zap,         desc: "Live perpetual funding rates" },
+    ],
+  },
+  {
     id: "community",
     label: "Community",
     icon: Users,
@@ -99,7 +114,7 @@ const SECTIONS = [
 
 /* ── Route → section mapping ───────────────────────────────────────── */
 const ROUTE_SECTION: Record<string, string> = {
-  "/chart": "trade",       "/demo": "trade",       "/tools": "trade",   "/alerts": "trade",
+  "/chart": "trade",       "/demo": "trade",        "/alerts": "trade",
   "/ai": "research",       "/news": "research",    "/calculator": "research",
   "/marketplace": "research",
   "/strategies": "strategy-lab",  "/backtests": "strategy-lab",
@@ -107,6 +122,7 @@ const ROUTE_SECTION: Record<string, string> = {
   "/analytics": "trader-dna",     "/psych-match": "trader-dna",
   "/profile": "trader-dna",       "/trader-dna": "trader-dna",
   "/trading-os": "trader-dna",
+  "/tools": "tools",
   "/community": "community",      "/pricing": "community",
   "/academy": "academy",
 };
@@ -134,6 +150,7 @@ const HOME_SHEET_SECTIONS = [
     label: "Navigate",
     items: [
       { title: "Dashboard",   url: "/dashboard",   icon: LayoutDashboard },
+      { title: "Tools",       url: "/tools",       icon: Wrench },
       { title: "Academy",     url: "/academy",     icon: GraduationCap },
       { title: "Community",   url: "/community",   icon: Users },
       { title: "Marketplace", url: "/marketplace", icon: Store },
