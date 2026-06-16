@@ -90,7 +90,7 @@ function TraderDNAContent({ symbol }: TraderDNAFootprintPanelProps) {
           <div className="grid grid-cols-3 gap-2 mb-3">
             {[
               { label: "Compat. Score", value: `${result.compatibilityScore}%`, color: scoreColor, icon: Target },
-              { label: "Personal Win Rate", value: result.matchedBacktests > 0 ? `${result.personalWinRate}%` : "—", color: "#a855f7", icon: TrendingUp },
+              { label: "Personal Win Rate", value: result.matchedBacktests > 0 ? `${result.personalWinRate}%` : "—", color: "#a0a0a0", icon: TrendingUp },
               { label: "Backtests", value: String(result.matchedBacktests), color: "#06b6d4", icon: Dna },
             ].map((stat) => (
               <div key={stat.label} style={{ background: "hsl(var(--muted)/0.3)", borderRadius: "8px", padding: "8px", textAlign: "center" }}>

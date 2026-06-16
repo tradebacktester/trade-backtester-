@@ -209,13 +209,13 @@ export default function FootprintPage() {
   if (!token) {
     return (
       <div style={{ minHeight: "60vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", textAlign: "center" }}>
-        <div style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "16px", padding: "32px 40px" }}>
-          <Activity style={{ height: "36px", width: "36px", color: "#a855f7", margin: "0 auto 12px" }} />
+        <div style={{ background: "rgba(160,160,160,0.08)", border: "1px solid rgba(160,160,160,0.2)", borderRadius: "16px", padding: "32px 40px" }}>
+          <Activity style={{ height: "36px", width: "36px", color: "#a0a0a0", margin: "0 auto 12px" }} />
           <h2 style={{ fontSize: "18px", fontWeight: 700, color: "hsl(var(--foreground))", marginBottom: "8px" }}>Volume Footprint Terminal</h2>
           <p style={{ fontSize: "13px", color: "hsl(var(--muted-foreground))", maxWidth: "320px", lineHeight: 1.6 }}>
             Professional order flow analysis for serious traders. Sign in to access footprint charts, CVD, and AI insights.
           </p>
-          <button onClick={() => setShowAuth(true)} style={{ marginTop: "16px", padding: "10px 24px", borderRadius: "10px", background: "linear-gradient(135deg,#a855f7,#6366f1)", color: "#fff", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}>
+          <button onClick={() => setShowAuth(true)} style={{ marginTop: "16px", padding: "10px 24px", borderRadius: "10px", background: "linear-gradient(135deg,#555,#333)", color: "#fff", fontSize: "13px", fontWeight: 600, border: "none", cursor: "pointer" }}>
             Sign In to Continue
           </button>
         </div>
@@ -229,11 +229,11 @@ export default function FootprintPage() {
     return (
       <div style={{ minHeight: "60vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", textAlign: "center", padding: "32px 16px" }}>
         <div style={{
-          background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.18)",
+          background: "rgba(160,160,160,0.06)", border: "1px solid rgba(160,160,160,0.18)",
           borderRadius: "20px", padding: "40px 48px", maxWidth: "480px",
         }}>
-          <div style={{ background: "rgba(168,85,247,0.1)", borderRadius: "14px", padding: "12px", width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", border: "1px solid rgba(168,85,247,0.2)" }}>
-            <Activity style={{ height: "28px", width: "28px", color: "#a855f7" }} />
+          <div style={{ background: "rgba(160,160,160,0.1)", borderRadius: "14px", padding: "12px", width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", border: "1px solid rgba(160,160,160,0.2)" }}>
+            <Activity style={{ height: "28px", width: "28px", color: "#a0a0a0" }} />
           </div>
           <h2 style={{ fontSize: "20px", fontWeight: 800, color: "hsl(var(--foreground))", marginBottom: "8px", letterSpacing: "-0.03em" }}>
             Volume Footprint Terminal
@@ -253,13 +253,13 @@ export default function FootprintPage() {
               "Market scanner (Elite)",
             ].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>
-                <span style={{ color: "#a855f7", fontWeight: 700 }}>✓</span> {f}
+                <span style={{ color: "#a0a0a0", fontWeight: 700 }}>✓</span> {f}
               </div>
             ))}
           </div>
           <button
             onClick={() => void (window.location.href = "/pricing")}
-            style={{ width: "100%", padding: "12px", borderRadius: "12px", background: "linear-gradient(135deg,#a855f7,#6366f1)", color: "#fff", fontSize: "14px", fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(168,85,247,0.35)" }}>
+            style={{ width: "100%", padding: "12px", borderRadius: "12px", background: "linear-gradient(135deg,#555,#333)", color: "#fff", fontSize: "14px", fontWeight: 700, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(160,160,160,0.35)" }}>
             Upgrade to Pro — Unlock Footprint
           </button>
           <p style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))", marginTop: "10px" }}>
@@ -282,13 +282,13 @@ export default function FootprintPage() {
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div style={{ marginBottom: "16px" }}>
         <div className="flex items-center gap-2 mb-1">
-          <div style={{ background: "rgba(168,85,247,0.1)", borderRadius: "9px", padding: "6px", border: "1px solid rgba(168,85,247,0.2)" }}>
-            <Activity style={{ height: "15px", width: "15px", color: "#a855f7" }} />
+          <div style={{ background: "rgba(160,160,160,0.1)", borderRadius: "9px", padding: "6px", border: "1px solid rgba(160,160,160,0.2)" }}>
+            <Activity style={{ height: "15px", width: "15px", color: "#a0a0a0" }} />
           </div>
           <h1 style={{ fontSize: "18px", fontWeight: 800, color: "hsl(var(--foreground))", letterSpacing: "-0.03em", margin: 0 }}>
             Volume Footprint Terminal
           </h1>
-          <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "4px", background: "rgba(168,85,247,0.1)", color: "#a855f7", fontWeight: 700, letterSpacing: "0.08em" }}>BETA</span>
+          <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "4px", background: "rgba(160,160,160,0.1)", color: "#a0a0a0", fontWeight: 700, letterSpacing: "0.08em" }}>BETA</span>
         </div>
         <p style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))", margin: 0 }}>
           Professional order flow · Bid×Ask footprint · Delta · CVD · Liquidity zones
@@ -358,13 +358,13 @@ export default function FootprintPage() {
             style={{
               padding: "7px 14px", borderRadius: "9px", border: "none", cursor: "pointer",
               fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap",
-              background: activeTab === tab.id ? "rgba(168,85,247,0.12)" : "transparent",
-              color: activeTab === tab.id ? "#a855f7" : "hsl(var(--muted-foreground))",
-              boxShadow: activeTab === tab.id ? "0 0 0 1px rgba(168,85,247,0.3)" : "none",
+              background: activeTab === tab.id ? "rgba(160,160,160,0.12)" : "transparent",
+              color: activeTab === tab.id ? "#a0a0a0" : "hsl(var(--muted-foreground))",
+              boxShadow: activeTab === tab.id ? "0 0 0 1px rgba(160,160,160,0.3)" : "none",
               transition: "all 0.15s",
             }}>
             {tab.label}
-            {tab.elite && <span style={{ fontSize: "8px", marginLeft: "5px", padding: "1px 4px", borderRadius: "3px", background: "rgba(168,85,247,0.15)", color: "#a855f7", fontWeight: 700 }}>ELITE</span>}
+            {tab.elite && <span style={{ fontSize: "8px", marginLeft: "5px", padding: "1px 4px", borderRadius: "3px", background: "rgba(160,160,160,0.15)", color: "#a0a0a0", fontWeight: 700 }}>ELITE</span>}
           </button>
         ))}
       </div>
@@ -412,7 +412,7 @@ export default function FootprintPage() {
                     }}>
                     <m.icon style={{ height: "11px", width: "11px" }} />
                     <span className="hidden sm:inline">{m.label}</span>
-                    {m.elite && !isElite && <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(168,85,247,0.12)", color: "#a855f7" }}>E</span>}
+                    {m.elite && !isElite && <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(160,160,160,0.12)", color: "#a0a0a0" }}>E</span>}
                     {m.pro && !isPro && !isElite && <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(99,102,241,0.12)", color: "#6366f1" }}>P</span>}
                   </button>
                 );
@@ -420,7 +420,7 @@ export default function FootprintPage() {
             </div>
 
             {/* Footprint grid */}
-            <div style={{ border: "1px solid hsl(var(--border))", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+            <div style={{ border: "1px solid hsl(var(--border))", borderTop: "none", borderRadius: "0 0 12px 12px" }}>
               {loading ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "240px" }}>
                   <CandleLoader size="md" />
@@ -479,15 +479,15 @@ export default function FootprintPage() {
                 </div>
                 <div className="flex gap-2 mt-2">
                   {selectedCandle.isExhaustion && <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "rgba(239,68,68,0.1)", color: "#ef4444", fontWeight: 700 }}>EXHAUSTION</span>}
-                  {selectedCandle.isDivergence && <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "rgba(168,85,247,0.1)", color: "#a855f7", fontWeight: 700 }}>DIVERGENCE</span>}
+                  {selectedCandle.isDivergence && <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "rgba(160,160,160,0.1)", color: "#a0a0a0", fontWeight: 700 }}>DIVERGENCE</span>}
                 </div>
               </div>
             )}
 
             {/* Absorption alerts in sidebar */}
             {totalAbsorption > 0 && (
-              <div style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "10px", padding: "10px 12px" }}>
-                <p style={{ fontSize: "10px", fontWeight: 700, color: "#a855f7", marginBottom: "4px", letterSpacing: "0.06em", textTransform: "uppercase" }}>Absorption Detected</p>
+              <div style={{ background: "rgba(160,160,160,0.06)", border: "1px solid rgba(160,160,160,0.2)", borderRadius: "10px", padding: "10px 12px" }}>
+                <p style={{ fontSize: "10px", fontWeight: 700, color: "#a0a0a0", marginBottom: "4px", letterSpacing: "0.06em", textTransform: "uppercase" }}>Absorption Detected</p>
                 <p style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))", margin: 0 }}>
                   {totalAbsorption} absorption signal{totalAbsorption > 1 ? "s" : ""} in last 5 candles
                 </p>

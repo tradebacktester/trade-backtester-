@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { motion } from "framer-motion";
 import {
   Search, Star, ArrowUpRight, ArrowDownRight, RefreshCw,
   ChevronRight, Sparkles, Clock, BarChart2, X,
+  TrendingUp, Globe, Activity, Layers, Zap, Package,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api-config";
 
@@ -128,7 +130,7 @@ const CHART_SYMBOL_MAP: Record<string, string> = {
   // Economic → proxy
   GDP: "SPY", CPI: "TLT", FEDFUNDS: "^TNX",
   // Commodities (core category)
-  SILVER: "SI=F", CRUDE_OIL: "CL=F", NATURAL_GAS: "NG=F",
+  CRUDE_OIL: "CL=F", NATURAL_GAS: "NG=F",
 };
 function toChartSymbol(sym: string): string { return CHART_SYMBOL_MAP[sym] ?? sym; }
 
@@ -327,6 +329,130 @@ const STATIC_ASSETS: ScreenerRow[] = [
 // Symbol set for fast lookup
 const STATIC_SYMBOLS = new Set(STATIC_ASSETS.map(r => r.symbol));
 
+// ── Animated Market Icons ─────────────────────────────────────────────────────
+function MarketIcon({ type, color, size = 13 }: { type: string; color: string; size?: number }) {
+  const s = size;
+  if (type === "crypto") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, display: "block" }}>
+        <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.3" style={{ animation: "icon-pulse 2.5s ease-in-out infinite" }} />
+        <text x="8.5" y="11.2" textAnchor="middle" fontSize="7.5" fill={color} fontWeight="bold" fontFamily="Arial,sans-serif" style={{ userSelect: "none" }}>₿</text>
+      </svg>
+    );
+  }
+  if (type === "stock") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, display: "block" }}>
+        <rect x="1" y="10.5" width="3.2" height="4.5" rx="0.5" fill={color} opacity="0.45" />
+        <rect x="6.4" y="7" width="3.2" height="8" rx="0.5" fill={color} opacity="0.7" style={{ animation: "icon-rise 2s ease-in-out infinite" }} />
+        <rect x="11.8" y="3" width="3.2" height="12" rx="0.5" fill={color} style={{ animation: "icon-rise 2s ease-in-out infinite 0.3s" }} />
+      </svg>
+    );
+  }
+  if (type === "forex") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, display: "block" }}>
+        <path d="M2 5.5h10M9.5 2.5l3 3-3 3" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "icon-pulse 2s ease-in-out infinite" }} />
+        <path d="M14 10.5H4M6.5 7.5l-3 3 3 3" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "icon-pulse 2s ease-in-out infinite 0.5s" }} />
+      </svg>
+    );
+  }
+  if (type === "index") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, display: "block" }}>
+        <circle cx="8" cy="8" r="5.5" stroke={color} strokeWidth="1.2" style={{ animation: "icon-pulse 3s ease-in-out infinite" }} />
+        <path d="M2.5 8h11M8 2.5C5.5 5 5.5 11 8 13.5M8 2.5c2.5 2.5 2.5 8.5 0 11" stroke={color} strokeWidth="1" />
+      </svg>
+    );
+  }
+  if (type === "commodity") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, display: "block" }}>
+        <path d="M8 1.5l2.2 4.5H15l-3.8 2.8 1.4 4.5L8 10.5l-4.6 2.8 1.4-4.5L1 5.9h4.8z" stroke={color} strokeWidth="1.2" strokeLinejoin="round" style={{ animation: "icon-pulse 2.8s ease-in-out infinite" }} />
+      </svg>
+    );
+  }
+  // Default (ETF, bonds, etc.)
+  return (
+    <svg width={s} height={s} viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, display: "block" }}>
+      <path d="M2 12L5.5 7.5L9 10L13.5 4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "icon-pulse 2.5s ease-in-out infinite" }} />
+    </svg>
+  );
+}
+
+function assetTypeFromRow(row: ScreenerRow): string {
+  const cat = getRowCategory(row);
+  if (cat === "crypto" || cat === "crypto-dom") return "crypto";
+  if (cat === "stocks" || cat === "etfs" || cat === "sector-idx") return "stock";
+  if (cat === "forex" || cat === "currency-idx") return "forex";
+  if (cat === "indices" || cat === "global") return "index";
+  if (cat === "commodities" || cat === "energy" || cat === "agriculture" || cat === "livestock" || cat === "soft-comm") return "commodity";
+  return "default";
+}
+
+function displaySymbol(row: ScreenerRow): string {
+  if (row.assetType === "crypto") {
+    if (row.symbol.endsWith("USDT")) return `${row.ticker}/USDT`;
+    if (row.symbol.endsWith("BTC")) return `${row.ticker}/BTC`;
+  }
+  return row.ticker;
+}
+
+type MarketStatusInfo = { label: string; color: string; glow: boolean };
+function getMarketStatus(row: ScreenerRow): MarketStatusInfo {
+  const cat = getRowCategory(row);
+  if (cat === "crypto" || cat === "crypto-dom") return { label: "24/7", color: "#4ade80", glow: true };
+  if (cat === "economic" || cat === "treasury" || cat === "bonds") return { label: "Reference", color: "#9ca3af", glow: false };
+
+  const now = new Date();
+  const day = now.getDay();
+  const utcH = now.getUTCHours();
+  const utcM = now.getUTCMinutes();
+  const month = now.getUTCMonth();
+  const isDST = month > 2 && month < 11;
+  const etH = (utcH - (isDST ? 4 : 5) + 24) % 24;
+  const etMinTotal = etH * 60 + utcM;
+
+  if (cat === "forex" || cat === "currency-idx") {
+    if (day === 6) return { label: "Closed", color: "#f87171", glow: false };
+    if (day === 0 && etH < 17) return { label: "Closed", color: "#f87171", glow: false };
+    return { label: "Open", color: "#4ade80", glow: true };
+  }
+
+  if (day === 0 || day === 6) return { label: "Closed", color: "#f87171", glow: false };
+  if (etMinTotal >= 570 && etMinTotal < 960) return { label: "Open", color: "#4ade80", glow: true };
+  if (etMinTotal >= 240 && etMinTotal < 570) return { label: "Pre-Market", color: "#fbbf24", glow: false };
+  if (etMinTotal >= 960 && etMinTotal < 1200) return { label: "After Hours", color: "#fbbf24", glow: false };
+  return { label: "Closed", color: "#f87171", glow: false };
+}
+
+function bestSession(row: ScreenerRow): string {
+  const cat = getRowCategory(row);
+  if (cat === "crypto" || cat === "crypto-dom") {
+    const score = computeAiScore(row);
+    return score >= 65 ? "London Open" : "New York Open";
+  }
+  if (cat === "forex" || cat === "currency-idx") {
+    const t = row.ticker.toUpperCase();
+    if (t.includes("JPY") || t.includes("AUD") || t.includes("NZD")) return "Tokyo";
+    if (t.includes("GBP") || t.includes("EUR") || t.includes("CHF")) return "London";
+    return "New York";
+  }
+  if (cat === "indices" && (row.ticker.includes("NIFTY") || row.ticker.includes("SENSEX") || row.ticker.includes("N225"))) return "Asia";
+  if (cat === "indices" && (row.ticker.includes("DAX") || row.ticker.includes("FTSE") || row.ticker.includes("CAC"))) return "London";
+  return "New York";
+}
+
+function traderEdge(row: ScreenerRow): string {
+  const score = computeAiScore(row);
+  const edge = score - 50;
+  if (edge >= 20) return `+${Math.round(edge * 0.8 + 12)}% vs avg`;
+  if (edge >= 10) return `+${Math.round(edge * 0.6 + 6)}% vs avg`;
+  if (edge <= -15) return `${Math.round(edge * 0.5 - 4)}% vs avg`;
+  if (edge <= -5) return `${Math.round(edge * 0.4 - 2)}% vs avg`;
+  return "Neutral vs avg";
+}
+
 // ── Seeded Sparkline ──────────────────────────────────────────────────────────
 function mulberry32(seed: number) {
   return function () {
@@ -349,25 +475,36 @@ function genSparkline(symbol: string, change24h: number, n = 14): number[] {
   }
   return pts;
 }
-function Sparkline({ symbol, change24h, w = 70, h = 30 }: { symbol: string; change24h: number; w?: number; h?: number }) {
+function SparklineWithPct({ symbol, change24h, w = 72, h = 34 }: { symbol: string; change24h: number; w?: number; h?: number }) {
   const pts = useMemo(() => genSparkline(symbol, change24h), [symbol, change24h]);
   const min = Math.min(...pts), max = Math.max(...pts), range = max - min || 1;
   const xs = pts.map((_, i) => (i / (pts.length - 1)) * w);
-  const ys = pts.map(p => h - ((p - min) / range) * (h - 5) - 2);
-  const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const ys = pts.map(p => (h - 12) - ((p - min) / range) * ((h - 12) - 4) - 2);
+  const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i]!.toFixed(1)}`).join(" ");
   const color = change24h >= 0 ? "#4ade80" : "#f87171";
   const uid = `sg-${symbol.replace(/[^a-zA-Z0-9]/g, "")}`;
+  const pctStr = `${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%`;
   return (
-    <svg width={w} height={h} style={{ overflow: "visible", flexShrink: 0, display: "block" }}>
-      <defs>
-        <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`${d} L${w},${h} L0,${h} Z`} fill={`url(#${uid})`} />
-      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div style={{ position: "relative", flexShrink: 0, width: w, height: h }}>
+      <svg width={w} height={h - 12} style={{ overflow: "visible", display: "block" }}>
+        <defs>
+          <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={`${d} L${w},${h - 12} L0,${h - 12} Z`} fill={`url(#${uid})`} />
+        <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div style={{
+        position: "absolute", bottom: 0, right: 0,
+        fontSize: "8.5px", fontWeight: 700, color,
+        background: `${color}1a`, borderRadius: "4px",
+        padding: "1px 4px", letterSpacing: "0.02em", lineHeight: 1.4,
+      }}>
+        {pctStr}
+      </div>
+    </div>
   );
 }
 
@@ -428,71 +565,115 @@ function AssetCard({ row, isFav, onFav, onSelect, catColor }: CardProps) {
   const sc = scoreColor(score);
   const tf = bestTf(row);
   const dna = dnaMatch(row);
+  const status = getMarketStatus(row);
+  const sym = displaySymbol(row);
+  const session = bestSession(row);
+  const edge = traderEdge(row);
+  const iconType = assetTypeFromRow(row);
   const pos = row.change24h >= 0;
-  const [hov, setHov] = useState(false);
 
   return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+    <motion.div
       onClick={() => onSelect(row)}
+      whileHover={{
+        y: -5,
+        borderColor: catColor + "55",
+        boxShadow: `0 18px 56px rgba(0,0,0,0.45), 0 0 0 1px ${catColor}33, 0 0 24px ${catColor}0d`,
+        transition: { type: "spring", stiffness: 400, damping: 28 },
+      } as any}
       style={{
-        background: hov ? "var(--card-bg-hover, var(--card-bg))" : "var(--card-bg)",
-        border: `1px solid ${hov ? catColor + "44" : "var(--glass-border)"}`,
+        background: "var(--card-bg)",
+        border: "1px solid var(--glass-border)",
         borderRadius: "18px",
-        padding: "15px 16px 13px",
+        padding: "15px 16px 14px",
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
-        transition: "transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s ease, border-color 0.18s ease",
-        transform: hov ? "translateY(-3px)" : "none",
-        boxShadow: hov ? `0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px ${catColor}22` : "var(--shadow-card)",
         minWidth: 0,
       }}
     >
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: `linear-gradient(90deg, ${catColor}99 0%, ${catColor}00 100%)`, borderRadius: "18px 18px 0 0" }} />
+      {/* Accent top strip */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: `linear-gradient(90deg, ${catColor}cc 0%, ${catColor}00 75%)`, borderRadius: "18px 18px 0 0" }} />
 
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "8px" }}>
+      {/* Row 1: Icon + Symbol + Status + Fav */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "9px" }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
-            <span style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "-0.03em", color: "var(--foreground)", fontFamily: "var(--app-font-display)", lineHeight: 1 }}>
-              {row.ticker}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px", flexWrap: "wrap" }}>
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              style={{ flexShrink: 0, display: "flex" }}
+            >
+              <MarketIcon type={iconType} color={catColor} size={13} />
+            </motion.div>
+
+            <span style={{ fontSize: "18px", fontWeight: 800, letterSpacing: "-0.04em", color: "var(--foreground)", fontFamily: "var(--app-font-display)", lineHeight: 1 }}>
+              {sym}
             </span>
+
+            <span style={{
+              fontSize: "7.5px", fontWeight: 700, padding: "2px 6px", borderRadius: "999px",
+              background: `${status.color}1a`, color: status.color, letterSpacing: "0.08em",
+              display: "inline-flex", alignItems: "center", gap: "3px", flexShrink: 0,
+            }}>
+              <span style={{
+                width: "4px", height: "4px", borderRadius: "50%", background: status.color,
+                display: "inline-block", flexShrink: 0,
+                ...(status.glow ? { boxShadow: `0 0 5px ${status.color}` } : {}),
+                ...(status.glow ? { animation: "dot-pulse 2s ease-in-out infinite" } : {}),
+              }} />
+              {status.label}
+            </span>
+
             {row.dataSource === "live" && (
-              <span style={{ fontSize: "7.5px", fontWeight: 700, padding: "2px 5px", borderRadius: "999px", background: "rgba(74,222,128,0.13)", color: "#4ade80", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: "3px" }}>
-                <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 5px rgba(74,222,128,0.8)", display: "inline-block" }} />
+              <span style={{ fontSize: "7px", fontWeight: 700, padding: "1px 4px", borderRadius: "4px", background: "rgba(74,222,128,0.12)", color: "#4ade80", letterSpacing: "0.08em" }}>
                 LIVE
               </span>
             )}
           </div>
-          <span style={{ fontSize: "10.5px", color: "var(--muted-foreground)", letterSpacing: "0.01em", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</span>
+
+          <span style={{ fontSize: "10.5px", color: "var(--muted-foreground)", letterSpacing: "0.01em", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {row.name}
+          </span>
         </div>
+
         <button
           onClick={e => { e.stopPropagation(); onFav(row.symbol); }}
-          style={{ width: "32px", height: "32px", borderRadius: "10px", border: `1px solid ${isFav ? "#fbbf2444" : "var(--glass-border)"}`, background: isFav ? "rgba(251,191,36,0.1)" : "transparent", color: isFav ? "#fbbf24" : "var(--muted-foreground)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s ease" }}
+          style={{
+            width: "30px", height: "30px", borderRadius: "10px", flexShrink: 0, marginLeft: "8px",
+            border: `1px solid ${isFav ? "#fbbf2444" : "var(--glass-border)"}`,
+            background: isFav ? "rgba(251,191,36,0.1)" : "transparent",
+            color: isFav ? "#fbbf24" : "var(--muted-foreground)",
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.15s ease",
+          }}
         >
-          <Star style={{ width: "13px", height: "13px", fill: isFav ? "#fbbf24" : "none", strokeWidth: 1.8 }} />
+          <Star style={{ width: "12px", height: "12px", fill: isFav ? "#fbbf24" : "none", strokeWidth: 1.8 }} />
         </button>
       </div>
 
+      {/* Row 2: Price + Sparkline with % */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "10px" }}>
         <div>
-          <div style={{ fontSize: "19px", fontWeight: 700, letterSpacing: "-0.045em", color: "var(--foreground)", fontFamily: "var(--app-font-mono, 'JetBrains Mono', monospace)", lineHeight: 1, marginBottom: "3px" }}>
-            {fmtP(row.price)}
+          <div style={{ fontSize: "21px", fontWeight: 700, letterSpacing: "-0.05em", color: "var(--foreground)", fontFamily: "var(--app-font-mono)", lineHeight: 1, marginBottom: "4px" }}>
+            ${fmtP(row.price)}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-            {pos ? <ArrowUpRight style={{ width: "11px", height: "11px", color: "#4ade80", flexShrink: 0 }} />
-                 : <ArrowDownRight style={{ width: "11px", height: "11px", color: "#f87171", flexShrink: 0 }} />}
-            <span style={{ fontSize: "12px", fontWeight: 650, color: pos ? "#4ade80" : "#f87171", letterSpacing: "-0.01em" }}>
+            {pos
+              ? <ArrowUpRight style={{ width: "11px", height: "11px", color: "#4ade80", flexShrink: 0 }} />
+              : <ArrowDownRight style={{ width: "11px", height: "11px", color: "#f87171", flexShrink: 0 }} />
+            }
+            <span style={{ fontSize: "13px", fontWeight: 700, color: pos ? "#4ade80" : "#f87171", letterSpacing: "-0.02em" }}>
               {pos ? "+" : ""}{row.change24h.toFixed(2)}%
             </span>
             <span style={{ fontSize: "9.5px", color: "var(--muted-foreground)", letterSpacing: "0.02em" }}>24H</span>
           </div>
         </div>
-        <Sparkline symbol={row.symbol} change24h={row.change24h} w={68} h={30} />
+        <SparklineWithPct symbol={row.symbol} change24h={row.change24h} w={76} h={38} />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "9px" }}>
+      {/* Row 3: Vol · RSI · 7D */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "9px", flexWrap: "wrap" }}>
         <span style={{ fontSize: "10px", color: "var(--muted-foreground)" }}>
           Vol <strong style={{ color: "var(--foreground)", fontWeight: 600 }}>{fmtV(row.volume24h)}</strong>
         </span>
@@ -506,19 +687,32 @@ function AssetCard({ row, isFav, onFav, onSelect, catColor }: CardProps) {
         </span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }}>
-        <span style={{ fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "8px", background: `${sc}18`, color: sc, display: "flex", alignItems: "center", gap: "3px", letterSpacing: "0.02em", flexShrink: 0 }}>
+      {/* Row 4: AI Score · DNA Match · Best TF · Arrow */}
+      <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "9px", flexWrap: "wrap" }}>
+        <span style={{ fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "8px", background: `${sc}18`, color: sc, display: "inline-flex", alignItems: "center", gap: "3px", flexShrink: 0 }}>
           <Sparkles style={{ width: "8px", height: "8px" }} />{score}
         </span>
         <span style={{ fontSize: "10px", fontWeight: 600, padding: "3px 8px", borderRadius: "8px", background: `${dna.color}14`, color: dna.color, flexShrink: 0 }}>
           {dna.label}
         </span>
-        <span style={{ fontSize: "9.5px", fontWeight: 600, padding: "3px 8px", borderRadius: "8px", background: "rgba(255,255,255,0.05)", color: "var(--muted-foreground)", marginLeft: "auto", letterSpacing: "0.03em", flexShrink: 0 }}>
+        <span style={{ fontSize: "9.5px", fontWeight: 600, padding: "3px 7px", borderRadius: "8px", background: "rgba(255,255,255,0.05)", color: "var(--muted-foreground)", letterSpacing: "0.03em", flexShrink: 0 }}>
           {tf}
         </span>
-        <ChevronRight style={{ width: "12px", height: "12px", color: catColor, opacity: hov ? 1 : 0.4, transition: "opacity 0.15s", flexShrink: 0 }} />
+        <ChevronRight style={{ width: "12px", height: "12px", color: catColor, marginLeft: "auto", flexShrink: 0 }} />
       </div>
-    </div>
+
+      {/* Row 5: Trader insight */}
+      <div style={{ borderTop: "1px solid var(--glass-border)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+        <span style={{ fontSize: "9.5px", color: "var(--muted-foreground)", letterSpacing: "0.01em" }}>
+          <strong style={{ color: sc }}>{edge}</strong>
+          <span style={{ opacity: 0.5, margin: "0 4px" }}>·</span>
+          Best TF: <strong style={{ color: "var(--foreground)" }}>{tf}</strong>
+        </span>
+        <span style={{ fontSize: "9px", color: "var(--muted-foreground)", letterSpacing: "0.01em", flexShrink: 0 }}>
+          {session}
+        </span>
+      </div>
+    </motion.div>
   );
 }
 
@@ -700,11 +894,22 @@ export default function MarketSelectionPage() {
               {grp.items.map(cat => {
                 const active = category === cat.id;
                 const count = counts[cat.id] ?? 0;
+                const iconTypeMap: Record<string, string> = {
+                  all: "default", crypto: "crypto", "crypto-dom": "crypto",
+                  stocks: "stock", etfs: "stock", "sector-idx": "stock",
+                  forex: "forex", "currency-idx": "forex",
+                  indices: "index", global: "index",
+                  futures: "commodity", commodities: "commodity", energy: "commodity",
+                  agriculture: "commodity", livestock: "commodity",
+                  "soft-comm": "commodity", carbon: "commodity", freight: "commodity",
+                  bonds: "default", treasury: "default", volatility: "default", economic: "default",
+                };
+                const icoType = iconTypeMap[cat.id] ?? "default";
                 return (
                   <button key={cat.id} onClick={() => setCategory(cat.id)}
                     style={{
-                      display: "flex", alignItems: "center", gap: "5px",
-                      padding: "6px 12px", borderRadius: "11px",
+                      display: "inline-flex", alignItems: "center", gap: "5px",
+                      padding: "6px 11px", borderRadius: "11px",
                       border: `1px solid ${active ? cat.color + "55" : "var(--glass-border)"}`,
                       background: active ? `${cat.color}14` : "var(--card-bg)",
                       color: active ? cat.color : sub,
@@ -713,6 +918,7 @@ export default function MarketSelectionPage() {
                       flexShrink: 0, boxShadow: active ? `0 0 0 1px ${cat.color}22` : "none",
                       letterSpacing: "-0.01em",
                     }}>
+                    <MarketIcon type={icoType} color={active ? cat.color : sub} size={11} />
                     {cat.label}
                     {count > 0 && (
                       <span style={{ fontSize: "9.5px", padding: "1px 5px", borderRadius: "6px", background: active ? `${cat.color}22` : "rgba(255,255,255,0.06)", color: active ? cat.color : sub, fontWeight: 600 }}>
@@ -810,6 +1016,9 @@ export default function MarketSelectionPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 0.3; } }
+        @keyframes icon-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+        @keyframes icon-rise { 0%,100% { transform: scaleY(1); transform-origin: bottom; } 50% { transform: scaleY(1.18); transform-origin: bottom; } }
+        @keyframes dot-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.3); } }
       `}</style>
     </div>
   );

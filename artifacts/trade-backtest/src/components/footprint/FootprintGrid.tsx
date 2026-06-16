@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, useState } from "react";
+import React, { useMemo, useRef, useCallback, useState, useEffect } from "react";
 import { type FootprintCandle } from "@/hooks/useFootprintData";
 
 export type ChartMode = "bidask" | "delta" | "volume" | "imbalance" | "cvd";
@@ -180,7 +180,7 @@ function CandleColumn({
             <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(239,68,68,0.15)", color: "#ef4444", fontWeight: 700, letterSpacing: "0.04em" }}>EX</span>
           )}
           {candle.isDivergence && (
-            <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(168,85,247,0.15)", color: "#a855f7", fontWeight: 700, letterSpacing: "0.04em" }}>DIV</span>
+            <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(160,160,160,0.15)", color: "#a0a0a0", fontWeight: 700, letterSpacing: "0.04em" }}>DIV</span>
           )}
         </div>
       </div>
@@ -355,6 +355,60 @@ export function FootprintGrid({ candles, mode, selectedCandleIdx, onSelectCandle
   const lastPinchDistRef = useRef<number | null>(null);
   const lastRowHeightRef = useRef(DEFAULT_ROW_HEIGHT);
 
+  // ── Mouse drag-to-pan state ────────────────────────────────────────
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartYRef = useRef(0);
+  const scrollStartXRef = useRef(0);
+  const scrollStartYRef = useRef(0);
+  const didDragRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isDraggingRef.current = true;
+    didDragRef.current = false;
+    dragStartXRef.current = e.clientX;
+    dragStartYRef.current = e.clientY;
+    scrollStartXRef.current = scrollRef.current?.scrollLeft ?? 0;
+    scrollStartYRef.current = scrollRef.current?.scrollTop ?? 0;
+    setIsDragging(true);
+    e.preventDefault();
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingRef.current || !scrollRef.current) return;
+    const dx = dragStartXRef.current - e.clientX;
+    const dy = dragStartYRef.current - e.clientY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDragRef.current = true;
+    scrollRef.current.scrollLeft = scrollStartXRef.current + dx;
+    scrollRef.current.scrollTop = scrollStartYRef.current + dy;
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+  }, []);
+
+  // Register global mousemove/mouseup so drag works even if cursor leaves the div
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !scrollRef.current) return;
+      const dx = dragStartXRef.current - e.clientX;
+      const dy = dragStartYRef.current - e.clientY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDragRef.current = true;
+      scrollRef.current.scrollLeft = scrollStartXRef.current + dx;
+      scrollRef.current.scrollTop = scrollStartYRef.current + dy;
+    };
+    const onUp = () => {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dx = e.touches[0]!.clientX - e.touches[1]!.clientX;
@@ -413,10 +467,12 @@ export function FootprintGrid({ candles, mode, selectedCandleIdx, onSelectCandle
   }
 
   return (
-    <div style={{ position: "relative", overflow: "hidden", background: "var(--card-bg)", borderRadius: "0 0 12px 12px" }}>
-      {/* Zoom hint */}
-      <div style={{ position: "absolute", top: "4px", right: "8px", zIndex: 20, fontSize: "9px", color: "hsl(var(--muted-foreground))", pointerEvents: "none" }}>
-        Ctrl+Scroll or pinch to zoom
+    <div style={{ position: "relative", background: "var(--card-bg)", borderRadius: "0 0 12px 12px" }}>
+      {/* Zoom + drag hint */}
+      <div style={{ position: "absolute", top: "4px", right: "8px", zIndex: 20, fontSize: "9px", color: "hsl(var(--muted-foreground))", pointerEvents: "none", display: "flex", alignItems: "center", gap: "8px" }}>
+        <span>Drag to pan</span>
+        <span style={{ opacity: 0.5 }}>·</span>
+        <span>Ctrl+Scroll to zoom</span>
       </div>
 
       <div
@@ -425,6 +481,9 @@ export function FootprintGrid({ candles, mode, selectedCandleIdx, onSelectCandle
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         style={{
           overflowX: "auto", overflowY: "auto",
           WebkitOverflowScrolling: "touch",
@@ -432,8 +491,9 @@ export function FootprintGrid({ candles, mode, selectedCandleIdx, onSelectCandle
           gap: "2px",
           padding: "4px 8px 8px",
           minHeight: "200px",
-          maxHeight: "520px",
-          scrollBehavior: "smooth",
+          maxHeight: "540px",
+          cursor: isDragging ? "grabbing" : "grab",
+          userSelect: "none",
         }}
       >
         {/* Sticky price axis — aligned to currently selected candle levels */}

@@ -94,11 +94,11 @@ function AIOrderFlowContent({ candles, symbol, timeframe }: AIOrderFlowPanelProp
     }}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div style={{ background: "rgba(168,85,247,0.1)", borderRadius: "8px", padding: "5px", border: "1px solid rgba(168,85,247,0.2)" }}>
-            <Sparkles style={{ height: "13px", width: "13px", color: "#a855f7" }} />
+          <div style={{ background: "rgba(160,160,160,0.1)", borderRadius: "8px", padding: "5px", border: "1px solid rgba(160,160,160,0.2)" }}>
+            <Sparkles style={{ height: "13px", width: "13px", color: "#a0a0a0" }} />
           </div>
           <span style={{ fontSize: "12px", fontWeight: 700, color: "hsl(var(--foreground))" }}>AI Order Flow</span>
-          <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "rgba(168,85,247,0.1)", color: "#a855f7", fontWeight: 600, letterSpacing: "0.06em" }}>ELITE</span>
+          <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "rgba(160,160,160,0.1)", color: "#a0a0a0", fontWeight: 600, letterSpacing: "0.06em" }}>ELITE</span>
         </div>
         <button
           onClick={() => { void fetchInsight(); }}
@@ -136,10 +136,10 @@ function AIOrderFlowContent({ candles, symbol, timeframe }: AIOrderFlowPanelProp
           </p>
 
           <div style={{
-            background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.15)",
+            background: "rgba(160,160,160,0.06)", border: "1px solid rgba(160,160,160,0.15)",
             borderRadius: "8px", padding: "8px 10px",
           }}>
-            <p style={{ fontSize: "10px", fontWeight: 600, color: "#a855f7", marginBottom: "3px", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <p style={{ fontSize: "10px", fontWeight: 600, color: "#a0a0a0", marginBottom: "3px", letterSpacing: "0.06em", textTransform: "uppercase" }}>
               Recommendation
             </p>
             <p style={{ fontSize: "12px", color: "hsl(var(--foreground))", lineHeight: 1.5 }}>
