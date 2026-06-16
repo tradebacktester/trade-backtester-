@@ -21,6 +21,7 @@ import academyRouter from "./academy";
 import usersRouter from "./users";
 import footprintRouter from "./footprint";
 import watchlistRouter from "./watchlist";
+import brokerageRouter from "./brokerage";
 
 const router: IRouter = Router();
 
@@ -49,5 +50,6 @@ router.use(academyRouter);
 router.use(usersRouter);
 router.use(footprintRouter);
 router.use(watchlistRouter);
+router.use(brokerageRouter);
 
 export default router;

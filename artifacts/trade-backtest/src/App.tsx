@@ -51,6 +51,7 @@ import TradingOsPage from "@/pages/trading-os";
 import TradingOsReportPage from "@/pages/trading-os-report";
 import AcademyPage from "@/pages/academy/index";
 import FootprintPage from "@/pages/footprint";
+import BrokeragePage from "@/pages/brokerage";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
@@ -162,6 +163,8 @@ function Router() {
 
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+
+      <Route path="/brokerage" component={BrokeragePage} />
 
       <Route path="/admin" component={() => <Redirect to="/admin/login" />} />
       <Route path="/admin/login" component={AdminLogin} />

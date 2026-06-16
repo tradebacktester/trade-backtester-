@@ -3,6 +3,7 @@ import { fetchYahooQuote, fetchYahooKlines, isYahooSupported } from "../lib/yaho
 import { db, backtestsTable } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
 import { eq } from "drizzle-orm";
+import { ALPACA_CONFIGURED, alpacaGetLatestQuote } from "../lib/alpaca";
 
 const router: IRouter = Router();
 
@@ -540,35 +541,54 @@ router.get("/tools/depth/:symbol", async (req, res) => {
     }
   }
 
-  // ── Non-crypto: real mid price from Yahoo + realistic spread ─
+  // ── Non-crypto: prefer Alpaca NBBO (real bid/ask + sizes), fall back to Yahoo ─
   let midPrice = asset.base;
+  let realBid  = 0, realAsk = 0;
+  let realBidSz = 0, realAskSz = 0;
   let dataSource: "live" | "indicative" = "indicative";
 
-  if (isYahooSupported(symbol)) {
+  if (ALPACA_CONFIGURED()) {
+    try {
+      const nbbo = await alpacaGetLatestQuote(symbol);
+      if (nbbo && nbbo.bp > 0 && nbbo.ap > 0) {
+        midPrice   = (nbbo.bp + nbbo.ap) / 2;
+        realBid    = nbbo.bp;
+        realAsk    = nbbo.ap;
+        realBidSz  = nbbo.bs;
+        realAskSz  = nbbo.as;
+        dataSource = "live";
+      }
+    } catch { /* fall through to Yahoo */ }
+  }
+
+  if (dataSource !== "live" && isYahooSupported(symbol)) {
     try {
       const quote = await fetchYahooQuote(symbol);
       if (quote.price > 0) { midPrice = quote.price; dataSource = "indicative"; }
     } catch { /* use base */ }
   }
 
-  // Build realistic depth with real mid price + per-asset-class spread model
-  const isFx       = asset.assetType === "forex";
-  const isIndex    = asset.assetType === "index";
-  const spreadHalf = midPrice * (isFx ? 0.00005 : isIndex ? 0.00015 : 0.0002);
-  const stepPct    = midPrice * (isFx ? 0.00005 : isIndex ? 0.0002 : 0.0003);
-  const levels     = 20;
-  const rng        = mulberry32(timeSeed(symbol + "depth", 60_000));
+  // Build realistic depth; level 0 uses real Alpaca NBBO when available
+  const isFx    = asset.assetType === "forex";
+  const isIndex = asset.assetType === "index";
+  // Use real spread from Alpaca NBBO if available, otherwise formula-based
+  const realSpread  = dataSource === "live" && realBid > 0 ? (realAsk - realBid) / 2 : 0;
+  const spreadHalf  = realSpread > 0 ? realSpread : midPrice * (isFx ? 0.00005 : isIndex ? 0.00015 : 0.0002);
+  const stepPct     = midPrice * (isFx ? 0.00005 : isIndex ? 0.0002 : 0.0003);
+  const levels      = 20;
+  const rng         = mulberry32(timeSeed(symbol + "depth", 60_000));
   const bids: DepthLevel[] = [];
   const asks: DepthLevel[] = [];
   let bidCum = 0, askCum = 0;
 
   for (let i = 0; i < levels; i++) {
-    const jitter   = 1 + rng() * 0.3;
-    const bidPrice = midPrice - spreadHalf - i * stepPct * jitter;
-    const askPrice = midPrice + spreadHalf + i * stepPct * jitter;
-    const baseSize = isFx ? 500_000 : isIndex ? 5 : 20;
-    const bidSize  = +(baseSize * (0.5 + rng() * 3)).toFixed(isFx ? 0 : 4);
-    const askSize  = +(baseSize * (0.5 + rng() * 3)).toFixed(isFx ? 0 : 4);
+    const jitter    = 1 + rng() * 0.3;
+    // Level 0: pin to real NBBO price+size when available
+    const bidPrice  = (i === 0 && realBid > 0) ? realBid : midPrice - spreadHalf - i * stepPct * jitter;
+    const askPrice  = (i === 0 && realAsk > 0) ? realAsk : midPrice + spreadHalf + i * stepPct * jitter;
+    const baseSize  = isFx ? 500_000 : isIndex ? 5 : 20;
+    const bidSize   = (i === 0 && realBidSz > 0) ? realBidSz : +(baseSize * (0.5 + rng() * 3)).toFixed(isFx ? 0 : 4);
+    const askSize   = (i === 0 && realAskSz > 0) ? realAskSz : +(baseSize * (0.5 + rng() * 3)).toFixed(isFx ? 0 : 4);
     bidCum += bidSize;
     askCum += askSize;
     bids.push({ price: +bidPrice.toFixed(dp), size: bidSize, total: +bidCum.toFixed(isFx ? 0 : 4) });
@@ -581,7 +601,9 @@ router.get("/tools/depth/:symbol", async (req, res) => {
     bids: bids.sort((a, b) => b.price - a.price),
     asks: asks.sort((a, b) => a.price - b.price),
     dataSource,
-    note: dataSource === "indicative" ? "Mid price is live from exchange; depth levels are indicative" : undefined,
+    note: dataSource === "live"
+      ? "Level 1 NBBO is live from IEX via Alpaca; deeper levels are indicative"
+      : "Mid price is live from exchange; depth levels are indicative",
   };
   depthCacheMap.set(symbol, { data, expiresAt: Date.now() + DEPTH_TTL });
   res.json(data);

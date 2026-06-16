@@ -14,6 +14,11 @@ import {
   getLiveCandle,
   ensureFootprintSubscribed,
 } from "../lib/binance-footprint-ws";
+import {
+  ensureAlpacaFootprintSubscribed,
+  getAlpacaLiveCandle,
+} from "../lib/alpaca-footprint-ws";
+import { ALPACA_CONFIGURED } from "../lib/alpaca";
 
 const router: IRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? "";
@@ -108,6 +113,8 @@ router.get("/footprint/candles", requireAuth, async (req, res): Promise<void> =>
   } else {
     const yahooCandles = await buildFootprintFromYahooKlines(symbol, tf, limit, session);
     candles = yahooCandles ?? generateFootprintCandles(symbol, tf, limit, session, candleOffset);
+    // Warm up Alpaca IEX WebSocket for real tick aggregation on stock/ETF symbols
+    if (ALPACA_CONFIGURED()) ensureAlpacaFootprintSubscribed(symbol, tf);
   }
 
   // ── Merge live Binance state into the last candle ─────────────────
@@ -139,6 +146,37 @@ router.get("/footprint/candles", requireAuth, async (req, res): Promise<void> =>
             };
           }),
         isExhaustion: Math.abs(live.delta) > live.volume * 0.4,
+        isDivergence: false,
+        sessionTag: null as string | null,
+      };
+      candles[candles.length - 1] = liveCandle;
+    }
+  }
+
+  // ── Merge live Alpaca IEX state into the last candle (non-crypto) ────────
+  if (!BINANCE_CRYPTO_SYMBOLS.has(symbol) && ALPACA_CONFIGURED()) {
+    const liveIex = getAlpacaLiveCandle(symbol, tf);
+    if (liveIex && liveIex.open !== 0 && candles.length > 0) {
+      const liveCandle = {
+        date: new Date(liveIex.openTime).toISOString(),
+        open: liveIex.open, high: liveIex.high, low: liveIex.low, close: liveIex.close,
+        volume: liveIex.volume, delta: liveIex.delta, cvd: 0,
+        levels: Array.from(liveIex.levelMap.entries())
+          .sort(([a], [b]) => parseFloat(a) - parseFloat(b))
+          .map(([priceStr, { bidVol, askVol }]) => {
+            const price = parseFloat(priceStr);
+            const delta = askVol - bidVol;
+            const totalVol = bidVol + askVol;
+            const ratio = askVol / Math.max(bidVol, 0.001);
+            const ratioInv = bidVol / Math.max(askVol, 0.001);
+            return {
+              price, bidVol, askVol, delta, totalVol,
+              isImbalance: ratio >= 3 || ratioInv >= 3,
+              isBuyAbsorption:  liveIex.delta < 0 && askVol > bidVol * 2.5 && totalVol > liveIex.volume * 0.05,
+              isSellAbsorption: liveIex.delta > 0 && bidVol > askVol * 2.5 && totalVol > liveIex.volume * 0.05,
+            };
+          }),
+        isExhaustion: Math.abs(liveIex.delta) > liveIex.volume * 0.4,
         isDivergence: false,
         sessionTag: null as string | null,
       };
