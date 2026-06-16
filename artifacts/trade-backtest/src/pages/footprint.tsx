@@ -189,7 +189,7 @@ export default function FootprintPage() {
             Sign In to Continue
           </button>
         </div>
-        {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+        <AuthModal open={showAuth} onClose={() => setShowAuth(false)} />
       </div>
     );
   }
@@ -341,8 +341,8 @@ export default function FootprintPage() {
 
       {/* ── Chart Tab ────────────────────────────────────────────────── */}
       {activeTab === "chart" && (
-        <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 320px" }}>
-          <div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
             {/* Stats bar */}
             {!loading && candles.length > 0 && (
               <div className="grid grid-cols-4 gap-2 mb-3" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
@@ -381,7 +381,7 @@ export default function FootprintPage() {
                       flex: 1, justifyContent: "center",
                     }}>
                     <m.icon style={{ height: "11px", width: "11px" }} />
-                    <span className="hidden sm:inline">{m.label}</span>
+                    <span>{m.label}</span>
                     {m.elite && !isElite && <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(160,160,160,0.12)", color: "#a0a0a0" }}>E</span>}
                     {m.pro && !isPro && !isElite && <span style={{ fontSize: "7px", padding: "1px 3px", borderRadius: "3px", background: "rgba(99,102,241,0.12)", color: "#6366f1" }}>P</span>}
                   </button>
@@ -427,7 +427,7 @@ export default function FootprintPage() {
           </div>
 
           {/* ── Right sidebar ────────────────────────────────────────── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: "1 1 280px", maxWidth: "320px" }}>
             {/* Selected candle detail */}
             {selectedCandle && (
               <div style={{ background: "var(--card-bg)", border: "1px solid hsl(var(--border))", borderRadius: "12px", padding: "14px" }}>

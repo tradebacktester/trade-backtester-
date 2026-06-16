@@ -466,13 +466,43 @@ export function FootprintGrid({ candles, mode, selectedCandleIdx, onSelectCandle
     );
   }
 
+  const scrollBy = useCallback((dir: "left" | "right") => {
+    if (!scrollRef.current) return;
+    const amount = scrollRef.current.clientWidth * 0.6;
+    scrollRef.current.scrollBy({ left: dir === "right" ? amount : -amount, behavior: "smooth" });
+  }, []);
+
   return (
     <div style={{ position: "relative", background: "var(--card-bg)", borderRadius: "0 0 12px 12px" }}>
-      {/* Zoom + drag hint */}
-      <div style={{ position: "absolute", top: "4px", right: "8px", zIndex: 20, fontSize: "9px", color: "hsl(var(--muted-foreground))", pointerEvents: "none", display: "flex", alignItems: "center", gap: "8px" }}>
-        <span>Drag to pan</span>
-        <span style={{ opacity: 0.5 }}>·</span>
-        <span>Ctrl+Scroll to zoom</span>
+      {/* Scroll nav buttons */}
+      <button
+        onClick={() => scrollBy("left")}
+        aria-label="Scroll left"
+        style={{
+          position: "absolute", left: "68px", top: "50%", transform: "translateY(-50%)",
+          zIndex: 25, width: "28px", height: "28px", borderRadius: "50%",
+          background: "rgba(30,30,30,0.85)", border: "1px solid rgba(255,255,255,0.12)",
+          color: "#fff", fontSize: "14px", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.4)", lineHeight: 1,
+        }}>‹</button>
+      <button
+        onClick={() => scrollBy("right")}
+        aria-label="Scroll right"
+        style={{
+          position: "absolute", right: "8px", top: "50%", transform: "translateY(-50%)",
+          zIndex: 25, width: "28px", height: "28px", borderRadius: "50%",
+          background: "rgba(30,30,30,0.85)", border: "1px solid rgba(255,255,255,0.12)",
+          color: "#fff", fontSize: "14px", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.4)", lineHeight: 1,
+        }}>›</button>
+
+      {/* Hint bar */}
+      <div style={{ position: "absolute", top: "4px", right: "44px", zIndex: 20, fontSize: "9px", color: "hsl(var(--muted-foreground))", pointerEvents: "none", display: "flex", alignItems: "center", gap: "6px" }}>
+        <span>← Swipe / drag →</span>
+        <span style={{ opacity: 0.45 }}>·</span>
+        <span>Pinch to zoom</span>
       </div>
 
       <div
@@ -487,6 +517,7 @@ export function FootprintGrid({ candles, mode, selectedCandleIdx, onSelectCandle
         style={{
           overflowX: "auto", overflowY: "auto",
           WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "thin",
           display: "flex",
           gap: "2px",
           padding: "4px 8px 8px",
