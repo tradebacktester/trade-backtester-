@@ -8,7 +8,7 @@ import {
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
   UserCircle, Calculator, Play, Search, ChevronDown,
   Cpu, Globe, Plus, Layers, TestTube, Bell, GraduationCap, Map, Library, FileText, Trophy, Award,
-  TrendingUp, Calendar,
+  TrendingUp, Calendar, Building2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -22,10 +22,11 @@ const SECTIONS = [
     icon: CandlestickChart,
     primary: "/market",
     items: [
-      { title: "Markets",        url: "/market",  icon: Globe,            desc: "Browse & discover all assets" },
-      { title: "Live Charts",    url: "/chart",   icon: CandlestickChart, desc: "Advanced charting & analysis" },
-      { title: "Paper Trading",  url: "/demo",    icon: Play,             desc: "Simulated trading practice" },
-      { title: "Alert Engine",   url: "/alerts",  icon: Bell,             desc: "Multi-condition smart alerts" },
+      { title: "Markets",        url: "/market",    icon: Globe,            desc: "Browse & discover all assets" },
+      { title: "Live Charts",    url: "/chart",     icon: CandlestickChart, desc: "Advanced charting & analysis" },
+      { title: "Paper Trading",  url: "/demo",      icon: Play,             desc: "Simulated trading practice" },
+      { title: "Alert Engine",   url: "/alerts",    icon: Bell,             desc: "Multi-condition smart alerts" },
+      { title: "Brokerage",      url: "/brokerage", icon: Building2,        desc: "Live account & order management" },
     ],
   },
   {
@@ -128,6 +129,7 @@ const SECTIONS = [
 /* ── Route → section mapping ───────────────────────────────────────── */
 const ROUTE_SECTION: Record<string, string> = {
   "/chart": "trade",       "/demo": "trade",        "/alerts": "trade",  "/market": "trade",
+  "/brokerage": "trade",
   "/ai": "research",       "/news": "research",    "/calculator": "research",
   "/marketplace": "research",
   "/strategies": "strategy-lab",  "/backtests": "strategy-lab",
@@ -161,15 +163,52 @@ const DOCK_ITEMS = [
 /* ── Home sheet sections (overflow hub, replaces 6th dock slot) ─────── */
 const HOME_SHEET_SECTIONS = [
   {
-    label: "Navigate",
+    label: "Trade & Charts",
     items: [
-      { title: "Dashboard",   url: "/dashboard",   icon: LayoutDashboard },
-      { title: "Tools",       url: "/tools",       icon: Wrench },
-      { title: "Academy",     url: "/academy",     icon: GraduationCap },
-      { title: "Footprint",   url: "/footprint",   icon: Activity },
-      { title: "Community",   url: "/community",   icon: Users },
-      { title: "Marketplace", url: "/marketplace", icon: Store },
-      { title: "Pricing",     url: "/pricing",     icon: Crown },
+      { title: "Markets",       url: "/market",    icon: Globe },
+      { title: "Live Charts",   url: "/chart",     icon: CandlestickChart },
+      { title: "Paper Trading", url: "/demo",      icon: Play },
+      { title: "Alert Engine",  url: "/alerts",    icon: Bell },
+      { title: "Footprint",     url: "/footprint", icon: Activity },
+      { title: "Brokerage",     url: "/brokerage", icon: Building2 },
+    ],
+  },
+  {
+    label: "Research",
+    items: [
+      { title: "AI Assistant",  url: "/ai",          icon: Bot },
+      { title: "Market News",   url: "/news",        icon: Newspaper },
+      { title: "Calculator",    url: "/calculator",  icon: Calculator },
+      { title: "Marketplace",   url: "/marketplace", icon: Store },
+    ],
+  },
+  {
+    label: "Strategy Lab",
+    items: [
+      { title: "Strategies",       url: "/strategies",        icon: Layers },
+      { title: "Batch Backtest",   url: "/backtests/batch",   icon: Layers },
+      { title: "Strategy Builder", url: "/backtests/builder", icon: Cpu },
+      { title: "Stress Test",      url: "/stress-test",       icon: Zap },
+      { title: "Strategy DNA",     url: "/strategy-dna",      icon: Dna },
+    ],
+  },
+  {
+    label: "Trader DNA",
+    items: [
+      { title: "AI Trader OS",  url: "/trading-os",  icon: Brain },
+      { title: "DNA Overview",  url: "/trader-dna",  icon: Dna },
+      { title: "Analytics",     url: "/analytics",   icon: BarChart2 },
+      { title: "Psych Match",   url: "/psych-match", icon: Bot },
+    ],
+  },
+  {
+    label: "More",
+    items: [
+      { title: "Tools",      url: "/tools",      icon: Wrench },
+      { title: "Academy",    url: "/academy",    icon: GraduationCap },
+      { title: "Community",  url: "/community",  icon: Users },
+      { title: "Pricing",    url: "/pricing",    icon: Crown },
+      { title: "Dashboard",  url: "/dashboard",  icon: LayoutDashboard },
     ],
   },
   {
