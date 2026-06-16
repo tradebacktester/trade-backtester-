@@ -452,7 +452,7 @@ export function generateSessionAnalytics(symbol: string): SessionAnalytics[] {
   });
 }
 
-export function generateScannerOpportunities(): FootprintOpportunity[] {
+export async function buildScannerOpportunities(): Promise<FootprintOpportunity[]> {
   const symbols = [
     { symbol: "BTCUSDT",  displayName: "BTC/USDT" },
     { symbol: "ETHUSDT",  displayName: "ETH/USDT" },
@@ -461,36 +461,45 @@ export function generateScannerOpportunities(): FootprintOpportunity[] {
     { symbol: "XRPUSDT",  displayName: "XRP/USDT" },
     { symbol: "LINKUSDT", displayName: "LINK/USDT" },
     { symbol: "AVAXUSDT", displayName: "AVAX/USDT" },
-    { symbol: "AAPL",     displayName: "AAPL" },
-    { symbol: "NVDA",     displayName: "NVDA" },
-    { symbol: "SPY",      displayName: "SPY" },
-    { symbol: "EURUSD",   displayName: "EUR/USD" },
-    { symbol: "XAUUSD",   displayName: "XAU/USD" },
+    { symbol: "ADAUSDT",  displayName: "ADA/USDT" },
+    { symbol: "DOTUSDT",  displayName: "DOT/USDT" },
+    { symbol: "LTCUSDT",  displayName: "LTC/USDT" },
   ];
 
-  return symbols.map(({ symbol, displayName }) => {
-    const params = getParams(symbol);
-    const { rand } = makeRng(params.seed + Math.floor(Date.now() / 30_000));
-    const candles = generateFootprintCandles(symbol, "1h", 20);
-    const lastCandle = candles[candles.length - 1]!;
-    const totalDelta = candles.slice(-5).reduce((a, c) => a + c.delta, 0);
-    const imbalanceCount = candles.slice(-5).reduce((a, c) => a + c.levels.filter(l => l.isImbalance).length, 0);
-    const absorptionScore = candles.slice(-5).reduce((a, c) =>
-      a + c.levels.filter(l => l.isBuyAbsorption || l.isSellAbsorption).length, 0);
-    const change24h = (rand() * 8 - 4);
-    const signal: "bullish" | "bearish" | "neutral" =
-      totalDelta > lastCandle.volume * 0.1 ? "bullish"
-      : totalDelta < -lastCandle.volume * 0.1 ? "bearish"
-      : "neutral";
+  const results = await Promise.all(
+    symbols.map(async ({ symbol, displayName }) => {
+      const candles = await buildFootprintFromBinanceKlines(symbol, "1h", 20);
+      if (!candles || candles.length === 0) return null;
+      const lastCandle = candles[candles.length - 1]!;
+      const recent = candles.slice(-5);
+      const totalDelta = recent.reduce((a, c) => a + c.delta, 0);
+      const imbalanceCount = recent.reduce((a, c) => a + c.levels.filter(l => l.isImbalance).length, 0);
+      const absorptionScore = recent.reduce((a, c) =>
+        a + c.levels.filter(l => l.isBuyAbsorption || l.isSellAbsorption).length, 0);
 
-    return {
-      symbol, displayName,
-      delta: Math.floor(totalDelta),
-      imbalanceCount,
-      absorptionScore,
-      lastPrice: lastCandle.close,
-      change24h: parseFloat(change24h.toFixed(2)),
-      signal,
-    };
-  }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+      // Real 24h change from first vs last candle in the 20-bar window
+      const firstCandle = candles[0]!;
+      const change24h = firstCandle.open > 0
+        ? parseFloat((((lastCandle.close - firstCandle.open) / firstCandle.open) * 100).toFixed(2))
+        : 0;
+
+      const signal: "bullish" | "bearish" | "neutral" =
+        totalDelta > lastCandle.volume * 0.1 ? "bullish"
+        : totalDelta < -lastCandle.volume * 0.1 ? "bearish"
+        : "neutral";
+
+      return {
+        symbol, displayName,
+        delta: Math.floor(totalDelta),
+        imbalanceCount,
+        absorptionScore,
+        lastPrice: lastCandle.close,
+        change24h,
+        signal,
+      };
+    })
+  );
+
+  return (results.filter(Boolean) as FootprintOpportunity[])
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 }

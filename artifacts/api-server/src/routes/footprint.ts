@@ -7,7 +7,7 @@ import {
   buildFootprintFromBinanceKlines,
   buildFootprintFromYahooKlines,
   generateSessionAnalytics,
-  generateScannerOpportunities,
+  buildScannerOpportunities,
   type FootprintCandle,
 } from "../lib/footprint-engine";
 import {
@@ -211,7 +211,7 @@ router.get("/footprint/scanner", requireAuth, async (req, res): Promise<void> =>
   }
 
   void userId;
-  const opportunities = generateScannerOpportunities();
+  const opportunities = await buildScannerOpportunities();
   res.json({ opportunities, updatedAt: new Date().toISOString() });
 });
 

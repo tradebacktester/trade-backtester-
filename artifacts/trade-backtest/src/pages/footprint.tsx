@@ -29,39 +29,9 @@ const ASSET_GROUPS = [
       { symbol: "XRPUSDT",  label: "XRP/USDT",  exchange: "Binance" },
       { symbol: "LINKUSDT", label: "LINK/USDT", exchange: "Binance" },
       { symbol: "AVAXUSDT", label: "AVAX/USDT", exchange: "Binance" },
-    ],
-  },
-  {
-    label: "Futures",
-    items: [
-      { symbol: "NQ1!",  label: "NQ Futures",  exchange: "Estimated" },
-      { symbol: "ES1!",  label: "ES Futures",  exchange: "Estimated" },
-      { symbol: "CL1!",  label: "Crude Futures",exchange: "Estimated" },
-      { symbol: "GC1!",  label: "Gold Futures", exchange: "Estimated" },
-    ],
-  },
-  {
-    label: "Stocks",
-    items: [
-      { symbol: "AAPL", label: "AAPL", exchange: "Estimated" },
-      { symbol: "MSFT", label: "MSFT", exchange: "Estimated" },
-      { symbol: "NVDA", label: "NVDA", exchange: "Estimated" },
-      { symbol: "TSLA", label: "TSLA", exchange: "Estimated" },
-    ],
-  },
-  {
-    label: "Forex",
-    items: [
-      { symbol: "EURUSD", label: "EUR/USD", exchange: "Estimated" },
-      { symbol: "GBPUSD", label: "GBP/USD", exchange: "Estimated" },
-      { symbol: "USDJPY", label: "USD/JPY", exchange: "Estimated" },
-    ],
-  },
-  {
-    label: "Commodities",
-    items: [
-      { symbol: "XAUUSD", label: "XAU/USD", exchange: "Estimated" },
-      { symbol: "WTIUSD", label: "WTI Oil",  exchange: "Estimated" },
+      { symbol: "ADAUSDT",  label: "ADA/USDT",  exchange: "Binance" },
+      { symbol: "DOTUSDT",  label: "DOT/USDT",  exchange: "Binance" },
+      { symbol: "LTCUSDT",  label: "LTC/USDT",  exchange: "Binance" },
     ],
   },
 ];
