@@ -10,7 +10,7 @@ import {
   GetBacktestTradesParams,
   GetEquityCurveParams,
 } from "@workspace/api-zod";
-import { runBacktest, runWalkForward, generatePriceData, type OHLCVBar } from "../lib/backtest-engine";
+import { runBacktest, runWalkForward, runMultiAssetBacktest, generatePriceData, type OHLCVBar } from "../lib/backtest-engine";
 import { fetchYahooHistory, isYahooSupported } from "../lib/yahoo-finance";
 
 // ── Real Binance historical data ─────────────────────────────────────────────
@@ -767,6 +767,55 @@ function computeYearlyReturnsFromTrades(
       return { year: yr, pct: months.reduce((s, m) => s + m.pct, 0), months };
     });
 }
+
+// ── POST /backtests/multi-asset — run one strategy across N symbols ────────────
+router.post("/backtests/multi-asset", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const { strategyId, symbols, startDate, endDate, initialCapital, commission, slippage } = req.body;
+
+  if (!strategyId || !Array.isArray(symbols) || symbols.length < 2 || symbols.length > 10) {
+    res.status(400).json({ error: "Provide strategyId and 2–10 symbols." });
+    return;
+  }
+  if (!startDate || !endDate || !initialCapital) {
+    res.status(400).json({ error: "startDate, endDate, and initialCapital are required." });
+    return;
+  }
+
+  const [strategy] = await db.select().from(strategiesTable).where(and(eq(strategiesTable.id, strategyId), eq(strategiesTable.userId, userId)));
+  if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
+
+  // Fetch price data for each symbol in parallel
+  const priceDataMap: Record<string, OHLCVBar[]> = {};
+  await Promise.all((symbols as string[]).map(async (sym: string) => {
+    const binanceBars = await fetchBinanceHistorical(sym, startDate, endDate);
+    if (binanceBars && binanceBars.length >= 50) {
+      priceDataMap[sym] = binanceBars;
+      return;
+    }
+    if (isYahooSupported(sym)) {
+      try {
+        const bars = await fetchYahooHistory(sym, startDate, endDate);
+        if (bars.length >= 50) { priceDataMap[sym] = bars; return; }
+      } catch { /* fall through */ }
+    }
+    priceDataMap[sym] = generatePriceData(sym, startDate, endDate).filter(b => b.date >= startDate && b.date <= endDate);
+  }));
+
+  const result = runMultiAssetBacktest(
+    symbols as string[],
+    strategy.type,
+    strategy.parameters as Record<string, unknown>,
+    startDate,
+    endDate,
+    Number(initialCapital),
+    Number(commission ?? 0),
+    Number(slippage ?? 0),
+    priceDataMap,
+  );
+
+  res.json(result);
+});
 
 router.patch("/backtests/:id/notes", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;

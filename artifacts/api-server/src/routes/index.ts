@@ -20,6 +20,7 @@ import tradingOsRouter from "./trading-os";
 import academyRouter from "./academy";
 import usersRouter from "./users";
 import footprintRouter from "./footprint";
+import watchlistRouter from "./watchlist";
 
 const router: IRouter = Router();
 
@@ -47,5 +48,6 @@ router.use(tradingOsRouter);
 router.use(academyRouter);
 router.use(usersRouter);
 router.use(footprintRouter);
+router.use(watchlistRouter);
 
 export default router;

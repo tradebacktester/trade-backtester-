@@ -5,14 +5,49 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import path from "path";
 import fs from "fs";
+import nodemailer from "nodemailer";
 import router from "./routes";
 import { ensureAcademySeed } from "./routes/academy";
 import { logger } from "./lib/logger";
 import { createRateLimit } from "./lib/rate-limit";
-import { db, alertsTable, alertNotificationsTable } from "@workspace/db";
+import { db, alertsTable, alertNotificationsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getIndicatorSnapshot } from "./lib/indicator-snapshot";
 import { evaluateAlertConditions } from "./lib/alert-evaluator";
+
+function getEmailTransporter(): nodemailer.Transporter | null {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM;
+  if (!host || !user || !pass || !from) return null;
+  return nodemailer.createTransport({
+    host,
+    port: parseInt(process.env.SMTP_PORT ?? "587", 10),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: { user, pass },
+  });
+}
+
+async function sendAlertEmail(toEmail: string, alertName: string, symbol: string, message: string): Promise<void> {
+  const transporter = getEmailTransporter();
+  if (!transporter) return;
+  const from = process.env.SMTP_FROM!;
+  await transporter.sendMail({
+    from,
+    to: toEmail,
+    subject: `TradeLab Alert: ${alertName} triggered on ${symbol}`,
+    text: message,
+    html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+      <h2 style="color:#fff;background:#1a1a1a;padding:16px;border-radius:8px">🔔 Alert Triggered</h2>
+      <p><strong>Alert:</strong> ${alertName}</p>
+      <p><strong>Symbol:</strong> ${symbol}</p>
+      <p><strong>Message:</strong> ${message}</p>
+      <hr>
+      <p style="color:#888;font-size:12px">TradeLab — <a href="${process.env.APP_URL ?? "https://tradelab.app"}">View in app</a></p>
+    </div>`,
+  });
+}
 
 const app: Express = express();
 
@@ -72,6 +107,19 @@ async function runAlertEvaluationLoop() {
           triggeredAt: notification!.triggeredAt.toISOString(),
         },
       });
+
+      // ── Email delivery if user opted in ──────────────────────────────
+      const deliveryChannels = (alert.deliveryChannels ?? []) as string[];
+      if (deliveryChannels.includes("email")) {
+        try {
+          const [userRow] = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, alert.userId));
+          if (userRow?.email) {
+            await sendAlertEmail(userRow.email, alert.name, alert.symbol, message);
+          }
+        } catch (emailErr) {
+          logger.warn({ emailErr }, "Failed to send alert email");
+        }
+      }
 
       if (alert.triggerOnce) {
         await db

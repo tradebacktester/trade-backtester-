@@ -24,6 +24,7 @@ import NewBacktest from "@/pages/backtests/new";
 import BacktestDetail from "@/pages/backtests/detail";
 import BacktestBuilder from "@/pages/backtests/builder";
 import BatchBacktest from "@/pages/backtests/batch";
+import PortfolioBacktest from "@/pages/backtests/portfolio";
 import SettingsPage from "@/pages/settings";
 import NewsPage from "@/pages/news";
 import DemoPage from "@/pages/demo";
@@ -122,6 +123,7 @@ function Router() {
       <Route path="/backtests/builder" component={BacktestBuilder} />
       <Route path="/backtests/new" component={NewBacktest} />
       <Route path="/backtests/batch" component={BatchBacktest} />
+      <Route path="/backtests/portfolio" component={PortfolioBacktest} />
       <Route path="/backtests/:id" component={BacktestDetail} />
 
       <Route path="/market" component={MarketSelectionPage} />

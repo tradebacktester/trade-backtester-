@@ -1,3 +1,5 @@
+import { fetchYahooKlines } from "./yahoo-finance";
+
 export interface PriceLevel {
   price: number;
   bidVol: number;
@@ -294,6 +296,96 @@ export async function buildFootprintFromBinanceKlines(
         isExhaustion,
         isDivergence,
         sessionTag: getSessionTagFromTs(openTime, timeframe),
+      };
+    });
+
+    return session === "all" ? candles : candles.filter(c => c.sessionTag === session || c.sessionTag === null);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build footprint candles from Yahoo Finance OHLCV.
+ * Bid/ask volumes are estimated from candle direction + body size —
+ * flagged as "estimated" (not real tape data).
+ */
+export async function buildFootprintFromYahooKlines(
+  symbol: string,
+  timeframe: string,
+  limit: number,
+  session = "all",
+): Promise<FootprintCandle[] | null> {
+  try {
+    const bars = await fetchYahooKlines(symbol, timeframe, limit);
+    if (!bars || bars.length === 0) return null;
+
+    const levelCount = 10;
+    let runningCvd = 0;
+
+    const candles: FootprintCandle[] = bars.map((bar, idx) => {
+      const { time, open, high, low, close, volume } = bar;
+      const bullish = close >= open;
+
+      // Estimate taker-buy ratio from candle body size + direction
+      const range = high - low || open * 0.001;
+      const bodyPct = Math.abs(close - open) / range;
+      const baseBuyRatio = bullish
+        ? 0.55 + bodyPct * 0.15   // stronger bull body → higher buy ratio
+        : 0.45 - bodyPct * 0.15;  // stronger bear body → lower buy ratio
+      const realBuyRatio = Math.min(0.90, Math.max(0.10, baseBuyRatio));
+
+      const seed = ((Math.round(open * 100) * 31 + Math.round(close * 100) * 17 + idx * 7) >>> 0);
+      const { rand } = makeRng(seed);
+
+      const tickSize = range / levelCount;
+      const levels: PriceLevel[] = [];
+      let candleDelta = 0;
+      let maxLevelVol = 0;
+
+      for (let lvl = 0; lvl < levelCount; lvl++) {
+        const lvlPrice = low + tickSize * (lvl + 0.5);
+        const distFromClose = Math.abs(lvlPrice - close) / range;
+        const concentration = Math.exp(-distFromClose * 2);
+        const lvlVolFraction = 0.07 * (0.4 + rand() * 1.2) * (1 + concentration);
+        const lvlVol = volume * lvlVolFraction;
+        const lvlBuyRatio = Math.min(0.95, Math.max(0.05, realBuyRatio + (rand() - 0.5) * 0.2));
+        const askVol = lvlVol * lvlBuyRatio;
+        const bidVol = lvlVol * (1 - lvlBuyRatio);
+        const delta = askVol - bidVol;
+        candleDelta += delta;
+        maxLevelVol = Math.max(maxLevelVol, lvlVol);
+        levels.push({
+          price: lvlPrice, bidVol, askVol, delta, totalVol: lvlVol,
+          isImbalance: false, isBuyAbsorption: false, isSellAbsorption: false,
+        });
+      }
+
+      for (let lvl = 0; lvl < levels.length; lvl++) {
+        const l = levels[lvl]!;
+        const prev = levels[lvl - 1];
+        if (prev) {
+          const ratio    = l.askVol / Math.max(l.bidVol, 0.0001);
+          const ratioInv = l.bidVol / Math.max(l.askVol, 0.0001);
+          l.isImbalance      = ratio >= 3 || ratioInv >= 3;
+          l.isBuyAbsorption  = !bullish && l.askVol > l.bidVol * 2.5 && l.totalVol > maxLevelVol * 0.7;
+          l.isSellAbsorption =  bullish && l.bidVol > l.askVol * 2.5 && l.totalVol > maxLevelVol * 0.7;
+        }
+      }
+
+      runningCvd += candleDelta;
+      const isExhaustion = Math.abs(candleDelta) > volume * 0.3;
+      const isDivergence = idx > 5 && Math.abs(candleDelta) > 0.2 * volume && (bullish ? candleDelta < 0 : candleDelta > 0);
+
+      return {
+        date:  new Date(time * 1000).toISOString(),
+        open, high, low, close, volume,
+        delta: candleDelta,
+        cvd:   runningCvd,
+        levels,
+        isExhaustion,
+        isDivergence,
+        sessionTag: getSessionTagFromTs(time * 1000, timeframe),
       };
     });
 

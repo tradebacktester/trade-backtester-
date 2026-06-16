@@ -271,6 +271,12 @@ export default function NewBacktest() {
             <Layers className="h-3.5 w-3.5" />Batch
           </button>
         </Link>
+        <Link href="/backtests/portfolio">
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: "hsl(var(--muted-foreground))" }}>
+            <Layers className="h-3.5 w-3.5 opacity-70" />Portfolio
+          </button>
+        </Link>
       </div>
 
       {/* ── Progress Steps ───────────────────────────────────── */}

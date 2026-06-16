@@ -1,5 +1,8 @@
 import { Router, type IRouter } from "express";
 import { fetchYahooQuote, fetchYahooKlines, isYahooSupported } from "../lib/yahoo-finance";
+import { db, backtestsTable } from "@workspace/db";
+import { verifyJwt } from "../lib/jwt";
+import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -825,6 +828,424 @@ router.get("/tools/funding-rates", async (_req, res) => {
   }));
 
   res.json({ rates, updatedAt: now });
+});
+
+// ── EXTRA ASSET UNIVERSE ──────────────────────────────────────────────────────
+
+interface ExtraAssetDef {
+  symbol: string; ticker: string; name: string;
+  category: string;
+  assetType: "stock" | "index" | "commodity" | "forex" | "crypto";
+  yahooSym?: string;
+  binanceSym?: string;
+  base: number;
+  dp?: number;
+  isProxy?: boolean;
+}
+
+const EXTRA_ASSET_UNIVERSE: ExtraAssetDef[] = [
+  // Equity Index Futures (CME Globex)
+  { symbol: "ES1!",  ticker: "ES1!",    name: "S&P 500 E-Mini Futures",       category: "futures",     assetType: "index",     yahooSym: "ES=F",    base: 5280 },
+  { symbol: "NQ1!",  ticker: "NQ1!",    name: "Nasdaq 100 E-Mini Futures",     category: "futures",     assetType: "index",     yahooSym: "NQ=F",    base: 18620 },
+  { symbol: "CL1!",  ticker: "CL1!",    name: "Crude Oil WTI Futures",         category: "futures",     assetType: "commodity", yahooSym: "CL=F",    base: 78 },
+  { symbol: "GC1!",  ticker: "GC1!",    name: "Gold Futures",                  category: "futures",     assetType: "commodity", yahooSym: "GC=F",    base: 2345 },
+  { symbol: "SI1!",  ticker: "SI1!",    name: "Silver Futures",                category: "futures",     assetType: "commodity", yahooSym: "SI=F",    base: 28 },
+  { symbol: "BTCPERP", ticker: "BTC-PERP", name: "Bitcoin Perpetual Futures",  category: "futures",     assetType: "crypto",    binanceSym: "BTCUSDT", base: 67500 },
+  { symbol: "ETHPERP", ticker: "ETH-PERP", name: "Ethereum Perpetual Futures", category: "futures",     assetType: "crypto",    binanceSym: "ETHUSDT", base: 3530 },
+  { symbol: "SOLPERP", ticker: "SOL-PERP", name: "Solana Perpetual Futures",   category: "futures",     assetType: "crypto",    binanceSym: "SOLUSDT", base: 183 },
+  // ETFs
+  { symbol: "SPY",   ticker: "SPY",     name: "SPDR S&P 500 ETF",              category: "etfs",        assetType: "stock",     yahooSym: "SPY",     base: 524 },
+  { symbol: "QQQ",   ticker: "QQQ",     name: "Invesco NASDAQ-100 ETF",        category: "etfs",        assetType: "stock",     yahooSym: "QQQ",     base: 451 },
+  { symbol: "IWM",   ticker: "IWM",     name: "iShares Russell 2000 ETF",      category: "etfs",        assetType: "stock",     yahooSym: "IWM",     base: 202 },
+  { symbol: "DIA",   ticker: "DIA",     name: "SPDR Dow Jones Industrial ETF", category: "etfs",        assetType: "stock",     yahooSym: "DIA",     base: 401 },
+  { symbol: "TLT",   ticker: "TLT",     name: "iShares 20+ Year Treasury ETF", category: "etfs",        assetType: "stock",     yahooSym: "TLT",     base: 93 },
+  { symbol: "GLD",   ticker: "GLD",     name: "SPDR Gold Shares",              category: "etfs",        assetType: "stock",     yahooSym: "GLD",     base: 219 },
+  { symbol: "SHY",   ticker: "SHY",     name: "iShares 1-3Y Treasury ETF",     category: "etfs",        assetType: "stock",     yahooSym: "SHY",     base: 82 },
+  { symbol: "IEF",   ticker: "IEF",     name: "iShares 7-10Y Treasury ETF",    category: "etfs",        assetType: "stock",     yahooSym: "IEF",     base: 95 },
+  { symbol: "BND",   ticker: "BND",     name: "Vanguard Total Bond Market ETF", category: "etfs",       assetType: "stock",     yahooSym: "BND",     base: 74 },
+  { symbol: "XLF",   ticker: "XLF",     name: "Financial Select SPDR ETF",     category: "etfs",        assetType: "stock",     yahooSym: "XLF",     base: 42 },
+  { symbol: "ARKK",  ticker: "ARKK",    name: "ARK Innovation ETF",            category: "etfs",        assetType: "stock",     yahooSym: "ARKK",    base: 55 },
+  { symbol: "GDX",   ticker: "GDX",     name: "VanEck Gold Miners ETF",        category: "etfs",        assetType: "stock",     yahooSym: "GDX",     base: 31 },
+  // Sector Indices (SPDR ETFs as proxies for sector indices)
+  { symbol: "XLK",   ticker: "XLK",     name: "Technology Sector",             category: "sector-idx",  assetType: "stock",     yahooSym: "XLK",     base: 232 },
+  { symbol: "XLV",   ticker: "XLV",     name: "Health Care Sector",            category: "sector-idx",  assetType: "stock",     yahooSym: "XLV",     base: 143 },
+  { symbol: "XLE",   ticker: "XLE",     name: "Energy Sector",                 category: "sector-idx",  assetType: "stock",     yahooSym: "XLE",     base: 89 },
+  { symbol: "XLI",   ticker: "XLI",     name: "Industrials Sector",            category: "sector-idx",  assetType: "stock",     yahooSym: "XLI",     base: 128 },
+  { symbol: "XLC",   ticker: "XLC",     name: "Communication Services",        category: "sector-idx",  assetType: "stock",     yahooSym: "XLC",     base: 95 },
+  { symbol: "XLRE",  ticker: "XLRE",    name: "Real Estate Sector",            category: "sector-idx",  assetType: "stock",     yahooSym: "XLRE",    base: 38 },
+  { symbol: "XLP",   ticker: "XLP",     name: "Consumer Staples",              category: "sector-idx",  assetType: "stock",     yahooSym: "XLP",     base: 79 },
+  { symbol: "XLB",   ticker: "XLB",     name: "Materials Sector",              category: "sector-idx",  assetType: "stock",     yahooSym: "XLB",     base: 92 },
+  { symbol: "XLU",   ticker: "XLU",     name: "Utilities Sector",              category: "sector-idx",  assetType: "stock",     yahooSym: "XLU",     base: 71 },
+  { symbol: "XLY",   ticker: "XLY",     name: "Consumer Discretionary",        category: "sector-idx",  assetType: "stock",     yahooSym: "XLY",     base: 210 },
+  // Bonds / Treasury Yields
+  { symbol: "US10Y",    ticker: "10Y",  name: "US 10-Year Treasury Yield",     category: "bonds",       assetType: "index",     yahooSym: "^TNX",    base: 4.48, dp: 3 },
+  { symbol: "US02Y",    ticker: "2Y",   name: "US 2-Year Treasury Yield",      category: "bonds",       assetType: "index",     yahooSym: "^IRX",    base: 4.91, dp: 3 },
+  { symbol: "US30Y",    ticker: "30Y",  name: "US 30-Year Treasury Yield",     category: "bonds",       assetType: "index",     yahooSym: "^TYX",    base: 4.63, dp: 3 },
+  { symbol: "AGG",      ticker: "AGG",  name: "iShares Core US Aggregate Bond ETF", category: "bonds",  assetType: "stock",     yahooSym: "AGG",     base: 98 },
+  { symbol: "LQD",      ticker: "LQD",  name: "iShares IG Corp Bond ETF",      category: "bonds",       assetType: "stock",     yahooSym: "LQD",     base: 108 },
+  { symbol: "HYG",      ticker: "HYG",  name: "iShares High Yield Bond ETF",   category: "bonds",       assetType: "stock",     yahooSym: "HYG",     base: 79 },
+  { symbol: "US05Y",    ticker: "5Y",   name: "US 5-Year Treasury Yield",      category: "treasury",    assetType: "index",     yahooSym: "^FVX",    base: 4.61, dp: 3 },
+  // Volatility / FX Index
+  { symbol: "VIX",      ticker: "VIX",  name: "CBOE Volatility Index",         category: "volatility",  assetType: "index",     yahooSym: "^VIX",    base: 15, dp: 2 },
+  { symbol: "DXY",      ticker: "DXY",  name: "US Dollar Index",               category: "currency-idx", assetType: "index",    yahooSym: "DX-Y.NYB", base: 104, dp: 3 },
+  // Global Markets
+  { symbol: "DAX",       ticker: "DAX",    name: "DAX 40 (Germany)",           category: "global",      assetType: "index",     yahooSym: "^GDAXI",  base: 18840 },
+  { symbol: "FTSE100",   ticker: "FTSE",   name: "FTSE 100 (UK)",              category: "global",      assetType: "index",     yahooSym: "^FTSE",   base: 8220 },
+  { symbol: "NIKKEI225", ticker: "N225",   name: "Nikkei 225 (Japan)",         category: "global",      assetType: "index",     yahooSym: "^N225",   base: 38510 },
+  { symbol: "HANGSENG",  ticker: "HSI",    name: "Hang Seng Index (HK)",       category: "global",      assetType: "index",     yahooSym: "^HSI",    base: 18480 },
+  { symbol: "CAC40",     ticker: "CAC40",  name: "CAC 40 (France)",            category: "global",      assetType: "index",     yahooSym: "^FCHI",   base: 8092 },
+  { symbol: "NIFTY50",   ticker: "NIFTY",  name: "NIFTY 50 (India)",           category: "global",      assetType: "index",     yahooSym: "^NSEI",   base: 23485 },
+  { symbol: "ASX200",    ticker: "ASX200", name: "S&P/ASX 200 (Australia)",    category: "global",      assetType: "index",     yahooSym: "^AXJO",   base: 8082 },
+  { symbol: "SENSEX",    ticker: "SENSEX", name: "BSE Sensex (India)",         category: "global",      assetType: "index",     yahooSym: "^BSESN",  base: 77400 },
+  { symbol: "KOSPI",     ticker: "KOSPI",  name: "KOSPI (South Korea)",        category: "global",      assetType: "index",     yahooSym: "^KS11",   base: 2742 },
+  // Agriculture (CME / CBOT futures)
+  { symbol: "CORN",      ticker: "CORN",   name: "Corn Futures",               category: "agriculture", assetType: "commodity", yahooSym: "ZC=F",    base: 441 },
+  { symbol: "WHEAT",     ticker: "WHEAT",  name: "Wheat Futures",              category: "agriculture", assetType: "commodity", yahooSym: "ZW=F",    base: 593 },
+  { symbol: "SOYBEANS",  ticker: "SOY",    name: "Soybeans Futures",           category: "agriculture", assetType: "commodity", yahooSym: "ZS=F",    base: 1185 },
+  { symbol: "COFFEE",    ticker: "COFFEE", name: "Coffee Arabica Futures",     category: "agriculture", assetType: "commodity", yahooSym: "KC=F",    base: 218 },
+  { symbol: "SUGAR",     ticker: "SUGAR",  name: "Sugar #11 Futures",          category: "agriculture", assetType: "commodity", yahooSym: "SB=F",    base: 19, dp: 3 },
+  { symbol: "COTTON",    ticker: "COTTON", name: "Cotton #2 Futures",          category: "agriculture", assetType: "commodity", yahooSym: "CT=F",    base: 78, dp: 3 },
+  // Energy (NYMEX / ICE futures)
+  { symbol: "CRUDEOIL",  ticker: "OIL",    name: "Crude Oil WTI Futures",      category: "energy",      assetType: "commodity", yahooSym: "CL=F",    base: 78 },
+  { symbol: "NATGAS",    ticker: "GAS",    name: "Natural Gas Futures",        category: "energy",      assetType: "commodity", yahooSym: "NG=F",    base: 2.1, dp: 3 },
+  { symbol: "BRENT",     ticker: "BRENT",  name: "Brent Crude Oil Futures",    category: "energy",      assetType: "commodity", yahooSym: "BZ=F",    base: 82 },
+  // Livestock (CME)
+  { symbol: "LIVECATTLE",    ticker: "CATTLE", name: "Live Cattle Futures",    category: "livestock",   assetType: "commodity", yahooSym: "LE=F",    base: 190, dp: 3 },
+  { symbol: "LEANHOGS",      ticker: "HOGS",   name: "Lean Hogs Futures",      category: "livestock",   assetType: "commodity", yahooSym: "HE=F",    base: 92, dp: 3 },
+  { symbol: "FEEDERCATTLE",  ticker: "FEEDER", name: "Feeder Cattle Futures",  category: "livestock",   assetType: "commodity", yahooSym: "GF=F",    base: 252, dp: 3 },
+  // Soft Commodities (ICE/CME)
+  { symbol: "COCOA",     ticker: "COCOA",  name: "Cocoa Futures",              category: "soft-comm",   assetType: "commodity", yahooSym: "CC=F",    base: 8420 },
+  { symbol: "OJ",        ticker: "OJ",     name: "Orange Juice Futures",       category: "soft-comm",   assetType: "commodity", yahooSym: "OJ=F",    base: 460 },
+  { symbol: "LUMBER",    ticker: "LBR",    name: "Lumber Futures",             category: "soft-comm",   assetType: "commodity", yahooSym: "LB=F",    base: 580 },
+  // Carbon (via KRBN — KraneShares Global Carbon Strategy ETF)
+  { symbol: "EUA",       ticker: "EUA",    name: "EU Carbon Credits (KRBN)",   category: "carbon",      assetType: "stock",     yahooSym: "KRBN",    base: 22, isProxy: true },
+  { symbol: "CA_CARBON", ticker: "CA-C",   name: "CA Carbon Allowances (KRBN)", category: "carbon",     assetType: "stock",     yahooSym: "KRBN",    base: 22, isProxy: true },
+  // Freight (via BDRY — Breakwave Dry Bulk Shipping ETF)
+  { symbol: "BDI",       ticker: "BDI",    name: "Baltic Dry Index (BDRY ETF)", category: "freight",    assetType: "stock",     yahooSym: "BDRY",    base: 15, isProxy: true },
+  { symbol: "CAPESIZE",  ticker: "CAPE",   name: "Capesize Freight Rate (BDRY)", category: "freight",   assetType: "stock",     yahooSym: "BDRY",    base: 15, isProxy: true },
+];
+
+const extraAssetsCache: { data: object[] | null; expiresAt: number } = { data: null, expiresAt: 0 };
+const EXTRA_ASSETS_TTL = 5 * 60 * 1000;
+
+async function buildExtraAssetsData(): Promise<object[]> {
+  const yahooAssets   = EXTRA_ASSET_UNIVERSE.filter(a => a.yahooSym && !a.binanceSym);
+  const binanceAssets = EXTRA_ASSET_UNIVERSE.filter(a => a.binanceSym && !a.yahooSym);
+
+  const [yahooQuotes, yahooKlines] = await Promise.all([
+    runConcurrent(
+      yahooAssets.map(a => async (): Promise<import("../lib/yahoo-finance").YahooQuote | null> => {
+        if (!isYahooSupported(a.yahooSym!)) return null;
+        try { return await fetchYahooQuote(a.yahooSym!); } catch { return null; }
+      }),
+      5
+    ),
+    runConcurrent(
+      yahooAssets.map(a => async (): Promise<number[]> => {
+        if (!isYahooSupported(a.yahooSym!)) return [];
+        try {
+          const bars = await fetchYahooKlines(a.yahooSym!, "1d", 50);
+          return bars.map(b => b.close);
+        } catch { return []; }
+      }),
+      5
+    ),
+  ]);
+
+  const binanceSyms   = binanceAssets.map(a => a.binanceSym!);
+  const binanceData   = binanceSyms.length > 0 ? await fetchBinance24hrBulk(binanceSyms) : new Map<string, Binance24hr>();
+  const now = Date.now();
+  const result: object[] = [];
+
+  const makeRow = (
+    asset: ExtraAssetDef,
+    price: number,
+    change24h: number,
+    volume24h: number,
+    closes: number[],
+    dataSource: string,
+    mcapRank: number
+  ) => {
+    const dp = asset.dp ?? (asset.base < 0.001 ? 8 : asset.base < 1 ? 4 : asset.base < 10 ? 3 : 2);
+    const priceArr = closes.length >= 15 ? [...closes] : generatePrices(asset.yahooSym ?? asset.symbol, price, 50);
+    priceArr[priceArr.length - 1] = price;
+    const rsi = computeRSI(priceArr);
+    const macd = computeMACDSignal(priceArr);
+    const bb = bbPosition(priceArr);
+    const ema20 = computeEMA(priceArr, Math.min(20, priceArr.length));
+    const ema50 = computeEMA(priceArr, Math.min(50, priceArr.length));
+    const trend: "bullish" | "bearish" = ema20[ema20.length - 1]! > ema50[ema50.length - 1]! ? "bullish" : "bearish";
+    const change7d = pctChange(priceArr, 7);
+    const vwap = computeVWAP(priceArr.slice(-24));
+    const rsiSignal: "overbought" | "oversold" | "neutral" = rsi >= 70 ? "overbought" : rsi <= 30 ? "oversold" : "neutral";
+    return {
+      symbol: asset.symbol, name: asset.name, ticker: asset.ticker,
+      sector: asset.category, assetType: asset.assetType,
+      category: asset.category,
+      mcapRank, price: +price.toFixed(dp), change24h, change7d, volume24h,
+      rsi, rsiSignal, macd, trend, bbPosition: bb, vwap: +vwap.toFixed(dp),
+      dataSource, isProxy: asset.isProxy ?? false, updatedAt: now,
+    };
+  };
+
+  for (let i = 0; i < yahooAssets.length; i++) {
+    const asset   = yahooAssets[i]!;
+    const quote   = (yahooQuotes as (import("../lib/yahoo-finance").YahooQuote | null)[])[i] ?? null;
+    const closes  = (yahooKlines as number[][])[i] ?? [];
+    const price   = quote?.price    ?? asset.base;
+    const ch24h   = quote ? +quote.changePct.toFixed(2) : 0;
+    const vol24h  = quote?.volume   ?? 0;
+    result.push(makeRow(asset, price, ch24h, vol24h, closes, quote ? "live" : "simulated", 100 + i));
+  }
+
+  for (let i = 0; i < binanceAssets.length; i++) {
+    const asset  = binanceAssets[i]!;
+    const stats  = binanceData.get(asset.binanceSym!);
+    const price  = stats?.price    ?? asset.base;
+    const ch24h  = stats ? +stats.change24h.toFixed(2) : 0;
+    const vol24h = stats ? +stats.volume24h.toFixed(0) : 0;
+    result.push(makeRow(asset, price, ch24h, vol24h, [], stats ? "live" : "simulated", 100 + yahooAssets.length + i));
+  }
+
+  return result;
+}
+
+router.get("/tools/extra-assets", async (_req, res) => {
+  if (extraAssetsCache.data && Date.now() < extraAssetsCache.expiresAt) {
+    res.json(extraAssetsCache.data);
+    return;
+  }
+  try {
+    const data = await buildExtraAssetsData();
+    extraAssetsCache.data = data;
+    extraAssetsCache.expiresAt = Date.now() + EXTRA_ASSETS_TTL;
+    res.json(data);
+  } catch (err) {
+    console.error("[extra-assets]", err);
+    res.status(500).json({ error: "Failed to fetch extra assets" });
+  }
+});
+
+// ── CRYPTO DOMINANCE (CoinGecko free — no API key) ────────────────────────────
+
+const cryptoDomCache: { data: object[] | null; expiresAt: number } = { data: null, expiresAt: 0 };
+const CRYPTO_DOM_TTL = 5 * 60 * 1000;
+
+router.get("/tools/crypto-dominance", async (_req, res) => {
+  if (cryptoDomCache.data && Date.now() < cryptoDomCache.expiresAt) {
+    res.json(cryptoDomCache.data);
+    return;
+  }
+  const now = Date.now();
+  try {
+    const resp = await fetch("https://api.coingecko.com/api/v3/global", {
+      signal: AbortSignal.timeout(8000),
+      headers: { "Accept": "application/json", "User-Agent": "TradeLab/1.0" },
+    });
+    if (!resp.ok) throw new Error(`CoinGecko ${resp.status}`);
+    const json = (await resp.json()) as { data: { market_cap_percentage: Record<string, number> } };
+    const dom = json.data.market_cap_percentage;
+
+    const btcD    = +(dom["btc"]  ?? 55).toFixed(2);
+    const ethD    = +(dom["eth"]  ?? 18).toFixed(2);
+    const bnbD    = +(dom["bnb"]  ?? 3).toFixed(2);
+    const solD    = +(dom["sol"]  ?? 4).toFixed(2);
+    const stableD = +((dom["usdt"] ?? 0) + (dom["usdc"] ?? 0) + (dom["dai"] ?? 0)).toFixed(2);
+    const defiD   = +(bnbD + solD + (dom["avax"] ?? 0) + (dom["uni"] ?? 0) + (dom["aave"] ?? 0)).toFixed(2);
+    const altD    = Math.max(0, +(100 - btcD - ethD - stableD - bnbD - solD).toFixed(2));
+
+    const make = (symbol: string, ticker: string, name: string, price: number, rank: number) => ({
+      symbol, ticker, name, sector: "crypto-dom", assetType: "index" as const,
+      category: "crypto-dom", mcapRank: rank,
+      price, change24h: 0, change7d: 0, volume24h: 0,
+      rsi: 50, rsiSignal: "neutral" as const, macd: "neutral" as const,
+      trend: "neutral" as const, bbPosition: 50, vwap: price,
+      dataSource: "live", updatedAt: now,
+    });
+
+    const rows = [
+      make("BTC.D",        "BTC.D",    "Bitcoin Dominance",    btcD,    200),
+      make("ETH.D",        "ETH.D",    "Ethereum Dominance",   ethD,    201),
+      make("ALTCOIN.D",    "ALT.D",    "Altcoin Dominance",    altD,    202),
+      make("STABLECOIN.D", "STABLE.D", "Stablecoin Dominance", stableD, 203),
+      make("DEFI.D",       "DEFI.D",   "DeFi Index Dominance", defiD,   204),
+    ];
+
+    cryptoDomCache.data = rows;
+    cryptoDomCache.expiresAt = now + CRYPTO_DOM_TTL;
+    res.json(rows);
+  } catch (err) {
+    console.error("[crypto-dom]", err);
+    if (cryptoDomCache.data) { res.json(cryptoDomCache.data); return; }
+    res.json([]);
+  }
+});
+
+// ── ECONOMIC INDICATORS (FRED public CSV — no API key needed) ─────────────────
+
+const econCache: { data: object[] | null; expiresAt: number } = { data: null, expiresAt: 0 };
+const ECON_TTL = 60 * 60 * 1000;
+
+async function fetchFredLatest(seriesId: string): Promise<{ date: string; value: number } | null> {
+  try {
+    const resp = await fetch(
+      `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${seriesId}`,
+      { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "TradeLab/1.0" } }
+    );
+    if (!resp.ok) return null;
+    const text = await resp.text();
+    const lines = text.trim().split("\n").slice(1);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const parts = (lines[i] ?? "").split(",");
+      if (parts.length >= 2 && parts[1]!.trim() !== ".") {
+        return { date: parts[0]!.trim(), value: parseFloat(parts[1]!.trim()) };
+      }
+    }
+    return null;
+  } catch { return null; }
+}
+
+router.get("/tools/economic-indicators", async (_req, res) => {
+  if (econCache.data && Date.now() < econCache.expiresAt) {
+    res.json(econCache.data);
+    return;
+  }
+  const now = Date.now();
+  const [fedfunds, cpi, gdp, unrate] = await Promise.allSettled([
+    fetchFredLatest("FEDFUNDS"),
+    fetchFredLatest("CPIAUCSL"),
+    fetchFredLatest("GDP"),
+    fetchFredLatest("UNRATE"),
+  ]);
+
+  const toRow = (
+    symbol: string, ticker: string, name: string,
+    result: PromiseSettledResult<{ date: string; value: number } | null>,
+    base: number, dp: number, unit: string, rank: number
+  ) => {
+    const rec   = result.status === "fulfilled" ? result.value : null;
+    const price = rec?.value ?? base;
+    return {
+      symbol, ticker, name, sector: "economic", assetType: "index" as const,
+      category: "economic", mcapRank: rank,
+      price: +price.toFixed(dp), change24h: 0, change7d: 0, volume24h: 0,
+      rsi: 50, rsiSignal: "neutral" as const, macd: "neutral" as const,
+      trend: "neutral" as const, bbPosition: 50, vwap: price,
+      dataSource: rec ? "live" : "reference",
+      lastDate: rec?.date ?? null, unit, updatedAt: now,
+    };
+  };
+
+  const rows = [
+    toRow("FEDFUNDS",     "FFR",    "Federal Funds Rate",    fedfunds, 5.25,  2, "% p.a.", 300),
+    toRow("CPI_IDX",      "CPI",    "Consumer Price Index",  cpi,      310,   1, "index",  301),
+    toRow("GDP_USD",      "GDP",    "US GDP (Quarterly)",    gdp,      28000, 0, "$B",     302),
+    toRow("UNEMPLOYMENT", "UNEMP",  "US Unemployment Rate",  unrate,   4.1,   1, "%",      303),
+  ];
+
+  econCache.data = rows;
+  econCache.expiresAt = now + ECON_TTL;
+  res.json(rows);
+});
+
+// ── LIVE QUOTE (for paper trading non-crypto prices) ──────────────────────────
+
+router.get("/tools/live-quote", async (req, res) => {
+  const raw = ((req.query["symbol"] as string) ?? "").trim().toUpperCase();
+  if (!raw) { res.status(400).json({ error: "symbol query param required" }); return; }
+
+  // Try Binance first for crypto
+  const cryptoAsset = ASSETS.find(a => a.symbol === raw && a.assetType === "crypto");
+  if (cryptoAsset) {
+    const map = await fetchBinance24hrBulk([raw]);
+    const stats = map.get(raw);
+    if (stats) {
+      res.json({ symbol: raw, price: stats.price, change24h: stats.change24h, dataSource: "binance" });
+      return;
+    }
+  }
+
+  // Try Yahoo Finance for stocks/futures/indices/ETFs
+  if (isYahooSupported(raw)) {
+    try {
+      const q = await fetchYahooQuote(raw);
+      res.json({ symbol: raw, price: q.price, change24h: q.changePct, dataSource: "yahoo" });
+      return;
+    } catch { /* fall through */ }
+  }
+
+  // Try extra universe Yahoo symbol mapping
+  const extra = EXTRA_ASSET_UNIVERSE.find(a => a.symbol === raw || a.yahooSym === raw);
+  if (extra?.yahooSym && isYahooSupported(extra.yahooSym)) {
+    try {
+      const q = await fetchYahooQuote(extra.yahooSym);
+      res.json({ symbol: raw, price: q.price, change24h: q.changePct, dataSource: "yahoo" });
+      return;
+    } catch { /* fall through */ }
+  }
+
+  res.status(404).json({ error: "No live price available for this symbol", symbol: raw });
+});
+
+// ── USER SYMBOL PERFORMANCE (auth-required — drives real edge line) ───────────
+
+router.get("/tools/user-symbol-performance", async (req, res) => {
+  const auth  = req.headers["authorization"];
+  const token = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  let userId: number;
+  try {
+    const payload = verifyJwt(token, process.env.JWT_SECRET!);
+    if (!payload || typeof payload.id !== "number") throw new Error("invalid");
+    userId = payload.id;
+  } catch {
+    res.status(401).json({ error: "Invalid token" });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      symbol:      backtestsTable.symbol,
+      winRate:     backtestsTable.winRate,
+      totalReturn: backtestsTable.totalReturn,
+      totalTrades: backtestsTable.totalTrades,
+    })
+    .from(backtestsTable)
+    .where(eq(backtestsTable.userId, userId));
+
+  if (rows.length === 0) {
+    res.json({ hasData: false, symbols: [] });
+    return;
+  }
+
+  const symbolMap = new Map<string, { winRates: number[]; returns: number[] }>();
+  for (const bt of rows) {
+    if (!symbolMap.has(bt.symbol)) symbolMap.set(bt.symbol, { winRates: [], returns: [] });
+    const entry = symbolMap.get(bt.symbol)!;
+    if (bt.winRate    != null) entry.winRates.push(Number(bt.winRate));
+    if (bt.totalReturn != null) entry.returns.push(Number(bt.totalReturn));
+  }
+
+  const allWins    = rows.filter(b => b.winRate     != null).map(b => Number(b.winRate));
+  const allRets    = rows.filter(b => b.totalReturn  != null).map(b => Number(b.totalReturn));
+  const avgWinRate = allWins.length ? allWins.reduce((s, v) => s + v, 0) / allWins.length : 50;
+  const avgReturn  = allRets.length ? allRets.reduce((s, v) => s + v, 0) / allRets.length : 0;
+
+  const symbols = Array.from(symbolMap.entries()).map(([symbol, stats]) => {
+    const wr  = stats.winRates.length ? stats.winRates.reduce((s, v) => s + v, 0) / stats.winRates.length : null;
+    const ret = stats.returns.length  ? stats.returns.reduce((s, v) => s + v, 0)  / stats.returns.length  : null;
+    return {
+      symbol,
+      avgWinRate:    wr  != null ? +wr.toFixed(1)                  : null,
+      avgReturn:     ret != null ? +ret.toFixed(2)                  : null,
+      winRateDelta:  wr  != null ? +(wr - avgWinRate).toFixed(1)    : 0,
+      returnDelta:   ret != null ? +(ret - avgReturn).toFixed(2)    : 0,
+      count: stats.winRates.length,
+    };
+  });
+
+  res.json({ hasData: true, avgWinRate: +avgWinRate.toFixed(1), avgReturn: +avgReturn.toFixed(2), symbols });
 });
 
 export default router;

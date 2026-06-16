@@ -34,34 +34,34 @@ const ASSET_GROUPS = [
   {
     label: "Futures",
     items: [
-      { symbol: "NQ1!",  label: "NQ Futures",  exchange: "Simulated" },
-      { symbol: "ES1!",  label: "ES Futures",  exchange: "Simulated" },
-      { symbol: "CL1!",  label: "Crude Futures",exchange: "Simulated" },
-      { symbol: "GC1!",  label: "Gold Futures", exchange: "Simulated" },
+      { symbol: "NQ1!",  label: "NQ Futures",  exchange: "Estimated" },
+      { symbol: "ES1!",  label: "ES Futures",  exchange: "Estimated" },
+      { symbol: "CL1!",  label: "Crude Futures",exchange: "Estimated" },
+      { symbol: "GC1!",  label: "Gold Futures", exchange: "Estimated" },
     ],
   },
   {
     label: "Stocks",
     items: [
-      { symbol: "AAPL", label: "AAPL", exchange: "Simulated" },
-      { symbol: "MSFT", label: "MSFT", exchange: "Simulated" },
-      { symbol: "NVDA", label: "NVDA", exchange: "Simulated" },
-      { symbol: "TSLA", label: "TSLA", exchange: "Simulated" },
+      { symbol: "AAPL", label: "AAPL", exchange: "Estimated" },
+      { symbol: "MSFT", label: "MSFT", exchange: "Estimated" },
+      { symbol: "NVDA", label: "NVDA", exchange: "Estimated" },
+      { symbol: "TSLA", label: "TSLA", exchange: "Estimated" },
     ],
   },
   {
     label: "Forex",
     items: [
-      { symbol: "EURUSD", label: "EUR/USD", exchange: "Simulated" },
-      { symbol: "GBPUSD", label: "GBP/USD", exchange: "Simulated" },
-      { symbol: "USDJPY", label: "USD/JPY", exchange: "Simulated" },
+      { symbol: "EURUSD", label: "EUR/USD", exchange: "Estimated" },
+      { symbol: "GBPUSD", label: "GBP/USD", exchange: "Estimated" },
+      { symbol: "USDJPY", label: "USD/JPY", exchange: "Estimated" },
     ],
   },
   {
     label: "Commodities",
     items: [
-      { symbol: "XAUUSD", label: "XAU/USD", exchange: "Simulated" },
-      { symbol: "WTIUSD", label: "WTI Oil",  exchange: "Simulated" },
+      { symbol: "XAUUSD", label: "XAU/USD", exchange: "Estimated" },
+      { symbol: "WTIUSD", label: "WTI Oil",  exchange: "Estimated" },
     ],
   },
 ];

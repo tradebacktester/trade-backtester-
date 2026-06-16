@@ -5,6 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import {
   generateFootprintCandles,
   buildFootprintFromBinanceKlines,
+  buildFootprintFromYahooKlines,
   generateSessionAnalytics,
   generateScannerOpportunities,
   type FootprintCandle,
@@ -105,7 +106,8 @@ router.get("/footprint/candles", requireAuth, async (req, res): Promise<void> =>
     const realCandles = await buildFootprintFromBinanceKlines(symbol, tf, limit, session);
     candles = realCandles ?? generateFootprintCandles(symbol, tf, limit, session, candleOffset);
   } else {
-    candles = generateFootprintCandles(symbol, tf, limit, session, candleOffset);
+    const yahooCandles = await buildFootprintFromYahooKlines(symbol, tf, limit, session);
+    candles = yahooCandles ?? generateFootprintCandles(symbol, tf, limit, session, candleOffset);
   }
 
   // ── Merge live Binance state into the last candle ─────────────────

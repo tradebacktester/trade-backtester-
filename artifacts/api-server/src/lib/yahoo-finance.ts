@@ -39,6 +39,16 @@ const STOCK_SYMBOLS = new Set([
   "^TNX", "^TYX", "^IRX", "^HSI", "^KS11",
   // Dollar index
   "DX-Y.NYB",
+  // Additional Treasury yields
+  "^FVX",
+  // Additional global indices
+  "^AXJO", "^BSESN",
+  // Livestock futures
+  "LE=F", "HE=F", "GF=F",
+  // Soft commodity / duration ETF proxies
+  "LB=F", "IEF", "HYG",
+  // Carbon / freight ETF proxies (KRBN = KraneShares Global Carbon, BDRY = Breakwave Dry Bulk)
+  "KRBN", "BDRY",
 ]);
 
 export function toYahooSymbol(symbol: string): string {

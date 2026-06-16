@@ -869,6 +869,173 @@ export function runBacktest(
   };
 }
 
+// ── Multi-asset / Portfolio backtest ─────────────────────────────────────────
+
+export interface MultiAssetSymbolResult {
+  symbol: string;
+  dataSource: "yahoo" | "binance_rest" | "generated";
+  totalReturn: number;
+  annualizedReturn: number;
+  maxDrawdown: number;
+  sharpeRatio: number;
+  winRate: number;
+  totalTrades: number;
+  profitFactor: number;
+  finalCapital: number;
+  trades: TradeResult[];
+  equityCurve: EquityPoint[];
+}
+
+export interface PortfolioBacktestResult {
+  symbols: string[];
+  results: MultiAssetSymbolResult[];
+  portfolio: {
+    totalReturn: number;
+    annualizedReturn: number;
+    maxDrawdown: number;
+    sharpeRatio: number;
+    winRate: number;
+    totalTrades: number;
+    finalCapital: number;
+    initialCapital: number;
+    bestSymbol: string;
+    worstSymbol: string;
+    equityCurve: EquityPoint[];
+    allocationPct: number;
+  };
+}
+
+export function runMultiAssetBacktest(
+  symbols: string[],
+  strategyType: string,
+  parameters: Record<string, unknown>,
+  startDate: string,
+  endDate: string,
+  initialCapital: number,
+  commissionPct = 0,
+  slippagePct = 0,
+  priceDataMap: Record<string, OHLCVBar[]> = {},
+): PortfolioBacktestResult {
+  const perSymbolCapital = initialCapital / symbols.length;
+  const results: MultiAssetSymbolResult[] = [];
+
+  for (const symbol of symbols) {
+    const bars = priceDataMap[symbol] ?? [];
+    if (bars.length < 50) {
+      results.push({
+        symbol,
+        dataSource: "generated",
+        totalReturn: 0, annualizedReturn: 0, maxDrawdown: 0, sharpeRatio: 0,
+        winRate: 0, totalTrades: 0, profitFactor: 0,
+        finalCapital: perSymbolCapital, trades: [],
+        equityCurve: [{ date: startDate, value: perSymbolCapital, drawdown: 0 }],
+      });
+      continue;
+    }
+
+    let result: BacktestResult;
+    try {
+      result = runBacktest(symbol, strategyType, parameters, startDate, endDate, perSymbolCapital, commissionPct, slippagePct, bars);
+    } catch {
+      results.push({
+        symbol,
+        dataSource: priceDataMap[symbol] ? "yahoo" : "generated",
+        totalReturn: 0, annualizedReturn: 0, maxDrawdown: 0, sharpeRatio: 0,
+        winRate: 0, totalTrades: 0, profitFactor: 0,
+        finalCapital: perSymbolCapital, trades: [],
+        equityCurve: [{ date: startDate, value: perSymbolCapital, drawdown: 0 }],
+      });
+      continue;
+    }
+
+    results.push({
+      symbol,
+      dataSource: priceDataMap[symbol] ? "yahoo" : "generated",
+      totalReturn: result.totalReturn,
+      annualizedReturn: result.annualizedReturn,
+      maxDrawdown: result.maxDrawdown,
+      sharpeRatio: result.sharpeRatio,
+      winRate: result.winRate,
+      totalTrades: result.totalTrades,
+      profitFactor: result.profitFactor,
+      finalCapital: result.finalCapital,
+      trades: result.trades,
+      equityCurve: result.equityCurve,
+    });
+  }
+
+  // Build combined portfolio equity curve (equal-weight, daily sum)
+  const allDates = new Set<string>();
+  for (const r of results) r.equityCurve.forEach(p => allDates.add(p.date));
+  const sortedDates = Array.from(allDates).sort();
+
+  // For each symbol, build a date→value map
+  const symbolValueMaps = results.map(r => {
+    const m = new Map<string, number>();
+    let last = r.finalCapital / (r.equityCurve.length > 0 ? 1 : 1);
+    for (const pt of r.equityCurve) { m.set(pt.date, pt.value); last = pt.value; }
+    return { map: m, last };
+  });
+
+  const portfolioCurve: EquityPoint[] = sortedDates.map(date => {
+    const total = symbolValueMaps.reduce((sum, { map, last }) => {
+      return sum + (map.get(date) ?? last);
+    }, 0);
+    return { date, value: total, drawdown: 0 };
+  });
+
+  // Compute portfolio drawdown
+  let peak = portfolioCurve[0]?.value ?? initialCapital;
+  for (const pt of portfolioCurve) {
+    if (pt.value > peak) peak = pt.value;
+    pt.drawdown = peak > 0 ? ((peak - pt.value) / peak) * 100 : 0;
+  }
+
+  const portfolioFinalCapital = portfolioCurve[portfolioCurve.length - 1]?.value ?? initialCapital;
+  const portfolioReturn = ((portfolioFinalCapital - initialCapital) / initialCapital) * 100;
+  const days = daysBetween(startDate, endDate);
+  const years = days / 365;
+  const portfolioAnnReturn = years > 0
+    ? (Math.pow(portfolioFinalCapital / initialCapital, 1 / years) - 1) * 100
+    : portfolioReturn;
+  const portfolioMaxDD = Math.max(...portfolioCurve.map(p => p.drawdown), 0);
+
+  const portfolioReturns = portfolioCurve.slice(1).map((p, i) => {
+    const prev = portfolioCurve[i]!.value;
+    return prev > 0 ? (p.value - prev) / prev : 0;
+  });
+  const portfolioMeanReturn = portfolioReturns.reduce((a, b) => a + b, 0) / Math.max(portfolioReturns.length, 1);
+  const portfolioStd = Math.sqrt(portfolioReturns.reduce((a, b) => a + (b - portfolioMeanReturn) ** 2, 0) / Math.max(portfolioReturns.length - 1, 1));
+  const portfolioSharpe = portfolioStd > 0 ? ((portfolioMeanReturn - 0.04 / 252) / portfolioStd) * Math.sqrt(252) : 0;
+
+  const allTrades = results.flatMap(r => r.trades);
+  const winners = allTrades.filter(t => t.pnl > 0);
+  const losers = allTrades.filter(t => t.pnl <= 0);
+  const portfolioWinRate = allTrades.length > 0 ? (winners.length / allTrades.length) * 100 : 0;
+
+  const bestResult = results.reduce((a, b) => b.totalReturn > a.totalReturn ? b : a, results[0] ?? { symbol: "", totalReturn: -Infinity });
+  const worstResult = results.reduce((a, b) => b.totalReturn < a.totalReturn ? b : a, results[0] ?? { symbol: "", totalReturn: Infinity });
+
+  return {
+    symbols,
+    results,
+    portfolio: {
+      totalReturn: portfolioReturn,
+      annualizedReturn: portfolioAnnReturn,
+      maxDrawdown: portfolioMaxDD,
+      sharpeRatio: parseFloat(portfolioSharpe.toFixed(2)),
+      winRate: portfolioWinRate,
+      totalTrades: allTrades.length,
+      finalCapital: portfolioFinalCapital,
+      initialCapital,
+      bestSymbol: bestResult?.symbol ?? "",
+      worstSymbol: worstResult?.symbol ?? "",
+      equityCurve: portfolioCurve,
+      allocationPct: 100 / symbols.length,
+    },
+  };
+}
+
 export function runWalkForward(
   symbol: string,
   strategyType: string,

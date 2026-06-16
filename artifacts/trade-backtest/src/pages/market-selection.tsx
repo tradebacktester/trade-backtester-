@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useMemo, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import {
@@ -8,6 +8,7 @@ import {
   TrendingUp, Globe, Activity, Layers, Zap, Package,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api-config";
+import { useAuth } from "@/lib/auth-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface ScreenerRow {
@@ -419,6 +420,33 @@ function getMarketStatus(row: ScreenerRow): MarketStatusInfo {
     return { label: "Open", color: "#4ade80", glow: true };
   }
 
+  // CME Globex: Sun 6pm ET – Fri 5pm ET, with 1h daily maintenance 5–6pm ET
+  const isCme = ["futures", "agriculture", "energy", "livestock", "soft-comm", "carbon", "freight"].includes(cat);
+  if (isCme) {
+    if (day === 6) return { label: "Closed", color: "#f87171", glow: false };
+    if (day === 0 && etMinTotal < 18 * 60) return { label: "Closed", color: "#f87171", glow: false };
+    if (day === 5 && etMinTotal >= 17 * 60) return { label: "Closed", color: "#f87171", glow: false };
+    if (etMinTotal >= 17 * 60 && etMinTotal < 18 * 60) return { label: "Maintenance", color: "#fbbf24", glow: false };
+    return { label: "Open", color: "#4ade80", glow: true };
+  }
+
+  // Global indices — approximate local exchange hours
+  if (cat === "global") {
+    const sym = row.symbol.toUpperCase();
+    if (["NIKKEI225", "HANGSENG", "ASX200", "SENSEX", "NIFTY50", "KOSPI"].includes(sym)) {
+      const utcMin = utcH * 60 + utcM;
+      if (day === 0 || day === 6) return { label: "Closed", color: "#f87171", glow: false };
+      if (utcMin >= 60 && utcMin < 540) return { label: "Open", color: "#4ade80", glow: true };
+      return { label: "Closed", color: "#f87171", glow: false };
+    }
+    if (["DAX", "FTSE100", "CAC40"].includes(sym)) {
+      const utcMin = utcH * 60 + utcM;
+      if (day === 0 || day === 6) return { label: "Closed", color: "#f87171", glow: false };
+      if (utcMin >= 480 && utcMin < 960) return { label: "Open", color: "#4ade80", glow: true };
+      return { label: "Closed", color: "#f87171", glow: false };
+    }
+  }
+
   if (day === 0 || day === 6) return { label: "Closed", color: "#f87171", glow: false };
   if (etMinTotal >= 570 && etMinTotal < 960) return { label: "Open", color: "#4ade80", glow: true };
   if (etMinTotal >= 240 && etMinTotal < 570) return { label: "Pre-Market", color: "#fbbf24", glow: false };
@@ -438,19 +466,38 @@ function bestSession(row: ScreenerRow): string {
     if (t.includes("GBP") || t.includes("EUR") || t.includes("CHF")) return "London";
     return "New York";
   }
-  if (cat === "indices" && (row.ticker.includes("NIFTY") || row.ticker.includes("SENSEX") || row.ticker.includes("N225"))) return "Asia";
-  if (cat === "indices" && (row.ticker.includes("DAX") || row.ticker.includes("FTSE") || row.ticker.includes("CAC"))) return "London";
+  if (cat === "global") {
+    const sym = row.symbol.toUpperCase();
+    if (["NIKKEI225", "HANGSENG", "ASX200", "SENSEX", "NIFTY50", "KOSPI"].includes(sym)) return "Asia";
+    if (["DAX", "FTSE100", "CAC40"].includes(sym)) return "London";
+    return "New York";
+  }
+  if (cat === "futures") {
+    const sym = row.symbol.toUpperCase();
+    if (sym === "BTCPERP" || sym === "ETHPERP" || sym === "SOLPERP") return "24/7";
+    if (sym === "GC1!" || sym === "SI1!") return "London/NY";
+    return "New York";
+  }
+  if (cat === "energy" || cat === "agriculture" || cat === "livestock" || cat === "soft-comm") return "New York";
+  if (cat === "carbon" || cat === "freight") return "London";
+  if (cat === "economic" || cat === "treasury" || cat === "bonds") return "Reference";
+  if (cat === "indices") {
+    const t = row.ticker.toUpperCase();
+    if (t.includes("NIFTY") || t.includes("SENSEX") || t.includes("N225")) return "Asia";
+    if (t.includes("DAX") || t.includes("FTSE") || t.includes("CAC")) return "London";
+  }
   return "New York";
 }
 
-function traderEdge(row: ScreenerRow): string {
+function computeEdgeLabel(row: ScreenerRow, backtestedEdge?: string): string {
+  if (backtestedEdge) return backtestedEdge;
   const score = computeAiScore(row);
   const edge = score - 50;
-  if (edge >= 20) return `+${Math.round(edge * 0.8 + 12)}% vs avg`;
-  if (edge >= 10) return `+${Math.round(edge * 0.6 + 6)}% vs avg`;
-  if (edge <= -15) return `${Math.round(edge * 0.5 - 4)}% vs avg`;
-  if (edge <= -5) return `${Math.round(edge * 0.4 - 2)}% vs avg`;
-  return "Neutral vs avg";
+  if (edge >= 20) return "Technical: Strong";
+  if (edge >= 10) return "Technical: Good";
+  if (edge <= -15) return "Technical: Weak";
+  if (edge <= -5) return "Technical: Below avg";
+  return "Technical: Neutral";
 }
 
 // ── Seeded Sparkline ──────────────────────────────────────────────────────────
@@ -559,8 +606,8 @@ function pushRecent(sym: string) {
 }
 
 // ── Asset Card ────────────────────────────────────────────────────────────────
-interface CardProps { row: ScreenerRow; isFav: boolean; onFav: (s: string) => void; onSelect: (r: ScreenerRow) => void; catColor: string; }
-function AssetCard({ row, isFav, onFav, onSelect, catColor }: CardProps) {
+interface CardProps { row: ScreenerRow; isFav: boolean; onFav: (s: string, name?: string, ticker?: string) => void; onSelect: (r: ScreenerRow) => void; catColor: string; symbolEdge?: string; }
+function AssetCard({ row, isFav, onFav, onSelect, catColor, symbolEdge }: CardProps) {
   const score = computeAiScore(row);
   const sc = scoreColor(score);
   const tf = bestTf(row);
@@ -568,7 +615,7 @@ function AssetCard({ row, isFav, onFav, onSelect, catColor }: CardProps) {
   const status = getMarketStatus(row);
   const sym = displaySymbol(row);
   const session = bestSession(row);
-  const edge = traderEdge(row);
+  const edge = computeEdgeLabel(row, symbolEdge);
   const iconType = assetTypeFromRow(row);
   const pos = row.change24h >= 0;
 
@@ -638,7 +685,7 @@ function AssetCard({ row, isFav, onFav, onSelect, catColor }: CardProps) {
         </div>
 
         <button
-          onClick={e => { e.stopPropagation(); onFav(row.symbol); }}
+          onClick={e => { e.stopPropagation(); onFav(row.symbol, row.name, row.ticker); }}
           style={{
             width: "30px", height: "30px", borderRadius: "10px", flexShrink: 0, marginLeft: "8px",
             border: `1px solid ${isFav ? "#fbbf2444" : "var(--glass-border)"}`,
@@ -759,6 +806,9 @@ export default function MarketSelectionPage() {
   const [favs, setFavs] = useState<string[]>(loadFavs);
   const [recents, setRecents] = useState<string[]>(loadRecents);
 
+  const { token } = useAuth();
+  const qc = useQueryClient();
+
   const { data: screenerData, isLoading, refetch, isFetching } = useQuery<ScreenerRow[]>({
     queryKey: ["ms-screener"],
     queryFn: () => fetch(`${API_BASE}/api/tools/screener`).then(r => r.json()),
@@ -766,12 +816,99 @@ export default function MarketSelectionPage() {
     refetchInterval: 60_000,
   });
 
-  function toggleFav(sym: string) {
-    setFavs(prev => {
-      const next = prev.includes(sym) ? prev.filter(s => s !== sym) : [sym, ...prev];
-      localStorage.setItem(LS.FAV, JSON.stringify(next));
-      return next;
-    });
+  const { data: extraData } = useQuery<ScreenerRow[]>({
+    queryKey: ["ms-extra-assets"],
+    queryFn: () => fetch(`${API_BASE}/api/tools/extra-assets`).then(r => r.json()),
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+
+  const { data: cryptoDomData } = useQuery<ScreenerRow[]>({
+    queryKey: ["ms-crypto-dom"],
+    queryFn: () => fetch(`${API_BASE}/api/tools/crypto-dominance`).then(r => r.json()),
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+
+  const { data: econData } = useQuery<ScreenerRow[]>({
+    queryKey: ["ms-economic"],
+    queryFn: () => fetch(`${API_BASE}/api/tools/economic-indicators`).then(r => r.json()),
+    staleTime: 60 * 60_000,
+    refetchInterval: 60 * 60_000,
+  });
+
+  const { data: symbolPerfData } = useQuery<{
+    hasData: boolean;
+    symbols: Array<{ symbol: string; winRateDelta: number; returnDelta: number; count: number }>;
+  } | null>({
+    queryKey: ["ms-symbol-perf"],
+    queryFn: async () => {
+      if (!token) return null;
+      const r = await fetch(`${API_BASE}/api/tools/user-symbol-performance`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return r.ok ? r.json() : null;
+    },
+    staleTime: 5 * 60_000,
+    enabled: !!token,
+  });
+
+  const { data: watchlistApiData } = useQuery<{ id: number; symbol: string }[]>({
+    queryKey: ["ms-watchlist"],
+    queryFn: async () => {
+      if (!token) return [];
+      const r = await fetch(`${API_BASE}/api/watchlist`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return r.ok ? r.json() : [];
+    },
+    staleTime: 60_000,
+    enabled: !!token,
+  });
+
+  useEffect(() => {
+    if (watchlistApiData && watchlistApiData.length > 0) {
+      const apiSyms = watchlistApiData.map(w => w.symbol);
+      setFavs(apiSyms);
+      localStorage.setItem(LS.FAV, JSON.stringify(apiSyms));
+    }
+  }, [watchlistApiData]);
+
+  const symbolEdgeMap = useMemo<Map<string, string>>(() => {
+    if (!symbolPerfData?.hasData) return new Map();
+    return new Map(
+      symbolPerfData.symbols.map(s => {
+        const delta = s.winRateDelta;
+        let label: string;
+        if (delta >= 15)  label = `WR +${Math.round(delta)}% vs avg`;
+        else if (delta >= 5)  label = `WR +${Math.round(delta)}% vs avg`;
+        else if (delta <= -10) label = `WR ${Math.round(delta)}% vs avg`;
+        else if (delta <= -3)  label = `WR ${Math.round(delta)}% vs avg`;
+        else label = "Avg backtest WR";
+        return [s.symbol, label] as [string, string];
+      })
+    );
+  }, [symbolPerfData]);
+
+  function toggleFav(sym: string, name = sym, ticker = sym) {
+    const isFav = favs.includes(sym);
+    const next  = isFav ? favs.filter(s => s !== sym) : [sym, ...favs];
+    setFavs(next);
+    localStorage.setItem(LS.FAV, JSON.stringify(next));
+    if (token) {
+      if (isFav) {
+        fetch(`${API_BASE}/api/watchlist/${encodeURIComponent(sym)}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(() => qc.invalidateQueries({ queryKey: ["ms-watchlist"] })).catch(() => {});
+      } else {
+        fetch(`${API_BASE}/api/watchlist`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ symbol: sym, name, ticker }),
+        }).then(() => qc.invalidateQueries({ queryKey: ["ms-watchlist"] })).catch(() => {});
+      }
+    }
   }
   function removeRecent(sym: string) {
     setRecents(prev => {
@@ -787,13 +924,17 @@ export default function MarketSelectionPage() {
     navigate(`/chart?symbol=${toChartSymbol(row.symbol)}`);
   }
 
-  // Merged screener + static, de-duplicated (screener takes priority)
+  // Merged live data + static fallback, de-duplicated (live takes priority)
   const allRows = useMemo<ScreenerRow[]>(() => {
-    const base = screenerData ?? [];
-    const screenerSyms = new Set(base.map(r => r.symbol));
-    const supplemental = STATIC_ASSETS.filter(r => !screenerSyms.has(r.symbol));
-    return [...base, ...supplemental];
-  }, [screenerData]);
+    const base  = screenerData ?? [];
+    const extra = (extraData ?? []) as ScreenerRow[];
+    const cdom  = (cryptoDomData ?? []) as ScreenerRow[];
+    const econ  = (econData ?? []) as ScreenerRow[];
+    const allLive = [...base, ...extra, ...cdom, ...econ];
+    const liveSyms = new Set(allLive.map(r => r.symbol));
+    const supplemental = STATIC_ASSETS.filter(r => !liveSyms.has(r.symbol));
+    return [...allLive, ...supplemental];
+  }, [screenerData, extraData, cryptoDomData, econData]);
 
   // Category counts
   const counts = useMemo(() => {
@@ -1003,6 +1144,7 @@ export default function MarketSelectionPage() {
               onFav={toggleFav}
               onSelect={handleSelect}
               catColor={catColor(getRowCategory(row))}
+              symbolEdge={symbolEdgeMap.get(row.symbol)}
             />
           ))}
         </div>
