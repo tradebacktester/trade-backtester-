@@ -86,6 +86,18 @@ const SECTIONS = [
     ],
   },
   {
+    id: "footprint",
+    label: "Footprint",
+    icon: Activity,
+    primary: "/footprint",
+    items: [
+      { title: "Footprint Charts",   url: "/footprint",                    icon: BarChart2,  desc: "Bid×Ask, Delta, Volume & CVD" },
+      { title: "Market Scanner",     url: "/footprint?tab=scanner",        icon: Search,     desc: "Top opportunities by delta & imbalance" },
+      { title: "Smart Alerts",       url: "/footprint?tab=alerts",         icon: Bell,       desc: "Delta, absorption & divergence alerts" },
+      { title: "Session Analytics",  url: "/footprint?tab=sessions",       icon: TrendingUp, desc: "London / NY / Tokyo / Sydney stats" },
+    ],
+  },
+  {
     id: "community",
     label: "Community",
     icon: Users,
@@ -124,6 +136,7 @@ const ROUTE_SECTION: Record<string, string> = {
   "/profile": "trader-dna",       "/trader-dna": "trader-dna",
   "/trading-os": "trader-dna",
   "/tools": "tools",
+  "/footprint": "footprint",
   "/community": "community",      "/pricing": "community",
   "/academy": "academy",
 };
@@ -153,6 +166,7 @@ const HOME_SHEET_SECTIONS = [
       { title: "Dashboard",   url: "/dashboard",   icon: LayoutDashboard },
       { title: "Tools",       url: "/tools",       icon: Wrench },
       { title: "Academy",     url: "/academy",     icon: GraduationCap },
+      { title: "Footprint",   url: "/footprint",   icon: Activity },
       { title: "Community",   url: "/community",   icon: Users },
       { title: "Marketplace", url: "/marketplace", icon: Store },
       { title: "Pricing",     url: "/pricing",     icon: Crown },

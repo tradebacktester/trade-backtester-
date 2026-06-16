@@ -30,6 +30,24 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+async function getPlanSlug(userId: number): Promise<string> {
+  try {
+    const [activeSub] = await db
+      .select({ planId: subscriptionsTable.planId })
+      .from(subscriptionsTable)
+      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+      .orderBy(desc(subscriptionsTable.createdAt))
+      .limit(1);
+    if (!activeSub) return "free";
+    const [plan] = await db
+      .select({ slug: subscriptionPlansTable.slug })
+      .from(subscriptionPlansTable)
+      .where(eq(subscriptionPlansTable.id, activeSub.planId))
+      .limit(1);
+    return plan?.slug ?? "free";
+  } catch { return "free"; }
+}
+
 const aiRateLimit = new Map<number, { count: number; resetAt: number }>();
 
 function checkAiRateLimit(userId: number): boolean {
@@ -1724,6 +1742,85 @@ router.post("/ai/pre-trade-check", requireAuth, async (req, res) => {
     });
   } catch (err) {
     handleAiError(err, res, "ai/pre-trade-check error");
+  }
+});
+
+
+/* ─── Footprint AI Order Flow ─────────────────────────────────────────────── */
+router.post("/ai/footprint", requireAuth, async (req, res) => {
+  const userId = extractUserId(req)!;
+
+  // AI Order Flow is an Elite-only feature
+  const planSlug = await getPlanSlug(userId);
+  if (planSlug !== "elite") {
+    res.status(403).json({
+      error: "AI Order Flow requires an Elite plan.",
+      requiresPlan: "elite",
+      limitReached: true,
+    });
+    return;
+  }
+
+  if (!checkAiRateLimit(userId)) {
+    res.status(429).json({ error: "Rate limit exceeded. Please wait a moment." });
+    return;
+  }
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) { res.status(503).json({ error: "AI not configured." }); return; }
+
+  const { symbol, timeframe, delta, cvd, imbalanceCount, absorptionCount, isExhaustion, lastPrice, sessionDominant } = req.body as {
+    symbol: string; timeframe: string; delta: number; cvd: number;
+    imbalanceCount: number; absorptionCount: number; isExhaustion: boolean;
+    lastPrice: number; sessionDominant?: string;
+  };
+
+  if (!symbol) { res.status(400).json({ error: "symbol is required" }); return; }
+
+  const systemPrompt = `You are a professional order flow analyst specializing in footprint chart analysis and institutional order flow. Analyze the given footprint data and provide a concise, actionable insight. Respond ONLY with valid JSON — no markdown or extra text.
+
+Response format:
+{
+  "insight": "<2-3 sentence analysis of what the footprint data shows — market structure, order flow pressure, institutional activity>",
+  "probability": <integer 0-100 — estimated probability of continuation in the direction of the dominant delta>,
+  "recommendation": "<one clear, specific actionable recommendation — e.g., 'Watch for a long entry above X if delta stays positive and CVD confirms'>",
+  "bias": "bullish" | "bearish" | "neutral"
+}`;
+
+  const userPrompt = `Analyze this footprint data:
+
+Symbol: ${symbol} | Timeframe: ${timeframe}
+Last Price: ${lastPrice}
+Net Delta (last 5 candles): ${delta > 0 ? "+" : ""}${Math.floor(delta).toLocaleString()}
+CVD (Cumulative Volume Delta): ${cvd > 0 ? "+" : ""}${Math.floor(cvd).toLocaleString()}
+Imbalance Levels: ${imbalanceCount}
+Absorption Signals: ${absorptionCount}
+Exhaustion: ${isExhaustion ? "YES" : "No"}
+Dominant Session: ${sessionDominant ?? "Mixed"}
+
+Interpret the delta and CVD relationship, imbalance quality, and absorption signals.`;
+
+  try {
+    const client = groqClient();
+    const completion = await client.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 400,
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+    });
+    const content = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(content);
+    res.json({
+      insight: parsed.insight ?? "Unable to analyze footprint data.",
+      probability: typeof parsed.probability === "number" ? parsed.probability : 50,
+      recommendation: parsed.recommendation ?? "Monitor order flow for further signals.",
+      bias: parsed.bias ?? "neutral",
+    });
+  } catch (err) {
+    handleAiError(err, res, "ai/footprint error");
   }
 });
 

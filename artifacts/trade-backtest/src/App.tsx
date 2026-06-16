@@ -49,6 +49,7 @@ import AlertsPage from "@/pages/alerts";
 import TradingOsPage from "@/pages/trading-os";
 import TradingOsReportPage from "@/pages/trading-os-report";
 import AcademyPage from "@/pages/academy/index";
+import FootprintPage from "@/pages/footprint";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
@@ -147,6 +148,7 @@ function Router() {
       <Route path="/trading-os" component={TradingOsPage} />
       <Route path="/trading-os/report" component={TradingOsReportPage} />
       <Route path="/academy" component={AcademyPage} />
+      <Route path="/footprint" component={FootprintPage} />
       <Route path="/alerts" component={AlertsPage} />
       <Route path="/research" component={() => <Redirect to="/ai" />} />
 
