@@ -21,10 +21,24 @@ const YAHOO_SYMBOL_MAP: Record<string, string> = {
 };
 
 const STOCK_SYMBOLS = new Set([
+  // US Equities
   "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD", "INTC",
   "ORCL", "CRM", "NFLX", "PYPL", "SQ", "JPM", "BAC", "GS", "V", "MA",
-  "DIS", "BA", "GE", "XOM", "WMT", "KO", "SPY", "QQQ", "IWM", "DIA", "TLT",
-  "GLD", "SLV", "VIX",
+  "DIS", "BA", "GE", "XOM", "WMT", "KO",
+  // US ETFs
+  "SPY", "QQQ", "IWM", "DIA", "TLT", "GLD", "SLV", "VIX",
+  "AGG", "SHY", "LQD", "BND", "XLK", "XLF", "XLV", "XLE", "XLI", "XLC",
+  "XLRE", "XLP", "XLB", "XLU", "XLY", "GDX", "ARKK", "SQQQ", "UVXY",
+  // Commodity Futures (Yahoo Finance symbols)
+  "CL=F", "GC=F", "SI=F", "NG=F", "HG=F", "BZ=F",
+  "ZC=F", "ZW=F", "ZS=F", "KC=F", "CC=F", "SB=F", "CT=F", "OJ=F",
+  // Equity Index Futures
+  "ES=F", "NQ=F", "YM=F", "RTY=F",
+  // Global Indices (Yahoo Finance caret symbols)
+  "^GDAXI", "^FTSE", "^N225", "^VIX", "^FCHI", "^BVSP", "^NSEI",
+  "^TNX", "^TYX", "^IRX", "^HSI", "^KS11",
+  // Dollar index
+  "DX-Y.NYB",
 ]);
 
 export function toYahooSymbol(symbol: string): string {

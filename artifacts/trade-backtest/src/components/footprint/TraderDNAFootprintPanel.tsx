@@ -42,12 +42,27 @@ function TraderDNAContent({ symbol }: TraderDNAFootprintPanelProps) {
           setResult({ compatibilityScore: 0, personalWinRate: 0, matchedBacktests: 0, note: `No backtest history for ${symbol} yet.` });
           return;
         }
-        const avgWinRate = matched.reduce((a, b) => a + (b.winRate ?? 0), 0) / matched.length;
-        const avgReturn = matched.reduce((a, b) => a + (b.totalReturn ?? 0), 0) / matched.length;
+        const count = matched.length;
+        const avgWinRate = matched.reduce((a, b) => a + (b.winRate ?? 0), 0) / count;
+        const avgReturn = matched.reduce((a, b) => a + (b.totalReturn ?? 0), 0) / count;
+
+        // Win-rate quality: 0–40 pts (40 pts = 73%+ win rate)
+        const winRateScore = Math.min(40, avgWinRate * 0.55);
+
+        // Risk-adjusted return: log-scale, 0–30 pts (30 pts = ~30% avg return)
+        const returnScore = Math.min(30, Math.max(0, Math.log1p(Math.max(0, avgReturn)) * 8.5));
+
+        // Sample confidence: sqrt scaling, 0–20 pts (20 pts = 9+ backtests)
+        const sampleScore = Math.min(20, Math.sqrt(count) * 6.7);
+
+        // Consistency: penalise high variance in win rate across backtests, 0–10 pts
+        const variance = count > 1
+          ? matched.reduce((a, b) => a + ((b.winRate ?? 0) - avgWinRate) ** 2, 0) / count
+          : 0;
+        const consistencyScore = Math.min(10, Math.max(0, 10 - Math.sqrt(variance) * 0.18));
+
         const compatibilityScore = Math.min(100, Math.round(
-          avgWinRate * 0.5 +
-          Math.max(0, avgReturn) * 0.3 +
-          Math.min(matched.length * 10, 20)
+          winRateScore + returnScore + sampleScore + consistencyScore
         ));
         setResult({
           compatibilityScore,

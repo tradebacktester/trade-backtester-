@@ -4,8 +4,10 @@ import { db, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import {
   generateFootprintCandles,
+  buildFootprintFromBinanceKlines,
   generateSessionAnalytics,
   generateScannerOpportunities,
+  type FootprintCandle,
 } from "../lib/footprint-engine";
 import {
   getLiveCandle,
@@ -97,7 +99,14 @@ router.get("/footprint/candles", requireAuth, async (req, res): Promise<void> =>
   // Client-supplied offset is additive (for pagination), base is always time-based
   const candleOffset = timeBucket + offset;
 
-  const candles = generateFootprintCandles(symbol, tf, limit, session, candleOffset);
+  // ── Historical candles: prefer real Binance klines, fall back to generated ──
+  let candles: FootprintCandle[];
+  if (BINANCE_CRYPTO_SYMBOLS.has(symbol)) {
+    const realCandles = await buildFootprintFromBinanceKlines(symbol, tf, limit, session);
+    candles = realCandles ?? generateFootprintCandles(symbol, tf, limit, session, candleOffset);
+  } else {
+    candles = generateFootprintCandles(symbol, tf, limit, session, candleOffset);
+  }
 
   // ── Merge live Binance state into the last candle ─────────────────
   if (BINANCE_CRYPTO_SYMBOLS.has(symbol)) {

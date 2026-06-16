@@ -77,6 +77,7 @@ export const academyCertificatesTable = pgTable("academy_certificates", {
   userId: integer("user_id").notNull(),
   pathId: text("path_id").notNull(),
   score: integer("score").notNull(),
+  verificationCode: text("verification_code").notNull().default(""),
   issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

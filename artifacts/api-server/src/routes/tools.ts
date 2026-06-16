@@ -73,6 +73,33 @@ const ASSETS = [
   { symbol: "SPX",      name: "S&P 500",         ticker: "SPX",     sector: "Index",     mcap: 60, base: 5280,   assetType: "index" },
   { symbol: "NDX",      name: "Nasdaq 100",      ticker: "NDX",     sector: "Index",     mcap: 61, base: 18420,  assetType: "index" },
   { symbol: "XAUUSD",   name: "Gold",            ticker: "XAU/USD", sector: "Commodity", mcap: 62, base: 2320,   assetType: "commodity" },
+  // ── Commodity Futures — fetched live via Yahoo Finance (symbol IS the Yahoo ticker)
+  { symbol: "GC=F",   name: "Gold Futures",         ticker: "GOLD",    sector: "Metals",      mcap: 63, base: 2320,   assetType: "commodity" },
+  { symbol: "SI=F",   name: "Silver Futures",        ticker: "SILVER",  sector: "Metals",      mcap: 64, base: 27,     assetType: "commodity" },
+  { symbol: "CL=F",   name: "Crude Oil WTI",         ticker: "OIL",     sector: "Energy",      mcap: 65, base: 78,     assetType: "commodity" },
+  { symbol: "NG=F",   name: "Natural Gas",            ticker: "GAS",     sector: "Energy",      mcap: 66, base: 2.1,    assetType: "commodity" },
+  { symbol: "HG=F",   name: "Copper Futures",         ticker: "COPPER",  sector: "Metals",      mcap: 67, base: 4.3,    assetType: "commodity" },
+  { symbol: "BZ=F",   name: "Brent Crude Oil",        ticker: "BRENT",   sector: "Energy",      mcap: 68, base: 82,     assetType: "commodity" },
+  { symbol: "ZC=F",   name: "Corn Futures",           ticker: "CORN",    sector: "Agriculture", mcap: 69, base: 441,    assetType: "commodity" },
+  { symbol: "ZW=F",   name: "Wheat Futures",          ticker: "WHEAT",   sector: "Agriculture", mcap: 70, base: 593,    assetType: "commodity" },
+  { symbol: "ZS=F",   name: "Soybeans Futures",       ticker: "SOY",     sector: "Agriculture", mcap: 71, base: 1185,   assetType: "commodity" },
+  { symbol: "KC=F",   name: "Coffee Futures",         ticker: "COFFEE",  sector: "Agriculture", mcap: 72, base: 218,    assetType: "commodity" },
+  { symbol: "CC=F",   name: "Cocoa Futures",          ticker: "COCOA",   sector: "Agriculture", mcap: 73, base: 8420,   assetType: "commodity" },
+  // ── Equity Index Futures — live Yahoo Finance
+  { symbol: "ES=F",   name: "S&P 500 Futures",        ticker: "ES",      sector: "Futures",     mcap: 74, base: 5280,   assetType: "index" },
+  { symbol: "NQ=F",   name: "Nasdaq 100 Futures",     ticker: "NQ",      sector: "Futures",     mcap: 75, base: 18400,  assetType: "index" },
+  { symbol: "YM=F",   name: "Dow Jones Futures",      ticker: "YM",      sector: "Futures",     mcap: 76, base: 39800,  assetType: "index" },
+  // ── Bond ETFs — live Yahoo Finance
+  { symbol: "AGG",    name: "US Aggregate Bond ETF",  ticker: "AGG",     sector: "Bonds",       mcap: 77, base: 98,     assetType: "stock" },
+  { symbol: "SHY",    name: "1-3Y Treasury ETF",      ticker: "SHY",     sector: "Bonds",       mcap: 78, base: 82,     assetType: "stock" },
+  { symbol: "LQD",    name: "IG Corp Bond ETF",       ticker: "LQD",     sector: "Bonds",       mcap: 79, base: 108,    assetType: "stock" },
+  // ── Global Indices — live Yahoo Finance (caret symbols)
+  { symbol: "^GDAXI", name: "DAX 40",                 ticker: "DAX",     sector: "Index",       mcap: 80, base: 18200,  assetType: "index" },
+  { symbol: "^FTSE",  name: "FTSE 100",               ticker: "FTSE",    sector: "Index",       mcap: 81, base: 8200,   assetType: "index" },
+  { symbol: "^N225",  name: "Nikkei 225",             ticker: "N225",    sector: "Index",       mcap: 82, base: 38800,  assetType: "index" },
+  { symbol: "^VIX",   name: "CBOE VIX",               ticker: "VIX",     sector: "Volatility",  mcap: 83, base: 15,     assetType: "index" },
+  { symbol: "^FCHI",  name: "CAC 40",                 ticker: "CAC40",   sector: "Index",       mcap: 84, base: 8092,   assetType: "index" },
+  { symbol: "^TNX",   name: "10Y Treasury Yield",     ticker: "US10Y",   sector: "Bonds",       mcap: 85, base: 4.48,   assetType: "index" },
 ] as const;
 
 // ── Fallback price simulation (only when real data is unavailable) ─
@@ -683,52 +710,119 @@ router.get("/tools/calendar", async (_req, res) => {
 
 // ── 6. FUNDING RATES ─────────────────────────────────────────────
 
+async function fetchBybitFundingRates(): Promise<Map<string, { fundingRate: number }>> {
+  try {
+    const resp = await fetch(
+      "https://api.bybit.com/v5/market/tickers?category=linear",
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!resp.ok) return new Map();
+    const json = await resp.json() as { result?: { list?: Array<{ symbol: string; fundingRate: string }> } };
+    const list = json?.result?.list ?? [];
+    const out = new Map<string, { fundingRate: number }>();
+    for (const t of list) {
+      if (t.fundingRate) out.set(t.symbol, { fundingRate: parseFloat(t.fundingRate) });
+    }
+    return out;
+  } catch { return new Map(); }
+}
+
+async function fetchOkxFundingRate(instId: string): Promise<number | null> {
+  try {
+    const resp = await fetch(
+      `https://www.okx.com/api/v5/public/funding-rate?instId=${instId}`,
+      { signal: AbortSignal.timeout(4000) }
+    );
+    if (!resp.ok) return null;
+    const json = await resp.json() as { data?: Array<{ fundingRate: string }> };
+    const rate = json?.data?.[0]?.fundingRate;
+    return rate ? parseFloat(rate) : null;
+  } catch { return null; }
+}
+
 router.get("/tools/funding-rates", async (_req, res) => {
   const now = Date.now();
   const nextFunding = now + (8 * 3_600_000 - (now % (8 * 3_600_000)));
   const PERPS = ASSETS.slice(0, 16);
 
-  // Try to fetch real funding rates from Binance Futures
-  let realRates: Map<string, { fundingRate: number; openInterest?: number }> = new Map();
+  // ── Exchange 1: Binance Futures premiumIndex (returns ALL symbols in one call) ──
+  let binanceRates = new Map<string, { fundingRate: number; openInterest?: number }>();
   try {
-    const [frResp, oiResp] = await Promise.allSettled([
-      fetch("https://fapi.binance.com/fapi/v1/fundingRate?limit=1", { signal: AbortSignal.timeout(5000) })
-        .then(r => r.ok ? r.json() : []) as Promise<Array<{ symbol: string; fundingRate: string }>>,
+    const [pmResp, oiResp] = await Promise.allSettled([
+      fetch("https://fapi.binance.com/fapi/v1/premiumIndex", { signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : []) as Promise<Array<{ symbol: string; lastFundingRate: string }>>,
       fetch("https://fapi.binance.com/fapi/v1/openInterest", { signal: AbortSignal.timeout(5000) })
         .then(r => r.ok ? r.json() : []) as Promise<Array<{ symbol: string; openInterest: string }>>,
     ]);
-    const frList = frResp.status === "fulfilled" ? frResp.value : [];
+    const pmList = pmResp.status === "fulfilled" ? pmResp.value : [];
     const oiList = oiResp.status === "fulfilled" ? oiResp.value : [];
     const oiMap = new Map(oiList.map((o: { symbol: string; openInterest: string }) => [o.symbol, parseFloat(o.openInterest)]));
-    for (const f of frList as Array<{ symbol: string; fundingRate: string }>) {
-      realRates.set(f.symbol, { fundingRate: parseFloat(f.fundingRate), openInterest: oiMap.get(f.symbol) });
+    for (const f of pmList as Array<{ symbol: string; lastFundingRate: string }>) {
+      if (f.lastFundingRate) {
+        binanceRates.set(f.symbol, { fundingRate: parseFloat(f.lastFundingRate), openInterest: oiMap.get(f.symbol) });
+      }
     }
-  } catch { /* fall through to simulation */ }
+  } catch { /* fall through */ }
 
-  const rates = PERPS.map(asset => {
-    const real = realRates.get(asset.symbol);
-    const current = real ? real.fundingRate : +((mulberry32(timeSeed(asset.symbol + "fr", 1_800_000))() - 0.45) * 0.002).toFixed(6);
+  // ── Exchange 2: Bybit fallback (fetched in parallel, used for symbols Binance misses) ──
+  let bybitRates = new Map<string, { fundingRate: number }>();
+  if (binanceRates.size === 0) {
+    bybitRates = await fetchBybitFundingRates();
+  }
+
+  const rates = await Promise.all(PERPS.map(async asset => {
+    let fundingRate: number | undefined;
+    let openInterestVal: number | undefined;
+    let dataSource = "simulated";
+
+    // 1. Try Binance
+    const binance = binanceRates.get(asset.symbol);
+    if (binance) {
+      fundingRate = binance.fundingRate;
+      openInterestVal = binance.openInterest;
+      dataSource = "binance";
+    }
+
+    // 2. Try Bybit
+    if (fundingRate === undefined) {
+      const bybit = bybitRates.get(asset.symbol);
+      if (bybit) { fundingRate = bybit.fundingRate; dataSource = "bybit"; }
+    }
+
+    // 3. Try OKX for top symbols only (to avoid too many requests)
+    if (fundingRate === undefined && ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"].includes(asset.symbol)) {
+      const base = asset.symbol.replace("USDT", "");
+      const okxRate = await fetchOkxFundingRate(`${base}-USDT-SWAP`);
+      if (okxRate !== null) { fundingRate = okxRate; dataSource = "okx"; }
+    }
+
+    // 4. Simulation fallback
+    if (fundingRate === undefined) {
+      fundingRate = +((mulberry32(timeSeed(asset.symbol + "fr", 1_800_000))() - 0.45) * 0.002).toFixed(6);
+    }
+
+    const current = fundingRate;
     const rng7d   = mulberry32(strSeed(asset.symbol + "fr7d"));
     const h8avg   = +((mulberry32(timeSeed(asset.symbol + "fr8h", 1_800_000))() - 0.45) * 0.0015).toFixed(6);
     const d7avg   = +((rng7d() - 0.45) * 0.001).toFixed(6);
     const annualized = +(current * 3 * 365 * 100).toFixed(2);
+    const dp = asset.base < 0.001 ? 8 : asset.base < 1 ? 4 : 2;
     const livePrices = generatePrices(asset.symbol, asset.base, 10, 300_000);
     const price   = livePrices[livePrices.length - 1]!;
-    const openInterestM = real?.openInterest
-      ? +(real.openInterest * price / 1_000_000).toFixed(1)
+    const openInterestM = openInterestVal
+      ? +(openInterestVal * price / 1_000_000).toFixed(1)
       : +((asset.base * 1_000_000 * (5 + mulberry32(timeSeed(asset.symbol + "oi", 3_600_000))() * 50)) / 1_000_000).toFixed(1);
     const sentiment: "long_biased" | "short_biased" | "neutral" =
       current > 0.0002 ? "long_biased" : current < -0.0002 ? "short_biased" : "neutral";
     return {
       symbol: asset.symbol, ticker: asset.ticker, name: asset.name,
-      price: +price.toFixed(asset.base < 0.001 ? 8 : asset.base < 1 ? 4 : 2),
+      price: +price.toFixed(dp),
       currentRate: current, currentRatePct: +(current * 100).toFixed(4),
       h8avg: +(h8avg * 100).toFixed(4), d7avg: +(d7avg * 100).toFixed(4),
       annualizedPct: annualized, nextFundingMs: nextFunding,
-      openInterestM, sentiment,
-      dataSource: real ? "live" : "simulated",
+      openInterestM, sentiment, dataSource,
     };
-  });
+  }));
 
   res.json({ rates, updatedAt: now });
 });
