@@ -103,7 +103,8 @@ class DrawingController {
   _rafId:     number | null = null;
   _pendingXY: { x: number; y: number } | null = null;
   _b: { click:(e:MouseEvent)=>void; move:(e:MouseEvent)=>void; key:(e:KeyboardEvent)=>void;
-        ts:(e:TouchEvent)=>void; tm:(e:TouchEvent)=>void; te:(e:TouchEvent)=>void };
+        ts:(e:TouchEvent)=>void; tm:(e:TouchEvent)=>void; te:(e:TouchEvent)=>void;
+        md:(e:MouseEvent)=>void };
   // Two-finger pinch/pan state — chart navigation
   _pinch: { prevDist: number; prevMidX: number } | null = null;
   _isPinching = false;
@@ -130,10 +131,12 @@ class DrawingController {
     const ts    = this._onTS.bind(this);
     const tm    = this._onTM.bind(this);
     const te    = this._onTE.bind(this);
-    this._b = { click, move, key, ts, tm, te };
+    const md    = this._onContainerMD.bind(this);
+    this._b = { click, move, key, ts, tm, te, md };
 
     container.addEventListener("click",      click);
     container.addEventListener("mousemove",  move);
+    container.addEventListener("mousedown",  md);
     document.addEventListener("keydown",     key);
     container.addEventListener("touchstart", ts, { passive: false });
     container.addEventListener("touchmove",  tm, { passive: false });
@@ -185,7 +188,9 @@ class DrawingController {
       if (!upper) return;
 
       if (t === "cursor") {
-        upper.style.pointerEvents = "all";
+        // Keep pointer-events NONE so drag/scroll pass through to lightweight-charts.
+        // Object selection is handled by _onContainerMD hit-testing instead.
+        upper.style.pointerEvents = "none";
         upper.style.cursor = "default";
         this.fab.selection     = !this.locked;
         this.fab.skipTargetFind = this.locked;
@@ -365,6 +370,30 @@ class DrawingController {
     if (this.tool === "cursor") return;
     const { x, y } = this._xy(e);
     this._schedulePreview(x, y);
+  }
+
+  // ── Cursor-mode hit-test on mousedown ─────────────────────────────────────
+  // In cursor mode the Fabric upper canvas has pointer-events:none so chart
+  // pan/zoom works normally. But if the user clicks directly on a drawn object
+  // we temporarily re-enable Fabric pointer events for the duration of that
+  // mousedown → mouseup so the object can be selected / focused.
+  private _onContainerMD(e: MouseEvent) {
+    if (this.tool !== "cursor") return;
+    const upper = this.fab.upperCanvasEl as HTMLElement | undefined;
+    if (!upper) return;
+    try {
+      const target = (this.fab as any).findTarget(e);
+      if (target && !target._isPreview) {
+        upper.style.pointerEvents = "all";
+        this.fab.setActiveObject(target);
+        this.fab.requestRenderAll();
+        const onUp = () => {
+          if (this.tool === "cursor") upper.style.pointerEvents = "none";
+          document.removeEventListener("mouseup", onUp);
+        };
+        document.addEventListener("mouseup", onUp);
+      }
+    } catch { /* fab not ready */ }
   }
 
   private _updPreview(x: number, y: number) {
@@ -762,9 +791,10 @@ class DrawingController {
     // Restore chart interactivity
     this.chartRef.current?.applyOptions({ handleScroll: true, handleScale: true });
     this._cancelDraw(); this._unsubs.forEach(f=>f()); this._ro.disconnect();
-    const {click,move,key,ts,tm,te}=this._b;
+    const {click,move,key,ts,tm,te,md}=this._b;
     this.container.removeEventListener("click",click);
     this.container.removeEventListener("mousemove",move);
+    this.container.removeEventListener("mousedown",md);
     document.removeEventListener("keydown",key);
     this.container.removeEventListener("touchstart",ts);
     this.container.removeEventListener("touchmove",tm);
