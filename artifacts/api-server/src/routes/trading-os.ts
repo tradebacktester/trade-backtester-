@@ -325,6 +325,28 @@ router.post("/trading-os/ghost", async (req: Request, res: Response): Promise<vo
   }
 });
 
+/* ── ATR helper for Future Sim real volatility ───────────────────────────── */
+async function fetchSymbolAtrPct(symbol: string): Promise<number | null> {
+  const upper = symbol.toUpperCase();
+  // Binance for crypto (single fast call, < 3 s)
+  if (/^[A-Z0-9]+(USDT|BTC|ETH|BNB)$/.test(upper)) {
+    try {
+      const resp = await fetch(
+        `https://api.binance.com/api/v3/klines?symbol=${upper}&interval=1d&limit=14`,
+        { signal: AbortSignal.timeout(3000) }
+      );
+      if (!resp.ok) return null;
+      const klines = await resp.json() as string[][];
+      if (!klines.length) return null;
+      const lastClose = parseFloat(klines[klines.length - 1]![4]!);
+      if (lastClose <= 0) return null;
+      const avgHl = klines.reduce((s, k) => s + (parseFloat(k[2]!) - parseFloat(k[3]!)), 0) / klines.length;
+      return avgHl / lastClose; // ATR as fraction of price
+    } catch { return null; }
+  }
+  return null; // non-crypto — skip to keep latency low
+}
+
 /* ── POST /api/trading-os/future-sim ─────────────────────────────────────── */
 router.post("/trading-os/future-sim", async (req: Request, res: Response): Promise<void> => {
   try {
@@ -342,7 +364,10 @@ router.post("/trading-os/future-sim", async (req: Request, res: Response): Promi
       return;
     }
 
-    const profile = await extractTraderProfile(userId);
+    const [profile, atrPct] = await Promise.all([
+      extractTraderProfile(userId),
+      fetchSymbolAtrPct(symbol),
+    ]);
 
     const winPnl  = side === "long" ? (takeProfit - entry) * positionSize : (entry - takeProfit) * positionSize;
     const lossPnl = side === "long" ? (stopLoss   - entry) * positionSize : (entry - stopLoss)   * positionSize;
@@ -364,11 +389,22 @@ router.post("/trading-os/future-sim", async (req: Request, res: Response): Promi
       thisMovePct > avgAbsPct * 2 ? 65 :
       thisMovePct > avgAbsPct     ? 40 : 20;
 
+    // Range scenario: price drifts ~half the 14-day ATR toward trade direction
+    // without reaching the take-profit. Falls back to 1.5 % if ATR is unavailable
+    // (covers non-crypto and Binance timeout scenarios).
+    const halfAtrPct   = atrPct != null ? atrPct * 0.5 : 0.015;
+    // Cap at 70 % of full TP distance so range is always less than a clean win
+    const rangeMovePct = Math.min(halfAtrPct * 100, Math.abs(winPct) * 0.7);
+    const rangePnl     = (rangeMovePct / 100) * entry * positionSize;
+    const rangeNote    = atrPct != null
+      ? `14-day ATR: ${(atrPct * 100).toFixed(1)}%`
+      : "Estimated volatility";
+
     res.json({
       scenarios: {
         win:   { label: "Trade Wins",    pnl: Math.round(winPnl  * 100) / 100, pct: Math.round(winPct  * 100) / 100 },
         loss:  { label: "Trade Loses",   pnl: Math.round(lossPnl * 100) / 100, pct: Math.round(lossPct * 100) / 100 },
-        range: { label: "Market Ranges", pnl: Math.round(winPnl * 0.12 * 100) / 100, pct: Math.round(winPct * 0.12 * 100) / 100 },
+        range: { label: "Market Ranges", pnl: Math.round(rangePnl * 100) / 100, pct: Math.round(rangeMovePct * 100) / 100, note: rangeNote },
       },
       rrRatio:          Math.round(rrRatio * 100) / 100,
       expectedValue:    Math.round(expectedValue * 100) / 100,

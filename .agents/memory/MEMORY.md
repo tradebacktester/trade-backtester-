@@ -33,3 +33,4 @@
 - [Trading OS dashboard batch](trading-os-dashboard.md) — GET /api/trading-os/dashboard batches rank + health-score into one DB call (single extractTraderProfile); OverviewTab uses useOSFetch("dashboard") + useOSFetch("coach-briefing") — 2 calls instead of 3.
 - [App color palette](app-color-palette.md) — all accent colors are black/white/grey only (no purple/indigo/amber); pro plan uses #c0c0c0, elite uses #e8e8e8; dark body is #080808 with subtle white radial orbs.
 - [Coupon system](coupon-system.md) — coupons + coupon_usages tables in DB; validate-coupon endpoint (POST /api/subscription/validate-coupon); create-order accepts couponCode; verify records usage + increments usedCount; frontend stores coupon in localStorage as tt_pending_coupon; admin Coupons tab for CRUD.
+- [Real data audit](real-data-audit.md) — which market features are live vs. fake and what needs paid APIs to improve further.
