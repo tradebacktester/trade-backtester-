@@ -325,59 +325,57 @@ export default function AnalyticsPage() {
               }}>
 
               {/* Trade header row */}
-              <div className="flex items-center gap-3 px-4 py-3.5">
-                {/* Index */}
-                <span className="text-[11px] font-mono w-5 text-right flex-shrink-0"
-                  style={{ color: "hsl(var(--muted-foreground))", opacity: 0.5 }}>
-                  {idx + 1}
-                </span>
-
-                {/* Side badge */}
-                <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg tracking-wide flex-shrink-0"
-                  style={{ background: `${sideColor}15`, color: sideColor, border: `1px solid ${sideColor}25` }}>
-                  {trade.side}
-                </span>
+              <div className="flex flex-wrap items-center gap-2 px-4 py-3.5">
+                {/* Side badge + index */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[11px] font-mono w-5 text-right"
+                    style={{ color: "hsl(var(--muted-foreground))", opacity: 0.5 }}>
+                    {idx + 1}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg tracking-wide"
+                    style={{ background: `${sideColor}15`, color: sideColor, border: `1px solid ${sideColor}25` }}>
+                    {trade.side}
+                  </span>
+                </div>
 
                 {/* Dates + duration */}
-                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                <div className="flex-1 min-w-[140px] flex flex-col gap-0.5">
                   <span className="text-[11px] font-mono truncate" style={{ color: "hsl(var(--muted-foreground))" }}>
                     {trade.entryDate} → {trade.exitDate}
                   </span>
                   <span className="text-[10px] flex items-center gap-1" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.6 }}>
-                    <Clock className="h-2.5 w-2.5" /> {durationDays}d hold · ${Number(trade.entryPrice).toFixed(2)} → ${Number(trade.exitPrice).toFixed(2)}
+                    <Clock className="h-2.5 w-2.5" /> {durationDays}d · ${Number(trade.entryPrice).toFixed(2)} → ${Number(trade.exitPrice).toFixed(2)}
                   </span>
                 </div>
 
-                {/* PnL */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                {/* PnL + Analyze */}
+                <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
                   <PnlBadge pnl={Number(trade.pnl)} pct={Number(trade.pnlPercent)} />
-                  <span className="text-xs font-mono font-semibold" style={{ color: pos ? ACCENT.green : ACCENT.red }}>
+                  <span className="text-xs font-mono font-semibold hidden sm:inline" style={{ color: pos ? ACCENT.green : ACCENT.red }}>
                     {pos ? "+" : "−"}${Math.abs(Number(trade.pnl)).toFixed(2)}
                   </span>
+                  <button
+                    onClick={() => analyzeOneTrade(trade)}
+                    disabled={analysis?.loading}
+                    className="h-8 px-3 rounded-xl flex items-center gap-1.5 text-[11px] font-semibold transition-all flex-shrink-0 hover:scale-105"
+                    style={{
+                      background: analysis?.text ? `${ACCENT.purple}15` : `${ACCENT.blue}12`,
+                      color: analysis?.text ? ACCENT.purple : ACCENT.blue,
+                      border: `1px solid ${analysis?.text ? ACCENT.purple + "28" : ACCENT.blue + "22"}`,
+                      opacity: analysis?.loading ? 0.6 : 1,
+                    }}>
+                    {analysis?.loading
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Analyzing</>
+                      : analysis?.text
+                      ? <><RefreshCw className="h-3 w-3" /> Redo</>
+                      : <><Brain className="h-3 w-3" /> Analyze</>}
+                  </button>
                 </div>
-
-                {/* Analyze button */}
-                <button
-                  onClick={() => analyzeOneTrade(trade)}
-                  disabled={analysis?.loading}
-                  className="h-8 px-3 rounded-xl flex items-center gap-1.5 text-[11px] font-semibold transition-all flex-shrink-0 hover:scale-105"
-                  style={{
-                    background: analysis?.text ? `${ACCENT.purple}15` : `${ACCENT.blue}12`,
-                    color: analysis?.text ? ACCENT.purple : ACCENT.blue,
-                    border: `1px solid ${analysis?.text ? ACCENT.purple + "28" : ACCENT.blue + "22"}`,
-                    opacity: analysis?.loading ? 0.6 : 1,
-                  }}>
-                  {analysis?.loading
-                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Analyzing</>
-                    : analysis?.text
-                    ? <><RefreshCw className="h-3 w-3" /> Redo</>
-                    : <><Brain className="h-3 w-3" /> Analyze</>}
-                </button>
               </div>
 
               {/* AI analysis */}
               {analysis?.text && (
-                <div className="px-4 pb-4">
+                <div className="px-4 pb-4 space-y-2">
                   <div className="rounded-xl px-4 py-3 flex items-start gap-2.5"
                     style={{ background: `${ACCENT.purple}10`, border: `1px solid ${ACCENT.purple}20` }}>
                     <Sparkles className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: ACCENT.purple }} />
@@ -385,6 +383,9 @@ export default function AnalyticsPage() {
                       {analysis.text}
                     </p>
                   </div>
+                  <p className="text-[10px] text-center" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.5 }}>
+                    AI analysis is for educational purposes only and does not constitute financial advice.
+                  </p>
                 </div>
               )}
 

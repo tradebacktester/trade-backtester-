@@ -344,44 +344,16 @@ export default function BrokeragePage() {
             <Link href="/dashboard" className="text-white/30 hover:text-white text-sm">← Dashboard</Link>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center">
-            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
-              <AlertCircle size={24} className="text-amber-400" />
+            <div className="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-5">
+              <Loader2 size={24} className="text-blue-400 animate-spin" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Connect Alpaca Paper Trading</h1>
-            <p className="text-white/40 text-sm leading-relaxed mb-6">
-              Alpaca offers free paper trading with real IEX market data. Connect your free account
-              to get real order execution, live positions, and IEX trade tape for footprint charts.
+            <h1 className="text-2xl font-bold text-white mb-2">Brokerage Initializing</h1>
+            <p className="text-white/40 text-sm leading-relaxed mb-4">
+              The live brokerage integration is managed by the platform. If this page persists,
+              please contact support.
             </p>
-
-            <div className="text-left bg-black/40 rounded-xl p-5 mb-6 space-y-3">
-              <p className="text-xs text-white/50 uppercase tracking-widest font-semibold">Setup (2 minutes, free)</p>
-              {[
-                { n: 1, text: "Create a free account at alpaca.markets" },
-                { n: 2, text: "Go to Paper Trading → API Keys → Generate" },
-                { n: 3, text: `Add ALPACA_KEY_ID to your Replit secrets` },
-                { n: 4, text: `Add ALPACA_SECRET_KEY to your Replit secrets` },
-                { n: 5, text: "Restart the API server — done!" },
-              ].map(s => (
-                <div key={s.n} className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-white/10 text-white/50 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                    {s.n}
-                  </span>
-                  <p className="text-sm text-white/70">{s.text}</p>
-                </div>
-              ))}
-            </div>
-
-            <a
-              href={status.signupUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors"
-            >
-              Sign up at Alpaca (free) <ExternalLink size={14} />
-            </a>
-
-            <p className="text-white/20 text-xs mt-4">
-              Free plan includes paper trading + real-time IEX data for all US stocks
+            <p className="text-white/20 text-xs">
+              Paper trading · Real-time IEX data · Alpaca powered
             </p>
           </div>
         </div>

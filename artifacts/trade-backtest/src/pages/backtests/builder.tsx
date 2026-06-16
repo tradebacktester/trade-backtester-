@@ -405,7 +405,7 @@ const STRATEGY_DEFS: StrategyDef[] = [
   },
 ];
 
-const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
+const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTCUSDT", "ETHUSDT", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL", "SOLUSDT", "EURUSD"];
 
 function SliderInput({ value, min, max, step, onChange }: {
   value: number; min: number; max: number; step: number; onChange: (v: number) => void;
@@ -520,20 +520,14 @@ export default function BacktestBuilder() {
     }
     setIsRunning(true);
     try {
-      const strategy = await new Promise<{ id: number }>((resolve, reject) => {
-        createStrategy.mutate(
-          { data: { name: name.trim(), type: selectedType, symbol, timeframe: timeframe as any, parameters: params, description: def.logicSummary(params) } as any },
-          { onSuccess: resolve, onError: reject }
-        );
-      });
+      const strategy = await createStrategy.mutateAsync(
+        { data: { name: name.trim(), type: selectedType, symbol, timeframe: timeframe as any, parameters: params, description: def.logicSummary(params) } as any }
+      );
       queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
 
-      const backtest = await new Promise<{ id: number }>((resolve, reject) => {
-        createBacktest.mutate(
-          { data: { strategyId: strategy.id, symbol, startDate, endDate, initialCapital } },
-          { onSuccess: resolve, onError: reject }
-        );
-      });
+      const backtest = await createBacktest.mutateAsync(
+        { data: { strategyId: strategy.id, symbol, startDate, endDate, initialCapital } }
+      );
       queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
 
       toast({ title: "Backtest started!", description: `Running ${name}...` });
@@ -555,17 +549,16 @@ export default function BacktestBuilder() {
       toast({ title: "Name required", description: "Please enter a strategy name.", variant: "destructive" });
       return;
     }
-    createStrategy.mutate(
-      { data: { name: name.trim(), type: selectedType, symbol, timeframe: timeframe as any, parameters: params, description: def.logicSummary(params) } as any },
-      {
-        onSuccess: (strategy: { id: number }) => {
-          queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
-          toast({ title: "Strategy saved!", description: `${name} created.` });
-          setLocation(`/strategies/${strategy.id}`);
-        },
-        onError: (err: { data?: { error?: string } | null }) => toast({ title: "Error", description: err.data?.error ?? "Failed", variant: "destructive" }),
-      }
-    );
+    try {
+      const strategy = await createStrategy.mutateAsync(
+        { data: { name: name.trim(), type: selectedType, symbol, timeframe: timeframe as any, parameters: params, description: def.logicSummary(params) } as any }
+      );
+      queryClient.invalidateQueries({ queryKey: getListStrategiesQueryKey() });
+      toast({ title: "Strategy saved!", description: `${name} created.` });
+      setLocation(`/strategies/${strategy.id}`);
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.data?.error ?? "Failed to save strategy", variant: "destructive" });
+    }
   }
 
   const entryConditions = def.entryConditions(params);

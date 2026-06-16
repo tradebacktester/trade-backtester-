@@ -42,8 +42,14 @@ type StressResponse = {
 
 const ALL_SECTORS = ["All", "Crypto", "Tech", "Auto", "Media", "Fintech", "Index", "Forex", "Commodity", "Energy", "Metal", "Bond", "Vol"];
 
-function fmtPct(v: number) { return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`; }
-function fmtNum(v: number, d = 2) { return v.toFixed(d); }
+function fmtPct(v: number | null | undefined) {
+  if (v == null || !isFinite(v)) return "—";
+  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+}
+function fmtNum(v: number | null | undefined, d = 2) {
+  if (v == null || !isFinite(v)) return "—";
+  return v.toFixed(d);
+}
 
 function SortIcon({ active, dir }: { active: boolean; dir: 1 | -1 }) {
   if (!active) return <ChevronDown className="h-3 w-3 opacity-20 inline ml-1" />;

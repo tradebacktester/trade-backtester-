@@ -27,7 +27,6 @@ import BatchBacktest from "@/pages/backtests/batch";
 import PortfolioBacktest from "@/pages/backtests/portfolio";
 import SettingsPage from "@/pages/settings";
 import NewsPage from "@/pages/news";
-import DemoPage from "@/pages/demo";
 import AiAssistant from "@/pages/ai-assistant";
 import AdminLogin from "@/pages/admin/login";
 import AdminPanel from "@/pages/admin/panel";
@@ -133,7 +132,6 @@ function Router() {
           <ChartPage />
         </Suspense>
       )} />
-      <Route path="/demo" component={DemoPage} />
       <Route path="/ai" component={AiAssistant} />
       <Route path="/news" component={NewsPage} />
       <Route path="/settings" component={SettingsPage} />

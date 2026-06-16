@@ -1310,6 +1310,13 @@ export default function TradingOsPage() {
         {activeTab === "report"        && <ReportTab        token={token} />}
         {activeTab === "opportunities" && <OpportunitiesTab token={token} />}
         {activeTab === "twin"          && <TwinTab          token={token} />}
+
+        {/* Global AI disclaimer */}
+        <p className="text-center text-[10px] mt-8 px-4 pb-4"
+          style={{ color: "hsl(var(--muted-foreground))", opacity: 0.45 }}>
+          AI Trader OS insights are for educational purposes only and do not constitute financial or investment advice.
+          Past performance is not indicative of future results. Trade at your own risk.
+        </p>
       </div>
     </div>
   );

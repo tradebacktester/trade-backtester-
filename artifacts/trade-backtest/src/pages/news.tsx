@@ -122,7 +122,7 @@ function EventCard({ event }: { event: CalendarEvent }) {
         </div>
 
         {/* F / A / P */}
-        <div className="shrink-0 hidden md:flex items-center gap-4 text-right">
+        <div className="shrink-0 flex items-center gap-3 md:gap-4 text-right">
           <div>
             <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Forecast</div>
             <div className="text-xs font-mono">{event.forecast || "—"}</div>
@@ -152,10 +152,10 @@ function SkeletonRow() {
       <div className="skeleton-shimmer h-4 w-8 shrink-0" />
       <div className="skeleton-shimmer h-2 w-2 rounded-full shrink-0" />
       <div className="skeleton-shimmer h-4 flex-1" />
-      <div className="hidden md:flex gap-4">
-        <div className="skeleton-shimmer h-4 w-10" />
-        <div className="skeleton-shimmer h-4 w-10" />
-        <div className="skeleton-shimmer h-4 w-10" />
+      <div className="flex gap-3 md:gap-4">
+        <div className="skeleton-shimmer h-4 w-8 md:w-10" />
+        <div className="skeleton-shimmer h-4 w-8 md:w-10" />
+        <div className="skeleton-shimmer h-4 w-8 md:w-10" />
       </div>
     </div>
   );

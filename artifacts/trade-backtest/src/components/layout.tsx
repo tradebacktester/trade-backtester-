@@ -6,7 +6,7 @@ import {
   Brain, X, BookOpen,
   Shield, LogIn, LogOut, Users, Crown, CreditCard, Wrench, Store,
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
-  UserCircle, Calculator, Play, Search, ChevronDown,
+  UserCircle, Calculator, Search, ChevronDown,
   Cpu, Globe, Plus, Layers, TestTube, Bell, GraduationCap, Map, Library, FileText, Trophy, Award,
   TrendingUp, Calendar, Building2,
 } from "lucide-react";
@@ -24,7 +24,6 @@ const SECTIONS = [
     items: [
       { title: "Markets",        url: "/market",    icon: Globe,            desc: "Browse & discover all assets" },
       { title: "Live Charts",    url: "/chart",     icon: CandlestickChart, desc: "Advanced charting & analysis" },
-      { title: "Paper Trading",  url: "/demo",      icon: Play,             desc: "Simulated trading practice" },
       { title: "Alert Engine",   url: "/alerts",    icon: Bell,             desc: "Multi-condition smart alerts" },
       { title: "Brokerage",      url: "/brokerage", icon: Building2,        desc: "Live account & order management" },
     ],
@@ -128,7 +127,7 @@ const SECTIONS = [
 
 /* ── Route → section mapping ───────────────────────────────────────── */
 const ROUTE_SECTION: Record<string, string> = {
-  "/chart": "trade",       "/demo": "trade",        "/alerts": "trade",  "/market": "trade",
+  "/chart": "trade",       "/alerts": "trade",  "/market": "trade",
   "/brokerage": "trade",
   "/ai": "research",       "/news": "research",    "/calculator": "research",
   "/marketplace": "research",
@@ -167,7 +166,6 @@ const HOME_SHEET_SECTIONS = [
     items: [
       { title: "Markets",       url: "/market",    icon: Globe },
       { title: "Live Charts",   url: "/chart",     icon: CandlestickChart },
-      { title: "Paper Trading", url: "/demo",      icon: Play },
       { title: "Alert Engine",  url: "/alerts",    icon: Bell },
       { title: "Footprint",     url: "/footprint", icon: Activity },
       { title: "Brokerage",     url: "/brokerage", icon: Building2 },
