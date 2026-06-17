@@ -16,7 +16,7 @@ interface ScreenerRow {
   assetType: "crypto" | "forex" | "stock" | "index" | "commodity";
   price: number; change24h: number; change7d: number; volume24h: number;
   rsi: number; rsiSignal: string; macd: "bullish" | "bearish" | "neutral";
-  trend: "bullish" | "bearish"; bbPosition: number; vwap: number;
+  trend: "bullish" | "bearish" | "neutral"; bbPosition: number; vwap: number;
   dataSource: "live" | "simulated"; mcapRank: number;
   category?: AssetCategory;
 }
@@ -142,7 +142,7 @@ function sa(
   symbol: string, ticker: string, name: string, category: AssetCategory,
   price: number, c24: number, c7d: number, vol: number,
   rsi: number, macd: "bullish" | "bearish" | "neutral",
-  trend: "bullish" | "bearish", bb: number, rank: number
+  trend: "bullish" | "bearish" | "neutral", bb: number, rank: number
 ): ScreenerRow {
   return {
     symbol, ticker, name, sector: category, assetType: "stock",

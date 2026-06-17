@@ -390,10 +390,11 @@ export default function ChartPage() {
   }
 
   // Similarity score: how closely does a known losing pattern apply to the current trade?
-  // HIGH severity → 72 base (above 60% gate); MEDIUM → 60 (at gate); LOW → 30 (below gate).
-  // Leverage and total mistake count raise the score — amplifying pattern strength.
+  // HIGH severity → 65 base; MEDIUM → 50; LOW → 38.
+  // Leverage and total mistake count raise the score.
+  // Gate is 35 — almost any identified mistake triggers the warning.
   function computeMistakeSimilarity(m: TradeMistake, lev: number, total: number): number {
-    let s = m.severity === "high" ? 72 : m.severity === "medium" ? 60 : 30;
+    let s = m.severity === "high" ? 65 : m.severity === "medium" ? 50 : 38;
     if (lev >= 5) s += 12; else if (lev >= 3) s += 8; else if (lev >= 2) s += 4;
     if (total >= 3) s += 8; else if (total >= 2) s += 4;
     return Math.min(100, s);
@@ -705,7 +706,7 @@ export default function ChartPage() {
           .sort((a, b) => b.score - a.score);
         topLocal = scored[0];
       }
-      if (topLocal && topLocal.score >= 60) {
+      if (topLocal && topLocal.score >= 35) {
         // Local heuristic triggers — show modal; API check updates DNA panel when resolved
         pendingTradeRef.current = execLong;
         setAiPreTrade(null);
@@ -785,7 +786,7 @@ export default function ChartPage() {
           .sort((a, b) => b.score - a.score);
         topLocal2 = scored2[0];
       }
-      if (topLocal2 && topLocal2.score >= 60) {
+      if (topLocal2 && topLocal2.score >= 35) {
         // Local heuristic triggers — show modal; API check updates DNA panel when resolved
         pendingTradeRef.current = execShort;
         setAiPreTrade(null);
@@ -1117,16 +1118,30 @@ export default function ChartPage() {
     }
   }, [priceAlerts, klines]); // re-run when klines change (chart re-init rebuilds series)
 
-  // Check if current bar crosses any alert
+  // Check if current bar crosses any alert — fire a toast when triggered
   useEffect(() => {
     if (!currentBar || !priceAlerts.length) return;
     const price = currentBar.close;
     let changed = false;
+    const newlyTriggered: PriceAlert[] = [];
     const updated = priceAlerts.map(a => {
-      if (!a.triggered && Math.abs(price - a.price) / a.price < 0.002) { changed = true; return { ...a, triggered: true }; }
+      if (!a.triggered && Math.abs(price - a.price) / a.price < 0.002) {
+        changed = true;
+        newlyTriggered.push(a);
+        return { ...a, triggered: true };
+      }
       return a;
     });
-    if (changed) { setPriceAlerts(updated); saveAlerts(updated); }
+    if (changed) {
+      setPriceAlerts(updated);
+      saveAlerts(updated);
+      newlyTriggered.forEach(a => {
+        toast({
+          title: `🔔 Price Alert Hit`,
+          description: `${symbol} reached ${fmt(a.price)}${a.label && a.label !== fmt(a.price) ? ` — ${a.label}` : ""}`,
+        });
+      });
+    }
   }, [currentBar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── VPVR update ────────────────────────────────────────────────────

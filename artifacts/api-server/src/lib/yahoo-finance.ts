@@ -151,46 +151,25 @@ export async function fetchYahooKlines(
   const paddingFactor = ["1d", "1w"].includes(interval) ? 2.0 : 3.0;
   const startDate = new Date(endDate.getTime() - intervalSec * limit * 1000 * paddingFactor);
 
-  const isIntraday = ["1m", "5m", "15m", "1h", "4h"].includes(interval);
+  // Use chart() for ALL timeframes — it works for both intraday and daily/weekly,
+  // and correctly handles forex pairs (EURUSD=X, GBPUSD=X) where historical() fails.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: AnyRecord = (await (yahooFinance.chart as any)(yahooSym, {
+    period1: startDate,
+    period2: endDate,
+    interval: yfInterval,
+  })) as AnyRecord;
 
-  if (isIntraday) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result: AnyRecord = (await (yahooFinance.chart as any)(yahooSym, {
-      period1: startDate,
-      period2: endDate,
-      interval: yfInterval,
-    })) as AnyRecord;
-
-    const quotes = (result["quotes"] as AnyRecord[] | null) ?? [];
-    return quotes
-      .filter(q => q["open"] != null && q["close"] != null)
-      .slice(-limit)
-      .map(q => ({
-        time: Math.floor(new Date(q["date"] as string | number | Date).getTime() / 1000),
-        open: Number(q["open"] ?? 0),
-        high: Number(q["high"] ?? 0),
-        low: Number(q["low"] ?? 0),
-        close: Number(q["close"] ?? 0),
-        volume: Number(q["volume"] ?? 0),
-      }));
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result: AnyRecord[] = (await (yahooFinance.historical as any)(yahooSym, {
-      period1: startDate,
-      period2: endDate,
-      interval: yfInterval,
-    })) as AnyRecord[];
-
-    return (result ?? [])
-      .filter(bar => bar["open"] != null && bar["close"] != null)
-      .slice(-limit)
-      .map(bar => ({
-        time: Math.floor(new Date(bar["date"] as string | number | Date).getTime() / 1000),
-        open: Number(bar["open"] ?? 0),
-        high: Number(bar["high"] ?? 0),
-        low: Number(bar["low"] ?? 0),
-        close: Number(bar["adjClose"] ?? bar["close"] ?? 0),
-        volume: Number(bar["volume"] ?? 0),
-      }));
-  }
+  const quotes = (result["quotes"] as AnyRecord[] | null) ?? [];
+  return quotes
+    .filter(q => q["open"] != null && q["close"] != null)
+    .slice(-limit)
+    .map(q => ({
+      time: Math.floor(new Date(q["date"] as string | number | Date).getTime() / 1000),
+      open: Number(q["open"] ?? 0),
+      high: Number(q["high"] ?? 0),
+      low: Number(q["low"] ?? 0),
+      close: Number(q["adjclose"] ?? q["close"] ?? 0),
+      volume: Number(q["volume"] ?? 0),
+    }));
 }

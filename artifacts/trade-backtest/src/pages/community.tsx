@@ -901,7 +901,7 @@ function PostCard({
       </div>
 
       <div style={{ padding: "0 16px 12px" }}>
-        <p style={{ fontSize: 13, lineHeight: "1.6", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap", wordBreak: "break-words" }}>
+        <p style={{ fontSize: 13, lineHeight: "1.6", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
           {post.content}
         </p>
       </div>

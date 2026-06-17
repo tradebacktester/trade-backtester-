@@ -129,7 +129,7 @@ export default function PortfolioBacktest() {
 
   return (
     <div className="max-w-3xl mx-auto pb-16 space-y-5">
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      {showAuthModal && <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />}
 
       <div className="flex items-center gap-3">
         <Link href="/backtests/new">

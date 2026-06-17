@@ -75,9 +75,12 @@ function useApiFetch<T>(
     fetch(`/api${path}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) return r.json().then((e: { error?: string }) => Promise.reject(new Error(e.error ?? `Request failed (${r.status})`)));
+        return r.json();
+      })
       .then((d: T) => { if (!cancelled) { setData(d); setError(null); } })
-      .catch((e: Error) => { if (!cancelled) setError(e.message); })
+      .catch((e: Error) => { if (!cancelled) { setError(e.message); setData(null); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -436,7 +439,7 @@ export default function BrokeragePage() {
                   <div key={i} className="h-10 bg-white/5 rounded animate-pulse" />
                 ))}
               </div>
-            ) : !positions || positions.length === 0 ? (
+            ) : !Array.isArray(positions) || positions.length === 0 ? (
               <div className="text-center py-10">
                 <p className="text-white/20 text-sm">No open positions</p>
               </div>
@@ -518,7 +521,7 @@ export default function BrokeragePage() {
                 <div key={i} className="h-10 bg-white/5 rounded animate-pulse" />
               ))}
             </div>
-          ) : !orders || orders.length === 0 ? (
+          ) : !Array.isArray(orders) || orders.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-white/20 text-sm">No {orderFilter} orders</p>
             </div>

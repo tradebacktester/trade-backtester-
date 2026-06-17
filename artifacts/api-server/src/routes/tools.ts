@@ -542,7 +542,7 @@ router.get("/tools/depth/:symbol", async (req, res) => {
   }
 
   // ── Non-crypto: prefer Alpaca NBBO (real bid/ask + sizes), fall back to Yahoo ─
-  let midPrice = asset.base;
+  let midPrice: number = asset.base as number;
   let realBid  = 0, realAsk = 0;
   let realBidSz = 0, realAskSz = 0;
   let dataSource: "live" | "indicative" = "indicative";
