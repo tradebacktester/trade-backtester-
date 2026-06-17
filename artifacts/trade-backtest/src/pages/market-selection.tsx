@@ -128,7 +128,7 @@ const CHART_SYMBOL_MAP: Record<string, string> = {
   // Livestock
   LIVECATTLE: "LE=F", LEANHOGS: "HE=F", FEEDERCATTLE: "GF=F", PORK: "HE=F",
   // Soft commodities
-  COCOA: "CC=F", OJ: "OJ=F", LUMBER: "LB=F",
+  COCOA: "CC=F", OJ: "OJ=F", LUMBER: "ZC=F",
   RUBBER: "GC=F", WOOL: "GC=F", SISAL: "GC=F",
   // Metals (commodities)
   GOLD: "GC=F", SILVER: "SI=F", COPPER: "HG=F", PLATINUM: "PL=F", PALLADIUM: "PA=F",

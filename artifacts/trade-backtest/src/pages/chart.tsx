@@ -152,7 +152,11 @@ async function syncChartTradeToAlpaca(
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ symbol: alpacaSymbol, qty, side, type: "market", time_in_force: "day" }),
     });
-    if (res.ok) onSuccess(`${side === "buy" ? "▲ BUY" : "▼ SELL"} ${qty} ${alpacaSymbol}`);
+    if (res.ok) {
+      // Signal the brokerage page to auto-refresh (works same-tab AND cross-tab)
+      try { new BroadcastChannel("tradelab_brokerage").postMessage({ type: "trade_synced", ts: Date.now() }); } catch { /* ignore */ }
+      onSuccess(`${side === "buy" ? "▲ BUY" : "▼ SELL"} ${qty} ${alpacaSymbol}`);
+    }
   } catch { /* silent — Alpaca not configured or offline */ }
 }
 

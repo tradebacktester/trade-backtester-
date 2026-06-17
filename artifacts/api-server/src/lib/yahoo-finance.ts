@@ -65,7 +65,7 @@ const STOCK_SYMBOLS = new Set([
   // Livestock futures
   "LE=F", "HE=F", "GF=F",
   // Soft commodity / duration ETF proxies
-  "LB=F", "IEF", "HYG",
+  "IEF", "HYG",
   // Carbon / freight ETF proxies (KRBN = KraneShares Global Carbon, BDRY = Breakwave Dry Bulk)
   "KRBN", "BDRY",
 ]);

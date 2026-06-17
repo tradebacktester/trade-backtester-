@@ -299,6 +299,7 @@ export default function BrokeragePage() {
   const { token } = useAuth();
   const [orderFilter, setOrderFilter] = useState<"open" | "closed" | "all">("open");
   const [refreshTick, setRefreshTick] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const refresh = useCallback(() => setRefreshTick(t => t + 1), []);
 
   const { data: status }    = useApiFetch<BrokerageStatus>("/brokerage/status", token, []);
@@ -308,6 +309,36 @@ export default function BrokeragePage() {
     useApiFetch<Position[]>("/brokerage/positions", token, [refreshTick]);
   const { data: orders, loading: ordersLoading, refetch: refetchOrders } =
     useApiFetch<Order[]>(`/brokerage/orders?status=${orderFilter}`, token, [orderFilter, refreshTick]);
+
+  // Auto-refresh when a trade is synced from the chart page (same-tab or cross-tab)
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("tradelab_brokerage");
+      bc.onmessage = (e: MessageEvent<{ type: string; ts?: number }>) => {
+        if (e.data?.type === "trade_synced") {
+          const ts = e.data.ts ? new Date(e.data.ts).toLocaleTimeString() : new Date().toLocaleTimeString();
+          setLastSyncTime(ts);
+          refetchAccount();
+          refetchPositions();
+          refetchOrders();
+        }
+      };
+    } catch { /* BroadcastChannel not supported */ }
+    return () => { try { bc?.close(); } catch { /* ignore */ } };
+  }, [refetchAccount, refetchPositions, refetchOrders]);
+
+  // Auto-refresh every 30s while page is visible
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        refetchAccount();
+        refetchPositions();
+        refetchOrders();
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [refetchAccount, refetchPositions, refetchOrders]);
 
   const handleCancel = async (orderId: string) => {
     if (!token) return;
@@ -382,6 +413,9 @@ export default function BrokeragePage() {
             <p className="text-white/30 text-sm mt-0.5">
               Alpaca Paper Trading · IEX real-time data
               <span className="ml-2 text-emerald-400 text-xs">● Connected</span>
+              {lastSyncTime && (
+                <span className="ml-3 text-white/20 text-xs">↺ synced from chart at {lastSyncTime}</span>
+              )}
             </p>
           </div>
           <button
