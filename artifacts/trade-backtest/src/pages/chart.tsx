@@ -107,10 +107,54 @@ const SYMBOLS = [
   { value: "AAPL",     label: "Apple",     category: "Stocks",      sim: false, basePrice: 178    },
   { value: "TSLA",     label: "Tesla",     category: "Stocks",      sim: false, basePrice: 185    },
   { value: "NVDA",     label: "Nvidia",    category: "Stocks",      sim: false, basePrice: 880    },
-  { value: "MSFT",     label: "Microsoft", category: "Stocks",      sim: false, basePrice: 420    },
-  { value: "AMZN",     label: "Amazon",    category: "Stocks",      sim: false, basePrice: 188    },
-  { value: "GOOGL",    label: "Alphabet",  category: "Stocks",      sim: false, basePrice: 170    },
+  { value: "MSFT",       label: "Microsoft",       category: "Stocks",         sim: false, basePrice: 420    },
+  { value: "AMZN",       label: "Amazon",          category: "Stocks",         sim: false, basePrice: 188    },
+  { value: "GOOGL",      label: "Alphabet",        category: "Stocks",         sim: false, basePrice: 170    },
+  { value: "NIFTY50",    label: "Nifty 50",        category: "Indian Indices", sim: false, basePrice: 25000  },
+  { value: "BANKNIFTY",  label: "Bank Nifty",      category: "Indian Indices", sim: false, basePrice: 55000  },
+  { value: "SENSEX",     label: "Sensex",          category: "Indian Indices", sim: false, basePrice: 82000  },
+  { value: "NIFTYIT",    label: "Nifty IT",        category: "Indian Indices", sim: false, basePrice: 36000  },
+  { value: "FINNIFTY",   label: "Fin Nifty",       category: "Indian Indices", sim: false, basePrice: 23000  },
+  { value: "MIDCPNIFTY", label: "Nifty Midcap 50", category: "Indian Indices", sim: false, basePrice: 13000  },
 ] as const;
+
+// ── Alpaca paper-trading symbol map ────────────────────────────────────────
+// Only symbols Alpaca supports — US equities + crypto (BTC/USD format).
+// Forex, indices, commodities, Indian markets are local-only.
+const CHART_TO_ALPACA: Record<string, string | undefined> = {
+  // US stocks
+  AAPL: "AAPL", TSLA: "TSLA", NVDA: "NVDA", MSFT: "MSFT", AMZN: "AMZN", GOOGL: "GOOGL",
+  // Crypto (Alpaca uses SYMBOL/USD format)
+  BTCUSDT: "BTC/USD", ETHUSDT: "ETH/USD", SOLUSDT: "SOL/USD", BNBUSDT: "BNB/USD",
+  XRPUSDT: "XRP/USD", ADAUSDT: "ADA/USD", DOGEUSDT: "DOGE/USD", AVAXUSDT: "AVAX/USD",
+  LINKUSDT: "LINK/USD", LTCUSDT: "LTC/USD", DOTUSDT: "DOT/USD",
+};
+
+async function syncChartTradeToAlpaca(
+  side: "buy" | "sell",
+  chartSymbol: string,
+  price: number,
+  notional: number,
+  token: string | null,
+  onSuccess: (msg: string) => void,
+): Promise<void> {
+  if (!token) return;
+  const alpacaSymbol = CHART_TO_ALPACA[chartSymbol];
+  if (!alpacaSymbol) return; // forex / indices / commodities / Indian — not on Alpaca
+  const isCrypto = alpacaSymbol.includes("/");
+  const qty = isCrypto
+    ? parseFloat((notional / price).toFixed(8))
+    : Math.max(1, Math.floor(notional / price));
+  if (qty <= 0) return;
+  try {
+    const res = await fetch(`/api/brokerage/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ symbol: alpacaSymbol, qty, side, type: "market", time_in_force: "day" }),
+    });
+    if (res.ok) onSuccess(`${side === "buy" ? "▲ BUY" : "▼ SELL"} ${qty} ${alpacaSymbol}`);
+  } catch { /* silent — Alpaca not configured or offline */ }
+}
 
 const INTERVALS = [
   { value: "1m", label: "1m" },
@@ -679,7 +723,9 @@ export default function ChartPage() {
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
       const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "belowBar", color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)", shape: "arrowUp", text: `SC ${fmtPct(pnlPct)}`, size: 1 };
       markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
-      applyMarkers(); return;
+      applyMarkers();
+      syncChartTradeToAlpaca("buy", symbol, exitPrice, position!.units * exitPrice, token, (msg) => toast({ title: "✓ Alpaca Synced", description: msg }));
+      return;
     }
     if (position?.side === "long") return;
     // Market order — ALWAYS run pre-trade DNA check before executing
@@ -695,6 +741,7 @@ export default function ChartPage() {
         const m2: SeriesMarker<Time> = { time: bar.time as Time, position: "belowBar", color: "hsl(150,90%,55%)", shape: "arrowUp", text: `B $${fmt(exitPrice)}`, size: 1 };
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
+        syncChartTradeToAlpaca("buy", symbol, exitPrice, snapEquity * snapLev, token, (msg) => toast({ title: "✓ Alpaca Synced", description: msg }));
       };
       // Compute local coaching similarity
       const coaching = coachingRef.current;
@@ -742,7 +789,8 @@ export default function ChartPage() {
     const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "belowBar", color: "hsl(150,90%,55%)", shape: "arrowUp", text: `B $${fmt(exitPrice)}`, size: 1 };
     markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
     applyMarkers();
-  }, [position, equity, chartLeverage, applyMarkers, symbol]);
+    syncChartTradeToAlpaca("buy", symbol, exitPrice, equity * chartLeverage, token, (msg) => toast({ title: "✓ Alpaca Synced", description: msg }));
+  }, [position, equity, chartLeverage, applyMarkers, symbol, token, toast]);
 
   const handleSell = useCallback((bar: KlineBar, pos?: Position) => {
     const currentPos = pos ?? position;
@@ -759,7 +807,9 @@ export default function ChartPage() {
       if (candleSeriesRef.current && entryPriceLineRef.current) { try { candleSeriesRef.current.removePriceLine(entryPriceLineRef.current); } catch { /**/ } entryPriceLineRef.current = null; }
       const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "aboveBar", color: pnl >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)", shape: "arrowDown", text: `S ${fmtPct(pnlPct)}`, size: 1 };
       markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
-      applyMarkers(); return;
+      applyMarkers();
+      syncChartTradeToAlpaca("sell", symbol, exitPrice, currentPos!.units * exitPrice, token, (msg) => toast({ title: "✓ Alpaca Synced", description: msg }));
+      return;
     }
     if (currentPos?.side === "short") return;
     // Market open — ALWAYS run pre-trade DNA check before executing
@@ -775,6 +825,7 @@ export default function ChartPage() {
         const m2: SeriesMarker<Time> = { time: bar.time as Time, position: "aboveBar", color: "hsl(0,85%,62%)", shape: "arrowDown", text: `SS $${fmt(exitPrice)}`, size: 1 };
         markersRef.current = [...markersRef.current, m2].sort((a, b) => (a.time as number) - (b.time as number));
         applyMarkers();
+        syncChartTradeToAlpaca("sell", symbol, exitPrice, snapEquity * snapLev, token, (msg) => toast({ title: "✓ Alpaca Synced", description: msg }));
       };
       // Compute local coaching similarity
       const coaching2 = coachingRef.current;
@@ -821,7 +872,8 @@ export default function ChartPage() {
     const marker: SeriesMarker<Time> = { time: bar.time as Time, position: "aboveBar", color: "hsl(0,85%,62%)", shape: "arrowDown", text: `SS $${fmt(exitPrice)}`, size: 1 };
     markersRef.current = [...markersRef.current, marker].sort((a, b) => (a.time as number) - (b.time as number));
     applyMarkers();
-  }, [position, equity, chartLeverage, applyMarkers, symbol]);
+    syncChartTradeToAlpaca("sell", symbol, exitPrice, equity * chartLeverage, token, (msg) => toast({ title: "✓ Alpaca Synced", description: msg }));
+  }, [position, equity, chartLeverage, applyMarkers, symbol, token, toast]);
 
   // ── Fullscreen ──────────────────────────────────────────────────────
   useEffect(() => {
