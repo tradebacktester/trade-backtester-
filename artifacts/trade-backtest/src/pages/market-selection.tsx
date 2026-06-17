@@ -95,6 +95,8 @@ const CHART_SYMBOL_MAP: Record<string, string> = {
   "ES1!": "ES=F", "NQ1!": "NQ=F",
   // Commodity futures
   "CL1!": "CL=F", "GC1!": "GC=F", "SI1!": "SI=F",
+  // Perpetual futures → underlying spot
+  BTCPERP: "BTCUSDT", ETHPERP: "ETHUSDT", SOLPERP: "SOLUSDT",
   // US Indices
   DOWJONES: "^DJI", SP500: "^GSPC", RUSSELL2000: "^RUT",
   // International Indices
@@ -103,33 +105,44 @@ const CHART_SYMBOL_MAP: Record<string, string> = {
   NIKKEI225: "^N225", HANGSENG: "^HSI",
   CSI300: "000300.SS", KOSPI: "^KS11", ASX200: "^AXJO", SENSEX: "^BSESN",
   CAC40: "^FCHI", IBEX35: "^IBEX", AEX: "^AEX", SMI: "^SSMI",
+  // Additional global markets
+  TSX: "^GSPTSE", BOVESPA: "^BVSP",
   // Treasury yields
   US10Y: "^TNX", US02Y: "^IRX", US30Y: "^TYX", US05Y: "^FVX",
-  BUND10Y: "^TNX", GILTS10Y: "^TNX",
-  // Volatility
-  VIX: "^VIX",
-  // Currency indices
+  US01Y: "^IRX", US10Y_Y: "^TNX", US30Y_Y: "^TYX",
+  BUND10Y: "^TNX", GILTS10Y: "^TNX", JGB10Y: "^N225", OAT10Y: "^FCHI",
+  EURIBOR: "EURUSD", SOFR: "^TNX",
+  // Volatility → direct or proxy
+  VIX: "^VIX", VIX9D: "^VIX", SKEW: "^VIX", VVIX: "^VIX",
+  MOVE: "^TNX", OVX: "CL=F", GVZ: "GC=F",
+  // Currency indices → spot pairs
   DXY: "DX-Y.NYB",
+  EXY: "EURUSD", GBPX: "GBPUSD", JPYX: "USDJPY", AUDX: "AUDUSD", CADX: "USDCAD",
   // Agriculture
   CORN: "ZC=F", WHEAT: "ZW=F", SOYBEANS: "ZS=F",
   COFFEE: "KC=F", SUGAR: "SB=F", COTTON: "CT=F",
-  OATS: "ZO=F", RICE: "ZR=F",
+  OATS: "ZO=F", RICE: "ZR=F", PALMOIL: "ZC=F",
   // Energy
   CRUDEOIL: "CL=F", NATGAS: "NG=F", BRENT: "BZ=F",
-  HEATINGOIL: "HO=F", GASOIL: "BZ=F", URANIUM: "CL=F",
+  HEATINGOIL: "HO=F", GASOIL: "BZ=F", URANIUM: "CL=F", ETHANOL: "CL=F",
   // Livestock
-  LIVECATTLE: "LE=F", LEANHOGS: "HE=F", FEEDERCATTLE: "GF=F",
+  LIVECATTLE: "LE=F", LEANHOGS: "HE=F", FEEDERCATTLE: "GF=F", PORK: "HE=F",
   // Soft commodities
   COCOA: "CC=F", OJ: "OJ=F", LUMBER: "LB=F",
+  RUBBER: "GC=F", WOOL: "GC=F", SISAL: "GC=F",
   // Metals (commodities)
   GOLD: "GC=F", SILVER: "SI=F", COPPER: "HG=F", PLATINUM: "PL=F", PALLADIUM: "PA=F",
   // Crypto dominance (proxy to underlying)
   "BTC.D": "BTCUSDT", "ETH.D": "ETHUSDT", "ALTCOIN.D": "SOLUSDT",
-  // Carbon/Freight (simulated fallback)
-  EUA: "GC=F", CA_CARBON: "GC=F", RGGI: "GC=F",
-  BDI: "CL=F", CAPESIZE: "CL=F", VLCC: "CL=F",
-  // Economic → proxy
+  "STABLECOIN.D": "BTCUSDT", "DEFI.D": "ETHUSDT", "OTHERS.D": "BTCUSDT",
+  // Carbon/Freight (proxy)
+  EUA: "GC=F", CA_CARBON: "GC=F", RGGI: "GC=F", NZU: "GC=F", VCS: "GC=F",
+  BDI: "CL=F", CAPESIZE: "CL=F", VLCC: "CL=F", PANAMAX: "CL=F", SUPRAMAX: "CL=F", HANDY: "CL=F",
+  // Economic indicators → proxy ETFs/assets
   GDP: "SPY", CPI: "TLT", FEDFUNDS: "^TNX",
+  US_GDP: "SPY", US_CPI: "TLT", US_UNEMP: "SPY",
+  FEDRATE: "^TNX", US_PMI: "SPY", US_RETAIL: "XLY",
+  US_HOUSING: "SPY", EU_CPI: "^GDAXI", CN_PMI: "000300.SS", JP_CPI: "^N225",
   // Commodities (core category)
   CRUDE_OIL: "CL=F", NATURAL_GAS: "NG=F",
 };

@@ -38,20 +38,30 @@ const STOCK_SYMBOLS = new Set([
   "SPY", "QQQ", "IWM", "DIA", "TLT", "GLD", "SLV", "VIX",
   "AGG", "SHY", "LQD", "BND", "XLK", "XLF", "XLV", "XLE", "XLI", "XLC",
   "XLRE", "XLP", "XLB", "XLU", "XLY", "GDX", "ARKK", "SQQQ", "UVXY",
+  "VTI", "VNQ", "IEMG", "EFA",
   // Commodity Futures (Yahoo Finance symbols)
   "CL=F", "GC=F", "SI=F", "NG=F", "HG=F", "BZ=F",
   "ZC=F", "ZW=F", "ZS=F", "KC=F", "CC=F", "SB=F", "CT=F", "OJ=F",
+  "HO=F", "ZO=F", "ZR=F", "PL=F", "PA=F",
   // Equity Index Futures
   "ES=F", "NQ=F", "YM=F", "RTY=F",
+  // US Indices (caret)
+  "^GSPC", "^DJI", "^RUT", "^NDX",
   // Global Indices (Yahoo Finance caret symbols)
   "^GDAXI", "^FTSE", "^N225", "^VIX", "^FCHI", "^BVSP", "^NSEI",
   "^TNX", "^TYX", "^IRX", "^HSI", "^KS11",
+  // Indian NSE indices
+  "^NSEBANK", "^CNXFIN", "^CNXIT", "^NSMIDCP", "^NSEI50",
+  // Additional European indices
+  "^IBEX", "^AEX", "^SSMI",
+  // Additional global indices
+  "^GSPTSE", "^AXJO", "^BSESN",
   // Dollar index
   "DX-Y.NYB",
   // Additional Treasury yields
   "^FVX",
-  // Additional global indices
-  "^AXJO", "^BSESN",
+  // China index
+  "000300.SS",
   // Livestock futures
   "LE=F", "HE=F", "GF=F",
   // Soft commodity / duration ETF proxies
