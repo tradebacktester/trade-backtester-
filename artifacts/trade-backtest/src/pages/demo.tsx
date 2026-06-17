@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useAuth } from "@/lib/auth-context";
 import { useBinanceLivePrice } from "@/lib/use-binance-ws";
 import {
   createChart, CandlestickSeries, LineSeries, LineStyle,
@@ -46,6 +47,18 @@ interface PendingOrder {
 interface OhlcCandle {
   time: number;
   open: number; high: number; low: number; close: number;
+}
+
+interface AlpacaOrder {
+  id: string;
+  symbol: string;
+  qty: number;
+  filledQty: number | null;
+  side: string;
+  type: string;
+  status: string;
+  filledAvgPrice: number | null;
+  submittedAt: string;
 }
 
 const BALANCE_OPTIONS = [
@@ -781,7 +794,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
   const [selectedSymbol, setSelectedSymbol] = useState(DEMO_SYMBOLS[0]);
   const [leverage, setLeverage]           = useState(10);
   const [riskPct, setRiskPct]             = useState(5);
-  const [tab, setTab]                     = useState<"trade" | "positions" | "history" | "analytics">("trade");
+  const [tab, setTab]                     = useState<"trade" | "positions" | "history" | "analytics" | "brokerage">("trade");
   const [showMarkets, setShowMarkets]     = useState(false);
   const [orderType, setOrderType]         = useState<DemoOrderType>("market");
   const [limitPrice, setLimitPrice]       = useState("");
@@ -791,6 +804,37 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
   const [activeIndicators, setActiveIndicators] = useState<string[]>([]);
   const [showIndMenu, setShowIndMenu]         = useState(false);
   const livePrice = useBinanceLivePrice(selectedSymbol.value, false, selectedSymbol.price);
+
+  // ── Alpaca brokerage order sync ────────────────────────────────
+  const { token } = useAuth();
+  const [alpacaOrders, setAlpacaOrders]   = useState<AlpacaOrder[]>([]);
+  const [alpacaLoading, setAlpacaLoading] = useState(false);
+  const [alpacaTick, setAlpacaTick]       = useState(0);
+  const refetchAlpaca = useCallback(() => setAlpacaTick(t => t + 1), []);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setAlpacaLoading(true);
+    fetch("/api/brokerage/orders?status=all", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then((d: AlpacaOrder[]) => { if (!cancelled) setAlpacaOrders(Array.isArray(d) ? d : []); })
+      .catch(() => { if (!cancelled) setAlpacaOrders([]); })
+      .finally(() => { if (!cancelled) setAlpacaLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, alpacaTick]);
+
+  // BroadcastChannel — refresh alpaca orders when a trade syncs from the chart
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("tradelab_brokerage");
+      bc.onmessage = (e: MessageEvent<{ type: string }>) => {
+        if (e.data?.type === "trade_synced") refetchAlpaca();
+      };
+    } catch { /* ignore */ }
+    return () => { try { bc?.close(); } catch { /* ignore */ } };
+  }, [refetchAlpaca]);
 
   const openPositions    = trades.filter(t => t.status === "open");
   const closedTrades     = trades.filter(t => t.status === "closed");
@@ -883,6 +927,7 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
     { id: "positions" as const, label: `Positions (${openPositions.length})` },
     { id: "history"   as const, label: `History (${closedTrades.length})` },
     { id: "analytics" as const, label: "Analytics" },
+    { id: "brokerage" as const, label: `Brokerage${alpacaOrders.length > 0 ? ` (${alpacaOrders.length})` : ""}` },
   ];
 
   return (
@@ -1392,6 +1437,90 @@ function TradingInterface({ initialBalance, onReset }: { initialBalance: number;
                     <p className="text-[9px] font-mono mt-2" style={{ color: "hsl(218,12%,32%)" }}>
                       {fmtTime(t.openTime)} → {t.closeTime ? fmtTime(t.closeTime) : "—"}
                     </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ════════════════════════════════════════
+          TAB: BROKERAGE (Alpaca paper orders)
+      ════════════════════════════════════════ */}
+      {tab === "brokerage" && (
+        <Card className="p-3">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-mono font-semibold" style={{ color: "hsl(218,14%,60%)" }}>
+              Alpaca Paper Trading Orders
+            </p>
+            <button
+              onClick={refetchAlpaca}
+              className="text-[10px] font-mono px-2 py-0.5 rounded border"
+              style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.10)", color: "hsl(218,12%,50%)" }}
+            >
+              ↺ Refresh
+            </button>
+          </div>
+          {!token ? (
+            <p className="text-xs font-mono text-center py-8" style={{ color: "hsl(218,12%,36%)" }}>
+              Sign in to view brokerage orders
+            </p>
+          ) : alpacaLoading ? (
+            <div className="flex flex-col gap-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-14 rounded-xl animate-pulse" style={{ background: "rgba(255,255,255,0.04)" }} />
+              ))}
+            </div>
+          ) : alpacaOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-10">
+              <p className="text-xs font-mono" style={{ color: "hsl(218,12%,36%)" }}>
+                No brokerage orders yet — place one from the chart page
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {alpacaOrders.map(o => {
+                const isBuy    = o.side === "buy";
+                const isFilled = o.status === "filled";
+                return (
+                  <div key={o.id} className="rounded-xl p-3 border"
+                    style={{ background: "rgba(255,255,255,0.022)", borderColor: "rgba(255,255,255,0.065)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold"
+                          style={isBuy
+                            ? { background: "rgba(52,211,153,0.1)", color: "hsl(150,80%,60%)" }
+                            : { background: "rgba(239,68,68,0.1)", color: "hsl(0,78%,62%)" }}>
+                          {o.side.toUpperCase()}
+                        </span>
+                        <span className="text-xs font-mono font-semibold" style={{ color: "hsl(218,14%,70%)" }}>
+                          {o.symbol}
+                        </span>
+                        <span className="text-[10px] font-mono" style={{ color: "hsl(218,12%,45%)" }}>
+                          qty {o.filledQty ?? o.qty}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border"
+                        style={{
+                          borderColor: isFilled ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.10)",
+                          color: isFilled ? "hsl(150,80%,60%)" : "hsl(218,12%,50%)",
+                        }}>
+                        {o.status}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
+                      {[
+                        { label: "Type",    value: o.type },
+                        { label: "Fill Px", value: o.filledAvgPrice ? `$${Number(o.filledAvgPrice).toFixed(2)}` : "—" },
+                        { label: "Time",    value: o.submittedAt ? new Date(o.submittedAt).toLocaleTimeString() : "—" },
+                      ].map(r => (
+                        <div key={r.label} className="flex flex-col gap-0.5">
+                          <span style={{ color: "hsl(218,12%,38%)" }}>{r.label}</span>
+                          <span style={{ color: "hsl(218,14%,65%)" }}>{r.value}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}

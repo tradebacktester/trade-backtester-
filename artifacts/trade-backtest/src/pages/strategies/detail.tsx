@@ -93,7 +93,7 @@ export default function StrategyDetail() {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Avg Win Rate</div>
-                  <div className="text-lg font-mono font-bold">{(performance.avgWinRate * 100).toFixed(1)}%</div>
+                  <div className="text-lg font-mono font-bold">{performance.avgWinRate.toFixed(1)}%</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Avg Sharpe</div>
@@ -161,7 +161,7 @@ export default function StrategyDetail() {
                         {bt.totalReturn != null ? `${bt.totalReturn.toFixed(2)}%` : '-'}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {bt.winRate != null ? `${(bt.winRate * 100).toFixed(1)}%` : '-'}
+                        {bt.winRate != null ? `${bt.winRate.toFixed(1)}%` : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant={bt.status === 'complete' ? 'default' : bt.status === 'failed' ? 'destructive' : 'secondary'}>

@@ -32,18 +32,46 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+const STRATEGY_TYPES = [
+  { value: "sma_crossover",      label: "SMA Crossover" },
+  { value: "ema_crossover",      label: "EMA Crossover" },
+  { value: "rsi",                label: "RSI Mean Reversion" },
+  { value: "macd",               label: "MACD Trend" },
+  { value: "bollinger_bands",    label: "Bollinger Bands Breakout" },
+  { value: "super_trend",        label: "Super Trend" },
+  { value: "breakout",           label: "Breakout Strategy" },
+  { value: "vwap",               label: "VWAP Strategy" },
+  { value: "macd_rsi",           label: "MACD + RSI Combo" },
+  { value: "donchian_breakout",  label: "Donchian Channel Breakout" },
+  { value: "bollinger_reversal", label: "Bollinger Band Reversal" },
+  { value: "orb",                label: "Opening Range Breakout" },
+  { value: "trend_following",    label: "Trend Following Bundle" },
+  { value: "golden_cross",       label: "Golden Cross Strategy" },
+  { value: "turtle_trading",     label: "Turtle Trading System" },
+] as const;
+
+const TIMEFRAMES = [
+  { value: "1m",  label: "1 Minute" },
+  { value: "5m",  label: "5 Minutes" },
+  { value: "15m", label: "15 Minutes" },
+  { value: "1h",  label: "1 Hour" },
+  { value: "4h",  label: "4 Hours" },
+  { value: "1d",  label: "Daily" },
+  { value: "1w",  label: "Weekly" },
+] as const;
+
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  type: z.enum(["sma_crossover", "ema_crossover", "rsi", "macd", "bollinger_bands"] as const),
+  type: z.enum(STRATEGY_TYPES.map(t => t.value) as unknown as [string, ...string[]]),
   symbol: z.string().min(1, "Symbol is required"),
-  timeframe: z.enum(["1d", "1h", "4h", "1w"] as const),
+  timeframe: z.enum(TIMEFRAMES.map(t => t.value) as unknown as [string, ...string[]]),
   parameters: z.record(z.any()),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-const SYMBOLS = ["AAPL", "MSFT", "TSLA", "BTC/USD", "ETH/USD", "SPY", "QQQ", "NVDA", "AMZN", "GOOGL"];
+const SYMBOLS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "GOOGL", "SPY", "QQQ", "SPX500", "EUR/USD", "GBP/USD"];
 
 export default function EditStrategy() {
   const [, params] = useRoute("/strategies/:id/edit");
@@ -220,11 +248,9 @@ export default function EditStrategy() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="sma_crossover">SMA Crossover</SelectItem>
-                          <SelectItem value="ema_crossover">EMA Crossover</SelectItem>
-                          <SelectItem value="rsi">RSI Mean Reversion</SelectItem>
-                          <SelectItem value="macd">MACD Trend</SelectItem>
-                          <SelectItem value="bollinger_bands">Bollinger Bands Breakout</SelectItem>
+                          {STRATEGY_TYPES.map(t => (
+                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -268,10 +294,9 @@ export default function EditStrategy() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="1h">1 Hour</SelectItem>
-                          <SelectItem value="4h">4 Hours</SelectItem>
-                          <SelectItem value="1d">Daily</SelectItem>
-                          <SelectItem value="1w">Weekly</SelectItem>
+                          {TIMEFRAMES.map(t => (
+                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />

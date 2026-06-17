@@ -203,11 +203,8 @@ const STATIC_ASSETS: ScreenerRow[] = [
   // ── Treasury Yields ───────────────────────────────────────────────────────
   sa("US01Y",   "1Y",     "US 1-Year Treasury Yield",  "treasury", 5.08, -0.02, -0.05, 140_000_000_000, 52, "neutral", "bearish", 52, 1),
   sa("US05Y",   "5Y",     "US 5-Year Treasury Yield",  "treasury", 4.61, 0.01, 0.04,  210_000_000_000, 50, "neutral", "bearish", 50, 2),
-  sa("US10Y_Y", "10Y",    "US 10-Year Treasury Yield", "treasury", 4.48, 0.02, 0.08,  580_000_000_000, 50, "bearish", "bearish", 48, 3),
-  sa("US30Y_Y", "30Y",    "US 30-Year Treasury Yield", "treasury", 4.63, 0.03, 0.12,  180_000_000_000, 48, "bearish", "bearish", 45, 4),
-  sa("FEDFUNDS","FFR",    "Federal Funds Rate",        "treasury", 5.25, 0.00, 0.00,  0,               50, "neutral", "bearish", 50, 5),
-  sa("EURIBOR", "EURIBOR","EURIBOR 3-Month",           "treasury", 3.62, -0.01, -0.04, 0,              49, "neutral", "bearish", 48, 6),
-  sa("SOFR",    "SOFR",   "Secured Overnight Rate",    "treasury", 5.31, 0.00, 0.00,  0,               50, "neutral", "bearish", 50, 7),
+  sa("EURIBOR", "EURIBOR","EURIBOR 3-Month",           "treasury", 3.62, -0.01, -0.04, 0,              49, "neutral", "bearish", 48, 5),
+  sa("SOFR",    "SOFR",   "Secured Overnight Rate",    "treasury", 5.31, 0.00, 0.00,  0,               50, "neutral", "bearish", 50, 6),
 
   // ── Volatility Indices ────────────────────────────────────────────────────
   sa("VIX",     "VIX",    "CBOE Volatility Index",    "volatility", 14.52, -3.8, -8.2,  1_800_000_000, 38, "bearish", "bearish", 32, 1),
@@ -334,10 +331,8 @@ const STATIC_ASSETS: ScreenerRow[] = [
 
   // ── Commodities — core category ───────────────────────────────────────────
   // Gold is live via screener (XAUUSD); these add the remaining staples
-  sa("SILVER",      "XAG",  "Silver",                     "commodities", 28.40, 0.55,  2.30, 18_000_000_000, 54, "bullish", "bullish", 58, 2),
-  sa("CRUDE_OIL",   "OIL",  "Crude Oil (WTI)",            "commodities", 78.20, -0.31, -1.20, 95_000_000_000, 48, "neutral", "bearish", 45, 3),
-  sa("NATURAL_GAS", "GAS",  "Natural Gas",                "commodities",  2.82, -1.05, -3.80, 18_000_000_000, 38, "bearish", "bearish", 34, 4),
-  sa("COPPER",      "XCU",  "Copper",                     "commodities",  4.48, 0.42,  1.80, 12_000_000_000, 56, "bullish", "bullish", 60, 5),
+  sa("SILVER",  "XAG", "Silver",  "commodities", 28.40, 0.55,  2.30, 18_000_000_000, 54, "bullish", "bullish", 58, 2),
+  sa("COPPER",  "XCU", "Copper",  "commodities",  4.48, 0.42,  1.80, 12_000_000_000, 56, "bullish", "bullish", 60, 3),
 ];
 
 // Symbol set for fast lookup

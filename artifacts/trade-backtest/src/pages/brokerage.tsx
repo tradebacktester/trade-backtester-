@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Link } from "wouter";
+import { AuthModal } from "@/components/auth-modal";
 import {
   RefreshCw, ExternalLink, Wallet, TrendingUp, TrendingDown,
   ShoppingCart, AlertCircle, CheckCircle2, Loader2, X, Plus,
@@ -300,6 +301,7 @@ export default function BrokeragePage() {
   const [orderFilter, setOrderFilter] = useState<"open" | "closed" | "all">("open");
   const [refreshTick, setRefreshTick] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const refresh = useCallback(() => setRefreshTick(t => t + 1), []);
 
   const { data: status }    = useApiFetch<BrokerageStatus>("/brokerage/status", token, []);
@@ -362,8 +364,14 @@ export default function BrokeragePage() {
       <div className="min-h-screen bg-[#080808] flex items-center justify-center p-6">
         <div className="text-center">
           <p className="text-white/40 mb-4">Sign in to access live brokerage</p>
-          <Link href="/auth/signin" className="text-white underline">Sign in</Link>
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="px-5 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm hover:bg-white/15 transition-all"
+          >
+            Sign In
+          </button>
         </div>
+        <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} defaultTab="signin" />
       </div>
     );
   }
