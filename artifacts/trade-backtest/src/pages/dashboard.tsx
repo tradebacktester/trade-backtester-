@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useApiQuery } from "@/lib/use-api-query";
 import { handleApiError, apiFetch } from "@/lib/api-error";
 import { DataErrorBoundary } from "@/components/data-error-boundary";
+import { SkeletonPulse as Skel } from "@/components/ui/skeleton-cards";
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function fmtPct(v: number | null | undefined, sign = true) {
@@ -45,15 +46,6 @@ const CARD: React.CSSProperties = {
   boxShadow:   "var(--shadow-card)",
 };
 
-/* ── Skeleton ─────────────────────────────────────────────────────── */
-function Skel({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`rounded-lg animate-pulse ${className}`}
-      style={{ background: "hsl(var(--muted))" }}
-    />
-  );
-}
 
 /* ── Section label ────────────────────────────────────────────────── */
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -1038,19 +1030,16 @@ function PaperTradingSection() {
     const token = localStorage.getItem("tt_token");
     if (token) {
       try {
-        const resp = await fetch(`${API_BASE}/api/paper/trades`, {
+        const apiTrades = await apiFetch<PtTrade[]>(`${API_BASE}/api/paper/trades`, {
           headers: { "Authorization": `Bearer ${token}` },
         });
-        if (resp.ok) {
-          const apiTrades = await resp.json() as PtTrade[];
-          if (apiTrades.length > 0) {
-            const totalPnl = apiTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
-            const firstDate = (apiTrades[0] as { openedAt?: string }).openedAt
-              ?? new Date().toISOString();
-            setPtTrades(apiTrades);
-            setPtAccount({ initialCapital: 10_000, balance: 10_000 + totalPnl, createdAt: firstDate });
-            return;
-          }
+        if (apiTrades.length > 0) {
+          const totalPnl = apiTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
+          const firstDate = (apiTrades[0] as { openedAt?: string }).openedAt
+            ?? new Date().toISOString();
+          setPtTrades(apiTrades);
+          setPtAccount({ initialCapital: 10_000, balance: 10_000 + totalPnl, createdAt: firstDate });
+          return;
         }
       } catch {}
     }

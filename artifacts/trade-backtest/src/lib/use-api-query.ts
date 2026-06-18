@@ -25,7 +25,7 @@ export function useApiQuery<T>(
       apiFetch<T>(`${API_BASE}${path}`, {
         headers: { "Content-Type": "application/json", ...authHeaders },
       }),
-    enabled: options.enabled !== false && (token !== null ? !!token : true),
+    enabled: options.enabled !== false && token !== null,
     staleTime: 30_000,
     retry: (failureCount, error) => {
       if ("status" in error && typeof (error as { status: number }).status === "number") {

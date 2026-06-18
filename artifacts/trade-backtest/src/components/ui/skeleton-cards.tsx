@@ -9,6 +9,15 @@ function pulse(className?: string, style?: React.CSSProperties) {
   );
 }
 
+export function SkeletonPulse({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn("animate-pulse rounded-lg", className)}
+      style={{ background: "hsl(var(--muted))" }}
+    />
+  );
+}
+
 export function SkeletonStat({ className }: { className?: string }) {
   return (
     <div className={cn("p-4 rounded-xl border border-border bg-card flex flex-col gap-2", className)}>

@@ -2025,6 +2025,7 @@ export default function BacktestDetail() {
                     </CardHeader>
                     <CardContent>
                       <div className="h-[240px]">
+                        <DataErrorBoundary label="monthly returns chart" compact>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={analytics.monthlyReturns} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -2042,6 +2043,7 @@ export default function BacktestDetail() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
+                        </DataErrorBoundary>
                       </div>
                     </CardContent>
                   </Card>
@@ -2065,6 +2067,7 @@ export default function BacktestDetail() {
                     </CardHeader>
                     <CardContent>
                       <div className="h-[180px]">
+                        <DataErrorBoundary label="distribution chart" compact>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={analytics.distribution} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -2081,6 +2084,7 @@ export default function BacktestDetail() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
+                        </DataErrorBoundary>
                       </div>
                     </CardContent>
                   </Card>
@@ -2208,6 +2212,7 @@ export default function BacktestDetail() {
                             </CardHeader>
                             <CardContent>
                               <div className="h-[240px]">
+                                <DataErrorBoundary label="IS vs OOS chart" compact>
                                 <ResponsiveContainer width="100%" height="100%">
                                   <ComposedChart data={combined} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -2221,6 +2226,7 @@ export default function BacktestDetail() {
                                     <Line type="monotone" dataKey="oosValue" stroke="hsl(190,90%,65%)" strokeWidth={2} dot={false} name="oosValue" connectNulls={false} strokeDasharray="5 3" />
                                   </ComposedChart>
                                 </ResponsiveContainer>
+                                </DataErrorBoundary>
                               </div>
                               <div className="flex items-center gap-4 mt-2 text-[11px]">
                                 <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded" style={{ background: "#a5b4fc" }} />In-Sample</span>
@@ -2344,6 +2350,7 @@ export default function BacktestDetail() {
                         </CardHeader>
                         <CardContent>
                           <div className="h-[240px]">
+                            <DataErrorBoundary label="percentile equity paths chart" compact>
                             <ResponsiveContainer width="100%" height="100%">
                               <ComposedChart data={chartData} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
                                 <defs>
@@ -2365,6 +2372,7 @@ export default function BacktestDetail() {
                                 <Line type="monotone" dataKey="p10" stroke="#ef4444" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
                               </ComposedChart>
                             </ResponsiveContainer>
+                            </DataErrorBoundary>
                           </div>
                           <div className="flex items-center gap-5 mt-2 text-[11px] text-muted-foreground">
                             <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded" style={{ background: "#22c55e" }} />P90</span>
@@ -2381,6 +2389,7 @@ export default function BacktestDetail() {
                         </CardHeader>
                         <CardContent>
                           <div className="h-[180px]">
+                            <DataErrorBoundary label="final capital distribution chart" compact>
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={histBuckets} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -2399,6 +2408,7 @@ export default function BacktestDetail() {
                                 </Bar>
                               </BarChart>
                             </ResponsiveContainer>
+                            </DataErrorBoundary>
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-2 text-center">
                             Green = profitable (above initial capital) · Red = loss · Dashed line = break-even
@@ -3116,6 +3126,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
           </CardHeader>
           <CardContent>
             <div className="h-[200px]">
+              <DataErrorBoundary label="regime equity chart" compact>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={regimeEquity[regimeFilter]!.map((p) => ({ date: p.date, value: p.value }))}
@@ -3144,6 +3155,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              </DataErrorBoundary>
             </div>
           </CardContent>
         </Card>
@@ -3157,6 +3169,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
         </CardHeader>
         <CardContent>
           <div className="h-[240px]">
+            <DataErrorBoundary label="performance by regime chart" compact>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -3180,6 +3193,7 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
                 <ReferenceLine yAxisId="left" y={50} stroke="#f59e0b" strokeDasharray="4 4" strokeWidth={1} />
               </BarChart>
             </ResponsiveContainer>
+            </DataErrorBoundary>
           </div>
           <div className="flex gap-4 mt-2 text-[10px] text-muted-foreground justify-center">
             <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-current opacity-70" />Win Rate (left axis)</span>
@@ -3423,6 +3437,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
           </CardHeader>
           <CardContent>
             <div className="h-[240px]">
+              <DataErrorBoundary label="live vs expected chart" compact>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={dualChartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -3437,6 +3452,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
                   <Line type="monotone" dataKey="actual" stroke="#22c55e" strokeWidth={2} dot={{ r: 4, fill: "#22c55e" }} connectNulls={false} name="actual" />
                 </ComposedChart>
               </ResponsiveContainer>
+              </DataErrorBoundary>
             </div>
             <div className="flex gap-4 mt-1 justify-center text-[10px] font-mono text-muted-foreground">
               <span><span className="text-[#6366f1]">━</span> Expected (backtest): {divergence.expectedTotal >= 0 ? "+" : ""}${divergence.expectedTotal.toFixed(2)}</span>

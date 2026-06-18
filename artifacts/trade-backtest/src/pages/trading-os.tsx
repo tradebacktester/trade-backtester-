@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
+import { SkeletonPulse as Skel } from "@/components/ui/skeleton-cards";
 
 /* ── Design tokens ─────────────────────────────────────────────────────── */
 const C = {
@@ -26,10 +27,6 @@ const C = {
 };
 const CARD: React.CSSProperties  = { background: "var(--card-bg)", border: "1px solid hsl(var(--border))", boxShadow: "var(--shadow-card)" };
 const GLASS: React.CSSProperties = { background: "var(--glass-bg)", border: "1px solid var(--glass-border)" };
-
-function Skel({ className = "" }: { className?: string }) {
-  return <div className={`rounded-lg animate-pulse ${className}`} style={{ background: "hsl(var(--muted))" }} />;
-}
 
 /* ── API helper ─────────────────────────────────────────────────────────── */
 function useOSFetch<T>(path: string, token: string | null, deps: unknown[] = []) {
