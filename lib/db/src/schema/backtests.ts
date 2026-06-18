@@ -1,4 +1,4 @@
-import { pgTable, serial, timestamp, numeric, integer, index, text, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, numeric, integer, index, text, date, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -29,6 +29,7 @@ export const backtestsTable = pgTable("backtests", {
   consecutiveLosses: integer("consecutive_losses"),
   dataSource: text("data_source"),
   notes: text("notes"),
+  yearlyReturns: jsonb("yearly_returns"),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

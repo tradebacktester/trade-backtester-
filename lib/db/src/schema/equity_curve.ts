@@ -1,4 +1,4 @@
-import { pgTable, serial, timestamp, numeric, integer, index, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, numeric, integer, index, date, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { backtestsTable } from "./backtests";
@@ -9,6 +9,7 @@ export const equityCurveTable = pgTable("equity_curve", {
   date: date("date").notNull(),
   value: numeric("value", { precision: 18, scale: 4 }).notNull(),
   drawdown: numeric("drawdown", { precision: 12, scale: 6 }).notNull().default("0"),
+  isBenchmark: boolean("is_benchmark").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("equity_curve_backtest_id_idx").on(t.backtestId),

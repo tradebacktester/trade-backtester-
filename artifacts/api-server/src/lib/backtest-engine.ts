@@ -90,12 +90,22 @@ export interface WalkForwardResult {
   };
 }
 
+// ── O(N) indicator implementations ────────────────────────────────────────────
+
+/**
+ * O(N) SMA using incremental running sum (replaces per-bar slice().reduce()).
+ */
 function sma(prices: number[], period: number): (number | null)[] {
-  return prices.map((_, i) => {
-    if (i < period - 1) return null;
-    const slice = prices.slice(i - period + 1, i + 1);
-    return slice.reduce((a, b) => a + b, 0) / period;
-  });
+  const result: (number | null)[] = new Array(prices.length).fill(null);
+  if (prices.length < period) return result;
+  let windowSum = 0;
+  for (let i = 0; i < period; i++) windowSum += prices[i];
+  result[period - 1] = windowSum / period;
+  for (let i = period; i < prices.length; i++) {
+    windowSum += prices[i] - prices[i - period];
+    result[i] = windowSum / period;
+  }
+  return result;
 }
 
 function ema(prices: number[], period: number): (number | null)[] {
@@ -118,7 +128,6 @@ function rsi(prices: number[], period: number): (number | null)[] {
   const result: (number | null)[] = new Array(prices.length).fill(null);
   if (prices.length < period + 1) return result;
 
-  // Seed: first average gain/loss from initial `period` price changes
   let avgGain = 0, avgLoss = 0;
   for (let i = 1; i <= period; i++) {
     const diff = prices[i] - prices[i - 1];
@@ -156,12 +165,77 @@ function atr(bars: OHLCVBar[], period: number): (number | null)[] {
   return result;
 }
 
+/**
+ * O(N) Donchian High using monotone deque (sliding window maximum).
+ * Replaces per-bar Math.max(...slice()) which is O(N×period).
+ */
 function donchianHigh(highs: number[], period: number): (number | null)[] {
-  return highs.map((_, i) => i < period - 1 ? null : Math.max(...highs.slice(i - period + 1, i + 1)));
+  const result: (number | null)[] = new Array(highs.length).fill(null);
+  const deque: number[] = []; // indices, front = index of current max
+  for (let i = 0; i < highs.length; i++) {
+    // Evict out-of-window indices from the front
+    while (deque.length > 0 && deque[0]! < i - period + 1) deque.shift();
+    // Evict indices whose highs are <= current (they can never be max in future windows)
+    while (deque.length > 0 && highs[deque[deque.length - 1]!]! <= highs[i]) deque.pop();
+    deque.push(i);
+    if (i >= period - 1) result[i] = highs[deque[0]!]!;
+  }
+  return result;
 }
 
+/**
+ * O(N) Donchian Low using monotone deque (sliding window minimum).
+ */
 function donchianLow(lows: number[], period: number): (number | null)[] {
-  return lows.map((_, i) => i < period - 1 ? null : Math.min(...lows.slice(i - period + 1, i + 1)));
+  const result: (number | null)[] = new Array(lows.length).fill(null);
+  const deque: number[] = []; // indices, front = index of current min
+  for (let i = 0; i < lows.length; i++) {
+    while (deque.length > 0 && deque[0]! < i - period + 1) deque.shift();
+    while (deque.length > 0 && lows[deque[deque.length - 1]!]! >= lows[i]) deque.pop();
+    deque.push(i);
+    if (i >= period - 1) result[i] = lows[deque[0]!]!;
+  }
+  return result;
+}
+
+/**
+ * O(N) Bollinger Bands using incremental running sum + sum-of-squares.
+ * Computational variance formula: Var = (ΣX² - (ΣX)²/n) / (n-1)
+ * Returns { upper, mid, lower } arrays.
+ */
+function bollingerBands(
+  prices: number[],
+  period: number,
+  stdDevMult: number,
+): { upper: (number | null)[]; mid: (number | null)[]; lower: (number | null)[] } {
+  const upper: (number | null)[] = new Array(prices.length).fill(null);
+  const mid: (number | null)[]   = new Array(prices.length).fill(null);
+  const lower: (number | null)[] = new Array(prices.length).fill(null);
+
+  if (prices.length < period) return { upper, mid, lower };
+
+  let sum = 0, sumSq = 0;
+  for (let i = 0; i < period; i++) {
+    sum   += prices[i];
+    sumSq += prices[i] * prices[i];
+  }
+  const computeBand = (i: number) => {
+    const mean = sum / period;
+    // sample variance (N-1)
+    const variance = Math.max(0, (sumSq - sum * sum / period) / (period - 1));
+    const sd = Math.sqrt(variance) * stdDevMult;
+    mid[i]   = mean;
+    upper[i] = mean + sd;
+    lower[i] = mean - sd;
+  };
+  computeBand(period - 1);
+
+  for (let i = period; i < prices.length; i++) {
+    sum   += prices[i]     - prices[i - period];
+    sumSq += prices[i] * prices[i] - prices[i - period] * prices[i - period];
+    computeBand(i);
+  }
+  return { upper, mid, lower };
 }
 
 function vwapCalc(bars: OHLCVBar[]): number[] {
@@ -185,9 +259,7 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
   const end = new Date(endDate);
   const bars: OHLCVBar[] = [];
 
-  // Comprehensive symbol table: seed price, daily volatility, daily drift
   const SYMBOL_PARAMS: Record<string, { seed: number; vol: number; drift: number }> = {
-    // Crypto
     BTCUSDT:   { seed: 45000, vol: 0.055,  drift: 0.0004 },
     ETHUSDT:   { seed: 3000,  vol: 0.065,  drift: 0.0004 },
     SOLUSDT:   { seed: 120,   vol: 0.080,  drift: 0.0005 },
@@ -203,7 +275,6 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     ATOMUSDT:  { seed: 12,    vol: 0.080,  drift: 0.0002 },
     "BTC/USD": { seed: 45000, vol: 0.055,  drift: 0.0004 },
     "ETH/USD": { seed: 3000,  vol: 0.065,  drift: 0.0004 },
-    // Tech
     AAPL:  { seed: 185,  vol: 0.018, drift: 0.0003 },
     MSFT:  { seed: 375,  vol: 0.016, drift: 0.0003 },
     NVDA:  { seed: 500,  vol: 0.035, drift: 0.0006 },
@@ -214,27 +285,22 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     INTC:  { seed: 40,   vol: 0.022, drift: 0.0001 },
     ORCL:  { seed: 110,  vol: 0.020, drift: 0.0002 },
     CRM:   { seed: 230,  vol: 0.025, drift: 0.0003 },
-    // DeFi
     AAVEUSDT: { seed: 90,   vol: 0.090, drift: 0.0003 },
-    // Auto / Media / Fintech
     TSLA:  { seed: 250,  vol: 0.040, drift: 0.0003 },
     NFLX:  { seed: 450,  vol: 0.028, drift: 0.0003 },
     PYPL:  { seed: 75,   vol: 0.030, drift: 0.0001 },
     SQ:    { seed: 70,   vol: 0.040, drift: 0.0002 },
-    // Financials
     JPM:   { seed: 185,  vol: 0.018, drift: 0.0003 },
     BAC:   { seed: 38,   vol: 0.022, drift: 0.0002 },
     GS:    { seed: 380,  vol: 0.022, drift: 0.0003 },
     V:     { seed: 240,  vol: 0.014, drift: 0.0003 },
     MA:    { seed: 420,  vol: 0.015, drift: 0.0003 },
-    // Consumer / Industrial / Energy
     DIS:   { seed: 95,   vol: 0.022, drift: 0.0002 },
     BA:    { seed: 210,  vol: 0.030, drift: 0.0002 },
     GE:    { seed: 110,  vol: 0.025, drift: 0.0002 },
     XOM:   { seed: 105,  vol: 0.020, drift: 0.0002 },
     WMT:   { seed: 160,  vol: 0.012, drift: 0.0002 },
     KO:    { seed: 60,   vol: 0.010, drift: 0.0002 },
-    // Indices
     SPY:     { seed: 450,   vol: 0.012, drift: 0.0003 },
     QQQ:     { seed: 380,   vol: 0.015, drift: 0.0003 },
     IWM:     { seed: 195,   vol: 0.016, drift: 0.0002 },
@@ -245,7 +311,6 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     HANGSENG:{ seed: 17000, vol: 0.016, drift: 0.0001 },
     ASX200:  { seed: 7500,  vol: 0.012, drift: 0.0002 },
     CAC40:   { seed: 7500,  vol: 0.013, drift: 0.0002 },
-    // Commodities / Metals
     GLD:     { seed: 185,  vol: 0.010, drift: 0.0001 },
     SLV:     { seed: 22,   vol: 0.018, drift: 0.0001 },
     XAUUSD:  { seed: 2000, vol: 0.010, drift: 0.0001 },
@@ -256,7 +321,6 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     NATGASUSD:{ seed: 2.5, vol: 0.040, drift: -0.0001 },
     WHEAT:    { seed: 550,  vol: 0.022, drift: 0.0001 },
     CORN:     { seed: 450,  vol: 0.020, drift: 0.0001 },
-    // Forex
     EURUSD:  { seed: 1.08, vol: 0.006, drift: 0.0 },
     GBPUSD:  { seed: 1.26, vol: 0.007, drift: 0.0 },
     USDJPY:  { seed: 148,  vol: 0.005, drift: 0.0001 },
@@ -264,7 +328,6 @@ export function generatePriceData(symbol: string, startDate: string, endDate: st
     USDCAD:  { seed: 1.36, vol: 0.005, drift: 0.0 },
     USDCHF:  { seed: 0.88, vol: 0.005, drift: -0.0001 },
     NZDUSD:  { seed: 0.61, vol: 0.007, drift: 0.0 },
-    // Bonds / Vol
     TLT:  { seed: 95,  vol: 0.009, drift: 0.0001 },
     VIX:  { seed: 18,  vol: 0.050, drift: -0.0002 },
   };
@@ -405,21 +468,7 @@ function runStrategy(
     if (stdDev < 0.1) {
       throw new Error(`Invalid Bollinger Bands parameters: stdDev (${stdDev}) must be at least 0.1`);
     }
-    const mid = sma(closes, period);
-    const upper = closes.map((_, i) => {
-      if (i < period - 1) return null;
-      const slice = closes.slice(i - period + 1, i + 1);
-      const mean = slice.reduce((a, b) => a + b, 0) / period;
-      const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / (period - 1);
-      return (mid[i] ?? 0) + stdDev * Math.sqrt(variance);
-    });
-    const lower = closes.map((_, i) => {
-      if (i < period - 1) return null;
-      const slice = closes.slice(i - period + 1, i + 1);
-      const mean = slice.reduce((a, b) => a + b, 0) / period;
-      const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / (period - 1);
-      return (mid[i] ?? 0) - stdDev * Math.sqrt(variance);
-    });
+    const { upper, lower } = bollingerBands(closes, period, stdDev);
     let inTrade = false, entryIdx = -1;
     for (let i = 1; i < bars.length; i++) {
       const lo = lower[i], lop = lower[i-1], up = upper[i];
@@ -504,17 +553,10 @@ function runStrategy(
   } else if (strategyType === "bollinger_reversal") {
     const period = Number(parameters.period ?? 20);
     const stdDev = Number(parameters.stdDev ?? 2);
-    const mid = sma(closes, period);
-    const lower = closes.map((_, i) => {
-      if (i < period - 1) return null;
-      const slice = closes.slice(i - period + 1, i + 1);
-      const mean = slice.reduce((a, b) => a + b, 0) / period;
-      const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / (period - 1);
-      return (mid[i] ?? 0) - stdDev * Math.sqrt(variance);
-    });
+    const { mid: midBB, lower: lowerBB } = bollingerBands(closes, period, stdDev);
     let inTrade = false, entryIdx = -1;
     for (let i = 1; i < bars.length; i++) {
-      const lo = lower[i], m = mid[i];
+      const lo = lowerBB[i], m = midBB[i];
       if (lo == null || m == null) continue;
       if (!inTrade && closes[i] <= lo && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; }
       else if (inTrade && closes[i] >= m) { signals.push({ entries: [entryIdx], exits: [i + 1 < bars.length ? i + 1 : i], direction: "long" }); inTrade = false; entryIdx = -1; }
@@ -525,10 +567,13 @@ function runStrategy(
     const holdDays    = Number(parameters.holdDays    ?? 10);
     const highs = bars.map(b => b.high);
     const lows  = bars.map(b => b.low);
+    const dhigh = donchianHigh(highs, rangePeriod);
+    const dlow  = donchianLow(lows, rangePeriod);
     let inTrade = false, entryIdx = -1, holdCount = 0;
     for (let i = rangePeriod; i < bars.length; i++) {
-      const rHigh = Math.max(...highs.slice(i - rangePeriod, i));
-      const rLow  = Math.min(...lows.slice(i - rangePeriod, i));
+      const rHigh = dhigh[i - 1];
+      const rLow  = dlow[i - 1];
+      if (rHigh == null || rLow == null) continue;
       if (!inTrade && closes[i] > rHigh && i + 1 < bars.length) { inTrade = true; entryIdx = i + 1; holdCount = 0; }
       if (inTrade) {
         holdCount++;
@@ -613,12 +658,16 @@ export function runBacktest(
   const benchmarkLastPrice = bars[bars.length - 1].close;
   const benchmarkReturn = ((benchmarkLastPrice - benchmarkFirstPrice) / benchmarkFirstPrice) * 100;
   const benchmarkQty = (initialCapital * 0.95) / benchmarkFirstPrice;
-  const benchmarkValues = new Map<string, number>();
-  for (const bar of bars) {
-    benchmarkValues.set(bar.date, benchmarkFirstPrice > 0
-      ? initialCapital * 0.05 + benchmarkQty * bar.close
-      : initialCapital);
-  }
+
+  // Build benchmark value map once — O(N)
+  const benchmarkValues = new Map<string, number>(
+    bars.map(bar => [
+      bar.date,
+      benchmarkFirstPrice > 0
+        ? initialCapital * 0.05 + benchmarkQty * bar.close
+        : initialCapital,
+    ])
+  );
 
   const signals = runStrategy(bars, strategyType, parameters);
   const trades: TradeResult[] = [];
@@ -628,16 +677,14 @@ export function runBacktest(
     const entryBar = bars[sig.entries[0]];
     const exitBar = bars[sig.exits[0]];
 
-    // Apply slippage: adverse fill for both longs and shorts (HIGH-010 fix)
-    // Entries and exits both use the OPEN of the execution bar (next bar after signal)
-    // to eliminate look-ahead bias — we can't react to a bar's close until it's already closed.
+    // Apply slippage: adverse fill for both longs and shorts
     const isShort = sig.direction === "short";
     const entryPrice = isShort
-      ? entryBar.open * (1 - slippagePct / 100)  // short entry: sell at lower price
-      : entryBar.open * (1 + slippagePct / 100);  // long entry: buy at higher price
+      ? entryBar.open * (1 - slippagePct / 100)
+      : entryBar.open * (1 + slippagePct / 100);
     const exitPrice = isShort
-      ? exitBar.open * (1 + slippagePct / 100)   // short exit: cover at higher price (open of next bar)
-      : exitBar.open * (1 - slippagePct / 100);   // long exit: sell at lower price (open of next bar)
+      ? exitBar.open * (1 + slippagePct / 100)
+      : exitBar.open * (1 - slippagePct / 100);
 
     let quantity: number;
     if (positionSizing?.mode === "fixed_amount") {
@@ -649,10 +696,7 @@ export function runBacktest(
       quantity = (capital * 0.95) / Math.abs(entryPrice);
     }
 
-    // Apply commission on both legs
     const commissionCost = quantity * (Math.abs(entryPrice) + Math.abs(exitPrice)) * (commissionPct / 100);
-
-    // PnL direction depends on trade side (HIGH-010 fix)
     const rawPnl = isShort
       ? (entryPrice - exitPrice) * quantity
       : (exitPrice - entryPrice) * quantity;
@@ -670,36 +714,57 @@ export function runBacktest(
     });
   }
 
-  // Build equity curve with mark-to-market tracking (BUG-005 fix)
-  // At each bar: equity = initial + settled PnL from closed trades + unrealized MtM from open trades.
-  // This prevents the "flat equity between exits" problem that artificially inflates Sharpe ratio.
+  // ── O(N+M) equity curve ────────────────────────────────────────────────────
+  // Use a sorted trade pointer instead of O(N×M) double loop.
+  // For each bar: equity = initialCapital + settledPnl + sum(unrealized MtM on open trades)
+  // Trades are ordered by entry bar index (same order as signals).
   const equityCurve: EquityPoint[] = [];
   let peakValue = initialCapital;
   let maxDrawdown = 0;
 
+  let settledPnl = 0;
+  let openStart = 0; // index of first trade that might still be open or ahead
+  const openTrades: Array<{ trade: TradeResult; entryBarIdx: number; exitBarIdx: number }> = [];
+
+  // Pre-sort trades by entry bar index (they are already in signal order, which is entry order)
+  const signalMeta = signals.map((sig, i) => ({
+    trade: trades[i],
+    entryBarIdx: sig.entries[0],
+    exitBarIdx: sig.exits[0],
+  }));
+
+  let sigPtr = 0; // next signal to consider opening
+
   for (let bi = 0; bi < bars.length; bi++) {
     const bar = bars[bi];
-    let equity = initialCapital;
-    let worstEquity = initialCapital; // uses bar lows for intra-trade drawdown (BUG-006 fix)
 
-    for (let ti = 0; ti < signals.length && ti < trades.length; ti++) {
-      const sig = signals[ti];
-      const trade = trades[ti];
-      const entryBarIdx = sig.entries[0];
-      const exitBarIdx = sig.exits[0];
+    // Open trades whose entry bar has been reached
+    while (sigPtr < signalMeta.length && signalMeta[sigPtr].entryBarIdx <= bi) {
+      openTrades.push(signalMeta[sigPtr]);
+      sigPtr++;
+    }
 
-      if (bi >= exitBarIdx) {
-        // Trade settled — use final PnL (net of commission)
-        equity += trade.pnl;
-        worstEquity += trade.pnl;
-      } else if (bi >= entryBarIdx) {
-        // Trade open — mark to market at bar close, direction-aware
-        // Short positions gain when price falls (entryPrice - bar.close), lose when price rises
+    // Settle trades that have exited at or before this bar, accumulate settled PnL
+    // We iterate from the front since trades exit in order (non-overlapping for single-position strategies)
+    let j = 0;
+    while (j < openTrades.length) {
+      if (openTrades[j].exitBarIdx <= bi) {
+        settledPnl += openTrades[j].trade.pnl;
+        openTrades.splice(j, 1);
+      } else {
+        j++;
+      }
+    }
+
+    // Compute equity as settled + unrealized mark-to-market
+    let equity = initialCapital + settledPnl;
+    let worstEquity = initialCapital + settledPnl;
+    for (const { trade, entryBarIdx, exitBarIdx } of openTrades) {
+      if (bi >= entryBarIdx && bi < exitBarIdx) {
         const unrealized = trade.side === "short"
           ? (trade.entryPrice - bar.close) * trade.quantity
           : (bar.close - trade.entryPrice) * trade.quantity;
         equity += unrealized;
-        // Worst-case intra-bar: for longs use bar.low; for shorts use bar.high (worst fill)
         const unrealizedWorst = trade.side === "short"
           ? (trade.entryPrice - bar.high) * trade.quantity
           : (bar.low - trade.entryPrice) * trade.quantity;
@@ -709,8 +774,6 @@ export function runBacktest(
 
     if (equity > peakValue) peakValue = equity;
     const drawdown = peakValue > 0 ? ((peakValue - equity) / peakValue) * 100 : 0;
-
-    // Track max drawdown using bar lows for open positions (BUG-006)
     const worstDrawdown = peakValue > 0 ? ((peakValue - worstEquity) / peakValue) * 100 : 0;
     maxDrawdown = Math.max(maxDrawdown, worstDrawdown, 0);
 
@@ -724,12 +787,9 @@ export function runBacktest(
 
   const finalCapital = capital;
   const totalReturn = ((finalCapital - initialCapital) / initialCapital) * 100;
-  // Use actual bars processed (weekends excluded by generator) to compute true elapsed trading days.
-  // This avoids inflating annualized return for low-frequency strategies with lots of idle time.
   const barsPerDay = BARS_PER_DAY[timeframe] ?? 1;
   const actualTradingDays = bars.length / barsPerDay;
   const years = Math.max(actualTradingDays / 252, 1 / 252);
-  // Guard against negative/zero capital: NaN from Math.pow of negative base
   const ratio = initialCapital > 0 ? finalCapital / initialCapital : 0;
   let annualizedReturn: number;
   if (ratio <= 0) {
@@ -749,7 +809,6 @@ export function runBacktest(
   const avgLoss = losers.length > 0 ? Math.abs(losers.reduce((a, t) => a + t.pnlPercent, 0) / losers.length) : 0;
   const avgRR = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? 999 : 0;
 
-  // Streaks
   let maxConsWins = 0, maxConsLosses = 0, curWins = 0, curLosses = 0;
   for (const t of trades) {
     if (t.pnl > 0) { curWins++; curLosses = 0; maxConsWins = Math.max(maxConsWins, curWins); }
@@ -761,14 +820,12 @@ export function runBacktest(
   const bestTrade = pnlPcts.length > 0 ? Math.max(...pnlPcts) : 0;
   const worstTrade = pnlPcts.length > 0 ? Math.min(...pnlPcts) : 0;
 
-  // Monthly returns — denominator is equity at the START of that month (running capital),
-  // not initialCapital. Using initialCapital would break compounding and make % meaningless.
+  // Monthly returns
   const monthlyMap = new Map<string, number>();
   for (const t of trades) {
     const m = monthKey(t.exitDate);
     monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
   }
-  // Build a map of equity at the first bar of each month from the equity curve
   const monthStartEquity = new Map<string, number>();
   for (const point of equityCurve) {
     const m = monthKey(point.date);
@@ -781,10 +838,9 @@ export function runBacktest(
       return { month, pnl, pct: base > 0 ? (pnl / base) * 100 : 0 };
     });
 
-  // Yearly returns calendar (all months in each year, even if zero)
   const yearlyMap = new Map<string, Map<string, number>>();
   for (const { month, pct } of monthlyReturns) {
-    const y = year(month);
+    const y = yearKey(month);
     if (!yearlyMap.has(y)) yearlyMap.set(y, new Map());
     yearlyMap.get(y)!.set(month, pct);
   }
@@ -800,11 +856,7 @@ export function runBacktest(
       return { year: yr, pct: total, months };
     });
 
-  // Sharpe ratio — proper formula using ALL calendar days (including flat/out-of-market days).
-  // Excluding zero-return days inflates Sharpe by reducing N; including them is academically correct
-  // because idle capital still has an opportunity cost (the risk-free rate).
-  // Risk-free rate: 4 % annual → 0.04/252 per trading day.
-  // Uses sample std dev (N-1) to avoid downward bias on finite series.
+  // Sharpe ratio
   const RF_DAILY = 0.04 / 252;
   const allDailyReturns: number[] = [];
   for (let i = 1; i < equityCurve.length; i++) {
@@ -816,33 +868,26 @@ export function runBacktest(
   if (nDays > 1) {
     const excessReturns = allDailyReturns.map(r => r - RF_DAILY);
     const meanExcess = excessReturns.reduce((a, b) => a + b, 0) / nDays;
-    // Sample variance (N-1)
     const variance = excessReturns.reduce((a, b) => a + (b - meanExcess) ** 2, 0) / (nDays - 1);
     const stddev = Math.sqrt(variance);
     sharpeRatio = stddev > 0 ? (meanExcess / stddev) * Math.sqrt(252) : 0;
 
-    // Sortino: semi-deviation on downside excess returns only
     const negExcess = excessReturns.filter(r => r < 0);
     if (negExcess.length > 0) {
-      // Denominator uses full N (standard Sortino convention)
       const downsideVariance = negExcess.reduce((a, r) => a + r * r, 0) / nDays;
       const downsideStd = Math.sqrt(downsideVariance);
       sortinoRatio = downsideStd > 0 ? (meanExcess / downsideStd) * Math.sqrt(252) : 0;
     }
   }
 
-  // Calmar ratio: annualized return / max drawdown.
-  // Returns null when maxDrawdown=0 and strategy is profitable (truly infinite — no drawdown).
   const calmarRatio: number | null = maxDrawdown > 0
     ? annualizedReturn / maxDrawdown
     : annualizedReturn > 0 ? null : 0;
 
-  // Expectancy: average dollar profit per trade (Van Tharp definition)
   const expectancy = trades.length > 0
     ? trades.reduce((s, t) => s + t.pnl, 0) / trades.length
     : 0;
 
-  // SQN (System Quality Number): sqrt(N) × mean(R) / std(R)
   let sqn = 0;
   if (trades.length >= 2) {
     const pnls = trades.map(t => t.pnl);
@@ -851,7 +896,7 @@ export function runBacktest(
     sqn = stdPnl > 0 ? (Math.sqrt(pnls.length) * meanPnl) / stdPnl : 0;
   }
 
-  // Time in market: % of all bars where at least one position was open
+  // Time in market
   const barsInMarket = new Set<number>();
   for (let si = 0; si < signals.length; si++) {
     const entryIdx = signals[si].entries[0];
@@ -969,7 +1014,6 @@ export function runMultiAssetBacktest(
   for (const r of results) r.equityCurve.forEach(p => allDates.add(p.date));
   const sortedDates = Array.from(allDates).sort();
 
-  // For each symbol, build a date→value map
   const symbolValueMaps = results.map(r => {
     const m = new Map<string, number>();
     let last = r.finalCapital / (r.equityCurve.length > 0 ? 1 : 1);
@@ -984,7 +1028,6 @@ export function runMultiAssetBacktest(
     return { date, value: total, drawdown: 0 };
   });
 
-  // Compute portfolio drawdown
   let peak = portfolioCurve[0]?.value ?? initialCapital;
   for (const pt of portfolioCurve) {
     if (pt.value > peak) peak = pt.value;
@@ -1011,10 +1054,12 @@ export function runMultiAssetBacktest(
   const allTrades = results.flatMap(r => r.trades);
   const winners = allTrades.filter(t => t.pnl > 0);
   const losers = allTrades.filter(t => t.pnl <= 0);
-  const portfolioWinRate = allTrades.length > 0 ? (winners.length / allTrades.length) * 100 : 0;
+  const grossProfit = winners.reduce((s, t) => s + t.pnl, 0);
+  const grossLoss = Math.abs(losers.reduce((s, t) => s + t.pnl, 0));
 
-  const bestResult = results.reduce((a, b) => b.totalReturn > a.totalReturn ? b : a, results[0] ?? { symbol: "", totalReturn: -Infinity });
-  const worstResult = results.reduce((a, b) => b.totalReturn < a.totalReturn ? b : a, results[0] ?? { symbol: "", totalReturn: Infinity });
+  const sortedResults = [...results].filter(r => r.totalTrades > 0).sort((a, b) => b.totalReturn - a.totalReturn);
+  const bestSymbol  = sortedResults[0]?.symbol ?? symbols[0];
+  const worstSymbol = sortedResults[sortedResults.length - 1]?.symbol ?? symbols[symbols.length - 1];
 
   return {
     symbols,
@@ -1023,90 +1068,18 @@ export function runMultiAssetBacktest(
       totalReturn: portfolioReturn,
       annualizedReturn: portfolioAnnReturn,
       maxDrawdown: portfolioMaxDD,
-      sharpeRatio: parseFloat(portfolioSharpe.toFixed(2)),
-      winRate: portfolioWinRate,
+      sharpeRatio: portfolioSharpe,
+      winRate: allTrades.length > 0 ? (winners.length / allTrades.length) * 100 : 0,
       totalTrades: allTrades.length,
       finalCapital: portfolioFinalCapital,
       initialCapital,
-      bestSymbol: bestResult?.symbol ?? "",
-      worstSymbol: worstResult?.symbol ?? "",
+      bestSymbol,
+      worstSymbol,
       equityCurve: portfolioCurve,
       allocationPct: 100 / symbols.length,
     },
   };
 }
-
-export function runWalkForward(
-  symbol: string,
-  strategyType: string,
-  parameters: Record<string, unknown>,
-  startDate: string,
-  endDate: string,
-  initialCapital: number,
-  commissionPct = 0,
-  slippagePct = 0,
-  priceData?: OHLCVBar[],
-  timeframe = "1d",
-  trainRatio = 0.7
-): WalkForwardResult {
-  if (!priceData || priceData.length < 20) {
-    throw new Error(
-      `Insufficient price data for walk-forward analysis on ${symbol}: ${priceData?.length ?? 0} bars available (minimum 20 required).`
-    );
-  }
-  const bars = priceData;
-
-  const splitIdx = Math.floor(bars.length * trainRatio);
-  const splitDate = bars[splitIdx]?.date ?? endDate;
-
-  const isBars = bars.slice(0, splitIdx);
-  const oosBars = bars.slice(splitIdx);
-
-  const isStartDate = bars[0]?.date ?? startDate;
-  const isEndDate   = bars[splitIdx - 1]?.date ?? splitDate;
-  const oosEndDate  = bars[bars.length - 1]?.date ?? endDate;
-
-  const inSample = isBars.length >= 50
-    ? runBacktest(symbol, strategyType, parameters, isStartDate, isEndDate, initialCapital, commissionPct, slippagePct, isBars, timeframe)
-    : runBacktest(symbol, strategyType, parameters, isStartDate, isEndDate, initialCapital, commissionPct, slippagePct, undefined, timeframe);
-
-  const oosCapital = inSample.finalCapital > 0 ? inSample.finalCapital : initialCapital;
-  const outOfSample = oosBars.length >= 50
-    ? runBacktest(symbol, strategyType, parameters, splitDate, oosEndDate, oosCapital, commissionPct, slippagePct, oosBars, timeframe)
-    : runBacktest(symbol, strategyType, parameters, splitDate, oosEndDate, oosCapital, commissionPct, slippagePct, undefined, timeframe);
-
-  const allTrades = inSample.totalTrades + outOfSample.totalTrades;
-  const combinedWinners = [
-    ...inSample.trades.filter(t => t.pnl > 0),
-    ...outOfSample.trades.filter(t => t.pnl > 0),
-  ];
-  const combinedWinRate = allTrades > 0 ? (combinedWinners.length / allTrades) * 100 : 0;
-  const combinedTotalReturn = ((outOfSample.finalCapital - initialCapital) / initialCapital) * 100;
-
-  // Consistency score: how close OOS Sharpe is to IS Sharpe (1 = perfect, 0 = total degradation)
-  const isS = inSample.sharpeRatio;
-  const oosS = outOfSample.sharpeRatio;
-  const consistencyScore = isS > 0
-    ? Math.max(0, Math.min(1, oosS / isS))
-    : oosS >= 0 ? 0.5 : 0;
-
-  return {
-    inSample,
-    outOfSample,
-    trainRatio,
-    splitDate,
-    combined: {
-      totalReturn: combinedTotalReturn,
-      sharpeRatio: outOfSample.sharpeRatio,
-      maxDrawdown: Math.max(inSample.maxDrawdown, outOfSample.maxDrawdown),
-      winRate: combinedWinRate,
-      totalTrades: allTrades,
-      consistencyScore,
-    },
-  };
-}
-
-function year(monthStr: string): string { return monthStr.slice(0, 4); }
 
 // ─── Regime Classification (exported for superpowers route) ───────────────────
 // SMA50 trend direction × 20-day rolling std > 1.5× full-period avg volatility
@@ -1118,14 +1091,6 @@ export interface RegimePeriod {
   tradeCount: number; winRate: number; totalPnl: number;
 }
 
-function computeRegimeSMA(prices: number[], period: number): (number | null)[] {
-  return prices.map((_, i) => {
-    if (i < period - 1) return null;
-    const slice = prices.slice(i - period + 1, i + 1);
-    return slice.reduce((a, b) => a + b, 0) / period;
-  });
-}
-
 export function classifyRegimes(
   bars: Array<{ date: string; close: number }>,
   trades: Array<{ entryDate: string; exitDate: string; pnl: number }>,
@@ -1134,9 +1099,9 @@ export function classifyRegimes(
   if (bars.length < 60) return [];
 
   const closes = bars.map((b) => b.close);
-  const sma50 = computeRegimeSMA(closes, 50);
+  // Use O(N) sma for the SMA50 computation
+  const sma50 = sma(closes, 50);
 
-  // Full-period daily std — baseline for adaptive high-vol threshold
   const allReturns: number[] = [];
   for (let i = 1; i < closes.length; i++) {
     allReturns.push((closes[i]! - closes[i - 1]!) / closes[i - 1]!);
@@ -1162,8 +1127,6 @@ export function classifyRegimes(
     const rVariance = rollingReturns.reduce((a, r) => a + (r - rMean) ** 2, 0) / rollingReturns.length;
     const rollingStd = Math.sqrt(rVariance);
     const volatility = rollingStd * Math.sqrt(252) * 100;
-
-    // High-vol: 20-day rolling std > 1.5× full-period daily std
     const isHighVol = rollingStd > 1.5 * fullPeriodStd;
 
     const midBar = windowBars[Math.floor(windowBars.length / 2)]!;
@@ -1195,4 +1158,61 @@ export function classifyRegimes(
   }
 
   return periods;
+}
+
+export function runWalkForward(
+  symbol: string,
+  strategyType: string,
+  parameters: Record<string, unknown>,
+  startDate: string,
+  endDate: string,
+  initialCapital: number,
+  commissionPct = 0,
+  slippagePct = 0,
+  priceData?: OHLCVBar[],
+  timeframe = "1d",
+  trainRatio = 0.7,
+): WalkForwardResult {
+  if (!priceData || priceData.length < 50) {
+    throw new Error("Walk-forward analysis requires at least 50 bars of data.");
+  }
+
+  const splitIdx = Math.floor(priceData.length * trainRatio);
+  const splitDate = priceData[splitIdx]?.date ?? endDate;
+
+  const inSampleBars = priceData.slice(0, splitIdx);
+  const outSampleBars = priceData.slice(splitIdx);
+
+  const inSample = runBacktest(symbol, strategyType, parameters, startDate, splitDate, initialCapital, commissionPct, slippagePct, inSampleBars, timeframe);
+  // OOS starts from IS final capital — sequential walk-forward semantics
+  const outSample = runBacktest(symbol, strategyType, parameters, splitDate, endDate, inSample.finalCapital, commissionPct, slippagePct, outSampleBars, timeframe);
+
+  const consistencyScore = inSample.sharpeRatio > 0 && outSample.sharpeRatio > 0
+    ? Math.min(outSample.sharpeRatio / inSample.sharpeRatio, 1) * 100
+    : 0;
+
+  // Combined metrics derived from compounded capital and trade-count-weighted averages
+  const combinedTotalReturn = ((outSample.finalCapital - initialCapital) / initialCapital) * 100;
+  const totalTrades = inSample.totalTrades + outSample.totalTrades;
+  const combinedWinRate = totalTrades > 0
+    ? (inSample.winRate * inSample.totalTrades + outSample.winRate * outSample.totalTrades) / totalTrades
+    : 0;
+  const combinedSharpe = totalTrades > 0
+    ? (inSample.sharpeRatio * inSample.totalTrades + outSample.sharpeRatio * outSample.totalTrades) / totalTrades
+    : 0;
+
+  return {
+    inSample,
+    outOfSample: outSample,
+    trainRatio,
+    splitDate,
+    combined: {
+      totalReturn: combinedTotalReturn,
+      sharpeRatio: combinedSharpe,
+      maxDrawdown: Math.max(inSample.maxDrawdown, outSample.maxDrawdown),
+      winRate: combinedWinRate,
+      totalTrades,
+      consistencyScore,
+    },
+  };
 }

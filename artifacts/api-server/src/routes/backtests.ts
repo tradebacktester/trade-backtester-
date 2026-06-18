@@ -12,6 +12,7 @@ import {
 } from "@workspace/api-zod";
 import { runBacktest, runWalkForward, runMultiAssetBacktest, generatePriceData, type OHLCVBar } from "../lib/backtest-engine";
 import { fetchYahooHistory, isYahooSupported } from "../lib/yahoo-finance";
+import { randomUUID } from "crypto";
 
 // ── Real Binance historical data ─────────────────────────────────────────────
 
@@ -31,40 +32,78 @@ function toBinanceSymbol(symbol: string): string | null {
   return null;
 }
 
+/**
+ * Fetch Binance daily OHLCV data using parallel page requests.
+ * Pre-computes all page intervals up-front and fetches them concurrently
+ * with Promise.all instead of a serial while-loop.
+ */
 async function fetchBinanceHistorical(symbol: string, startDate: string, endDate: string): Promise<OHLCVBar[] | null> {
   const binanceSymbol = toBinanceSymbol(symbol);
   if (!binanceSymbol) return null;
 
   const startMs = new Date(startDate).getTime();
-  const endMs = new Date(endDate).getTime();
-  const allBars: OHLCVBar[] = [];
-  let from = startMs;
+  const endMs   = new Date(endDate).getTime();
+  const PAGE_SIZE = 1000;
+  const DAY_MS    = 86_400_000;
+
+  // Pre-compute all page start times (non-overlapping 1000-day windows)
+  const pageStarts: number[] = [];
+  for (let from = startMs; from < endMs && pageStarts.length < 10; from += PAGE_SIZE * DAY_MS) {
+    pageStarts.push(from);
+  }
+  if (pageStarts.length === 0) return null;
 
   try {
-    while (from < endMs && allBars.length < 5000) {
-      const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=1d&startTime=${from}&endTime=${endMs}&limit=1000`;
-      const resp = await fetch(url);
-      if (!resp.ok) break;
-      const raw = await resp.json() as unknown[][];
-      if (!raw.length) break;
-      for (const k of raw) {
-        allBars.push({
-          date: new Date(k[0] as number).toISOString().split("T")[0],
-          open: parseFloat(k[1] as string),
-          high: parseFloat(k[2] as string),
-          low: parseFloat(k[3] as string),
-          close: parseFloat(k[4] as string),
+    const pages = await Promise.all(
+      pageStarts.map(async (from) => {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=1d&startTime=${from}&endTime=${endMs}&limit=${PAGE_SIZE}`;
+        const resp = await fetch(url);
+        if (!resp.ok) return [] as OHLCVBar[];
+        const raw = await resp.json() as unknown[][];
+        return raw.map((k): OHLCVBar => ({
+          date:   new Date(k[0] as number).toISOString().split("T")[0]!,
+          open:   parseFloat(k[1] as string),
+          high:   parseFloat(k[2] as string),
+          low:    parseFloat(k[3] as string),
+          close:  parseFloat(k[4] as string),
           volume: parseFloat(k[5] as string),
-        });
-      }
-      if (raw.length < 1000) break;
-      from = (raw[raw.length - 1][0] as number) + 86_400_000;
-    }
+        }));
+      })
+    );
+
+    // Merge pages, deduplicate by date, sort chronologically
+    const seen = new Set<string>();
+    const allBars = pages.flat().filter(b => !seen.has(b.date) && seen.add(b.date));
+    allBars.sort((a, b) => a.date.localeCompare(b.date));
     return allBars.length >= 50 ? allBars : null;
   } catch {
     return null;
   }
 }
+
+// ── SSE Job store ─────────────────────────────────────────────────────────────
+
+interface SseJob {
+  status: "running" | "done" | "error";
+  userId: number;
+  result?: unknown;
+  error?: string;
+  createdAt: number;
+}
+
+const jobStore = new Map<string, SseJob>();
+
+// Prune completed/errored jobs older than 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, job] of jobStore.entries()) {
+    if (job.status !== "running" && now - job.createdAt > 10 * 60 * 1000) {
+      jobStore.delete(id);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const router: IRouter = Router();
 
@@ -121,6 +160,19 @@ function formatBacktest(row: typeof backtestsTable.$inferSelect, strategyName?: 
   };
 }
 
+/** Bulk-insert rows in chunks of 500 to stay within Postgres limits. */
+async function bulkInsert<T extends Record<string, unknown>>(
+  table: Parameters<typeof db.insert>[0],
+  rows: T[],
+  chunkSize = 500,
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    await db.insert(table).values(rows.slice(i, i + chunkSize) as T[]);
+  }
+}
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+
 router.get("/backtests/summary", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
   const [summary] = await db
@@ -175,8 +227,8 @@ router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const limit = typeof req.query["limit"] === "string" ? parseInt(req.query["limit"], 10) || 100 : 100;
-  const offset = typeof req.query["offset"] === "string" ? parseInt(req.query["offset"], 10) || 0 : 0;
+  const limit  = typeof req.query["limit"]  === "string" ? parseInt(req.query["limit"],  10) || 100 : 100;
+  const offset = typeof req.query["offset"] === "string" ? parseInt(req.query["offset"], 10) || 0   : 0;
 
   let rows: typeof backtestsTable.$inferSelect[];
   if (query.data.strategyId != null) {
@@ -215,7 +267,6 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  // S-17: Symbol validation — alphanumeric + /_.-, max 20 chars
   if (!/^[A-Za-z0-9/_.\-]{1,20}$/.test(parsed.data.symbol)) {
     res.status(400).json({ error: "symbol must be 1–20 characters: letters, digits, /, _, ., - only" });
     return;
@@ -244,11 +295,10 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   }
 
   const commissionPct = parsed.data.commission ?? 0;
-  const slippagePct = parsed.data.slippage ?? 0;
+  const slippagePct   = parsed.data.slippage   ?? 0;
+  const userId        = res.locals["userId"] as number;
 
-  const userId = res.locals["userId"] as number;
-
-  // CRIT-004: Enforce plan limits server-side — client-side gating alone is trivially bypassable
+  // CRIT-004: Enforce plan limits server-side
   {
     const [activeSub] = await db
       .select({ planId: subscriptionsTable.planId })
@@ -311,7 +361,6 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   }).returning();
 
   try {
-    // Try Binance first (crypto), then Yahoo Finance (stocks, forex, indices, commodities)
     let realBars: OHLCVBar[] | null = await fetchBinanceHistorical(
       parsed.data.symbol, parsed.data.startDate, parsed.data.endDate
     );
@@ -336,14 +385,12 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
           return;
         }
       } else {
-        // Unknown / unsupported symbol — no real data available
         await db.update(backtestsTable).set({ status: "failed" }).where(eq(backtestsTable.id, backtest.id));
         res.status(422).json({ error: `No real market data source for "${parsed.data.symbol}". Supported: crypto (e.g. BTCUSDT), US stocks (e.g. AAPL), forex (e.g. EURUSD), indices (e.g. SPX500), commodities (e.g. XAUUSD).` });
         return;
       }
     }
 
-    // positionSizing is an optional extension sent by the frontend beyond the generated Zod schema
     const psRaw = req.body.positionSizing as { mode?: string; value?: number } | undefined;
     const positionSizing = (psRaw?.mode === "fixed_amount" || psRaw?.mode === "risk_pct")
       ? { mode: psRaw.mode as "fixed_amount" | "risk_pct", value: typeof psRaw.value === "number" ? psRaw.value : undefined }
@@ -363,24 +410,23 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       positionSizing,
     );
 
+    // ── Bulk insert trades ────────────────────────────────────────────────────
     if (result.trades.length > 0) {
-      await db.insert(tradesTable).values(
-        result.trades.map((t) => ({
-          backtestId: backtest.id,
-          symbol: t.symbol,
-          side: t.side,
-          entryDate: t.entryDate,
-          exitDate: t.exitDate,
-          entryPrice: String(t.entryPrice),
-          exitPrice: String(t.exitPrice),
-          quantity: String(t.quantity),
-          pnl: String(t.pnl),
-          pnlPercent: String(t.pnlPercent),
-        }))
-      );
+      await bulkInsert(tradesTable, result.trades.map((t) => ({
+        backtestId: backtest.id,
+        symbol:     t.symbol,
+        side:       t.side,
+        entryDate:  t.entryDate,
+        exitDate:   t.exitDate,
+        entryPrice: String(t.entryPrice),
+        exitPrice:  String(t.exitPrice),
+        quantity:   String(t.quantity),
+        pnl:        String(t.pnl),
+        pnlPercent: String(t.pnlPercent),
+      })));
     }
 
-    // Ensure equity curve always covers start→end even when there are no trades
+    // Ensure equity curve always covers start→end
     let rawCurve = result.equityCurve;
     if (rawCurve.length === 0 || rawCurve[rawCurve.length - 1].date < parsed.data.endDate) {
       const lastVal = rawCurve.length > 0 ? rawCurve[rawCurve.length - 1].value : result.finalCapital;
@@ -390,48 +436,71 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       rawCurve = [{ date: parsed.data.startDate, value: parsed.data.initialCapital, drawdown: 0 }, ...rawCurve];
     }
 
-    // Sample equity curve to ≤500 points, always including the final bar (L-001)
-    const equitySample = rawCurve.length > 500
-      ? (() => {
-          const step = Math.ceil(rawCurve.length / 500);
-          const sampled = rawCurve.filter((_, i) => i % step === 0);
-          const last = rawCurve[rawCurve.length - 1]!;
-          if (sampled[sampled.length - 1]!.date !== last.date) sampled.push(last);
-          return sampled;
-        })()
-      : rawCurve;
+    // Sample strategy equity curve to ≤500 points (always including last bar)
+    const sampleCurve = (curve: typeof rawCurve) => {
+      if (curve.length <= 500) return curve;
+      const step = Math.ceil(curve.length / 500);
+      const sampled = curve.filter((_, i) => i % step === 0);
+      const last = curve[curve.length - 1]!;
+      if (sampled[sampled.length - 1]!.date !== last.date) sampled.push(last);
+      return sampled;
+    };
+
+    const equitySample = sampleCurve(rawCurve);
+
+    // ── Bulk insert strategy equity curve ────────────────────────────────────
     if (equitySample.length > 0) {
-      await db.insert(equityCurveTable).values(
-        equitySample.map((e) => ({
-          backtestId: backtest.id,
-          date: e.date,
-          value: String(e.value),
-          drawdown: String(e.drawdown),
-        }))
+      await bulkInsert(equityCurveTable, equitySample.map((e) => ({
+        backtestId:  backtest.id,
+        date:        e.date,
+        value:       String(e.value),
+        drawdown:    String(e.drawdown),
+        isBenchmark: false,
+      })));
+    }
+
+    // ── Bulk insert benchmark curve (pre-computed, stored alongside strategy) ─
+    // Extract benchmark values from the equityCurve result and store them
+    // so GET /equity never needs to re-fetch from Binance/Yahoo.
+    const benchmarkRaw = rawCurve
+      .filter(e => e.benchmark != null)
+      .map(e => ({ date: e.date, value: e.benchmark! }));
+
+    if (benchmarkRaw.length > 0) {
+      const benchmarkSample = sampleCurve(
+        benchmarkRaw.map(b => ({ date: b.date, value: b.value, drawdown: 0 }))
       );
+      await bulkInsert(equityCurveTable, benchmarkSample.map((e) => ({
+        backtestId:  backtest.id,
+        date:        e.date,
+        value:       String(e.value),
+        drawdown:    "0",
+        isBenchmark: true,
+      })));
     }
 
     const completionStatus = result.totalTrades === 0 ? "no_trades" : "complete";
 
+    // ── Store yearlyReturns as JSONB + finalize backtest row ──────────────────
     const [updated] = await db.update(backtestsTable).set({
-      status: completionStatus,
-      finalCapital: String(result.finalCapital),
-      totalReturn: String(result.totalReturn),
-      annualizedReturn: String(result.annualizedReturn),
-      maxDrawdown: String(result.maxDrawdown),
-      sharpeRatio: String(result.sharpeRatio),
-      sortinoRatio: String(result.sortinoRatio),
-      calmarRatio: result.calmarRatio != null ? String(result.calmarRatio) : null,
-      benchmarkReturn: String(result.benchmarkReturn),
-      winRate: String(result.winRate),
-      totalTrades: result.totalTrades,
-      profitFactor: String(result.profitFactor),
-      consecutiveWins: result.consecutiveWins,
+      status:            completionStatus,
+      finalCapital:      String(result.finalCapital),
+      totalReturn:       String(result.totalReturn),
+      annualizedReturn:  String(result.annualizedReturn),
+      maxDrawdown:       String(result.maxDrawdown),
+      sharpeRatio:       String(result.sharpeRatio),
+      sortinoRatio:      String(result.sortinoRatio),
+      calmarRatio:       result.calmarRatio != null ? String(result.calmarRatio) : null,
+      benchmarkReturn:   String(result.benchmarkReturn),
+      winRate:           String(result.winRate),
+      totalTrades:       result.totalTrades,
+      profitFactor:      String(result.profitFactor),
+      consecutiveWins:   result.consecutiveWins,
       consecutiveLosses: result.consecutiveLosses,
-      dataSource: "real",
+      dataSource:        "real",
+      yearlyReturns:     result.yearlyReturns,
     }).where(eq(backtestsTable.id, backtest.id)).returning();
 
-    // Return full detail including yearlyReturns (computed, not stored in DB)
     res.status(201).json({
       ...formatBacktest(updated, strategy.name),
       yearlyReturns: result.yearlyReturns,
@@ -444,45 +513,123 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   }
 });
 
+// ── SSE job stream — must be registered before /:id to avoid route conflicts ──
+router.get("/backtests/jobs/:jobId/stream", requireAuth, (req, res): void => {
+  const jobId = Array.isArray(req.params["jobId"]) ? req.params["jobId"][0]! : req.params["jobId"]!;
+  const userId = res.locals["userId"] as number;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const send = (event: string, data: unknown) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const job = jobStore.get(jobId);
+  if (!job) {
+    send("error", { error: "Job not found or expired" });
+    res.end();
+    return;
+  }
+  if (job.userId !== userId) {
+    send("error", { error: "Forbidden" });
+    res.end();
+    return;
+  }
+
+  // If already complete, respond immediately
+  if (job.status === "done") {
+    send("result", job.result);
+    res.end();
+    return;
+  }
+  if (job.status === "error") {
+    send("error", { error: job.error });
+    res.end();
+    return;
+  }
+
+  // Poll until done (max 5 minutes)
+  const started = Date.now();
+  const POLL_MS = 300;
+  const MAX_MS  = 5 * 60 * 1000;
+
+  const timer = setInterval(() => {
+    const j = jobStore.get(jobId);
+    if (!j) {
+      clearInterval(timer);
+      send("error", { error: "Job expired" });
+      res.end();
+      return;
+    }
+    if (j.status === "done") {
+      clearInterval(timer);
+      send("result", j.result);
+      res.end();
+      return;
+    }
+    if (j.status === "error") {
+      clearInterval(timer);
+      send("error", { error: j.error });
+      res.end();
+      return;
+    }
+    if (Date.now() - started > MAX_MS) {
+      clearInterval(timer);
+      send("error", { error: "Job timed out" });
+      res.end();
+      return;
+    }
+    send("progress", { status: "running" });
+  }, POLL_MS);
+
+  req.on("close", () => clearInterval(timer));
+});
+
 router.get("/backtests/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
-  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(rawId, 10);
+  const rawId  = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id     = parseInt(rawId, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [row] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, id), eq(backtestsTable.userId, userId)));
   if (!row) { res.status(404).json({ error: "Backtest not found" }); return; }
 
   const [strategy] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, row.strategyId));
-  const trades = await db.select().from(tradesTable).where(eq(tradesTable.backtestId, id)).orderBy(tradesTable.entryDate);
-  const equity = await db.select().from(equityCurveTable).where(eq(equityCurveTable.backtestId, id)).orderBy(equityCurveTable.date);
+  const [trades, equity] = await Promise.all([
+    db.select().from(tradesTable).where(eq(tradesTable.backtestId, id)).orderBy(tradesTable.entryDate),
+    db.select().from(equityCurveTable).where(and(eq(equityCurveTable.backtestId, id), eq(equityCurveTable.isBenchmark, false))).orderBy(equityCurveTable.date),
+  ]);
 
-  // Recompute yearlyReturns from stored trades
-  const initialCapital = Number(row.initialCapital);
-  const yearlyReturns = computeYearlyReturnsFromTrades(
-    trades.map((t) => ({ exitDate: t.exitDate, pnl: Number(t.pnl) })),
-    initialCapital
-  );
+  // Read yearlyReturns from stored JSONB; fall back to on-the-fly computation for older backtests
+  const yearlyReturns = row.yearlyReturns != null
+    ? row.yearlyReturns
+    : computeYearlyReturnsFromTrades(
+        trades.map((t) => ({ exitDate: t.exitDate, pnl: Number(t.pnl) })),
+        Number(row.initialCapital)
+      );
 
   res.json({
     ...formatBacktest(row, strategy?.name),
     yearlyReturns,
     trades: trades.map((t) => ({
-      id: t.id,
-      backtestId: t.backtestId,
-      symbol: t.symbol,
-      side: t.side,
-      entryDate: t.entryDate,
-      exitDate: t.exitDate,
-      entryPrice: Number(t.entryPrice),
-      exitPrice: Number(t.exitPrice),
-      quantity: Number(t.quantity),
-      pnl: Number(t.pnl),
-      pnlPercent: Number(t.pnlPercent),
+      id:          t.id,
+      backtestId:  t.backtestId,
+      symbol:      t.symbol,
+      side:        t.side,
+      entryDate:   t.entryDate,
+      exitDate:    t.exitDate,
+      entryPrice:  Number(t.entryPrice),
+      exitPrice:   Number(t.exitPrice),
+      quantity:    Number(t.quantity),
+      pnl:         Number(t.pnl),
+      pnlPercent:  Number(t.pnlPercent),
     })),
     equityCurve: equity.map((e) => ({
-      date: e.date,
-      value: Number(e.value),
+      date:     e.date,
+      value:    Number(e.value),
       drawdown: Number(e.drawdown),
     })),
   });
@@ -514,58 +661,60 @@ router.get("/backtests/:id/trades", requireAuth, async (req, res): Promise<void>
     .offset(offset);
 
   res.json(trades.map((t) => ({
-      id: t.id,
-      backtestId: t.backtestId,
-      symbol: t.symbol,
-      side: t.side,
-      entryDate: t.entryDate,
-      exitDate: t.exitDate,
-      entryPrice: Number(t.entryPrice),
-      exitPrice: Number(t.exitPrice),
-      quantity: Number(t.quantity),
-      pnl: Number(t.pnl),
-      pnlPercent: Number(t.pnlPercent),
-    })));
+    id:         t.id,
+    backtestId: t.backtestId,
+    symbol:     t.symbol,
+    side:       t.side,
+    entryDate:  t.entryDate,
+    exitDate:   t.exitDate,
+    entryPrice: Number(t.entryPrice),
+    exitPrice:  Number(t.exitPrice),
+    quantity:   Number(t.quantity),
+    pnl:        Number(t.pnl),
+    pnlPercent: Number(t.pnlPercent),
+  })));
 });
 
+/**
+ * GET /backtests/:id/equity
+ * Returns strategy equity curve + pre-stored benchmark rows from DB.
+ * No longer re-fetches from Binance/Yahoo on every read.
+ */
 router.get("/backtests/:id/equity", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
   const params = GetEquityCurveParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [bt] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, params.data.id), eq(backtestsTable.userId, userId)));
   if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
-  const equity = await db.select().from(equityCurveTable).where(eq(equityCurveTable.backtestId, params.data.id)).orderBy(equityCurveTable.date);
 
-  // Compute benchmark (buy & hold) values for each equity curve date.
-  // Prefer real Binance data so the benchmark matches what the backtest used.
-  let benchmarkMap = new Map<string, number>();
-  try {
-    let bars: OHLCVBar[] | null = await fetchBinanceHistorical(bt.symbol, bt.startDate, bt.endDate);
-    if (!bars && isYahooSupported(bt.symbol)) {
-      try { bars = await fetchYahooHistory(bt.symbol, bt.startDate, bt.endDate); } catch { /* ignore */ }
-    }
-    if (bars && bars.length > 0) {
-      const initialCapital = Number(bt.initialCapital);
-      const firstPrice = bars[0].open;
-      const benchmarkQty = (initialCapital * 0.95) / firstPrice;
-      for (const bar of bars) {
-        benchmarkMap.set(bar.date, initialCapital * 0.05 + benchmarkQty * bar.close);
-      }
-    }
-  } catch { /* benchmark unavailable */ }
+  const [equity, benchmark] = await Promise.all([
+    db.select().from(equityCurveTable)
+      .where(and(eq(equityCurveTable.backtestId, params.data.id), eq(equityCurveTable.isBenchmark, false)))
+      .orderBy(equityCurveTable.date),
+    db.select().from(equityCurveTable)
+      .where(and(eq(equityCurveTable.backtestId, params.data.id), eq(equityCurveTable.isBenchmark, true)))
+      .orderBy(equityCurveTable.date),
+  ]);
+
+  // Build date→benchmark map for O(1) lookup
+  const benchmarkMap = new Map(benchmark.map(b => [b.date, Number(b.value)]));
 
   res.json(equity.map((e) => ({
-    date: e.date,
-    value: Number(e.value),
-    drawdown: Number(e.drawdown),
+    date:      e.date,
+    value:     Number(e.value),
+    drawdown:  Number(e.drawdown),
     benchmark: benchmarkMap.get(e.date) ?? null,
   })));
 });
 
-// Per-user rate limiter for compute-heavy optimization
+// ── Per-user rate limiter for compute-heavy optimization ──────────────────────
 const optimizeLimits = new Map<number, { count: number; resetAt: number }>();
 
-// Parameter optimization: grid search over two parameters (no DB writes)
+/**
+ * POST /backtests/optimize
+ * Starts a grid-search optimization job asynchronously.
+ * Returns 202 { jobId } immediately; stream progress/result via SSE.
+ */
 router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
   const now = Date.now();
@@ -588,63 +737,74 @@ router.post("/backtests/optimize", requireAuth, async (req, res): Promise<void> 
   const [strategy] = await db.select().from(strategiesTable).where(and(eq(strategiesTable.id, strategyId), eq(strategiesTable.userId, userId)));
   if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
 
-  // Fetch real price data once, reuse for all grid combinations
-  let optimizeBars: OHLCVBar[] | undefined;
-  const binanceOptBars = await fetchBinanceHistorical(symbol, startDate, endDate);
-  if (binanceOptBars) {
-    optimizeBars = binanceOptBars;
-  } else if (isYahooSupported(symbol)) {
+  const jobId = randomUUID();
+  jobStore.set(jobId, { status: "running", userId, createdAt: Date.now() });
+
+  // Return 202 immediately; computation runs in background
+  res.status(202).json({ jobId });
+
+  // Detached async computation
+  (async () => {
     try {
-      const yfBars = await fetchYahooHistory(symbol, startDate, endDate);
-      if (yfBars.length >= 20) {
-        optimizeBars = yfBars;
+      let optimizeBars: OHLCVBar[] | undefined;
+      const binanceOptBars = await fetchBinanceHistorical(symbol, startDate, endDate);
+      if (binanceOptBars) {
+        optimizeBars = binanceOptBars;
+      } else if (isYahooSupported(symbol)) {
+        const yfBars = await fetchYahooHistory(symbol, startDate, endDate);
+        if (yfBars.length >= 20) {
+          optimizeBars = yfBars;
+        } else {
+          jobStore.set(jobId, { ...jobStore.get(jobId)!, status: "error", error: `Real market data for ${symbol} returned too few bars (${yfBars.length}).` });
+          return;
+        }
       } else {
-        res.status(422).json({ error: `Real market data for ${symbol} returned too few bars (${yfBars.length}) for optimization. Minimum 20 bars required — try extending the date range.` });
+        jobStore.set(jobId, { ...jobStore.get(jobId)!, status: "error", error: `No real market data source for "${symbol}".` });
         return;
       }
-    } catch (yfErr) {
-      const yfMsg = yfErr instanceof Error ? yfErr.message : "unknown error";
-      res.status(422).json({ error: `Real market data unavailable for ${symbol}: ${yfMsg}` });
-      return;
+
+      const baseParams = strategy.parameters as Record<string, unknown>;
+      const results: Array<{ p1: number; p2: number; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number }> = [];
+
+      const p1Truncated = param1Values.length > 8;
+      const p2Truncated = param2Values.length > 8;
+      const p1Vals: number[] = (param1Values as unknown[]).slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
+      const p2Vals: number[] = (param2Values as unknown[]).slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
+
+      for (const p1 of p1Vals) {
+        for (const p2 of p2Vals) {
+          try {
+            const params = { ...baseParams, [param1Name]: p1, [param2Name]: p2 };
+            const result = runBacktest(symbol, strategy.type, params, startDate, endDate, Number(initialCapital), 0, 0, optimizeBars);
+            results.push({ p1, p2, totalReturn: result.totalReturn, sharpeRatio: result.sharpeRatio, maxDrawdown: result.maxDrawdown, winRate: result.winRate });
+          } catch { /* skip invalid parameter combinations */ }
+        }
+      }
+
+      const truncationWarning = (p1Truncated || p2Truncated)
+        ? `Parameter values were truncated to 8 per dimension (received: ${param1Name}=${param1Values.length}, ${param2Name}=${param2Values.length})`
+        : undefined;
+
+      jobStore.set(jobId, {
+        ...jobStore.get(jobId)!,
+        status: "done",
+        result: { param1Name, param1Values: p1Vals, param2Name, param2Values: p2Vals, results, warning: truncationWarning },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Optimization failed";
+      jobStore.set(jobId, { ...jobStore.get(jobId)!, status: "error", error: msg });
     }
-  } else {
-    res.status(422).json({ error: `No real market data source for "${symbol}". Optimization requires real historical data.` });
-    return;
-  }
-
-  const baseParams = strategy.parameters as Record<string, unknown>;
-  const results: Array<{ p1: number; p2: number; totalReturn: number; sharpeRatio: number; maxDrawdown: number; winRate: number }> = [];
-
-  const p1Truncated = param1Values.length > 8;
-  const p2Truncated = param2Values.length > 8;
-  const p1Vals: number[] = param1Values.slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
-  const p2Vals: number[] = param2Values.slice(0, 8).map(Number).filter((v: number) => !isNaN(v));
-
-  for (const p1 of p1Vals) {
-    for (const p2 of p2Vals) {
-      try {
-        const params = { ...baseParams, [param1Name]: p1, [param2Name]: p2 };
-        const result = runBacktest(symbol, strategy.type, params, startDate, endDate, Number(initialCapital), 0, 0, optimizeBars);
-        results.push({
-          p1, p2,
-          totalReturn: result.totalReturn,
-          sharpeRatio: result.sharpeRatio,
-          maxDrawdown: result.maxDrawdown,
-          winRate: result.winRate,
-        });
-      } catch { /* skip invalid combinations */ }
-    }
-  }
-
-  const truncationWarning = (p1Truncated || p2Truncated)
-    ? `Parameter values were truncated to 8 per dimension (received: ${param1Name}=${param1Values.length}, ${param2Name}=${param2Values.length})`
-    : undefined;
-  res.json({ param1Name, param1Values: p1Vals, param2Name, param2Values: p2Vals, results, warning: truncationWarning });
+  })();
 });
 
+/**
+ * GET /backtests/:id/walk-forward
+ * Starts a walk-forward analysis job asynchronously.
+ * Returns 202 { jobId } immediately; stream progress/result via SSE.
+ */
 router.get("/backtests/:id/walk-forward", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
-  const id = parseInt(String(req.params.id), 10);
+  const id     = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const [row] = await db.select().from(backtestsTable).where(and(eq(backtestsTable.id, id), eq(backtestsTable.userId, userId)));
@@ -655,120 +815,92 @@ router.get("/backtests/:id/walk-forward", requireAuth, async (req, res): Promise
 
   const trainRatio = Math.min(0.9, Math.max(0.5, parseFloat(String(req.query["trainRatio"] ?? "0.7"))));
 
-  let priceData: OHLCVBar[] | undefined;
-  const binanceBars = await fetchBinanceHistorical(row.symbol, row.startDate, row.endDate);
-  if (binanceBars) {
-    priceData = binanceBars;
-  } else if (isYahooSupported(row.symbol)) {
+  const jobId = randomUUID();
+  jobStore.set(jobId, { status: "running", userId, createdAt: Date.now() });
+
+  // Return 202 immediately
+  res.status(202).json({ jobId });
+
+  // Detached async computation
+  (async () => {
     try {
-      const yfBars = await fetchYahooHistory(row.symbol, row.startDate, row.endDate);
-      if (yfBars.length >= 20) {
-        priceData = yfBars;
+      let priceData: OHLCVBar[] | undefined;
+      const binanceBars = await fetchBinanceHistorical(row.symbol, row.startDate, row.endDate);
+      if (binanceBars) {
+        priceData = binanceBars;
+      } else if (isYahooSupported(row.symbol)) {
+        const yfBars = await fetchYahooHistory(row.symbol, row.startDate, row.endDate);
+        if (yfBars.length >= 20) {
+          priceData = yfBars;
+        } else {
+          jobStore.set(jobId, { ...jobStore.get(jobId)!, status: "error", error: `Real market data for ${row.symbol} returned too few bars (${yfBars.length}).` });
+          return;
+        }
       } else {
-        res.status(422).json({ error: `Real market data for ${row.symbol} returned too few bars (${yfBars.length}) for walk-forward analysis. Minimum 20 bars required.` });
+        jobStore.set(jobId, { ...jobStore.get(jobId)!, status: "error", error: `No real market data source for "${row.symbol}".` });
         return;
       }
-    } catch (yfErr) {
-      const yfMsg = yfErr instanceof Error ? yfErr.message : "unknown error";
-      res.status(503).json({ error: `Real market data unavailable for ${row.symbol}: ${yfMsg}` });
-      return;
+
+      const result = runWalkForward(
+        row.symbol,
+        strategy.type,
+        strategy.parameters as Record<string, unknown>,
+        row.startDate,
+        row.endDate,
+        Number(row.initialCapital),
+        Number(row.commission ?? 0),
+        Number(row.slippage ?? 0),
+        priceData,
+        strategy.timeframe ?? "1d",
+        trainRatio,
+      );
+
+      const sampleEquity = (curve: typeof result.inSample.equityCurve) =>
+        curve.filter((_, i, a) => i % Math.max(1, Math.ceil(a.length / 200)) === 0 || i === a.length - 1);
+
+      jobStore.set(jobId, {
+        ...jobStore.get(jobId)!,
+        status: "done",
+        result: {
+          trainRatio:  result.trainRatio,
+          splitDate:   result.splitDate,
+          combined:    result.combined,
+          inSample: {
+            totalReturn:      result.inSample.totalReturn,
+            annualizedReturn: result.inSample.annualizedReturn,
+            sharpeRatio:      result.inSample.sharpeRatio,
+            maxDrawdown:      result.inSample.maxDrawdown,
+            winRate:          result.inSample.winRate,
+            totalTrades:      result.inSample.totalTrades,
+            profitFactor:     result.inSample.profitFactor,
+            expectancy:       result.inSample.expectancy,
+            sqn:              result.inSample.sqn,
+            finalCapital:     result.inSample.finalCapital,
+            equityCurve:      sampleEquity(result.inSample.equityCurve),
+          },
+          outOfSample: {
+            totalReturn:      result.outOfSample.totalReturn,
+            annualizedReturn: result.outOfSample.annualizedReturn,
+            sharpeRatio:      result.outOfSample.sharpeRatio,
+            maxDrawdown:      result.outOfSample.maxDrawdown,
+            winRate:          result.outOfSample.winRate,
+            totalTrades:      result.outOfSample.totalTrades,
+            profitFactor:     result.outOfSample.profitFactor,
+            expectancy:       result.outOfSample.expectancy,
+            sqn:              result.outOfSample.sqn,
+            finalCapital:     result.outOfSample.finalCapital,
+            equityCurve:      sampleEquity(result.outOfSample.equityCurve),
+          },
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Walk-forward analysis failed";
+      jobStore.set(jobId, { ...jobStore.get(jobId)!, status: "error", error: msg });
     }
-  } else {
-    res.status(422).json({ error: `No real market data source for "${row.symbol}". Walk-forward analysis requires real historical data.` });
-    return;
-  }
-
-  const result = runWalkForward(
-    row.symbol,
-    strategy.type,
-    strategy.parameters as Record<string, unknown>,
-    row.startDate,
-    row.endDate,
-    Number(row.initialCapital),
-    Number(row.commission ?? 0),
-    Number(row.slippage ?? 0),
-    priceData,
-    strategy.timeframe ?? "1d",
-    trainRatio,
-  );
-
-  res.json({
-    trainRatio: result.trainRatio,
-    splitDate: result.splitDate,
-    combined: result.combined,
-    inSample: {
-      totalReturn: result.inSample.totalReturn,
-      annualizedReturn: result.inSample.annualizedReturn,
-      sharpeRatio: result.inSample.sharpeRatio,
-      maxDrawdown: result.inSample.maxDrawdown,
-      winRate: result.inSample.winRate,
-      totalTrades: result.inSample.totalTrades,
-      profitFactor: result.inSample.profitFactor,
-      expectancy: result.inSample.expectancy,
-      sqn: result.inSample.sqn,
-      finalCapital: result.inSample.finalCapital,
-      equityCurve: result.inSample.equityCurve.filter((_, i, a) => i % Math.max(1, Math.ceil(a.length / 200)) === 0 || i === a.length - 1),
-    },
-    outOfSample: {
-      totalReturn: result.outOfSample.totalReturn,
-      annualizedReturn: result.outOfSample.annualizedReturn,
-      sharpeRatio: result.outOfSample.sharpeRatio,
-      maxDrawdown: result.outOfSample.maxDrawdown,
-      winRate: result.outOfSample.winRate,
-      totalTrades: result.outOfSample.totalTrades,
-      profitFactor: result.outOfSample.profitFactor,
-      expectancy: result.outOfSample.expectancy,
-      sqn: result.outOfSample.sqn,
-      finalCapital: result.outOfSample.finalCapital,
-      equityCurve: result.outOfSample.equityCurve.filter((_, i, a) => i % Math.max(1, Math.ceil(a.length / 200)) === 0 || i === a.length - 1),
-    },
-  });
+  })();
 });
 
-function computeYearlyReturnsFromTrades(
-  trades: { exitDate: string; pnl: number }[],
-  initialCapital: number
-) {
-  const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-  // Sort by exit date to compute running equity correctly
-  const sorted = [...trades].sort((a, b) => a.exitDate.localeCompare(b.exitDate));
-  const monthlyMap = new Map<string, number>();
-  for (const t of sorted) {
-    const m = t.exitDate.slice(0, 7);
-    monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
-  }
-
-  // Track running start-of-month equity so each month's % uses the correct base
-  const sortedMonths = Array.from(monthlyMap.keys()).sort();
-  const monthStartCapital = new Map<string, number>();
-  let running = initialCapital;
-  for (const month of sortedMonths) {
-    monthStartCapital.set(month, running);
-    running += monthlyMap.get(month) ?? 0;
-  }
-
-  const yearlyMap = new Map<string, Map<string, number>>();
-  for (const [month, pnl] of monthlyMap.entries()) {
-    const yr = month.slice(0, 4);
-    if (!yearlyMap.has(yr)) yearlyMap.set(yr, new Map());
-    const base = monthStartCapital.get(month) ?? initialCapital;
-    yearlyMap.get(yr)!.set(month, base > 0 ? (pnl / base) * 100 : 0);
-  }
-
-  return Array.from(yearlyMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([yr, mMap]) => {
-      const months = Array.from({ length: 12 }, (_, i) => {
-        const m = String(i + 1).padStart(2, "0");
-        const key = `${yr}-${m}`;
-        return { month: key, pct: mMap.get(key) ?? 0, label: MONTH_LABELS[i] };
-      });
-      return { year: yr, pct: months.reduce((s, m) => s + m.pct, 0), months };
-    });
-}
-
-// ── POST /backtests/multi-asset — run one strategy across N symbols ────────────
+// ── POST /backtests/multi-asset ────────────────────────────────────────────────
 router.post("/backtests/multi-asset", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
   const { strategyId, symbols, startDate, endDate, initialCapital, commission, slippage } = req.body;
@@ -785,7 +917,7 @@ router.post("/backtests/multi-asset", requireAuth, async (req, res): Promise<voi
   const [strategy] = await db.select().from(strategiesTable).where(and(eq(strategiesTable.id, strategyId), eq(strategiesTable.userId, userId)));
   if (!strategy) { res.status(404).json({ error: "Strategy not found" }); return; }
 
-  // Fetch price data for each symbol in parallel
+  // Fetch price data for all symbols concurrently
   const priceDataMap: Record<string, OHLCVBar[]> = {};
   await Promise.all((symbols as string[]).map(async (sym: string) => {
     const binanceBars = await fetchBinanceHistorical(sym, startDate, endDate);
@@ -819,7 +951,7 @@ router.post("/backtests/multi-asset", requireAuth, async (req, res): Promise<voi
 
 router.patch("/backtests/:id/notes", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;
-  const id = parseInt(String(req.params["id"]), 10);
+  const id     = parseInt(String(req.params["id"]), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const notes = typeof req.body.notes === "string" ? req.body.notes.slice(0, 2000) : null;
   const [row] = await db.update(backtestsTable)
@@ -829,5 +961,44 @@ router.patch("/backtests/:id/notes", requireAuth, async (req, res): Promise<void
   if (!row) { res.status(404).json({ error: "Backtest not found" }); return; }
   res.json({ id: row.id, notes: row.notes });
 });
+
+// ── Helpers (kept for backward-compatibility fallback) ────────────────────────
+
+function computeYearlyReturnsFromTrades(
+  trades: { exitDate: string; pnl: number }[],
+  initialCapital: number
+) {
+  const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const sorted = [...trades].sort((a, b) => a.exitDate.localeCompare(b.exitDate));
+  const monthlyMap = new Map<string, number>();
+  for (const t of sorted) {
+    const m = t.exitDate.slice(0, 7);
+    monthlyMap.set(m, (monthlyMap.get(m) ?? 0) + t.pnl);
+  }
+  const sortedMonths = Array.from(monthlyMap.keys()).sort();
+  const monthStartCapital = new Map<string, number>();
+  let running = initialCapital;
+  for (const month of sortedMonths) {
+    monthStartCapital.set(month, running);
+    running += monthlyMap.get(month) ?? 0;
+  }
+  const yearlyMap = new Map<string, Map<string, number>>();
+  for (const [month, pnl] of monthlyMap.entries()) {
+    const yr = month.slice(0, 4);
+    if (!yearlyMap.has(yr)) yearlyMap.set(yr, new Map());
+    const base = monthStartCapital.get(month) ?? initialCapital;
+    yearlyMap.get(yr)!.set(month, base > 0 ? (pnl / base) * 100 : 0);
+  }
+  return Array.from(yearlyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([yr, mMap]) => {
+      const months = Array.from({ length: 12 }, (_, i) => {
+        const m = String(i + 1).padStart(2, "0");
+        const key = `${yr}-${m}`;
+        return { month: key, pct: mMap.get(key) ?? 0, label: MONTH_LABELS[i] };
+      });
+      return { year: yr, pct: months.reduce((s, m) => s + m.pct, 0), months };
+    });
+}
 
 export default router;
