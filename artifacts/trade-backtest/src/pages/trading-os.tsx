@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { AuthModal } from "@/components/auth-modal";
@@ -8,6 +8,7 @@ import {
   RefreshCw, Loader2, CheckCircle2, XCircle, Clock, Star, Award, Flame,
   DollarSign, Eye, Ghost, Swords, FileText, Telescope, ArrowUpRight,
   ArrowDownRight, Minus, AlertCircle, Play, Calculator, Users2, ExternalLink,
+  ScanLine, ChevronDown, RotateCcw, Plus,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -81,16 +82,14 @@ function ScoreGauge({ score, color, size = 80 }: { score: number; color: string;
 
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 const TABS = [
-  { id: "overview",      label: "Overview",       icon: Brain,       color: C.purple },
-  { id: "coach",         label: "AI Coach",        icon: Sparkles,    color: C.amber  },
-  { id: "ghost",         label: "Trade Ghost",     icon: Ghost,       color: C.cyan   },
-  { id: "simulator",     label: "Future You",      icon: Calculator,  color: C.blue   },
-  { id: "fomo",          label: "FOMO Detector",   icon: AlertCircle, color: C.red    },
-  { id: "mistakes",      label: "Mistakes $",      icon: DollarSign,  color: "#f97316" },
-  { id: "rank",          label: "Trader Rank",     icon: Trophy,      color: C.amber  },
-  { id: "report",        label: "Fund Report",     icon: FileText,    color: C.green  },
-  { id: "opportunities", label: "Missed Setups",   icon: Telescope,   color: C.pink   },
-  { id: "twin",          label: "AI Twin",         icon: Bot,         color: C.purple },
+  { id: "overview",      label: "Overview",        icon: Brain,       color: C.purple  },
+  { id: "coach",         label: "AI Coach",         icon: Sparkles,    color: C.amber   },
+  { id: "mirror",        label: "Trade Mirror™",    icon: ScanLine,    color: "#e2e8f0" },
+  { id: "fomo",          label: "FOMO Detector",    icon: AlertCircle, color: C.red     },
+  { id: "mistakes",      label: "Mistakes $",       icon: DollarSign,  color: "#f97316" },
+  { id: "rank",          label: "Trader Rank",      icon: Trophy,      color: C.amber   },
+  { id: "report",        label: "Fund Report",      icon: FileText,    color: C.green   },
+  { id: "opportunities", label: "Missed Setups",    icon: Telescope,   color: C.pink    },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -1230,6 +1229,610 @@ function TwinTab({ token }: { token: string }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   TRADE MIRROR™ — Unified pre-trade decision engine
+══════════════════════════════════════════════════════════════════════════ */
+
+const TRADE_REASONS = [
+  "Breakout", "Reversal", "Trend Continuation", "Liquidity Sweep",
+  "Pullback", "Scalping", "Swing Trade", "Custom",
+] as const;
+
+const COMMON_SYMBOLS = [
+  "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+  "EURUSD", "GBPUSD", "AAPL", "TSLA", "SPY", "NVDA", "MSFT",
+];
+
+/* glass card tokens */
+const MG: React.CSSProperties = {
+  background: "rgba(255,255,255,0.025)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  borderRadius: "18px",
+};
+
+/* confidence arc */
+function ConfidenceArc({ score }: { score: number }) {
+  const SIZE = 120;
+  const R    = 46;
+  const CIRC = 2 * Math.PI * R;
+  const GAP  = CIRC * 0.25;
+  const TRACK = CIRC - GAP;
+  const fill  = (score / 100) * TRACK;
+  const color = score >= 70 ? "#22c55e" : score >= 50 ? "#a3a3a3" : score >= 35 ? "#f97316" : "#ef4444";
+  return (
+    <div style={{ position: "relative", width: SIZE, height: SIZE }}>
+      <svg width={SIZE} height={SIZE} style={{ transform: "rotate(135deg)" }}>
+        <circle cx={SIZE/2} cy={SIZE/2} r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={8}
+          strokeDasharray={`${TRACK} ${GAP}`} strokeLinecap="round" />
+        <circle cx={SIZE/2} cy={SIZE/2} r={R} fill="none" stroke={color} strokeWidth={8}
+          strokeDasharray={`${fill} ${CIRC - fill}`} strokeLinecap="round"
+          style={{ transition: "stroke-dasharray 1s ease, stroke 0.5s ease" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+        <span style={{ fontSize: 24, fontWeight: 700, fontFamily: "monospace", color }}>{score}</span>
+        <span style={{ fontSize: 9, letterSpacing: "0.12em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>confidence</span>
+      </div>
+    </div>
+  );
+}
+
+/* small section score badge */
+function SectionScore({ label, score, color }: { label: string; score: number; color: string }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "monospace", color }}>{score}</div>
+      <div style={{ fontSize: 9, letterSpacing: "0.1em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+interface MirrorResult {
+  twin: {
+    score: number; decision: string; confidence: number; reasoning: string;
+    alternative: string | null; twinPersonality: string; verdict: string;
+    avgWinRate: number; traderStyle: string; symbolWinRate: number;
+    symbolTradeCount: number; totalTrades: number;
+    tradingDNA?: { bestSetup: string; worstSetup: string; biggestWeakness: string; biggestStrength: string };
+  };
+  ghost: {
+    score: number; similarCount: number; winRate: number; avgReturn: number;
+    topWin:  { symbol: string; pnlPercent: number; durationDays: number } | null;
+    topLoss: { symbol: string; pnlPercent: number; durationDays: number } | null;
+    isArchetypeFallback: boolean;
+  };
+  future: {
+    hasFutureData: boolean; score: number; rrRatio?: number; expectedValue?: number;
+    historicalWinRate?: number; symbolTradeCount?: number;
+    best?: { pnl: number; pct: number }; worst?: { pnl: number; pct: number };
+    expected?: { pnl: number; pct: number };
+  };
+  report: {
+    strengths?: string[]; weaknesses?: string[]; riskAnalysis?: string;
+    emotionalAnalysis?: string; historicalComparison?: string; futureProjection?: string;
+    overallConfidence: number; finalVerdict: "strong" | "average" | "high_risk" | "avoid";
+    verdictLabel: string; twinScore: number; ghostScore: number; futureScore: number;
+  };
+}
+
+type MirrorPhase = "input" | "loading" | "report";
+
+const VERDICT_CFG = {
+  strong:    { emoji: "🟢", color: "#22c55e", bg: "rgba(34,197,94,0.07)",   border: "rgba(34,197,94,0.22)"   },
+  average:   { emoji: "🟡", color: "#a3a3a3", bg: "rgba(163,163,163,0.06)", border: "rgba(163,163,163,0.18)" },
+  high_risk: { emoji: "🟠", color: "#f97316", bg: "rgba(249,115,22,0.07)",  border: "rgba(249,115,22,0.22)"  },
+  avoid:     { emoji: "🔴", color: "#ef4444", bg: "rgba(239,68,68,0.07)",   border: "rgba(239,68,68,0.22)"   },
+};
+
+function TradeMirrorTab({ token }: { token: string }) {
+  const [phase,        setPhase]        = useState<MirrorPhase>("input");
+  const [loadStep,     setLoadStep]     = useState(0);
+  const [result,       setResult]       = useState<MirrorResult | null>(null);
+  const [error,        setError]        = useState<string | null>(null);
+  const [symbol,       setSymbol]       = useState("BTCUSDT");
+  const [customSymbol, setCustomSymbol] = useState("");
+  const [side,         setSide]         = useState<"long" | "short">("long");
+  const [tradeReason,  setTradeReason]  = useState("Breakout");
+  const [customCtx,    setCustomCtx]    = useState("");
+  const [showAdv,      setShowAdv]      = useState(false);
+  const [entry,        setEntry]        = useState("");
+  const [stopLoss,     setStopLoss]     = useState("");
+  const [takeProfit,   setTakeProfit]   = useState("");
+  const [posSize,      setPosSize]      = useState("1");
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const LOAD_STEPS = [
+    "Reading your trading DNA...",
+    "Scanning similar historical setups...",
+    "Projecting possible futures...",
+    "Compiling Trade Mirror report...",
+  ];
+
+  async function analyze() {
+    setPhase("loading");
+    setLoadStep(0);
+    setError(null);
+    timerRef.current = setInterval(() => {
+      setLoadStep(s => (s < LOAD_STEPS.length - 1 ? s + 1 : s));
+    }, 1400);
+    try {
+      const finalSymbol = symbol === "__custom__" ? customSymbol.trim() || "BTCUSDT" : symbol;
+      const r = await postOS<MirrorResult>("trade-mirror", token, {
+        symbol: finalSymbol, side, tradeReason, customContext: customCtx,
+        entry:        entry     ? Number(entry)    : 0,
+        stopLoss:     stopLoss  ? Number(stopLoss) : 0,
+        takeProfit:   takeProfit? Number(takeProfit):0,
+        positionSize: Number(posSize),
+        durationDays: 1,
+      });
+      if (timerRef.current) clearInterval(timerRef.current);
+      setResult(r);
+      setPhase("report");
+    } catch (e: unknown) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
+      setPhase("input");
+    }
+  }
+
+  function reset() { setPhase("input"); setResult(null); setError(null); }
+
+  /* ── INPUT phase ──────────────────────────────────────────────────────── */
+  if (phase === "input") return (
+    <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* Hero */}
+      <div style={{ textAlign: "center", padding: "32px 0 8px" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: 52, height: 52, borderRadius: 14, background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.1)", marginBottom: 14 }}>
+          <ScanLine style={{ width: 24, height: 24, color: "rgba(255,255,255,0.9)" }} />
+        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#fff", margin: 0, letterSpacing: "-0.3px" }}>
+          Trade Mirror™
+        </h2>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", marginTop: 6, lineHeight: 1.5 }}>
+          Your complete pre-trade intelligence report.<br />One analysis. Three perspectives.
+        </p>
+      </div>
+
+      {error && (
+        <div style={{ ...MG, padding: "12px 16px", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12 }}>
+          <p style={{ fontSize: 13, color: "#ef4444", margin: 0 }}>{error}</p>
+        </div>
+      )}
+
+      {/* Input card */}
+      <div style={{ ...MG, padding: "24px" }}>
+
+        {/* Symbol + Side */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 18 }}>
+          <div>
+            <label style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 6 }}>Symbol</label>
+            {symbol === "__custom__" ? (
+              <input value={customSymbol} onChange={e => setCustomSymbol(e.target.value.toUpperCase())}
+                placeholder="e.g. AAPL, XAUUSD..." autoFocus
+                style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "9px 12px", fontSize: 14, color: "#fff", outline: "none", boxSizing: "border-box" }} />
+            ) : (
+              <select value={symbol} onChange={e => setSymbol(e.target.value)}
+                style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", fontSize: 14, color: "#fff", appearance: "none", cursor: "pointer" }}>
+                {COMMON_SYMBOLS.map(s => <option key={s} value={s} style={{ background: "#1a1a1a" }}>{s}</option>)}
+                <option value="__custom__" style={{ background: "#1a1a1a" }}>Other (type symbol)…</option>
+              </select>
+            )}
+          </div>
+          <div>
+            <label style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 6 }}>Direction</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["long","short"] as const).map(s => (
+                <button key={s} onClick={() => setSide(s)}
+                  style={{ padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s", border: "1px solid",
+                    background: side === s ? (s === "long" ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)") : "rgba(255,255,255,0.04)",
+                    borderColor: side === s ? (s === "long" ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)") : "rgba(255,255,255,0.08)",
+                    color: side === s ? (s === "long" ? "#22c55e" : "#ef4444") : "rgba(255,255,255,0.4)" }}>
+                  {s === "long" ? "Long ↑" : "Short ↓"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Trade Reason */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 8 }}>
+            Why are you taking this trade?
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+            {TRADE_REASONS.map(r => (
+              <button key={r} onClick={() => setTradeReason(r)}
+                style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.12s", border: "1px solid",
+                  background: tradeReason === r ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.03)",
+                  borderColor: tradeReason === r ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.07)",
+                  color: tradeReason === r ? "#fff" : "rgba(255,255,255,0.42)" }}>
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Context textarea */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 6 }}>
+            Describe your setup <span style={{ opacity: 0.5 }}>(optional)</span>
+          </label>
+          <textarea value={customCtx} onChange={e => setCustomCtx(e.target.value)} rows={2}
+            placeholder="e.g. BTC broke above 200 SMA with RSI at 52, London session open, previous resistance now support..."
+            style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 12px", fontSize: 13, color: "#fff", resize: "none", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
+        </div>
+
+        {/* Advanced (Entry / SL / TP) */}
+        <div style={{ marginBottom: 20 }}>
+          <button onClick={() => setShowAdv(a => !a)}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <Plus style={{ width: 12, height: 12, color: "rgba(255,255,255,0.35)", transition: "transform 0.2s", transform: showAdv ? "rotate(45deg)" : "rotate(0)" }} />
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}>
+              {showAdv ? "Hide" : "Add"} entry / stop-loss / take-profit
+            </span>
+          </button>
+
+          {showAdv && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginTop: 12 }}>
+              {[
+                { label: "Entry Price", value: entry,     set: setEntry     },
+                { label: "Stop Loss",   value: stopLoss,  set: setStopLoss  },
+                { label: "Take Profit", value: takeProfit,set: setTakeProfit },
+                { label: "Position Size",value: posSize,  set: setPosSize   },
+              ].map(f => (
+                <div key={f.label}>
+                  <label style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 5 }}>{f.label}</label>
+                  <input type="number" step="any" value={f.value} onChange={e => f.set(e.target.value)}
+                    style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 9, padding: "8px 10px", fontSize: 13, color: "#fff", outline: "none", boxSizing: "border-box" }} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* CTA */}
+        <button onClick={analyze}
+          style={{ width: "100%", padding: "13px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.15s, border-color 0.15s" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.25)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.15)"; }}>
+          <ScanLine style={{ width: 16, height: 16 }} />
+          Generate Trade Mirror Report
+        </button>
+      </div>
+
+      {/* What's inside */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        {[
+          { num: "01", label: "AI Twin",           desc: "Your behavioral DNA vs this trade" },
+          { num: "02", label: "Ghost Analysis",     desc: "Similar setups across history"      },
+          { num: "03", label: "Future Projection",  desc: "Best / Expected / Worst outcomes"   },
+        ].map(s => (
+          <div key={s.num} style={{ ...MG, padding: "16px 14px" }}>
+            <div style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", marginBottom: 6 }}>{s.num}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.75)", marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", lineHeight: 1.4 }}>{s.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* ── LOADING phase ────────────────────────────────────────────────────── */
+  if (phase === "loading") return (
+    <div style={{ minHeight: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
+      <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 64, height: 64, borderRadius: 18, background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)" }}>
+        <ScanLine style={{ width: 28, height: 28, color: "rgba(255,255,255,0.7)" }} />
+      </div>
+
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontSize: 15, fontWeight: 600, color: "#fff", margin: "0 0 6px" }}>Analyzing your trade…</p>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", margin: 0, minHeight: 20 }}>{LOAD_STEPS[loadStep]}</p>
+      </div>
+
+      {/* Step dots */}
+      <div style={{ display: "flex", gap: 8 }}>
+        {LOAD_STEPS.map((_, i) => (
+          <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", transition: "background 0.3s",
+            background: i <= loadStep ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.12)" }} />
+        ))}
+      </div>
+    </div>
+  );
+
+  /* ── REPORT phase ─────────────────────────────────────────────────────── */
+  if (phase === "report" && result) {
+    const { twin, ghost, future, report } = result;
+    const vc = VERDICT_CFG[report.finalVerdict] ?? VERDICT_CFG.average;
+    const twinColor  = twin.score  >= 65 ? "#22c55e" : twin.score  >= 45 ? "#a3a3a3" : "#f97316";
+    const ghostColor = ghost.score >= 65 ? "#22c55e" : ghost.score >= 45 ? "#a3a3a3" : "#f97316";
+    const futColor   = future.score >= 65 ? "#22c55e" : future.score >= 45 ? "#a3a3a3" : "#f97316";
+
+    return (
+      <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* Header: 3 section scores */}
+        <div style={{ ...MG, padding: "18px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ScanLine style={{ width: 15, height: 15, color: "rgba(255,255,255,0.5)" }} />
+              <span style={{ fontSize: 11, fontFamily: "monospace", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)" }}>Trade Mirror Report</span>
+            </div>
+            <button onClick={reset} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
+              <RotateCcw style={{ width: 10, height: 10 }} /> New Analysis
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 0 }}>
+            {[
+              { label: "AI Twin",          score: twin.score,   color: twinColor  },
+              { label: "Ghost Analysis",   score: ghost.score,  color: ghostColor },
+              { label: "Future Score",     score: future.score, color: futColor   },
+            ].map((s, i) => (
+              <React.Fragment key={s.label}>
+                {i > 0 && <div style={{ width: 1, background: "rgba(255,255,255,0.07)", margin: "0 20px", flexShrink: 0 }} />}
+                <div style={{ flex: 1, textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "monospace", color: s.color, lineHeight: 1 }}>{s.score}</div>
+                  <div style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginTop: 5 }}>{s.label}</div>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {/* ── SECTION 01: AI TWIN ─────────────────────────────────────────── */}
+        <div style={{ ...MG, padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>SECTION 01</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "-0.2px" }}>AI Twin Analysis</span>
+          </div>
+
+          {/* Decision banner */}
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "16px 18px", display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ textAlign: "center", flexShrink: 0 }}>
+              <ScoreGauge score={twin.score} color={twinColor} size={72} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 4 }}>
+                Twin Decision {twin.twinPersonality ? `· ${String(twin.twinPersonality)}` : ""}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: twinColor, marginBottom: 6 }}>
+                {String(twin.decision || "Analyzing…")}
+              </div>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", margin: 0, lineHeight: 1.55 }}>
+                {String(twin.reasoning || "")}
+              </p>
+              {twin.alternative && (
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 6, marginBottom: 0, fontStyle: "italic" }}>
+                  Alternative: {String(twin.alternative)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Trading DNA */}
+          {twin.tradingDNA && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {[
+                { label: "Best Setup",        value: twin.tradingDNA.bestSetup,      icon: "↑" },
+                { label: "Worst Setup",       value: twin.tradingDNA.worstSetup,     icon: "↓" },
+                { label: "Biggest Strength",  value: twin.tradingDNA.biggestStrength,icon: "◆" },
+                { label: "Biggest Weakness",  value: twin.tradingDNA.biggestWeakness,icon: "◇" },
+              ].map(d => (
+                <div key={d.label} style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginBottom: 4 }}>{d.icon} {d.label}</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.4 }}>{String(d.value || "—")}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Stats row */}
+          <div style={{ display: "flex", gap: 20, paddingTop: 4 }}>
+            {[
+              { label: "Overall Win Rate", value: `${twin.avgWinRate}%` },
+              { label: "Style",            value: twin.traderStyle || "—" },
+              { label: `${twin.symbolTradeCount} trades on symbol`, value: `${twin.symbolWinRate}% WR` },
+            ].map(s => (
+              <div key={s.label} style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "rgba(255,255,255,0.85)" }}>{s.value}</div>
+                <div style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Verdict */}
+          {twin.verdict && (
+            <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "12px 14px", borderLeft: `2px solid ${twinColor}` }}>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>
+                "{String(twin.verdict)}"
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ── SECTION 02: GHOST ANALYSIS ──────────────────────────────────── */}
+        <div style={{ ...MG, padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>SECTION 02</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "-0.2px" }}>Ghost Analysis</span>
+            {ghost.isArchetypeFallback && <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 6, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>platform data</span>}
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+            {[
+              { label: "Similar Setups Found", value: String(ghost.similarCount) },
+              { label: "Historical Win Rate",   value: `${ghost.winRate}%`,        color: ghost.winRate >= 55 ? "#22c55e" : ghost.winRate >= 45 ? "#a3a3a3" : "#ef4444" },
+              { label: "Avg Return",            value: `${ghost.avgReturn >= 0 ? "+" : ""}${ghost.avgReturn}%`, color: ghost.avgReturn >= 0 ? "#22c55e" : "#ef4444" },
+            ].map(s => (
+              <div key={s.label} style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "14px", textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "monospace", color: (s as {color?: string}).color ?? "rgba(255,255,255,0.85)" }}>{s.value}</div>
+                <div style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginTop: 4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Top Win + Top Loss */}
+          {(ghost.topWin || ghost.topLoss) && (
+            <div style={{ display: "grid", gridTemplateColumns: ghost.topWin && ghost.topLoss ? "1fr 1fr" : "1fr", gap: 10 }}>
+              {ghost.topWin && (
+                <div style={{ background: "rgba(34,197,94,0.04)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(34,197,94,0.6)", marginBottom: 4 }}>↑ Top Win Example</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#22c55e", fontFamily: "monospace" }}>+{ghost.topWin.pnlPercent}%</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>{ghost.topWin.symbol} · {ghost.topWin.durationDays}d hold</div>
+                </div>
+              )}
+              {ghost.topLoss && (
+                <div style={{ background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(239,68,68,0.6)", marginBottom: 4 }}>↓ Top Loss Example</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#ef4444", fontFamily: "monospace" }}>{ghost.topLoss.pnlPercent}%</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>{ghost.topLoss.symbol} · {ghost.topLoss.durationDays}d hold</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── SECTION 03: FUTURE PROJECTION ───────────────────────────────── */}
+        <div style={{ ...MG, padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>SECTION 03</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "-0.2px" }}>Future Projection</span>
+          </div>
+
+          {future.hasFutureData ? (
+            <>
+              {/* 3 scenarios */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[
+                  { label: "Best Future",     pnl: future.best?.pnl,     pct: future.best?.pct,     color: "#22c55e", dim: "rgba(34,197,94,0.04)",   bd: "rgba(34,197,94,0.15)"   },
+                  { label: "Expected",        pnl: future.expected?.pnl, pct: future.expected?.pct, color: "#a3a3a3", dim: "rgba(163,163,163,0.04)", bd: "rgba(163,163,163,0.13)" },
+                  { label: "Worst Future",    pnl: future.worst?.pnl,    pct: future.worst?.pct,    color: "#ef4444", dim: "rgba(239,68,68,0.04)",    bd: "rgba(239,68,68,0.15)"   },
+                ].map(sc => (
+                  <div key={sc.label} style={{ background: sc.dim, border: `1px solid ${sc.bd}`, borderRadius: 10, padding: "14px 12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: sc.color, opacity: 0.7, marginBottom: 6 }}>{sc.label}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "monospace", color: sc.color }}>
+                      {sc.pct != null ? `${sc.pct >= 0 ? "+" : ""}${sc.pct}%` : "—"}
+                    </div>
+                    {sc.pnl != null && (
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 3, fontFamily: "monospace" }}>
+                        ${Math.abs(sc.pnl).toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* RR + EV metrics */}
+              <div style={{ display: "flex", gap: 16 }}>
+                {[
+                  { label: "Risk : Reward", value: `1 : ${future.rrRatio}`, color: (future.rrRatio ?? 0) >= 2 ? "#22c55e" : (future.rrRatio ?? 0) >= 1 ? "#a3a3a3" : "#ef4444" },
+                  { label: "Expected Value", value: `${(future.expectedValue ?? 0) >= 0 ? "+" : ""}$${future.expectedValue?.toFixed(2)}`, color: (future.expectedValue ?? 0) >= 0 ? "#22c55e" : "#ef4444" },
+                  { label: "Symbol Win Rate", value: `${future.historicalWinRate}%`, color: (future.historicalWinRate ?? 0) >= 50 ? "#22c55e" : "#a3a3a3" },
+                ].map(m => (
+                  <div key={m.label} style={{ flex: 1, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace", color: m.color }}>{m.value}</div>
+                    <div style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginTop: 4 }}>{m.label}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: "center", padding: "24px 0", color: "rgba(255,255,255,0.35)" }}>
+              <p style={{ fontSize: 13, margin: "0 0 6px" }}>No entry / SL / TP provided.</p>
+              <p style={{ fontSize: 11, margin: 0 }}>Add price levels in the input form for a full future projection.</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── FINAL REPORT ────────────────────────────────────────────────── */}
+        <div style={{ ...MG, padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>FINAL REPORT</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "-0.2px" }}>Trade Mirror Summary</span>
+          </div>
+
+          {/* Strengths + Weaknesses */}
+          {((report.strengths?.length ?? 0) > 0 || (report.weaknesses?.length ?? 0) > 0) && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {report.strengths && report.strengths.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(34,197,94,0.6)", marginBottom: 8 }}>◆ Strengths</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {report.strengths.map((s, i) => (
+                      <div key={i} style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 1.4, paddingLeft: 10, borderLeft: "1px solid rgba(34,197,94,0.25)" }}>
+                        {String(s)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {report.weaknesses && report.weaknesses.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(239,68,68,0.6)", marginBottom: 8 }}>◇ Weaknesses</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {report.weaknesses.map((w, i) => (
+                      <div key={i} style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", lineHeight: 1.4, paddingLeft: 10, borderLeft: "1px solid rgba(239,68,68,0.25)" }}>
+                        {String(w)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Analysis blocks */}
+          {[
+            { label: "Risk Analysis",       text: report.riskAnalysis       },
+            { label: "Emotional Analysis",  text: report.emotionalAnalysis  },
+            { label: "Historical Comparison",text:report.historicalComparison},
+            { label: "Future Projection",   text: report.futureProjection   },
+          ].filter(b => b.text).map(b => (
+            <div key={b.label}>
+              <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", marginBottom: 5 }}>{b.label}</div>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: 0, lineHeight: 1.6 }}>{String(b.text)}</p>
+            </div>
+          ))}
+
+          {/* Confidence meter + Verdict */}
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20, display: "flex", alignItems: "center", gap: 24 }}>
+            <ConfidenceArc score={report.overallConfidence} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginBottom: 10 }}>Final Verdict</div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 12, border: `1px solid ${vc.border}`, background: vc.bg }}>
+                <span style={{ fontSize: 18 }}>{vc.emoji}</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: vc.color }}>{report.verdictLabel}</span>
+              </div>
+              <div style={{ marginTop: 10, display: "flex", gap: 14 }}>
+                {[
+                  { l: "Twin",   v: report.twinScore  },
+                  { l: "Ghost",  v: report.ghostScore  },
+                  { l: "Future", v: report.futureScore },
+                ].map(s => (
+                  <div key={s.l} style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: "rgba(255,255,255,0.7)" }}>{s.v}</div>
+                    <div style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)" }}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 10, textAlign: "center", color: "rgba(255,255,255,0.18)", padding: "4px 0 8px", lineHeight: 1.6 }}>
+          Trade Mirror™ analysis is for educational purposes only.<br />Not financial advice. Trade at your own risk.
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    Main Page
 ══════════════════════════════════════════════════════════════════════════ */
 export default function TradingOsPage() {
@@ -1301,14 +1904,12 @@ export default function TradingOsPage() {
       <div className="px-4 pb-24">
         {activeTab === "overview"      && <OverviewTab      token={token} />}
         {activeTab === "coach"         && <CoachTab         token={token} />}
-        {activeTab === "ghost"         && <GhostTab         token={token} />}
-        {activeTab === "simulator"     && <SimulatorTab     token={token} />}
+        {activeTab === "mirror"        && <TradeMirrorTab   token={token} />}
         {activeTab === "fomo"          && <FomoTab          token={token} />}
         {activeTab === "mistakes"      && <MistakesTab      token={token} />}
         {activeTab === "rank"          && <RankTab          token={token} />}
         {activeTab === "report"        && <ReportTab        token={token} />}
         {activeTab === "opportunities" && <OpportunitiesTab token={token} />}
-        {activeTab === "twin"          && <TwinTab          token={token} />}
 
         {/* Global AI disclaimer */}
         <p className="text-center text-[10px] mt-8 px-4 pb-4"

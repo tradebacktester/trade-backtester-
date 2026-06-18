@@ -853,6 +853,197 @@ Respond ONLY with this exact JSON:
   }
 });
 
+/* ══════════════════════════════════════════════════════════════════════════
+   POST /api/trading-os/trade-mirror
+   Unified decision engine: Twin + Ghost + Future → single premium report
+══════════════════════════════════════════════════════════════════════════ */
+router.post("/trading-os/trade-mirror", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = res.locals["userId"] as number;
+    const b      = req.body as Record<string, unknown>;
+
+    const symbol       = typeof b["symbol"]       === "string" ? b["symbol"]       : "BTCUSDT";
+    const side         = typeof b["side"]         === "string" ? b["side"]         : "long";
+    const tradeReason  = typeof b["tradeReason"]  === "string" ? b["tradeReason"]  : "Unspecified";
+    const customCtx    = typeof b["customContext"] === "string" ? b["customContext"] : "";
+    const entry        = Number(b["entry"]        ?? 0);
+    const stopLoss     = Number(b["stopLoss"]     ?? 0);
+    const takeProfit   = Number(b["takeProfit"]   ?? 0);
+    const positionSize = Number(b["positionSize"] ?? 1);
+    const durationDays = Number(b["durationDays"] ?? 1);
+    const hasFuture    = entry > 0 && stopLoss > 0 && takeProfit > 0;
+
+    // ── 1. Load profile (single DB call shared by all sections) ──────────────
+    const profile        = await extractTraderProfile(userId);
+    const personalTrades = [...profile.winningTrades, ...profile.losingTrades];
+
+    // ── 2. Ghost analysis (pure math) ─────────────────────────────────────────
+    const isArchetypeFallback = personalTrades.length === 0;
+    const allTrades = isArchetypeFallback ? GHOST_ARCHETYPES : personalTrades;
+    const scored = allTrades.map(trade => {
+      let score = 0;
+      if (trade.symbol === symbol)                               score += 40;
+      else if (getMarket(trade.symbol) === getMarket(symbol))   score += 15;
+      if (trade.side === side)                                   score += 25;
+      score += Math.max(0, 20 - Math.abs(trade.durationDays - durationDays) * 3);
+      score += Math.min(15, (allTrades.filter(t => t.symbol === trade.symbol && t.side === trade.side).length / allTrades.length) * 100);
+      return { trade, score: Math.round(Math.min(100, score)) };
+    });
+    const similar      = scored.filter(s => s.score >= 30).map(s => s.trade);
+    const wins         = similar.filter(t => t.pnl > 0);
+    const losses       = similar.filter(t => t.pnl <= 0);
+    const ghostWinRate = similar.length > 0 ? (wins.length / similar.length) * 100 : profile.avgWinRate;
+    const ghostAvgRet  = similar.length > 0 ? similar.reduce((s, t) => s + t.pnlPercent, 0) / similar.length : 0;
+    const topWin       = [...wins].sort((a, b) => b.pnl - a.pnl)[0]   ?? null;
+    const topLoss      = [...losses].sort((a, b) => a.pnl - b.pnl)[0] ?? null;
+    const ghostScore   = Math.round(Math.min(100, Math.max(0, ghostWinRate)));
+
+    // ── 3. Symbol-specific stats (shared by future + twin) ───────────────────
+    const symbolTrades  = personalTrades.filter(t => t.symbol === symbol && t.side === side);
+    const symbolWinRate = symbolTrades.length > 0
+      ? (symbolTrades.filter(t => t.pnl > 0).length / symbolTrades.length) * 100
+      : profile.avgWinRate;
+
+    // ── 4. Future simulation (pure math, skipped if no entry/SL/TP) ──────────
+    let futureData: Record<string, unknown> = { hasFutureData: false, score: 50 };
+    if (hasFuture) {
+      const atrPct = await fetchSymbolAtrPct(symbol);
+      const isLong = side === "long";
+      const winPnl  = isLong ? (takeProfit - entry) * positionSize : (entry - takeProfit) * positionSize;
+      const lossPnl = isLong ? (stopLoss   - entry) * positionSize : (entry - stopLoss)   * positionSize;
+      const winPct  = isLong ? ((takeProfit - entry) / entry) * 100 : ((entry - takeProfit) / entry) * 100;
+      const lossPct = isLong ? ((stopLoss   - entry) / entry) * 100 : ((entry - stopLoss)   / entry) * 100;
+      const rrRatio = Math.abs(winPnl / (lossPnl || 1));
+      const ev      = (symbolWinRate / 100) * winPnl + ((100 - symbolWinRate) / 100) * lossPnl;
+      const halfAtr = atrPct != null ? atrPct * 0.5 : 0.015;
+      const rangePct = Math.min(halfAtr * 100, Math.abs(winPct) * 0.7);
+      const rangePnl = (rangePct / 100) * entry * positionSize;
+      const fs = Math.min(100,
+        (rrRatio >= 2 ? 40 : rrRatio >= 1.5 ? 30 : rrRatio >= 1 ? 20 : 5) +
+        (ev > 0 ? 30 : 0) +
+        (symbolWinRate >= 60 ? 30 : symbolWinRate >= 50 ? 20 : 10));
+      futureData = {
+        hasFutureData: true, score: Math.round(fs),
+        rrRatio:           Math.round(rrRatio * 100) / 100,
+        expectedValue:     Math.round(ev * 100) / 100,
+        historicalWinRate: Math.round(symbolWinRate * 10) / 10,
+        symbolTradeCount:  symbolTrades.length,
+        best:     { pnl: Math.round(winPnl  * 100) / 100, pct: Math.round(winPct  * 100) / 100 },
+        worst:    { pnl: Math.round(lossPnl * 100) / 100, pct: Math.round(lossPct * 100) / 100 },
+        expected: { pnl: Math.round(rangePnl * 100) / 100, pct: Math.round(rangePct * 100) / 100 },
+      };
+    }
+    const futureScore = Number(futureData["score"] ?? 50);
+
+    // ── 5. Single AI call: Twin analysis + report text ────────────────────────
+    const profileCtx = `
+TRADER DNA:
+• Style: ${profile.traderStyle} | Preferred side: ${profile.preferredSide}
+• Win rate: ${profile.avgWinRate.toFixed(1)}% | Avg return/trade: ${profile.avgReturn.toFixed(2)}%
+• Avg max drawdown: ${profile.avgDrawdown.toFixed(1)}% | Avg Sharpe: ${profile.avgSharpe.toFixed(2)}
+• Total trades: ${profile.totalTrades} | Backtests run: ${profile.backtestCount}
+• Top symbols: ${profile.topSymbols.slice(0,3).map(s=>`${s.symbol} WR:${s.winRate.toFixed(0)}%`).join(", ") || "none yet"}
+• Best strategies: ${profile.strategyStats.slice(0,3).map(s=>s.type).join(", ") || "none yet"}
+• Journal mistakes: ${profile.journalMistakes.slice(0,3).map(m=>m.label).join(", ") || "none logged"}
+• Best session: ${[...profile.sessionStats].sort((a,b)=>b.winRate-a.winRate)[0]?.label ?? "N/A"}
+
+PROPOSED TRADE:
+• Symbol: ${symbol} | Side: ${side.toUpperCase()}
+• Reason: ${tradeReason}${customCtx ? ` — "${customCtx}"` : ""}
+• On ${symbol} ${side} specifically: ${symbolTrades.length} historical trades, ${symbolWinRate.toFixed(0)}% win rate
+
+GHOST ANALYSIS:
+• Similar setups found: ${similar.length} | Win rate: ${ghostWinRate.toFixed(1)}% | Avg return: ${ghostAvgRet.toFixed(2)}%
+${hasFuture ? `
+RISK/REWARD:
+• Entry: ${entry} | Stop Loss: ${stopLoss} | Take Profit: ${takeProfit}
+• RR Ratio: 1:${(futureData["rrRatio"] as number ?? 0).toFixed(2)} | Expected Value: $${(futureData["expectedValue"] as number ?? 0).toFixed(2)}` : ""}
+`;
+
+    const sysPrompt = `You are Trade Mirror™ — a professional trading intelligence system that analyzes a trader's proposed trade against their behavioral DNA. Be precise, analytical, and reference their actual statistics. Sound like a senior quant analyst giving a pre-trade briefing, not a motivational coach.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "twin": {
+    "decision": "Enter Now|Wait|Would Not Enter|Reduce Size",
+    "confidence": <integer 0-100>,
+    "reasoning": "<2 precise sentences citing their actual stats and patterns>",
+    "alternative": "<specific alternative action if not entering, or null>",
+    "twinPersonality": "<one word: Disciplined|Cautious|Sharp|Aggressive|Patient|Calculated|Reckless|Consistent>",
+    "tradingDNA": {
+      "bestSetup": "<2-3 words: their strongest setup type based on stats>",
+      "worstSetup": "<2-3 words: their weakest setup type based on stats>",
+      "biggestWeakness": "<one specific behavioral weakness grounded in their data>",
+      "biggestStrength": "<one specific behavioral strength grounded in their data>"
+    },
+    "verdict": "<one sentence: This trade [aligns with / contradicts] your historical edge because...>"
+  },
+  "report": {
+    "strengths": ["<data-driven strength 1>", "<data-driven strength 2>", "<data-driven strength 3>"],
+    "weaknesses": ["<data-driven weakness 1>", "<data-driven weakness 2>"],
+    "riskAnalysis": "<2 sentences analyzing the risk of this specific trade given their profile>",
+    "emotionalAnalysis": "<1 sentence on their psychological state based on the trade reason>",
+    "historicalComparison": "<1 sentence comparing to their historical performance on similar setups>",
+    "futureProjection": "<1 sentence on where repeating this decision leads based on behavior patterns>"
+  }
+}`;
+
+    let aiResult: Record<string, unknown> = {};
+    try {
+      const client = groqClient();
+      const completion = await client.chat.completions.create({
+        model:           "llama-3.3-70b-versatile",
+        messages:        [{ role: "system", content: sysPrompt }, { role: "user", content: profileCtx }],
+        max_tokens:      700,
+        temperature:     0.45,
+        response_format: { type: "json_object" },
+      });
+      const raw = completion.choices[0]?.message?.content ?? "{}";
+      aiResult = JSON.parse(raw);
+    } catch { /* fallback: all fields will be undefined/null, UI handles gracefully */ }
+
+    const twin     = (aiResult["twin"]   as Record<string, unknown>) ?? {};
+    const reportAI = (aiResult["report"] as Record<string, unknown>) ?? {};
+    const twinScore = Number(twin["confidence"] ?? (profile.totalTrades >= 3 ? 45 : 20));
+
+    // ── 6. Final verdict ──────────────────────────────────────────────────────
+    const overallConfidence = Math.round(twinScore * 0.40 + ghostScore * 0.35 + futureScore * 0.25);
+    const finalVerdict =
+      overallConfidence >= 70 ? "strong" :
+      overallConfidence >= 50 ? "average" :
+      overallConfidence >= 35 ? "high_risk" : "avoid";
+
+    res.json({
+      twin: {
+        ...twin,
+        score: twinScore, symbolWinRate: Math.round(symbolWinRate * 10) / 10,
+        symbolTradeCount: symbolTrades.length, avgWinRate: Math.round(profile.avgWinRate * 10) / 10,
+        traderStyle: profile.traderStyle, totalTrades: profile.totalTrades,
+      },
+      ghost: {
+        score: ghostScore, similarCount: similar.length,
+        winRate: Math.round(ghostWinRate * 10) / 10, avgReturn: Math.round(ghostAvgRet * 100) / 100,
+        topWin:  topWin  ? { symbol: topWin.symbol,  pnlPercent: Math.round(topWin.pnlPercent  * 100) / 100, durationDays: Math.round(topWin.durationDays)  } : null,
+        topLoss: topLoss ? { symbol: topLoss.symbol, pnlPercent: Math.round(topLoss.pnlPercent * 100) / 100, durationDays: Math.round(topLoss.durationDays) } : null,
+        isArchetypeFallback,
+      },
+      future: futureData,
+      report: {
+        ...reportAI,
+        overallConfidence, finalVerdict,
+        verdictLabel:
+          finalVerdict === "strong"    ? "Strong Trade"    :
+          finalVerdict === "average"   ? "Average Trade"   :
+          finalVerdict === "high_risk" ? "High Risk Trade" : "Avoid Trade",
+        twinScore, ghostScore, futureScore,
+      },
+    });
+  } catch (err) {
+    logger.error(err, "trading-os/trade-mirror error");
+    res.status(500).json({ error: "Trade Mirror analysis failed." });
+  }
+});
+
 /* ── GET /api/trading-os/dashboard ────────────────────────────────────────── */
 router.get("/trading-os/dashboard", async (req: Request, res: Response): Promise<void> => {
   try {
