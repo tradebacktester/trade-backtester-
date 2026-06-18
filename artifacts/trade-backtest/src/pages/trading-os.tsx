@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { AuthModal } from "@/components/auth-modal";
 import {
@@ -31,27 +32,28 @@ const CARD: React.CSSProperties  = { background: "var(--card-bg)", border: "1px 
 const GLASS: React.CSSProperties = { background: "var(--glass-bg)", border: "1px solid var(--glass-border)" };
 
 /* ── API helper ─────────────────────────────────────────────────────────── */
-function useOSFetch<T>(path: string, token: string | null, deps: unknown[] = []) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!token) { setLoading(false); return; }
-    setLoading(true); setError(null);
-    try {
-      const result = await apiFetch<T>(`${API_BASE}/api/trading-os/${path}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setData(result);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Request failed");
-    } finally { setLoading(false); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, token, ...deps]);
-
-  useEffect(() => { void load(); }, [load]);
-  return { data, loading, error, reload: load };
+function useOSFetch<T>(path: string, token: string | null, _deps: unknown[] = []) {
+  const { data, isLoading, error, refetch } = useQuery<T, Error>({
+    queryKey: ["trading-os", path, token],
+    queryFn: () => apiFetch<T>(`${API_BASE}/api/trading-os/${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+    enabled: !!token,
+    staleTime: 60_000,
+    retry: (failureCount, err) => {
+      if ("status" in err && typeof (err as { status: number }).status === "number") {
+        const status = (err as { status: number }).status;
+        if ([401, 403, 404].includes(status)) return false;
+      }
+      return failureCount < 2;
+    },
+  });
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    error: error instanceof Error ? error.message : null,
+    reload: () => void refetch(),
+  };
 }
 
 async function postOS<T>(path: string, token: string, body: unknown): Promise<T> {

@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SkeletonPulse as Skeleton } from "@/components/ui/skeleton-cards";
-import { apiFetch } from "@/lib/api-error";
+import { apiFetch, handleApiError } from "@/lib/api-error";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
@@ -906,8 +906,8 @@ export default function BacktestDetail() {
           toast({ title: "Backtest Deleted", description: "The backtest result has been removed." });
           setLocation("/backtests");
         },
-        onError: (error: { data?: { error?: string } | null }) => {
-          toast({ title: "Error", description: error.data?.error || "Failed to delete backtest", variant: "destructive" });
+        onError: (error: unknown) => {
+          handleApiError(error, toast, { title: "Failed to delete backtest" });
         },
       }
     );
@@ -966,16 +966,15 @@ export default function BacktestDetail() {
   async function handleSaveNotes() {
     setSavingNotes(true);
     try {
-      const r = await fetch(`${API_BASE}/api/backtests/${id}/notes`, {
+      await apiFetch(`${API_BASE}/api/backtests/${id}/notes`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token ?? ""}` },
         body: JSON.stringify({ notes: backtestNotes }),
       });
-      if (!r.ok) throw new Error("Failed to save");
       setEditingNotes(false);
       toast({ title: "Notes saved" });
-    } catch {
-      toast({ title: "Error", description: "Failed to save notes", variant: "destructive" });
+    } catch (err) {
+      handleApiError(err, toast, { title: "Failed to save notes" });
     } finally { setSavingNotes(false); }
   }
 
@@ -3341,7 +3340,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${API_BASE}/api/backtests/${backtestId}/live-trades/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token()}` } });
+    await apiFetch(`${API_BASE}/api/backtests/${backtestId}/live-trades/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token()}` } });
     await loadAll();
     toast({ title: "Trade removed" });
   }
