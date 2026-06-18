@@ -12,6 +12,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 
+interface BacktestWithDataSource extends Backtest {
+  dataSource?: "simulated" | "live" | string;
+}
+
 function formatSymbol(s: string): string {
   const QUOTES = ["USDT", "USDC", "BUSD", "BTC", "ETH", "BNB", "USD"];
   for (const q of QUOTES) {
@@ -322,7 +326,7 @@ export default function Journal() {
                       <span className="text-[11px]" style={{ color: "hsl(218,12%,36%)" }}>
                         {bt.startDate} → {bt.endDate}
                       </span>
-                      {(bt as any).dataSource === "simulated" && (
+                      {(bt as BacktestWithDataSource).dataSource === "simulated" && (
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border"
                           style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.22)", color: "hsl(38,95%,60%)" }}>
                           SIM

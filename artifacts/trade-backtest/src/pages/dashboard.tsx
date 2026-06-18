@@ -306,35 +306,35 @@ function AiCoachSection() {
                     stroke="rgba(255,255,255,0.07)" strokeWidth={STROKE}
                     strokeDasharray={`${dashArray} ${CIRCUM}`} strokeLinecap="round" />
                   <circle cx="75" cy="75" r={RADIUS} fill="none"
-                    stroke={data!.traderStyleColor} strokeWidth={STROKE}
+                    stroke={data?.traderStyleColor ?? C.positive} strokeWidth={STROKE}
                     strokeDasharray={`${dashArray} ${CIRCUM}`}
                     strokeDashoffset={dashOffset}
                     strokeLinecap="round"
-                    style={{ transition: "stroke-dashoffset 1s ease", filter: `drop-shadow(0 0 6px ${data!.traderStyleColor}60)` }}
+                    style={{ transition: "stroke-dashoffset 1s ease", filter: `drop-shadow(0 0 6px ${data?.traderStyleColor ?? C.positive}60)` }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: 8 }}>
-                  <span className="text-3xl font-bold font-mono leading-none" style={{ color: data!.traderStyleColor }}>
-                    {data!.traderScore}
+                  <span className="text-3xl font-bold font-mono leading-none" style={{ color: data?.traderStyleColor ?? C.positive }}>
+                    {data?.traderScore ?? 0}
                   </span>
                   <span className="text-[9px] font-mono uppercase tracking-widest mt-0.5" style={{ color: C.muted }}>score</span>
                 </div>
               </div>
               </DataErrorBoundary>
-              <p className="text-[11px] font-semibold text-center font-mono" style={{ color: data!.traderStyleColor }}>
-                {data!.traderStyle}
+              <p className="text-[11px] font-semibold text-center font-mono" style={{ color: data?.traderStyleColor ?? C.positive }}>
+                {data?.traderStyle ?? "—"}
               </p>
               <p className="text-[10px] font-mono text-center" style={{ color: C.muted }}>
-                {data!.backtestCount} backtest{data!.backtestCount !== 1 ? "s" : ""}
+                {data?.backtestCount ?? 0} backtest{(data?.backtestCount ?? 0) !== 1 ? "s" : ""}
               </p>
             </div>
 
             <div className="flex-1 min-w-0 flex flex-col gap-3">
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { label: "Win Rate", value: `${data!.avgWinRate}%`, good: data!.avgWinRate >= 50 },
-                  { label: "Sharpe",   value: data!.avgSharpe.toFixed(2),    good: data!.avgSharpe >= 1 },
-                  { label: "Drawdown", value: `-${data!.avgDrawdown}%`,       good: data!.avgDrawdown < 15 },
+                  { label: "Win Rate", value: `${data?.avgWinRate ?? 0}%`, good: (data?.avgWinRate ?? 0) >= 50 },
+                  { label: "Sharpe",   value: (data?.avgSharpe ?? 0).toFixed(2),    good: (data?.avgSharpe ?? 0) >= 1 },
+                  { label: "Drawdown", value: `-${data?.avgDrawdown ?? 0}%`,       good: (data?.avgDrawdown ?? 0) < 15 },
                 ].map(stat => (
                   <div key={stat.label} className="rounded-xl px-2.5 py-2 text-center"
                     style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>

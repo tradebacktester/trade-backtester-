@@ -855,9 +855,10 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
 
 /* ── PostCard ───────────────────────────────────────────────────────────────── */
 function PostCard({
-  post, adminToken, onDelete, onReport, likedIds, onLike, index,
+  post, adminToken, currentUserId, onDelete, onReport, likedIds, onLike, index,
 }: {
-  post: Post; adminToken: string | null; onDelete: (id: number) => Promise<boolean>;
+  post: Post; adminToken: string | null; currentUserId?: number;
+  onDelete: (id: number) => Promise<boolean>;
   onReport: (post: Post) => void; likedIds: Set<number>; onLike: (id: number, liked: boolean) => void;
   index: number;
 }) {
@@ -940,7 +941,7 @@ function PostCard({
           Report
         </button>
 
-        {adminToken && (
+        {(adminToken || (currentUserId && currentUserId === post.userId)) && (
           confirmDelete ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <button onClick={handleDelete} disabled={deleting}
@@ -955,10 +956,12 @@ function PostCard({
             </div>
           ) : (
             <button onClick={() => setConfirmDelete(true)}
+              title={adminToken ? "Admin: delete post" : "Delete your post"}
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 20, fontSize: 12, cursor: "pointer", background: "transparent", border: "1px solid transparent", color: "rgba(255,69,58,0.6)", transition: "all 0.12s ease" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#FF453A"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,69,58,0.3)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,69,58,0.6)"; (e.currentTarget as HTMLElement).style.borderColor = "transparent"; }}>
-              <Shield style={{ height: 10, width: 10 }} />Delete
+              {adminToken ? <Shield style={{ height: 10, width: 10 }} /> : <Trash2 style={{ height: 10, width: 10 }} />}
+              Delete
             </button>
           )
         )}
@@ -1236,7 +1239,7 @@ function AdminReportsPanel({ adminToken }: { adminToken: string }) {
 
 /* ── CommunityPage ──────────────────────────────────────────────────────────── */
 export default function CommunityPage() {
-  const { adminToken, token: authToken } = useAuth();
+  const { adminToken, token: authToken, user } = useAuth();
   const [tab, setTab] = useState<"feed" | "chat" | "dm">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1300,10 +1303,10 @@ export default function CommunityPage() {
 
   async function handleAdminDelete(id: number): Promise<boolean> {
     try {
-      await apiFetch(`/api/community/${id}`, {
-        method: "DELETE",
-        headers: { "x-admin-token": adminToken ?? "", "Content-Type": "application/json" },
-      });
+      // Admin token takes priority; fall back to user auth token for author deletes
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (adminToken) headers["x-admin-token"] = adminToken;
+      await apiFetch(`/api/community/${id}`, { method: "DELETE", headers }, authToken ?? undefined);
       setPosts(prev => prev.filter(p => p.id !== id));
       return true;
     } catch {
@@ -1507,6 +1510,7 @@ export default function CommunityPage() {
                 <>
                   {posts.map((post, i) => (
                     <PostCard key={post.id} post={post} index={i} adminToken={adminToken}
+                      currentUserId={user?.id}
                       onDelete={handleAdminDelete} onReport={setReportingPost}
                       likedIds={likedIds} onLike={handleLike} />
                   ))}

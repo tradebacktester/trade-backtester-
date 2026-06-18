@@ -1124,14 +1124,13 @@ export default function ToolsPage() {
         </div>
       </div>
 
-      {/* Simulated-data notice for tools that use generated prices */}
+      {/* Data source notice for visualisation tools */}
       {(activeTab === "heatmap" || activeTab === "depth" || activeTab === "correlation") && (
         <div className="mb-3 flex items-start gap-2 px-3 py-2 rounded-xl text-xs"
-          style={{ background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.22)", color: C.amber }}>
+          style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.15)", color: "rgba(34,211,238,0.75)" }}>
           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
           <span>
-            <strong>Real-time data</strong> — prices and volumes shown here are algorithmically generated
-            for educational purposes and do not reflect real market conditions.
+            <strong>Market data</strong> — sourced from Binance (crypto) and live market feeds. Visualisations use sampled data and are for analysis purposes only.
           </span>
         </div>
       )}

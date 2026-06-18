@@ -13,6 +13,7 @@ export const equityCurveTable = pgTable("equity_curve", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("equity_curve_backtest_id_idx").on(t.backtestId),
+  index("equity_curve_backtest_benchmark_idx").on(t.backtestId, t.isBenchmark),
 ]);
 
 export const insertEquityPointSchema = createInsertSchema(equityCurveTable).omit({ id: true, createdAt: true });

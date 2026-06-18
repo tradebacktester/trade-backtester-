@@ -15,6 +15,7 @@
 
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { verifyJwt } from "../lib/jwt";
+import { logger } from "../lib/logger";
 import {
   ALPACA_CONFIGURED,
   alpacaGetAccount,
@@ -90,7 +91,8 @@ router.get("/brokerage/account", requireAuth, requireAlpaca, async (_req, res): 
       provider:       "alpaca-paper",
     });
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : "Alpaca error" });
+    logger.error({ err }, "Alpaca account fetch failed");
+    res.status(502).json({ error: "Unable to fetch account data. Please try again." });
   }
 });
 
@@ -112,7 +114,8 @@ router.get("/brokerage/positions", requireAuth, requireAlpaca, async (_req, res)
       })),
     );
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : "Alpaca error" });
+    logger.error({ err }, "Alpaca positions fetch failed");
+    res.status(502).json({ error: "Unable to fetch positions. Please try again." });
   }
 });
 
@@ -141,7 +144,8 @@ router.get("/brokerage/orders", requireAuth, requireAlpaca, async (req, res): Pr
       })),
     );
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : "Alpaca error" });
+    logger.error({ err }, "Alpaca orders fetch failed");
+    res.status(502).json({ error: "Unable to fetch orders. Please try again." });
   }
 });
 
@@ -165,7 +169,9 @@ router.post("/brokerage/orders", requireAuth, requireAlpaca, async (req, res): P
     });
     res.status(201).json(order);
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : "Alpaca error" });
+    logger.error({ err }, "Alpaca place order failed");
+    const msg = err instanceof Error && err.message.includes("insufficient") ? "Insufficient buying power for this order." : "Order placement failed. Please try again.";
+    res.status(502).json({ error: msg });
   }
 });
 
@@ -175,7 +181,8 @@ router.delete("/brokerage/orders/:id", requireAuth, requireAlpaca, async (req, r
     const result = await alpacaCancelOrder(String(req.params["id"]));
     res.json(result);
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : "Alpaca error" });
+    logger.error({ err }, "Alpaca cancel order failed");
+    res.status(502).json({ error: "Unable to cancel order. It may have already been filled." });
   }
 });
 

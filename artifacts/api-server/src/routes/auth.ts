@@ -74,8 +74,16 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Email, name, and password are required" });
     return;
   }
-  if (password.length < 6) {
-    res.status(400).json({ error: "Password must be at least 6 characters" });
+  if (typeof email !== "string" || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: "Please enter a valid email address" });
+    return;
+  }
+  if (typeof name !== "string" || name.trim().length < 1 || name.length > 100) {
+    res.status(400).json({ error: "Name must be between 1 and 100 characters" });
+    return;
+  }
+  if (typeof password !== "string" || password.length < 6 || password.length > 128) {
+    res.status(400).json({ error: "Password must be 6–128 characters" });
     return;
   }
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 
@@ -15,6 +15,18 @@ export const communityPostsTable = pgTable("community_posts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("community_posts_user_id_idx").on(t.userId),
+  index("community_posts_created_at_idx").on(t.createdAt),
+]);
+
+// Per-user like tracking to prevent duplicate likes
+export const communityPostLikesTable = pgTable("community_post_likes", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => communityPostsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("community_post_likes_post_user_idx").on(t.postId, t.userId),
+  index("community_post_likes_user_id_idx").on(t.userId),
 ]);
 
 export const communityReportsTable = pgTable("community_reports", {
@@ -57,6 +69,7 @@ export const directMessagesTable = pgTable("direct_messages", {
 ]);
 
 export type CommunityPost = typeof communityPostsTable.$inferSelect;
+export type CommunityPostLike = typeof communityPostLikesTable.$inferSelect;
 export type CommunityReport = typeof communityReportsTable.$inferSelect;
 export type CommunityMessage = typeof communityMessagesTable.$inferSelect;
 export type DirectMessage = typeof directMessagesTable.$inferSelect;

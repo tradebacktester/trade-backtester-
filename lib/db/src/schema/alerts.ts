@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const alertTypeEnum = pgEnum("alert_type", ["price", "indicator", "drawing", "strategy", "ai", "dna"]);
@@ -18,7 +18,12 @@ export const alertsTable = pgTable("alerts", {
   lastTriggeredAt: timestamp("last_triggered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  index("alerts_user_id_idx").on(t.userId),
+  index("alerts_is_active_idx").on(t.isActive),
+  index("alerts_symbol_idx").on(t.symbol),
+  index("alerts_user_active_idx").on(t.userId, t.isActive),
+]);
 
 export interface DrawingAlertGeometry {
   type: "hline" | "trendline" | "rect" | "fib" | "vline";

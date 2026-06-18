@@ -12,8 +12,8 @@ export const backtestsTable = pgTable("backtests", {
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   initialCapital: numeric("initial_capital", { precision: 18, scale: 4 }).notNull(),
-  commission: numeric("commission", { precision: 8, scale: 4 }),
-  slippage: numeric("slippage", { precision: 8, scale: 4 }),
+  commission: numeric("commission", { precision: 8, scale: 4 }).default("0"),
+  slippage: numeric("slippage", { precision: 8, scale: 4 }).default("0"),
   finalCapital: numeric("final_capital", { precision: 18, scale: 4 }),
   totalReturn: numeric("total_return", { precision: 12, scale: 6 }),
   annualizedReturn: numeric("annualized_return", { precision: 12, scale: 6 }),
@@ -35,6 +35,9 @@ export const backtestsTable = pgTable("backtests", {
 }, (t) => [
   index("backtests_user_id_idx").on(t.userId),
   index("backtests_strategy_id_idx").on(t.strategyId),
+  index("backtests_symbol_idx").on(t.symbol),
+  index("backtests_status_idx").on(t.status),
+  index("backtests_user_status_idx").on(t.userId, t.status),
 ]);
 
 export const insertBacktestSchema = createInsertSchema(backtestsTable).omit({ id: true, createdAt: true });

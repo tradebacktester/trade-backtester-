@@ -1,8 +1,9 @@
-import { pgTable, text, serial, timestamp, numeric, integer, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, numeric, integer, boolean, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const marketplaceListingsTable = pgTable("marketplace_listings", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   authorName: text("author_name").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -18,15 +19,21 @@ export const marketplaceListingsTable = pgTable("marketplace_listings", {
   votes: integer("votes").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("marketplace_listings_user_id_idx").on(t.userId),
+  index("marketplace_listings_is_active_idx").on(t.isActive),
+  index("marketplace_listings_symbol_idx").on(t.symbol),
+  index("marketplace_listings_strategy_type_idx").on(t.strategyType),
+]);
 
 export const marketplaceVotesTable = pgTable("marketplace_votes", {
   id: serial("id").primaryKey(),
-  listingId: integer("listing_id").notNull(),
-  userId: integer("user_id").notNull(),
+  listingId: integer("listing_id").notNull().references(() => marketplaceListingsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("marketplace_votes_user_listing_idx").on(t.userId, t.listingId),
+  index("marketplace_votes_listing_id_idx").on(t.listingId),
 ]);
 
 export type MarketplaceListing = typeof marketplaceListingsTable.$inferSelect;

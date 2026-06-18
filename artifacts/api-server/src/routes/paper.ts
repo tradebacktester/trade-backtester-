@@ -76,6 +76,18 @@ router.post("/paper/trades", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // Validate symbol format
+  if (!/^[A-Za-z0-9^=.\-/]{1,50}$/.test(symbol)) {
+    res.status(400).json({ error: "Invalid symbol format" });
+    return;
+  }
+
+  // Validate side allowlist
+  if (!["long", "short", "buy", "sell"].includes(side.toLowerCase())) {
+    res.status(400).json({ error: "side must be 'long', 'short', 'buy', or 'sell'" });
+    return;
+  }
+
   const userId = res.locals["userId"] as number;
   const [row] = await db.insert(paperTradesTable).values({
     userId,

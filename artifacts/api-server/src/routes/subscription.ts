@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { verifyJwt } from "../lib/jwt";
 import { createHmac } from "crypto";
 import { db, subscriptionPlansTable, subscriptionsTable, paymentsTable, usersTable, couponsTable, couponUsagesTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET ?? "secret_placeholder";
@@ -304,8 +304,9 @@ router.post("/subscription/verify", async (req, res): Promise<void> => {
       .where(eq(couponsTable.code, couponCode.toUpperCase().trim())).limit(1);
     if (coupon) {
       await db.insert(couponUsagesTable).values({ couponId: coupon.id, userId, orderId: razorpayOrderId });
+      // Atomic increment prevents race condition when multiple requests use the same coupon concurrently
       await db.update(couponsTable)
-        .set({ usedCount: coupon.usedCount + 1 })
+        .set({ usedCount: sql`${couponsTable.usedCount} + 1` })
         .where(eq(couponsTable.id, coupon.id));
     }
   }

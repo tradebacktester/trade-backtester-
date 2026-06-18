@@ -16,6 +16,8 @@ export const paperTradesTable = pgTable("paper_trades", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("paper_trades_user_id_idx").on(t.userId),
+  index("paper_trades_symbol_idx").on(t.symbol),
+  index("paper_trades_user_created_idx").on(t.userId, t.createdAt),
 ]);
 
 export type PaperTrade = typeof paperTradesTable.$inferSelect;

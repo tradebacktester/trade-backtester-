@@ -15,6 +15,8 @@ export const strategiesTable = pgTable("strategies", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("strategies_user_id_idx").on(t.userId),
+  index("strategies_symbol_idx").on(t.symbol),
+  index("strategies_type_idx").on(t.type),
 ]);
 
 export const insertStrategySchema = createInsertSchema(strategiesTable).omit({ id: true, createdAt: true });

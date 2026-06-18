@@ -54,6 +54,12 @@ router.post("/watchlist", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // Validate symbol format — allow letters, digits, common exchange suffixes
+  if (!/^[A-Za-z0-9^=.\-/]{1,50}$/.test(symbol)) {
+    res.status(400).json({ error: "Invalid symbol format. Use only letters, digits, and common symbols (e.g. BTCUSDT, AAPL, ^GSPC)." });
+    return;
+  }
+
   const existing = await db
     .select()
     .from(watchlistItemsTable)

@@ -191,22 +191,16 @@ router.get("/backtests/summary", requireAuth, async (req, res): Promise<void> =>
     .from(strategiesTable)
     .where(eq(strategiesTable.userId, userId));
 
-  const stratPerf = await db
-    .select({
-      strategyId: backtestsTable.strategyId,
-      avgReturn: avg(backtestsTable.totalReturn),
-    })
+  // Single JOIN query to get top strategy name — eliminates the N+1 separate lookup
+  const [topStratRow] = await db
+    .select({ name: strategiesTable.name, avgReturn: avg(backtestsTable.totalReturn) })
     .from(backtestsTable)
+    .leftJoin(strategiesTable, eq(backtestsTable.strategyId, strategiesTable.id))
     .where(and(eq(backtestsTable.status, "complete"), eq(backtestsTable.userId, userId)))
-    .groupBy(backtestsTable.strategyId)
+    .groupBy(strategiesTable.id, strategiesTable.name)
     .orderBy(sql`avg(${backtestsTable.totalReturn}) DESC`)
     .limit(1);
-
-  let topStrategy: string | null = null;
-  if (stratPerf.length > 0) {
-    const [strat] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, stratPerf[0].strategyId));
-    topStrategy = strat?.name ?? null;
-  }
+  const topStrategy: string | null = topStratRow?.name ?? null;
 
   res.json({
     totalBacktests: summary?.totalBacktests ?? 0,
@@ -506,10 +500,12 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       yearlyReturns: result.yearlyReturns,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Backtest execution failed";
-    const isParamError = msg.startsWith("Invalid parameters:");
+    const raw = err instanceof Error ? err.message : "Backtest execution failed";
+    const isParamError = raw.startsWith("Invalid parameters:");
+    // Only surface parameter validation errors to the client; all other errors get a generic message
+    const clientMsg = isParamError ? raw : "Backtest execution failed. Please try again.";
     await db.update(backtestsTable).set({ status: "failed" }).where(eq(backtestsTable.id, backtest.id));
-    res.status(isParamError ? 400 : 500).json({ error: msg });
+    res.status(isParamError ? 400 : 500).json({ error: clientMsg });
   }
 });
 

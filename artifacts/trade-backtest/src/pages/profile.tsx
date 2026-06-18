@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useListStrategies, useListBacktests } from "@workspace/api-client-react";
+import type { Backtest } from "@workspace/api-client-react";
 import { AuthModal } from "@/components/auth-modal";
 import { useLocation, Link } from "wouter";
 import {
@@ -8,6 +9,11 @@ import {
   Star, Zap, Brain, Shield, CheckCircle, Target, Activity,
   CreditCard, Settings, ArrowRight, Lock, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
+
+interface BacktestDetail extends Backtest {
+  strategyName?: string;
+  isAiGenerated?: boolean;
+}
 
 function StatBox({ label, value, icon: Icon, color, sub }: {
   label: string; value: string | number; icon: React.ElementType; color: string; sub?: string;
@@ -171,7 +177,7 @@ export default function ProfilePage() {
                   <span className="text-[10px] uppercase font-mono tracking-widest" style={{ color: "#22c55e" }}>Best Strategy</span>
                 </div>
                 <div className="text-[14px] font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>
-                  {(bestBacktest as any).strategyName ?? `Backtest #${bestBacktest.id}`}
+                  {(bestBacktest as BacktestDetail).strategyName ?? `Backtest #${bestBacktest.id}`}
                 </div>
                 <div className="flex items-end justify-between">
                   <div className="text-[24px] font-bold" style={{ color: "#22c55e" }}>
@@ -192,7 +198,7 @@ export default function ProfilePage() {
                   <span className="text-[10px] uppercase font-mono tracking-widest" style={{ color: "#ef4444" }}>Needs Work</span>
                 </div>
                 <div className="text-[14px] font-semibold mb-1" style={{ color: "hsl(var(--foreground))" }}>
-                  {(worstBacktest as any).strategyName ?? `Backtest #${worstBacktest.id}`}
+                  {(worstBacktest as BacktestDetail).strategyName ?? `Backtest #${worstBacktest.id}`}
                 </div>
                 <div className="flex items-end justify-between">
                   <div className="text-[24px] font-bold" style={{ color: "#ef4444" }}>
@@ -218,7 +224,7 @@ export default function ProfilePage() {
           <AchievementRow icon={Trophy} label="Veteran Trader" desc="Complete 100 backtests" unlocked={totalBacktests >= 100} color="rgba(255,255,255,0.80)" />
           <AchievementRow icon={TrendingUp} label="Strategy Master" desc="Create 10 unique strategies" unlocked={totalStrategies >= 10} color="rgba(255,255,255,0.80)" />
           <AchievementRow icon={Star} label="Alpha Seeker" desc="Achieve 50%+ return in a backtest" unlocked={backtestArray.some(b => Number(b.totalReturn ?? 0) >= 50)} color="rgba(255,255,255,0.80)" />
-          <AchievementRow icon={Brain} label="AI Pioneer" desc="Use AI to generate a strategy" unlocked={backtestArray.some(b => (b as any).isAiGenerated)} color="rgba(255,255,255,0.80)" />
+          <AchievementRow icon={Brain} label="AI Pioneer" desc="Use AI to generate a strategy" unlocked={backtestArray.some(b => (b as BacktestDetail).isAiGenerated)} color="rgba(255,255,255,0.80)" />
           <AchievementRow icon={Shield} label="Risk Manager" desc="Run 5 stress tests" unlocked={false} color="rgba(255,255,255,0.80)" />
         </div>
       </div>

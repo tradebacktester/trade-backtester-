@@ -16,6 +16,7 @@ export const liveTradesTable = pgTable("live_trades", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("live_trades_backtest_id_idx").on(t.backtestId),
+  index("live_trades_symbol_idx").on(t.symbol),
 ]);
 
 export const insertLiveTradeSchema = createInsertSchema(liveTradesTable).omit({ id: true, createdAt: true });

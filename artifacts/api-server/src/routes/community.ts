@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, communityPostsTable, communityReportsTable, communityMessagesTable, directMessagesTable, subscriptionsTable, subscriptionPlansTable, usersTable } from "@workspace/db";
+import { db, communityPostsTable, communityPostLikesTable, communityReportsTable, communityMessagesTable, directMessagesTable, subscriptionsTable, subscriptionPlansTable, usersTable } from "@workspace/db";
 import { eq, desc, and, gt, or, sql } from "drizzle-orm";
 import { verifyJwt } from "../lib/jwt";
 import { verifyAdminToken } from "../lib/admin-auth";
@@ -156,19 +156,19 @@ router.post("/community", async (req, res): Promise<void> => {
   res.status(201).json(serializePost(post!));
 });
 
-// POST /community/:id/like — toggle like (authentication required — CRIT-001)
+// POST /community/:id/like — toggle like with per-user deduplication (CRIT-001)
 router.post("/community/:id/like", async (req, res): Promise<void> => {
-  // CRIT-001: Require auth to prevent unauthenticated bot-flooding of likes
   const likeAuth = req.headers["authorization"];
   if (!likeAuth || !process.env.JWT_SECRET) {
     res.status(401).json({ error: "You must be signed in to like posts." });
     return;
   }
   const likePayload = verifyJwt(likeAuth.replace("Bearer ", "").trim(), process.env.JWT_SECRET);
-  if (!likePayload) {
+  if (!likePayload || typeof likePayload.id !== "number") {
     res.status(401).json({ error: "You must be signed in to like posts." });
     return;
   }
+  const likerId = likePayload.id;
 
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -178,13 +178,32 @@ router.post("/community/:id/like", async (req, res): Promise<void> => {
   if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
   const action = (req.body as { action?: "like" | "unlike" } | undefined)?.action;
-  const newLikes = action === "unlike" ? Math.max(0, post.likes - 1) : post.likes + 1;
 
-  const [updated] = await db.update(communityPostsTable)
-    .set({ likes: newLikes })
-    .where(eq(communityPostsTable.id, id))
-    .returning();
+  if (action === "unlike") {
+    // Remove the like record and atomically decrement the count
+    const deleted = await db.delete(communityPostLikesTable)
+      .where(and(eq(communityPostLikesTable.postId, id), eq(communityPostLikesTable.userId, likerId)))
+      .returning();
+    if (deleted.length > 0) {
+      await db.update(communityPostsTable)
+        .set({ likes: sql`GREATEST(0, ${communityPostsTable.likes} - 1)` })
+        .where(eq(communityPostsTable.id, id));
+    }
+  } else {
+    // Insert like record — ON CONFLICT DO NOTHING prevents duplicate likes
+    const inserted = await db.insert(communityPostLikesTable)
+      .values({ postId: id, userId: likerId })
+      .onConflictDoNothing()
+      .returning();
+    if (inserted.length > 0) {
+      // Only increment if this was a new like
+      await db.update(communityPostsTable)
+        .set({ likes: sql`${communityPostsTable.likes} + 1` })
+        .where(eq(communityPostsTable.id, id));
+    }
+  }
 
+  const [updated] = await db.select().from(communityPostsTable).where(eq(communityPostsTable.id, id));
   res.json(serializePost(updated!));
 });
 
@@ -230,17 +249,36 @@ router.post("/community/:id/report", async (req, res): Promise<void> => {
 
 // ── Admin routes ────────────────────────────────────────────────────────────
 
-// DELETE /community/:id — admin delete post
+// DELETE /community/:id — admin OR post author can delete
 router.delete("/community/:id", async (req, res): Promise<void> => {
-  const token = req.headers["x-admin-token"] as string | undefined;
-  if (!token || !verifyAdminToken(token)) {
-    res.status(401).json({ error: "Unauthorized" }); return;
+  const adminToken = req.headers["x-admin-token"] as string | undefined;
+  const isAdmin = Boolean(adminToken && verifyAdminToken(adminToken));
+
+  let requestingUserId: number | null = null;
+  if (!isAdmin) {
+    const authHeader = req.headers["authorization"];
+    if (authHeader && process.env.JWT_SECRET) {
+      const payload = verifyJwt(authHeader.replace("Bearer ", "").trim(), process.env.JWT_SECRET);
+      if (payload && typeof payload.id === "number") requestingUserId = payload.id;
+    }
+    if (!requestingUserId) {
+      res.status(401).json({ error: "Unauthorized" }); return;
+    }
   }
+
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const [post] = await db.select().from(communityPostsTable)
+    .where(and(eq(communityPostsTable.id, id), eq(communityPostsTable.isDeleted, false)));
+  if (!post) { res.status(404).json({ error: "Post not found" }); return; }
+
+  if (!isAdmin && post.userId !== requestingUserId) {
+    res.status(403).json({ error: "You can only delete your own posts." }); return;
+  }
+
   const [updated] = await db.update(communityPostsTable)
-    .set({ isDeleted: true, deletedByAdmin: true })
+    .set({ isDeleted: true, ...(isAdmin ? { deletedByAdmin: true } : {}) })
     .where(eq(communityPostsTable.id, id))
     .returning();
   if (!updated) { res.status(404).json({ error: "Post not found" }); return; }

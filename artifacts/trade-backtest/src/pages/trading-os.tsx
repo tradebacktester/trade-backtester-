@@ -180,7 +180,7 @@ function OverviewTab({ token }: { token: string }) {
                 </div>
               )}
               <div className="flex flex-wrap gap-2 pt-1">
-                {(rk.achievements as any[]).filter(a => a.earned).map((a: any) => (
+                {(rk.achievements as { id: string; icon: string; label: string; earned: boolean }[]).filter(a => a.earned).map((a) => (
                   <span key={a.id} className="text-xs px-2 py-0.5 rounded-full font-mono" style={{ background: "hsl(var(--muted))", color: C.amber }}>{a.icon} {a.label}</span>
                 ))}
               </div>
@@ -262,8 +262,8 @@ function CoachTab({ token }: { token: string }) {
                 <p className="text-lg font-bold mb-2" style={{ color: C.amber }}>{data.greeting as string}</p>
                 {data.recentForm && (
                   <p className="text-xs font-mono" style={{ color: C.sub }}>
-                    Last {(data.recentForm as any).total} trades: <span style={{ color: C.green }}>{(data.recentForm as any).wins}W</span> / <span style={{ color: C.red }}>{(data.recentForm as any).losses}L</span>
-                    {" · "} Rank Score: <span style={{ color: C.text }}>{data.rankScore as number}/100</span>
+                    Last {(data.recentForm as { total?: number })?.total ?? 0} trades: <span style={{ color: C.green }}>{(data.recentForm as { wins?: number })?.wins ?? 0}W</span> / <span style={{ color: C.red }}>{(data.recentForm as { losses?: number })?.losses ?? 0}L</span>
+                    {" · "} Rank Score: <span style={{ color: C.text }}>{(data.rankScore as number | undefined) ?? 0}/100</span>
                   </p>
                 )}
               </div>
@@ -290,7 +290,7 @@ function CoachTab({ token }: { token: string }) {
               {data.bestSession && (
                 <div className="mt-3 flex items-center gap-2">
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "hsl(var(--muted))", color: C.green }}>
-                    ↑ {(data.bestSession as any).label} {(data.bestSession as any).winRate}%
+                    ↑ {(data.bestSession as { label?: string })?.label ?? "—"} {(data.bestSession as { winRate?: number })?.winRate ?? 0}%
                   </span>
                 </div>
               )}
@@ -441,7 +441,7 @@ function GhostTab({ token }: { token: string }) {
             <div className="rounded-2xl p-5" style={CARD}>
               <p className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: C.sub }}>Similar Historical Trades</p>
               <div className="flex flex-col gap-2">
-                {(result.matches as any[]).map((m: any, i: number) => (
+                {(result.matches as { score: number; symbol: string; side: string; won: boolean; pnlPercent: number; durationDays: number }[]).map((m, i) => (
                   <div key={i} className="flex items-center gap-3 rounded-xl p-3" style={GLASS}>
                     <div className="text-xs font-mono w-8 text-center px-1 py-0.5 rounded" style={{ background: "hsl(var(--muted))", color: C.sub }}>{m.score}%</div>
                     <span className="text-sm font-medium flex-1" style={{ color: C.text }}>{m.symbol} {m.side}</span>
@@ -747,7 +747,7 @@ function MistakesTab({ token }: { token: string }) {
           {d.breakdown?.length > 0 && (
             <div className="rounded-2xl p-5 flex flex-col gap-3" style={CARD}>
               <p className="text-xs font-mono uppercase tracking-widest" style={{ color: C.sub }}>Breakdown by Mistake</p>
-              {(d.breakdown as any[]).map((m: any, i: number) => (
+              {(d.breakdown as { label: string; count: number; totalLoss: number; pct: number }[]).map((m, i) => (
                 <div key={m.label} className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -883,7 +883,7 @@ function RankTab({ token }: { token: string }) {
           <div className="rounded-2xl p-5" style={CARD}>
             <p className="text-xs font-mono uppercase tracking-widest mb-4" style={{ color: C.sub }}>Achievements</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(d.achievements as any[]).map((a: any) => (
+              {(d.achievements as { id: string; icon: string; label: string; earned: boolean }[]).map((a) => (
                 <div key={a.id} className="rounded-xl p-3 text-center" style={{ ...GLASS, opacity: a.earned ? 1 : 0.35 }}>
                   <p className="text-2xl mb-1">{a.icon}</p>
                   <p className="text-[10px] font-mono" style={{ color: a.earned ? C.amber : C.sub }}>{a.label}</p>
@@ -1061,9 +1061,9 @@ function OpportunitiesTab({ token }: { token: string }) {
             </div>
           )}
 
-          {(d.opportunities as any[])?.length > 0 ? (
+          {(d.opportunities as { type: string; title: string; description: string; potentialReturn: number | null; action: string }[])?.length > 0 ? (
             <div className="flex flex-col gap-4">
-              {(d.opportunities as any[]).map((opp: any, i: number) => {
+              {(d.opportunities as { type: string; title: string; description: string; potentialReturn: number | null; action: string }[]).map((opp, i) => {
                 const Icon = typeIcon(opp.type);
                 const color = typeColor(opp.type);
                 return (

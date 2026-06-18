@@ -41,6 +41,30 @@ import {
   ResponsiveContainer, ComposedChart, Line, BarChart, Bar, Cell, ReferenceLine, PieChart, Pie
 } from "recharts";
 import { API_BASE } from "@/lib/api-config";
+import type { Backtest } from "@workspace/api-client-react";
+
+// ─── Extended backtest type — API returns extra computed fields not in spec ──
+interface BacktestDetail extends Backtest {
+  strategyName?: string;
+  strategyType?: string;
+  bestTrade?: number;
+  worstTrade?: number;
+  avgTradeDuration?: number;
+  annualizedReturn?: number;
+  dataSource?: "simulated" | "live" | string;
+  sortinoRatio?: number | null;
+  calmarRatio?: number | null;
+  benchmarkReturn?: number | null;
+  consecutiveWins?: number;
+  consecutiveLosses?: number;
+  commission?: number;
+  slippage?: number;
+  yearlyReturns?: Array<{
+    year: string;
+    pct: number;
+    months: Array<{ month: string; pct: number; label: string }>;
+  }>;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -877,7 +901,7 @@ export default function BacktestDetail() {
   const [equityLegendOpen, setEquityLegendOpen] = useState(true);
   const TRADES_PER_PAGE = 100;
 
-  const { data: backtest, isLoading } = useGetBacktest(id, {
+  const { data: _backtest, isLoading } = useGetBacktest(id, {
     query: {
       enabled: !!id,
       refetchInterval: (data: any) =>
@@ -886,6 +910,7 @@ export default function BacktestDetail() {
           : false,
     } as any,
   });
+  const backtest = _backtest as BacktestDetail | undefined;
   const { data: trades, isLoading: isLoadingTrades } = useGetBacktestTrades(id, {
     query: { enabled: !!id && backtest?.status === "complete" } as any,
   });
@@ -1024,21 +1049,21 @@ export default function BacktestDetail() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}`,
+          "Authorization": `Bearer ${token ?? ""}`,
         },
         body: JSON.stringify({
           symbol: backtest.symbol,
-          strategyName: (backtest as any).strategyName ?? "Unknown Strategy",
+          strategyName: backtest.strategyName ?? "Unknown Strategy",
           metrics: {
             totalReturn: backtest.totalReturn ?? 0,
             maxDrawdown: backtest.maxDrawdown ?? 0,
             sharpeRatio: backtest.sharpeRatio ?? 0,
             winRate: backtest.winRate ?? 0,
             totalTrades: backtest.totalTrades ?? 0,
-            bestTrade: (backtest as any).bestTrade ?? 0,
-            worstTrade: (backtest as any).worstTrade ?? 0,
+            bestTrade: backtest.bestTrade ?? 0,
+            worstTrade: backtest.worstTrade ?? 0,
             profitFactor: backtest.profitFactor ?? 0,
-            avgTradeDuration: (backtest as any).avgTradeDuration ?? 0,
+            avgTradeDuration: backtest.avgTradeDuration ?? 0,
           },
           trades: trades.slice(0, 50).map(t => ({
             side: t.side,
@@ -1091,23 +1116,23 @@ export default function BacktestDetail() {
 
       const narrativeResult = await apiFetch<{ story: string }>(`${API_BASE}/api/ai/narrative`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token ?? ""}` },
         body: JSON.stringify({
           symbol: backtest.symbol,
-          strategyName: (backtest as any).strategyName ?? "Unknown Strategy",
-          strategyType: (backtest as any).strategyType ?? "unknown",
+          strategyName: backtest.strategyName ?? "Unknown Strategy",
+          strategyType: backtest.strategyType ?? "unknown",
           startDate: backtest.startDate,
           endDate: backtest.endDate,
           metrics: {
             totalReturn: backtest.totalReturn ?? 0,
-            annualizedReturn: (backtest as any).annualizedReturn ?? 0,
+            annualizedReturn: backtest.annualizedReturn ?? 0,
             maxDrawdown: backtest.maxDrawdown ?? 0,
             sharpeRatio: backtest.sharpeRatio ?? 0,
             winRate: backtest.winRate ?? 0,
             totalTrades: backtest.totalTrades ?? 0,
             profitFactor: backtest.profitFactor ?? 0,
-            initialCapital: (backtest as any).initialCapital ?? 10000,
-            finalCapital: ((backtest as any).initialCapital ?? 10000) * (1 + (backtest.totalReturn ?? 0) / 100),
+            initialCapital: backtest.initialCapital ?? 10000,
+            finalCapital: (backtest.initialCapital ?? 10000) * (1 + (backtest.totalReturn ?? 0) / 100),
           },
           trades: trades.slice(0, 60).map(t => ({
             side: t.side, entryDate: t.entryDate, exitDate: t.exitDate,
@@ -1145,9 +1170,8 @@ export default function BacktestDetail() {
     setWfError(null);
     setWfData(null);
     try {
-      const token = localStorage.getItem("tt_token") ?? "";
       const data = await apiFetch<WFResult>(`${API_BASE}/api/backtests/${id}/walk-forward?trainRatio=${ratio}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token ?? ""}` },
       });
       setWfData(data);
     } catch (e: unknown) {
@@ -1476,7 +1500,7 @@ export default function BacktestDetail() {
           {/* ── TAB 1: Overview ─────────────────────────────────────── */}
           <Tabs.Content value="overview" className="space-y-6 tab-transition">
             {/* Simulated data warning — shown for all simulated backtests */}
-            {(backtest as any).dataSource === "simulated" && (
+            {backtest.dataSource === "simulated" && (
               <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
                 style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.25)" }}>
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: "hsl(38,95%,58%)" }} />
@@ -1532,29 +1556,29 @@ export default function BacktestDetail() {
               />
               <StatBox
                 label="Sortino Ratio"
-                value={(backtest as any).sortinoRatio != null ? fmtNum((backtest as any).sortinoRatio) : "—"}
-                accent={(backtest as any).sortinoRatio != null && (backtest as any).sortinoRatio > 1 ? "#22c55e" : (backtest as any).sortinoRatio != null && (backtest as any).sortinoRatio > 0 ? "#f59e0b" : "#ef4444"}
+                value={backtest.sortinoRatio != null ? fmtNum(backtest.sortinoRatio) : "—"}
+                accent={backtest.sortinoRatio != null && backtest.sortinoRatio > 1 ? "#22c55e" : backtest.sortinoRatio != null && backtest.sortinoRatio > 0 ? "#f59e0b" : "#ef4444"}
                 tooltip="Like the Sharpe Ratio, but only penalises downside volatility (losses). A higher Sortino than Sharpe means your losses are smoother than your gains."
               />
               <StatBox
                 label="Calmar Ratio"
-                value={(backtest as any).calmarRatio != null ? fmtNum((backtest as any).calmarRatio) : ((backtest as any).calmarRatio === null && (backtest as any).annualizedReturn > 0 ? "∞" : "—")}
-                accent={(backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 1 ? "#22c55e" : (backtest as any).calmarRatio != null && (backtest as any).calmarRatio > 0 ? "#f59e0b" : "#ef4444"}
+                value={backtest.calmarRatio != null ? fmtNum(backtest.calmarRatio) : (backtest.calmarRatio === null && (backtest.annualizedReturn ?? 0) > 0 ? "∞" : "—")}
+                accent={backtest.calmarRatio != null && backtest.calmarRatio > 1 ? "#22c55e" : backtest.calmarRatio != null && backtest.calmarRatio > 0 ? "#f59e0b" : "#ef4444"}
                 tooltip="Annualised return divided by maximum drawdown. Measures how much return you get per unit of peak-to-trough loss. Above 1.0 is solid."
               />
               <StatBox
-                label={(backtest as any).dataSource === "simulated" ? "Benchmark B&H (sim.)" : "Benchmark (B&H)"}
-                value={(backtest as any).benchmarkReturn != null ? fmtPct((backtest as any).benchmarkReturn) : "—"}
-                accent={(backtest as any).benchmarkReturn != null && (backtest as any).benchmarkReturn >= 0 ? "#6366f1" : "#ef4444"}
-                tooltip={(backtest as any).dataSource === "simulated"
+                label={backtest.dataSource === "simulated" ? "Benchmark B&H (sim.)" : "Benchmark (B&H)"}
+                value={backtest.benchmarkReturn != null ? fmtPct(backtest.benchmarkReturn) : "—"}
+                accent={backtest.benchmarkReturn != null && backtest.benchmarkReturn >= 0 ? "#6366f1" : "#ef4444"}
+                tooltip={backtest.dataSource === "simulated"
                   ? "Buy-and-hold return over the same period using simulated price data. Compare with caution — both strategy and benchmark use generated prices."
                   : "What a simple buy-and-hold of this asset would have returned over the same period using real market data."}
               />
-              {(backtest as any).benchmarkReturn != null && backtest.totalReturn != null && (
+              {backtest.benchmarkReturn != null && backtest.totalReturn != null && (
                 <StatBox
                   label="Alpha vs B&H"
-                  value={fmtPct(backtest.totalReturn - (backtest as any).benchmarkReturn)}
-                  accent={backtest.totalReturn - (backtest as any).benchmarkReturn >= 0 ? "#22c55e" : "#ef4444"}
+                  value={fmtPct(backtest.totalReturn - (backtest.benchmarkReturn ?? 0))}
+                  accent={backtest.totalReturn - (backtest.benchmarkReturn ?? 0) >= 0 ? "#22c55e" : "#ef4444"}
                   tooltip="Your strategy's total return minus the buy-and-hold benchmark. Positive alpha means your strategy outperformed simply holding the asset."
                 />
               )}
@@ -1619,23 +1643,23 @@ export default function BacktestDetail() {
                   tooltip="Estimated probability of losing 50% of capital assuming a constant 2% risk per trade. Derived from your win rate and average reward-to-risk ratio using the gambler's ruin formula. Lower is better."
                 />
               )}
-              {((backtest as any).consecutiveWins ?? 0) > 0 && (
-                <StatBox label="Max Consec. Wins" value={(backtest as any).consecutiveWins} sub="in a row" accent="#22c55e" />
+              {(backtest.consecutiveWins ?? 0) > 0 && (
+                <StatBox label="Max Consec. Wins" value={backtest.consecutiveWins} sub="in a row" accent="#22c55e" />
               )}
-              {((backtest as any).consecutiveLosses ?? 0) > 0 && (
-                <StatBox label="Max Consec. Losses" value={(backtest as any).consecutiveLosses} sub="in a row" accent="#ef4444" />
+              {(backtest.consecutiveLosses ?? 0) > 0 && (
+                <StatBox label="Max Consec. Losses" value={backtest.consecutiveLosses} sub="in a row" accent="#ef4444" />
               )}
-              {((backtest as any).commission ?? 0) > 0 && (
+              {(backtest.commission ?? 0) > 0 && (
                 <StatBox
                   label="Commission"
-                  value={`${(backtest as any).commission}%`}
+                  value={`${backtest.commission}%`}
                   sub="per side"
                 />
               )}
-              {((backtest as any).slippage ?? 0) > 0 && (
+              {(backtest.slippage ?? 0) > 0 && (
                 <StatBox
                   label="Slippage"
-                  value={`${(backtest as any).slippage}%`}
+                  value={`${backtest.slippage}%`}
                   sub="per side"
                 />
               )}
@@ -1945,7 +1969,7 @@ export default function BacktestDetail() {
                 </div>
 
                 {/* ── Yearly Calendar Heatmap ─────────────────────────── */}
-                {(backtest as any).yearlyReturns && (backtest as any).yearlyReturns.length > 0 && (
+                {backtest.yearlyReturns && backtest.yearlyReturns.length > 0 && (
                   <Card className="border-border">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">Return Calendar</CardTitle>
@@ -1962,7 +1986,7 @@ export default function BacktestDetail() {
                           ))}
                           <div className="w-16 flex-shrink-0 text-right text-[10px] text-muted-foreground font-medium">Total</div>
                         </div>
-                        {((backtest as any).yearlyReturns as Array<{ year: string; pct: number; months: Array<{ month: string; pct: number; label: string }> }>).map((yr) => {
+                        {(backtest.yearlyReturns ?? []).map((yr) => {
                           const maxAbs = Math.max(...yr.months.map((m) => Math.abs(m.pct)), 0.1);
                           return (
                             <div key={yr.year} className="flex gap-1 items-center">

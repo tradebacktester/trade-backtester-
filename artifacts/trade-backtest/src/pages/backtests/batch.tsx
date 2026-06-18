@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useCreateBacktest, useListStrategies, getListBacktestsQueryKey } from "@workspace/api-client-react";
+import type { Backtest } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,8 +12,15 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Play, CheckCircle2, XCircle, Loader2, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
+
 import { format, subYears } from "date-fns";
 import { SYMBOLS } from "./new";
+
+interface BacktestDetail extends Backtest {
+  sortinoRatio?: number | null;
+  calmarRatio?: number | null;
+  benchmarkReturn?: number | null;
+}
 
 interface BatchResult {
   symbol: string;
@@ -105,12 +113,12 @@ export default function BatchBacktest() {
                         backtestId: bt.id,
                         totalReturn: bt.totalReturn ?? undefined,
                         sharpeRatio: bt.sharpeRatio ?? undefined,
-                        sortinoRatio: (bt as any).sortinoRatio ?? undefined,
-                        calmarRatio: (bt as any).calmarRatio ?? undefined,
+                        sortinoRatio: (bt as BacktestDetail).sortinoRatio ?? undefined,
+                        calmarRatio: (bt as BacktestDetail).calmarRatio ?? undefined,
                         maxDrawdown: bt.maxDrawdown ?? undefined,
                         winRate: bt.winRate ?? undefined,
                         totalTrades: bt.totalTrades ?? undefined,
-                        benchmarkReturn: (bt as any).benchmarkReturn ?? undefined,
+                        benchmarkReturn: (bt as BacktestDetail).benchmarkReturn ?? undefined,
                       }
                     : r
                 )
