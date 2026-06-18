@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { CandleLoader } from "@/components/candle-loader";
+import { DataErrorBoundary } from "@/components/data-error-boundary";
 import { motion } from "framer-motion";
 import { useRoute, Link, useLocation } from "wouter";
 import {
@@ -1762,6 +1763,7 @@ export default function BacktestDetail() {
                 {isLoadingEquity ? (
                   <Skeleton className="h-[380px] w-full" />
                 ) : equityCurve && equityCurve.length > 0 ? (
+                  <DataErrorBoundary label="equity curve chart" compact>
                   <div className="h-[380px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={equityCurve} margin={{ top: 10, right: 40, left: 0, bottom: 0 }}>
@@ -1812,6 +1814,7 @@ export default function BacktestDetail() {
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
+                  </DataErrorBoundary>
                 ) : (
                   <div className="h-[380px] flex items-center justify-center text-muted-foreground border border-dashed rounded-md">
                     No equity data available.
@@ -1837,7 +1840,9 @@ export default function BacktestDetail() {
                     <CardContent>
                       <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                         <div className="shrink-0">
-                          <WinRateGauge pct={analytics.winRate} />
+                          <DataErrorBoundary label="win rate gauge" compact>
+                            <WinRateGauge pct={analytics.winRate} />
+                          </DataErrorBoundary>
                         </div>
                         <div className="space-y-3 flex-1 min-w-[160px]">
                           <div className="flex justify-between">

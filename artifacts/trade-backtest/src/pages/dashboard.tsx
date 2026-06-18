@@ -12,6 +12,9 @@ import { Button } from "@/components/ui/button";
 import { API_BASE } from "@/lib/api-config";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { useApiQuery } from "@/lib/use-api-query";
+import { handleApiError, apiFetch } from "@/lib/api-error";
+import { DataErrorBoundary } from "@/components/data-error-boundary";
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 function fmtPct(v: number | null | undefined, sign = true) {
@@ -90,15 +93,12 @@ type CoachingData = {
 function AlertEngineCard() {
   const { token } = useAuth();
   const { toast } = useToast();
-  const [stats, setStats] = useState<{ total: number; active: number; unread: number; planSlug: string; maxAlerts: number } | null>(null);
+  const { data: raw, error: alertError } = useApiQuery<any>("/api/alerts", { token, staleTime: 60_000 });
+  const stats = raw ? { total: raw.total ?? 0, active: raw.active ?? 0, unread: raw.unreadNotifications ?? 0, planSlug: raw.planSlug ?? "free", maxAlerts: raw.maxAlerts ?? 5 } : null;
 
   useEffect(() => {
-    if (!token) return;
-    fetch(`${API_BASE}/api/alerts`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then((d: any) => setStats({ total: d.total ?? 0, active: d.active ?? 0, unread: d.unreadNotifications ?? 0, planSlug: d.planSlug ?? "free", maxAlerts: d.maxAlerts ?? 5 }))
-      .catch(() => { toast({ variant: "destructive", title: "Failed to load alert stats" }); });
-  }, [token]);
+    if (alertError) handleApiError(alertError, toast, { title: "Alert stats unavailable" });
+  }, [alertError]);
 
   if (!token) return null;
   const CYAN = "hsl(188,100%,42%)";
@@ -155,21 +155,12 @@ function AlertEngineCard() {
 function DailyCoachCard() {
   const { token } = useAuth();
   const { toast } = useToast();
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(true);
+  const { data, isLoading: loading, error: coachError } = useApiQuery<Record<string, unknown>>("/api/ai/daily-coach", { token, staleTime: 5 * 60_000 });
 
   useEffect(() => {
-    if (!token) return;
-    setLoading(true);
-    fetch(`${API_BASE}/api/ai/daily-coach`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(d => setData(d as Record<string, unknown>))
-      .catch(() => { toast({ variant: "destructive", title: "Failed to load daily coach" }); })
-      .finally(() => setLoading(false));
-  }, [token]);
+    if (coachError) handleApiError(coachError, toast, { title: "Daily coach unavailable" });
+  }, [coachError]);
 
   if (!token || (!loading && !data?.hasData)) return null;
 
@@ -244,20 +235,12 @@ function DailyCoachCard() {
 function AiCoachSection() {
   const { token } = useAuth();
   const { toast } = useToast();
-  const [data, setData] = useState<CoachingData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [showMistakes, setShowMistakes] = useState(false);
+  const { data, isLoading: loading, error: coachError } = useApiQuery<CoachingData>("/api/ai/coaching-insights", { token, staleTime: 3 * 60_000 });
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
-    fetch(`${API_BASE}/api/ai/coaching-insights`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(d => setData(d as CoachingData))
-      .catch(() => { toast({ variant: "destructive", title: "Failed to load AI coaching insights" }); })
-      .finally(() => setLoading(false));
-  }, [token]);
+    if (coachError) handleApiError(coachError, toast, { title: "AI coaching unavailable" });
+  }, [coachError]);
 
   if (!token) return null;
 
@@ -323,6 +306,7 @@ function AiCoachSection() {
         ) : (
           <div className="flex flex-col sm:flex-row gap-5">
             <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <DataErrorBoundary label="coach gauge" compact>
               <div className="relative" style={{ width: 130, height: 130 }}>
                 <svg width="130" height="130" viewBox="0 0 150 150"
                   style={{ transform: `rotate(${rotation}deg)` }}>
@@ -344,6 +328,7 @@ function AiCoachSection() {
                   <span className="text-[9px] font-mono uppercase tracking-widest mt-0.5" style={{ color: C.muted }}>score</span>
                 </div>
               </div>
+              </DataErrorBoundary>
               <p className="text-[11px] font-semibold text-center font-mono" style={{ color: data!.traderStyleColor }}>
                 {data!.traderStyle}
               </p>
@@ -527,6 +512,7 @@ function AiMarketPulse() {
 
         {/* Right — SVG gauge */}
         <div className="flex-shrink-0 flex flex-col items-center gap-2.5">
+          <DataErrorBoundary label="market pulse gauge" compact>
           <div className="relative" style={{ width: 156, height: 156 }}>
             {/* Ambient glow behind gauge — purple */}
             <div className="absolute inset-0 rounded-full"
@@ -564,6 +550,7 @@ function AiMarketPulse() {
               <span className="apple-label mt-1" style={{ color: "#67e8f9" }}>BULLISH</span>
             </div>
           </div>
+          </DataErrorBoundary>
 
           {/* Confidence badge */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono px-3 py-1.5 rounded-full"
@@ -592,19 +579,12 @@ interface DnaProfile {
 function TraderDNACommandCenter() {
   const { token } = useAuth();
   const { toast } = useToast();
-  const [data, setData] = useState<DnaProfile | null>(null);
-  const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const { data, isLoading: loading, error: dnaError } = useApiQuery<DnaProfile>("/api/alerts/dna-analysis", { token, staleTime: 2 * 60_000 });
 
   useEffect(() => {
-    if (!token) return;
-    setLoading(true);
-    fetch(`${API_BASE}/api/alerts/dna-analysis`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
-      .then((d: DnaProfile | null) => { if (d) setData(d); })
-      .catch(() => { toast({ variant: "destructive", title: "Failed to load Trader DNA" }); })
-      .finally(() => setLoading(false));
-  }, [token]);
+    if (dnaError) handleApiError(dnaError, toast, { title: "Trader DNA unavailable" });
+  }, [dnaError]);
 
   if (!token) return null;
 
@@ -1217,6 +1197,9 @@ export default function Dashboard() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const { token: authToken } = useAuth();
+  const { toast: dashToast } = useToast();
+
   const sendMessage = useCallback(async () => {
     const text = chatInput.trim();
     if (!text || isChatLoading) return;
@@ -1225,24 +1208,24 @@ export default function Dashboard() {
     setMessages(newMessages);
     setIsChatLoading(true);
     try {
-      const token = localStorage.getItem("tt_token");
-      const res = await fetch(`${API_BASE}/api/ai/chat`, {
+      const data = await apiFetch<{ message?: string; error?: string }>(`${API_BASE}/api/ai/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         body: JSON.stringify({ messages: newMessages }),
       });
-      const data = await res.json() as { message?: string; error?: string };
       setMessages(prev => [...prev, { role: "assistant" as const, content: data.message ?? data.error ?? "Error." }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant" as const, content: "Network error. Please try again." }]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Network error. Please try again.";
+      setMessages(prev => [...prev, { role: "assistant" as const, content: msg }]);
+      handleApiError(err, dashToast, { title: "Chat failed" });
     } finally {
       setIsChatLoading(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
-  }, [chatInput, messages, isChatLoading]);
+  }, [chatInput, messages, isChatLoading, authToken, dashToast]);
 
   const analytics = useMemo(() => {
     if (!backtests?.length) return null;
