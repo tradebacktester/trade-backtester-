@@ -13,7 +13,7 @@ import { API } from "@/lib/api-config";
 
 // ── Accent palette (kept as constants — used as chart/indicator colours only) ──
 const A = {
-  purple: "#a78bfa",
+  purple: "#C9A84C",
   blue:   "#38bdf8",
   green:  "#22c55e",
   amber:  "#f59e0b",

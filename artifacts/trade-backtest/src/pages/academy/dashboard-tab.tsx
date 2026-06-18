@@ -6,7 +6,7 @@ import {
 import type { AcademyDashboard } from "./types";
 import { PATH_ICONS } from "./types";
 
-const ACCENT = "#22D3EE";
+const ACCENT = "#C9A84C";
 const SUCCESS = "#84CC16";
 const BORDER = "#262626";
 const CARD = "#171717";

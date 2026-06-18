@@ -258,7 +258,7 @@ export default function PricingPage() {
         description: `${order.planName} Plan – Monthly`,
         order_id: order.orderId,
         prefill: { name: user.name, email: user.email },
-        theme: { color: "#8b5cf6" },
+        theme: { color: "#C9A84C" },
         handler: async (response: Record<string, string>) => {
           const verifyRes = await fetch(`${API_BASE}/api/subscription/verify`, {
             method: "POST",

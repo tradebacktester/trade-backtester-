@@ -52,18 +52,18 @@ const buttonVariants = cva(
           " hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.28),var(--shadow-md)] hover:-translate-y-px hover:[border-color:var(--glass-border-strong)]" +
           " active:scale-[0.98]",
         cyan:
-          "rounded-xl font-bold text-white" +
-          " [background:linear-gradient(135deg,#22D3EE_0%,#0891b2_100%)]" +
-          " [border:1px_solid_rgba(34,211,238,0.45)]" +
-          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.28),0_0_18px_rgba(34,211,238,0.28),var(--shadow-btn)]" +
-          " hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.36),0_0_30px_rgba(34,211,238,0.45),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
+          "rounded-xl font-bold text-[#0a0a0a]" +
+          " [background:linear-gradient(135deg,#E8E8F0_0%,#c4c4cc_100%)]" +
+          " [border:1px_solid_rgba(255,255,255,0.55)]" +
+          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.90),0_0_18px_rgba(232,232,240,0.18),var(--shadow-btn)]" +
+          " hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,1),0_0_30px_rgba(232,232,240,0.28),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
           " active:scale-[0.97]",
         purple:
-          "rounded-xl font-bold text-white" +
-          " [background:linear-gradient(135deg,#7C3AED_0%,#5b21b6_100%)]" +
-          " [border:1px_solid_rgba(124,58,237,0.45)]" +
-          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.20),0_0_18px_rgba(124,58,237,0.30),var(--shadow-btn)]" +
-          " hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.28),0_0_30px_rgba(124,58,237,0.48),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
+          "rounded-xl font-bold text-[#0a0a0a]" +
+          " [background:linear-gradient(135deg,#C9A84C_0%,#a07830_100%)]" +
+          " [border:1px_solid_rgba(201,168,76,0.55)]" +
+          " [box-shadow:inset_0_1px_0_rgba(255,255,255,0.28),0_0_18px_rgba(201,168,76,0.28),var(--shadow-btn)]" +
+          " hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.38),0_0_30px_rgba(201,168,76,0.45),var(--shadow-btn-hover)] hover:-translate-y-px hover:scale-[1.02]" +
           " active:scale-[0.97]",
         link: "text-primary underline-offset-4 hover:underline font-medium",
       },

@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
         >
           <span
             className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.2)" }}
+            style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.2)" }}
           >
             <ShieldCheck style={{ height: "16px", width: "16px", color: "#22d3ee" }} />
           </span>

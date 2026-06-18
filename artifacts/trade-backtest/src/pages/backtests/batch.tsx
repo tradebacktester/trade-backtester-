@@ -167,9 +167,9 @@ export default function BatchBacktest() {
         >
           <div
             className="h-14 w-14 rounded-2xl flex items-center justify-center mb-5"
-            style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.2)" }}
+            style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.2)" }}
           >
-            <Lock style={{ height: 24, width: 24, color: "#7C3AED" }} />
+            <Lock style={{ height: 24, width: 24, color: "#C9A84C" }} />
           </div>
           <h2 className="text-lg font-bold mb-2">Pro Feature</h2>
           <p className="text-sm text-muted-foreground max-w-sm mb-6">
@@ -192,7 +192,7 @@ export default function BatchBacktest() {
           <Button
             className="mt-8 gap-2"
             onClick={() => setLocation("/pricing")}
-            style={{ background: "#7C3AED", color: "#fff" }}
+            style={{ background: "linear-gradient(135deg,#C9A84C,#a07830)", color: "#0a0a0a" }}
           >
             <Crown style={{ height: 14, width: 14 }} />
             Upgrade to Pro

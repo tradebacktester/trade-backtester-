@@ -826,7 +826,7 @@ function RankTab({ token }: { token: string }) {
   const ALL_RANKS = [
     { name: "Rookie Trader",        icon: "🌱", color: "#6b7280", description: "Building your foundation",    min: 0  },
     { name: "Disciplined Trader",   icon: "📋", color: "#3b82f6", description: "Consistent habits forming",   min: 16 },
-    { name: "Professional Trader",  icon: "💼", color: "#8b5cf6", description: "Executing with precision",    min: 31 },
+    { name: "Professional Trader",  icon: "💼", color: "#C9A84C", description: "Executing with precision",    min: 31 },
     { name: "Market Sniper",        icon: "🎯", color: "#06b6d4", description: "High-probability only",       min: 51 },
     { name: "Institutional Mindset",icon: "🏛", color: "#f59e0b", description: "Trading like the pros",       min: 66 },
     { name: "Legendary Trader",     icon: "⭐", color: "#22c55e", description: "Elite performance tier",      min: 81 },

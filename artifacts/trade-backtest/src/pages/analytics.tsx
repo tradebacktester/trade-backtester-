@@ -42,7 +42,7 @@ const ACCENT = {
   red:    "#ef4444",
   blue:   "#38bdf8",
   amber:  "#f59e0b",
-  purple: "#a78bfa",
+  purple: "#C9A84C",
 };
 
 function PnlBadge({ pnl, pct }: { pnl: number; pct: number }) {

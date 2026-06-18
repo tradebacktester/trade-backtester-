@@ -46,9 +46,9 @@ export default function SignUpPage() {
         >
           <span
             className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.2)" }}
+            style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.2)" }}
           >
-            <UserPlus style={{ height: "16px", width: "16px", color: "#a78bfa" }} />
+            <UserPlus style={{ height: "16px", width: "16px", color: "#C9A84C" }} />
           </span>
           <div>
             <h2 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>

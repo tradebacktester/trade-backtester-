@@ -17,7 +17,7 @@ const CERT_META: Record<string, { title: string; color: string; description: str
   },
   intermediate: {
     title: "Intermediate Trader Certificate",
-    color: "#22D3EE",
+    color: "#C9A84C",
     description: "Demonstrates proficiency in price action, market structure, and intermediate trading concepts.",
     requirements: ["Complete 80%+ of Intermediate path lessons", "Score 60%+ average on quizzes"],
   },

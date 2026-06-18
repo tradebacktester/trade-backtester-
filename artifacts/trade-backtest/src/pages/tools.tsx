@@ -1146,7 +1146,7 @@ export default function ToolsPage() {
       {/* Data source notice for visualisation tools */}
       {(activeTab === "heatmap" || activeTab === "depth" || activeTab === "correlation") && (
         <div className="mb-3 flex items-start gap-2 px-3 py-2 rounded-xl text-xs"
-          style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.15)", color: "rgba(34,211,238,0.75)" }}>
+          style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.15)", color: "rgba(201,168,76,0.75)" }}>
           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
           <span>
             <strong>Market data</strong> — sourced from Binance (crypto) and live market feeds. Visualisations use sampled data and are for analysis purposes only.

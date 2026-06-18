@@ -21,7 +21,7 @@ const CAT_COLOR: Record<string, string> = {
   Forex: "#10b981",
   Indices: "#06b6d4",
   Commodities: "#ef4444",
-  "Indian Indices": "#8b5cf6",
+  "Indian Indices": "#C9A84C",
 };
 
 const POPULAR = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AAPL", "NVDA", "TSLA", "XAUUSD", "EURUSD", "SPX500"];

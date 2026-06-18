@@ -8,7 +8,7 @@ import { API_BASE } from "@/lib/api-config";
 import type { AcademyCourse, AcademyQuizQuestion, AcademyQuizAttempt } from "./types";
 import { PATH_META } from "./types";
 
-const ACCENT = "#22D3EE";
+const ACCENT = "#C9A84C";
 const SUCCESS = "#84CC16";
 const DANGER = "#EF4444";
 const BORDER = "#262626";
