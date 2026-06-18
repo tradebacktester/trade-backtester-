@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { API_BASE } from "@/lib/api-config";
 import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface ScreenerRow {
@@ -816,6 +817,7 @@ export default function MarketSelectionPage() {
 
   const { token } = useAuth();
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: screenerData, isLoading, refetch, isFetching } = useQuery<ScreenerRow[]>({
     queryKey: ["ms-screener"],
@@ -903,6 +905,7 @@ export default function MarketSelectionPage() {
     const next  = isFav ? favs.filter(s => s !== sym) : [sym, ...favs];
     setFavs(next);
     localStorage.setItem(LS.FAV, JSON.stringify(next));
+    toast({ title: isFav ? `${sym} removed from watchlist` : `${sym} added to watchlist` });
     if (token) {
       if (isFav) {
         fetch(`${API_BASE}/api/watchlist/${encodeURIComponent(sym)}`, {

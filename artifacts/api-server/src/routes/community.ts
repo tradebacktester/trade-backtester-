@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, communityPostsTable, communityPostLikesTable, communityReportsTable, communityMessagesTable, directMessagesTable, subscriptionsTable, subscriptionPlansTable, usersTable } from "@workspace/db";
-import { eq, desc, and, gt, or, sql } from "drizzle-orm";
+import { db, communityPostsTable, communityPostLikesTable, communityReportsTable, communityMessagesTable, directMessagesTable, subscriptionsTable, subscriptionPlansTable, usersTable, backtestsTable, strategiesTable } from "@workspace/db";
+import { eq, desc, and, gt, or, sql, isNull, inArray } from "drizzle-orm";
 import { verifyJwt } from "../lib/jwt";
 import { verifyAdminToken } from "../lib/admin-auth";
 
@@ -30,7 +30,22 @@ function containsBannedWords(text: string): string | null {
   return null;
 }
 
-function serializePost(p: typeof communityPostsTable.$inferSelect) {
+type BacktestSummary = {
+  id: number;
+  symbol: string;
+  strategyName: string;
+  totalReturn: number | null;
+  sharpeRatio: number | null;
+  maxDrawdown: number | null;
+  winRate: number | null;
+  totalTrades: number | null;
+};
+
+function serializePost(
+  p: typeof communityPostsTable.$inferSelect,
+  replyCount = 0,
+  backtestSummary: BacktestSummary | null = null,
+) {
   return {
     id: p.id,
     userId: p.userId,
@@ -38,13 +53,17 @@ function serializePost(p: typeof communityPostsTable.$inferSelect) {
     content: p.content,
     imageUrl: p.imageUrl,
     likes: p.likes,
+    parentId: p.parentId ?? null,
+    backtestId: p.backtestId ?? null,
+    backtestSummary,
+    replyCount,
     createdAt: p.createdAt.toISOString(),
   };
 }
 
 // ── Public routes ───────────────────────────────────────────────────────────
 
-// GET /community — list posts (newest first, not deleted) with cursor-based pagination
+// GET /community — list top-level posts with reply counts and backtest previews
 router.get("/community", async (req, res): Promise<void> => {
   const PAGE_SIZE = 20;
   const limit = Math.min(Math.max(parseInt(String(req.query["limit"] ?? PAGE_SIZE), 10) || PAGE_SIZE, 1), 50);
@@ -53,13 +72,72 @@ router.get("/community", async (req, res): Promise<void> => {
   const posts = await db
     .select()
     .from(communityPostsTable)
-    .where(eq(communityPostsTable.isDeleted, false))
+    .where(and(eq(communityPostsTable.isDeleted, false), isNull(communityPostsTable.parentId)))
     .orderBy(desc(communityPostsTable.createdAt))
     .limit(limit + 1)
     .offset(offset);
 
   const hasMore = posts.length > limit;
-  res.json({ posts: posts.slice(0, limit).map(serializePost), hasMore, offset, limit });
+  const pagePosts = posts.slice(0, limit);
+  const postIds = pagePosts.map(p => p.id);
+
+  const replyCountMap = new Map<number, number>();
+  if (postIds.length > 0) {
+    const counts = await db
+      .select({ parentId: communityPostsTable.parentId, cnt: sql<number>`cast(count(*) as int)` })
+      .from(communityPostsTable)
+      .where(and(eq(communityPostsTable.isDeleted, false), inArray(communityPostsTable.parentId, postIds)))
+      .groupBy(communityPostsTable.parentId);
+    for (const row of counts) { if (row.parentId) replyCountMap.set(row.parentId, row.cnt); }
+  }
+
+  const backtestSummaryMap = new Map<number, BacktestSummary>();
+  const btIds = pagePosts.filter(p => p.backtestId).map(p => p.backtestId!);
+  if (btIds.length > 0) {
+    const btRows = await db
+      .select({
+        id: backtestsTable.id, symbol: backtestsTable.symbol,
+        strategyName: strategiesTable.name,
+        totalReturn: backtestsTable.totalReturn, sharpeRatio: backtestsTable.sharpeRatio,
+        maxDrawdown: backtestsTable.maxDrawdown, winRate: backtestsTable.winRate,
+        totalTrades: backtestsTable.totalTrades,
+      })
+      .from(backtestsTable)
+      .leftJoin(strategiesTable, eq(backtestsTable.strategyId, strategiesTable.id))
+      .where(inArray(backtestsTable.id, btIds));
+    for (const r of btRows) {
+      backtestSummaryMap.set(r.id, {
+        id: r.id, symbol: r.symbol, strategyName: r.strategyName ?? "Unknown Strategy",
+        totalReturn: r.totalReturn ? Number(r.totalReturn) : null,
+        sharpeRatio: r.sharpeRatio ? Number(r.sharpeRatio) : null,
+        maxDrawdown: r.maxDrawdown ? Number(r.maxDrawdown) : null,
+        winRate: r.winRate ? Number(r.winRate) : null,
+        totalTrades: r.totalTrades,
+      });
+    }
+  }
+
+  res.json({
+    posts: pagePosts.map(p => serializePost(
+      p,
+      replyCountMap.get(p.id) ?? 0,
+      p.backtestId ? (backtestSummaryMap.get(p.backtestId) ?? null) : null,
+    )),
+    hasMore, offset, limit,
+  });
+});
+
+// GET /community/:id/replies — fetch replies for a post
+router.get("/community/:id/replies", async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const replies = await db.select().from(communityPostsTable)
+    .where(and(eq(communityPostsTable.isDeleted, false), eq(communityPostsTable.parentId, id)))
+    .orderBy(communityPostsTable.createdAt)
+    .limit(50);
+
+  res.json({ replies: replies.map(r => serializePost(r)) });
 });
 
 // POST /community — create a post (authentication required)
@@ -100,9 +178,11 @@ router.post("/community", async (req, res): Promise<void> => {
     return;
   }
 
-  const { content, imageUrl } = req.body as {
+  const { content, imageUrl, parentId: rawParentId, backtestId: rawBacktestId } = req.body as {
     content?: string;
     imageUrl?: string;
+    parentId?: number;
+    backtestId?: number;
   };
 
   if (!content || typeof content !== "string") {
@@ -146,14 +226,52 @@ router.post("/community", async (req, res): Promise<void> => {
     }
   }
 
+  let resolvedParentId: number | null = null;
+  if (rawParentId && typeof rawParentId === "number") {
+    const [parentPost] = await db
+      .select({ id: communityPostsTable.id, parentId: communityPostsTable.parentId })
+      .from(communityPostsTable)
+      .where(and(eq(communityPostsTable.id, rawParentId), eq(communityPostsTable.isDeleted, false)));
+    if (!parentPost) { res.status(404).json({ error: "Parent post not found." }); return; }
+    if (parentPost.parentId) { res.status(400).json({ error: "Cannot reply to a reply." }); return; }
+    resolvedParentId = parentPost.id;
+  }
+
+  let resolvedBacktestId: number | null = null;
+  let backtestSummary: BacktestSummary | null = null;
+  if (rawBacktestId && typeof rawBacktestId === "number") {
+    const [btRow] = await db
+      .select({
+        id: backtestsTable.id, symbol: backtestsTable.symbol, strategyName: strategiesTable.name,
+        totalReturn: backtestsTable.totalReturn, sharpeRatio: backtestsTable.sharpeRatio,
+        maxDrawdown: backtestsTable.maxDrawdown, winRate: backtestsTable.winRate,
+        totalTrades: backtestsTable.totalTrades,
+      })
+      .from(backtestsTable)
+      .leftJoin(strategiesTable, eq(backtestsTable.strategyId, strategiesTable.id))
+      .where(and(eq(backtestsTable.id, rawBacktestId), eq(backtestsTable.userId, userId)));
+    if (!btRow) { res.status(404).json({ error: "Backtest not found or not yours." }); return; }
+    resolvedBacktestId = btRow.id;
+    backtestSummary = {
+      id: btRow.id, symbol: btRow.symbol, strategyName: btRow.strategyName ?? "Unknown Strategy",
+      totalReturn: btRow.totalReturn ? Number(btRow.totalReturn) : null,
+      sharpeRatio: btRow.sharpeRatio ? Number(btRow.sharpeRatio) : null,
+      maxDrawdown: btRow.maxDrawdown ? Number(btRow.maxDrawdown) : null,
+      winRate: btRow.winRate ? Number(btRow.winRate) : null,
+      totalTrades: btRow.totalTrades,
+    };
+  }
+
   const [post] = await db.insert(communityPostsTable).values({
     userId: userId ?? null,
+    parentId: resolvedParentId,
+    backtestId: resolvedBacktestId,
     authorName: authorName.trim(),
     content: sanitized,
     imageUrl: imageUrl?.trim() || null,
   }).returning();
 
-  res.status(201).json(serializePost(post!));
+  res.status(201).json(serializePost(post!, 0, backtestSummary));
 });
 
 // POST /community/:id/like — toggle like with per-user deduplication (CRIT-001)

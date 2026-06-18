@@ -139,6 +139,17 @@ function StyleInjector() {
 }
 
 /* ── Interfaces ─────────────────────────────────────────────────────────────── */
+interface BacktestSummary {
+  id: number;
+  symbol: string;
+  strategyName: string;
+  totalReturn: number | null;
+  sharpeRatio: number | null;
+  maxDrawdown: number | null;
+  winRate: number | null;
+  totalTrades: number | null;
+}
+
 interface Post {
   id: number;
   userId: number | null;
@@ -147,6 +158,10 @@ interface Post {
   imageUrl: string | null;
   likes: number;
   createdAt: string;
+  parentId: number | null;
+  backtestId: number | null;
+  backtestSummary: BacktestSummary | null;
+  replyCount: number;
 }
 
 interface Report {
@@ -853,6 +868,52 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
   );
 }
 
+/* ── BacktestPreviewCard ────────────────────────────────────────────────────── */
+function BacktestPreviewCard({ bt }: { bt: BacktestSummary }) {
+  const ret = bt.totalReturn ?? 0;
+  const retColor = ret > 0 ? "#30D158" : ret < 0 ? "#FF453A" : "rgba(255,255,255,0.5)";
+  return (
+    <div style={{ margin: "0 16px 12px", padding: "10px 14px", borderRadius: 12, background: "rgba(10,132,255,0.06)", border: "1px solid rgba(10,132,255,0.18)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <TrendingUp style={{ height: 11, width: 11, color: "#0A84FF" }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#0A84FF", textTransform: "uppercase", letterSpacing: "0.06em" }}>Backtest Result</span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginLeft: "auto" }}>{bt.symbol}</span>
+      </div>
+      <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)", marginBottom: 8 }}>{bt.strategyName}</p>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>Return</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: retColor }}>{ret >= 0 ? "+" : ""}{ret.toFixed(1)}%</div>
+        </div>
+        {bt.sharpeRatio != null && (
+          <div>
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>Sharpe</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>{bt.sharpeRatio.toFixed(2)}</div>
+          </div>
+        )}
+        {bt.maxDrawdown != null && (
+          <div>
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>Max DD</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#FF453A" }}>{bt.maxDrawdown.toFixed(1)}%</div>
+          </div>
+        )}
+        {bt.winRate != null && (
+          <div>
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>Win Rate</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>{bt.winRate.toFixed(1)}%</div>
+          </div>
+        )}
+        {bt.totalTrades != null && (
+          <div>
+            <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>Trades</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>{bt.totalTrades}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── PostCard ───────────────────────────────────────────────────────────────── */
 function PostCard({
   post, adminToken, currentUserId, onDelete, onReport, likedIds, onLike, index,
@@ -866,6 +927,40 @@ function PostCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const { token: authToken } = useAuth();
+  const [showReplies, setShowReplies] = useState(false);
+  const [replies, setReplies] = useState<Post[]>([]);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const [replyError, setReplyError] = useState("");
+  const [localReplyCount, setLocalReplyCount] = useState(post.replyCount ?? 0);
+
+  async function loadReplies() {
+    if (replies.length > 0 && showReplies) return;
+    setLoadingReplies(true);
+    try {
+      const data = await apiFetch(`/api/community/${post.id}/replies`) as { replies: Post[] };
+      setReplies(data.replies ?? []);
+    } catch { /* ignore */ } finally { setLoadingReplies(false); }
+  }
+
+  async function submitReply() {
+    if (!replyContent.trim() || !authToken) return;
+    setReplySending(true); setReplyError("");
+    try {
+      const reply = await apiFetch("/api/community", {
+        method: "POST",
+        body: JSON.stringify({ content: replyContent.trim(), parentId: post.id }),
+      }, authToken) as Post;
+      setReplies(prev => [...prev, reply]);
+      setReplyContent(""); setShowReplyForm(false);
+      setLocalReplyCount(c => c + 1);
+    } catch (e) {
+      setReplyError(e instanceof Error ? e.message : "Failed to post reply.");
+    } finally { setReplySending(false); }
+  }
 
   async function handleDelete() {
     setDeleting(true);
@@ -914,6 +1009,8 @@ function PostCard({
         </div>
       )}
 
+      {post.backtestSummary && <BacktestPreviewCard bt={post.backtestSummary} />}
+
       {deleteError && (
         <div style={{ margin: "0 16px 8px", padding: "7px 12px", borderRadius: 10, background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)", fontSize: 11, color: "#FF453A", display: "flex", alignItems: "center", gap: 6 }}>
           <AlertTriangle style={{ height: 11, width: 11, flexShrink: 0 }} />{deleteError}
@@ -931,6 +1028,18 @@ function PostCard({
           }}>
           <Heart style={{ height: 12, width: 12, fill: liked ? "#FF453A" : "none" }} />
           {post.likes > 0 ? post.likes : "Like"}
+        </button>
+
+        <button onClick={() => { if (!showReplies) loadReplies(); setShowReplies(v => !v); }}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 20,
+            fontSize: 12, cursor: "pointer", transition: "all 0.12s ease",
+            background: showReplies ? "rgba(10,132,255,0.08)" : "transparent",
+            color: showReplies ? "#0A84FF" : "rgba(255,255,255,0.4)",
+            border: showReplies ? "1px solid rgba(10,132,255,0.25)" : "1px solid transparent",
+          }}>
+          <MessageSquare style={{ height: 12, width: 12 }} />
+          {localReplyCount > 0 ? localReplyCount : "Reply"}
         </button>
 
         <button onClick={() => onReport(post)}
@@ -966,6 +1075,57 @@ function PostCard({
           )
         )}
       </div>
+
+      {showReplies && (
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {loadingReplies ? (
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textAlign: "center", padding: "8px 0" }}>Loading replies…</p>
+          ) : (
+            <>
+              {replies.map(r => (
+                <div key={r.id} style={{ display: "flex", gap: 10, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <Avatar name={r.authorName} size={26} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>{r.authorName}</span>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{timeAgo(r.createdAt)}</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: "1.55", wordBreak: "break-word" }}>{r.content}</p>
+                  </div>
+                </div>
+              ))}
+              {authToken ? (
+                showReplyForm ? (
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 4 }}>
+                    <textarea value={replyContent} onChange={e => setReplyContent(e.target.value)}
+                      placeholder="Write a reply…" maxLength={400}
+                      style={{ flex: 1, resize: "none", outline: "none", padding: "8px 12px", borderRadius: 10, fontSize: 12, lineHeight: "1.5", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.1)", minHeight: 52 }}
+                      rows={2} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <button onClick={submitReply} disabled={replySending || !replyContent.trim()}
+                        style={{ padding: "7px 12px", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", background: "rgba(255,255,255,0.9)", color: "#050505", border: "none", opacity: (replySending || !replyContent.trim()) ? 0.4 : 1 }}>
+                        {replySending ? "…" : "Send"}
+                      </button>
+                      <button onClick={() => { setShowReplyForm(false); setReplyContent(""); setReplyError(""); }}
+                        style={{ padding: "7px 12px", borderRadius: 10, fontSize: 12, cursor: "pointer", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowReplyForm(true)}
+                    style={{ alignSelf: "flex-start", fontSize: 12, color: "rgba(255,255,255,0.4)", cursor: "pointer", background: "transparent", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "5px 12px", marginTop: 4 }}>
+                    + Reply
+                  </button>
+                )
+              ) : (
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>Sign in to reply</p>
+              )}
+              {replyError && <p style={{ fontSize: 11, color: "#FF453A" }}>{replyError}</p>}
+            </>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -981,8 +1141,33 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [selectedBtId, setSelectedBtId] = useState<number | null>(null);
+  const [selectedBtInfo, setSelectedBtInfo] = useState<{ symbol: string; totalReturn: number | null } | null>(null);
+  const [showBtPicker, setShowBtPicker] = useState(false);
+  const [btOptions, setBtOptions] = useState<{ id: number; symbol: string; totalReturn: number | null }[]>([]);
+  const [btLoading, setBtLoading] = useState(false);
 
   useEffect(() => { if (user?.name) setDisplayName(user.name); }, [user?.name]);
+
+  async function loadBacktests() {
+    if (!authToken) return;
+    setShowBtPicker(v => !v);
+    if (btOptions.length > 0) return;
+    setBtLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/backtests?limit=15`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (r.ok) {
+        const data = await r.json() as Array<{ id: number; symbol: string; totalReturn: string | null }>;
+        const list = Array.isArray(data) ? data : [];
+        setBtOptions(list.slice(0, 15).map(b => ({
+          id: b.id, symbol: b.symbol,
+          totalReturn: b.totalReturn != null ? Number(b.totalReturn) : null,
+        })));
+      }
+    } catch { /* ignore */ } finally { setBtLoading(false); }
+  }
 
   function autoResize() {
     const el = textareaRef.current;
@@ -1007,10 +1192,10 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
     try {
       const post = await apiFetch("/api/community", {
         method: "POST",
-        body: JSON.stringify({ content: content.trim(), imageUrl: imagePreview ?? undefined }),
+        body: JSON.stringify({ content: content.trim(), imageUrl: imagePreview ?? undefined, backtestId: selectedBtId ?? undefined }),
       }, authToken) as Post;
       onCreated(post);
-      setContent(""); setImagePreview(null);
+      setContent(""); setImagePreview(null); setSelectedBtId(null); setSelectedBtInfo(null);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to post.");
@@ -1075,6 +1260,50 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 12 }}>
           <Camera style={{ height: 11, width: 11 }} />Camera
         </button>
+
+        {authToken && (
+          <div style={{ position: "relative" }}>
+            <button onClick={loadBacktests}
+              className="cm-btn-ghost"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 12, background: selectedBtId ? "rgba(10,132,255,0.12)" : undefined, color: selectedBtId ? "#0A84FF" : undefined, borderColor: selectedBtId ? "rgba(10,132,255,0.3)" : undefined }}>
+              <TrendingUp style={{ height: 11, width: 11 }} />
+              {selectedBtId ? (selectedBtInfo?.symbol ?? "Backtest") : "Backtest"}
+            </button>
+            {showBtPicker && (
+              <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 100, minWidth: 230, background: "#111", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                <div style={{ padding: "8px 12px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Attach Backtest</span>
+                  <button onClick={() => setShowBtPicker(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.4)", display: "flex", padding: 2 }}>
+                    <X style={{ height: 12, width: 12 }} />
+                  </button>
+                </div>
+                {btLoading ? (
+                  <p style={{ padding: "10px 12px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Loading…</p>
+                ) : btOptions.length === 0 ? (
+                  <p style={{ padding: "10px 12px", fontSize: 12, color: "rgba(255,255,255,0.35)" }}>No backtests found</p>
+                ) : (
+                  <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                    {selectedBtId && (
+                      <button onClick={() => { setSelectedBtId(null); setSelectedBtInfo(null); setShowBtPicker(false); }}
+                        style={{ width: "100%", textAlign: "left", padding: "7px 12px", fontSize: 11, cursor: "pointer", background: "rgba(255,69,58,0.06)", border: "none", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "#FF453A", display: "block" }}>
+                        ✕ Remove backtest
+                      </button>
+                    )}
+                    {btOptions.map(b => (
+                      <button key={b.id} onClick={() => { setSelectedBtId(b.id); setSelectedBtInfo(b); setShowBtPicker(false); }}
+                        style={{ width: "100%", textAlign: "left", padding: "7px 12px", fontSize: 12, cursor: "pointer", background: selectedBtId === b.id ? "rgba(10,132,255,0.1)" : "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.85)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontWeight: 500 }}>{b.symbol}</span>
+                        <span style={{ fontSize: 11, color: b.totalReturn != null && b.totalReturn > 0 ? "#30D158" : b.totalReturn != null && b.totalReturn < 0 ? "#FF453A" : "rgba(255,255,255,0.4)" }}>
+                          {b.totalReturn != null ? `${b.totalReturn >= 0 ? "+" : ""}${b.totalReturn.toFixed(1)}%` : "—"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <span style={{ fontSize: 11, marginLeft: "auto", color: overLimit ? "#FF453A" : "rgba(255,255,255,0.25)", fontVariantNumeric: "tabular-nums" }}>
           {charCount}/1200

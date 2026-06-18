@@ -1101,6 +1101,7 @@ export default function AlertsPage() {
                   {[
                     { id: "in_app", label: "In-App" },
                     { id: "browser", label: "Browser" },
+                    { id: "email", label: "Email" },
                   ].map(ch => {
                     const active = form.deliveryChannels.includes(ch.id);
                     return (

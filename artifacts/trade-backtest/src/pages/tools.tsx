@@ -83,7 +83,7 @@ type ScreenerRow = {
   symbol: string; name: string; ticker: string; sector: string; mcapRank: number;
   price: number; change24h: number; change7d: number; volume24h: number;
   rsi: number; rsiSignal: string; macd: string; trend: string; bbPosition: number; vwap: number;
-  assetType?: string; dataSource?: "live" | "simulated";
+  assetType?: string; dataSource?: "live" | "simulated"; updatedAt?: number;
 };
 type SortKey = keyof ScreenerRow;
 
@@ -281,7 +281,26 @@ function ScreenerTab() {
           </tbody>
         </table>
       </div>
-      <p className="text-[10px] mt-2" style={{ color: C.muted }}>{rows.length} assets · Real-time data · Auto-refreshes every 30s</p>
+      {(() => {
+        const firstUpdatedAt = rows[0]?.updatedAt;
+        const ageMs = firstUpdatedAt ? Date.now() - firstUpdatedAt : null;
+        const isDelayed = ageMs !== null && ageMs > 15 * 60 * 1000;
+        const timeStr = firstUpdatedAt
+          ? new Date(firstUpdatedAt).toISOString().slice(11, 19) + " UTC"
+          : null;
+        return (
+          <div className="flex items-center gap-2 mt-2">
+            <p className="text-[10px]" style={{ color: C.muted }}>
+              {rows.length} assets · {timeStr ? `Data as of ${timeStr}` : "Live data"} · Auto-refreshes every 30s
+            </p>
+            {isDelayed && (
+              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "rgba(255,214,10,0.1)", color: "#FFD60A", border: "1px solid rgba(255,214,10,0.3)" }}>
+                DELAYED
+              </span>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

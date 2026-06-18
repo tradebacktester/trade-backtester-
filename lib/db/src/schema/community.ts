@@ -1,10 +1,13 @@
 import { pgTable, text, serial, timestamp, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { backtestsTable } from "./backtests";
 
 
 export const communityPostsTable = pgTable("community_posts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+  parentId: integer("parent_id"),
+  backtestId: integer("backtest_id").references(() => backtestsTable.id, { onDelete: "set null" }),
   authorName: text("author_name").notNull(),
   authorEmail: text("author_email"),
   content: text("content").notNull(),
@@ -16,6 +19,7 @@ export const communityPostsTable = pgTable("community_posts", {
 }, (t) => [
   index("community_posts_user_id_idx").on(t.userId),
   index("community_posts_created_at_idx").on(t.createdAt),
+  index("community_posts_parent_id_idx").on(t.parentId),
 ]);
 
 // Per-user like tracking to prevent duplicate likes
