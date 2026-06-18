@@ -105,6 +105,42 @@ router.post("/paper/trades", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json({ id: row.id });
 });
 
+// ── GET /api/paper/equity-curve — daily cumulative P&L curve ─────────────────
+router.get("/paper/equity-curve", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const rows = await db
+    .select()
+    .from(paperTradesTable)
+    .where(eq(paperTradesTable.userId, userId))
+    .orderBy(asc(paperTradesTable.exitTime));
+
+  if (rows.length === 0) {
+    res.json({ curve: [], totalPnl: 0 });
+    return;
+  }
+
+  // Group PnL by calendar day (UTC)
+  const dayMap = new Map<string, number>();
+  for (const r of rows) {
+    const exitMs = (r.exitTime > 1e10 ? r.exitTime : r.exitTime * 1000);
+    const day = new Date(exitMs).toISOString().slice(0, 10);
+    dayMap.set(day, (dayMap.get(day) ?? 0) + Number(r.pnl));
+  }
+
+  // Sort days and build cumulative curve starting at 0
+  const sorted = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  let running = 0;
+  const curve: { time: string; equity: number }[] = [
+    { time: sorted[0]![0], equity: 0 },
+  ];
+  for (const [day, pnl] of sorted) {
+    running += pnl;
+    curve.push({ time: day, equity: Math.round(running * 100) / 100 });
+  }
+
+  res.json({ curve, totalPnl: Math.round(running * 100) / 100 });
+});
+
 // ── DELETE /api/paper/trades — reset all paper trades for this user ───────────
 router.delete("/paper/trades", requireAuth, async (req, res): Promise<void> => {
   const userId = res.locals["userId"] as number;

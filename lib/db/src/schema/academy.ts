@@ -101,6 +101,17 @@ export const academyCertificatesTable = pgTable("academy_certificates", {
   index("academy_certs_path_id_idx").on(t.pathId),
 ]);
 
+export const academyLessonResumeTable = pgTable("academy_lesson_resume", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  lessonId: integer("lesson_id").notNull().references(() => academyLessonsTable.id, { onDelete: "cascade" }),
+  scrollPct: integer("scroll_pct").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("academy_lesson_resume_user_lesson_idx").on(t.userId, t.lessonId),
+  index("academy_lesson_resume_user_id_idx").on(t.userId),
+]);
+
 export const academyXpTable = pgTable("academy_xp", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().unique().references(() => usersTable.id, { onDelete: "cascade" }),

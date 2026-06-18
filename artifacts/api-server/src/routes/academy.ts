@@ -15,6 +15,7 @@ import {
   academyNotesTable,
   academyCertificatesTable,
   academyXpTable,
+  academyLessonResumeTable,
 } from "@workspace/db";
 import { eq, and, desc, count as drizzleCount, inArray, sql } from "drizzle-orm";
 
@@ -434,10 +435,37 @@ router.get("/academy/lessons/:id", requireAuth, async (req, res): Promise<void> 
     const [progress] = await db.select().from(academyUserProgressTable)
       .where(and(eq(academyUserProgressTable.userId, userId), eq(academyUserProgressTable.lessonId, lessonId)));
 
-    res.json({ ...lesson, completed: !!progress });
+    const [resume] = await db.select().from(academyLessonResumeTable)
+      .where(and(eq(academyLessonResumeTable.userId, userId), eq(academyLessonResumeTable.lessonId, lessonId)));
+
+    res.json({ ...lesson, completed: !!progress, scrollPct: resume?.scrollPct ?? 0 });
   } catch (e) {
     logger.error({ err: e }, "GET /academy/lessons/:id");
     res.status(500).json({ error: "Failed to load lesson" });
+  }
+});
+
+/* POST /api/academy/lessons/:id/progress — save scroll position mid-lesson */
+router.post("/academy/lessons/:id/progress", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const lessonId = Number(req.params["id"]);
+  const scrollPct = Math.min(100, Math.max(0, Math.round(Number(req.body?.scrollPct ?? 0))));
+  try {
+    const existing = await db.select({ id: academyLessonResumeTable.id })
+      .from(academyLessonResumeTable)
+      .where(and(eq(academyLessonResumeTable.userId, userId), eq(academyLessonResumeTable.lessonId, lessonId)));
+
+    if (existing.length === 0) {
+      await db.insert(academyLessonResumeTable).values({ userId, lessonId, scrollPct, updatedAt: new Date() });
+    } else {
+      await db.update(academyLessonResumeTable)
+        .set({ scrollPct, updatedAt: new Date() })
+        .where(and(eq(academyLessonResumeTable.userId, userId), eq(academyLessonResumeTable.lessonId, lessonId)));
+    }
+    res.json({ ok: true, scrollPct });
+  } catch (e) {
+    logger.error({ err: e }, "POST /academy/lessons/:id/progress");
+    res.status(500).json({ error: "Failed to save progress" });
   }
 });
 
@@ -843,8 +871,19 @@ router.post("/academy/admin/courses", requireAdmin, async (req, res): Promise<vo
 /* PUT /api/academy/admin/courses/:id — update course */
 router.put("/academy/admin/courses/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params["id"]);
+  const b = req.body as Record<string, unknown>;
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (typeof b.title === "string")       patch.title            = b.title;
+  if (typeof b.description === "string") patch.description      = b.description;
+  if (typeof b.category === "string")    patch.category         = b.category;
+  if (typeof b.difficulty === "string")  patch.difficulty       = b.difficulty;
+  if (typeof b.pathId === "string")      patch.pathId           = b.pathId;
+  if (typeof b.thumbnailEmoji === "string") patch.thumbnailEmoji = b.thumbnailEmoji;
+  if (typeof b.estimatedMinutes === "number") patch.estimatedMinutes = b.estimatedMinutes;
+  if (typeof b.sortOrder === "number")   patch.sortOrder        = b.sortOrder;
+  if (typeof b.published === "boolean")  patch.published        = b.published;
   try {
-    const [updated] = await db.update(academyCoursesTable).set({ ...req.body, updatedAt: new Date() })
+    const [updated] = await db.update(academyCoursesTable).set(patch)
       .where(eq(academyCoursesTable.id, id)).returning();
     res.json(updated);
   } catch (e) {
@@ -888,8 +927,18 @@ router.post("/academy/admin/courses/:id/lessons", requireAdmin, async (req, res)
 /* PUT /api/academy/admin/lessons/:id */
 router.put("/academy/admin/lessons/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params["id"]);
+  const b = req.body as Record<string, unknown>;
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (typeof b.title === "string")   patch.title            = b.title;
+  if (typeof b.type === "string")    patch.type             = b.type;
+  if (typeof b.content === "string") patch.content          = b.content;
+  if (b.videoUrl === null || typeof b.videoUrl === "string") patch.videoUrl = b.videoUrl;
+  if (Array.isArray(b.imageUrls))    patch.imageUrls        = b.imageUrls;
+  if (typeof b.estimatedMinutes === "number") patch.estimatedMinutes = b.estimatedMinutes;
+  if (typeof b.sortOrder === "number") patch.sortOrder      = b.sortOrder;
+  if (typeof b.published === "boolean") patch.published     = b.published;
   try {
-    const [updated] = await db.update(academyLessonsTable).set({ ...req.body, updatedAt: new Date() })
+    const [updated] = await db.update(academyLessonsTable).set(patch)
       .where(eq(academyLessonsTable.id, id)).returning();
     res.json(updated);
   } catch (e) {

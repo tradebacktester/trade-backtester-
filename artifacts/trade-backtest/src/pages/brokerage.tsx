@@ -5,7 +5,9 @@ import { AuthModal } from "@/components/auth-modal";
 import {
   RefreshCw, ExternalLink, Wallet, TrendingUp, TrendingDown,
   ShoppingCart, AlertCircle, CheckCircle2, Loader2, X, Plus,
+  ChevronDown, ChevronUp, Calculator,
 } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -144,9 +146,63 @@ function OrderRow({ order, onCancel }: { order: Order; onCancel: (id: string) =>
   );
 }
 
+// ── Paper equity curve chart ──────────────────────────────────────
+
+interface EquityPoint { time: string; equity: number }
+interface EquityCurveData { curve: EquityPoint[]; totalPnl: number }
+
+function PaperEquityChart({ token }: { token: string }) {
+  const { data, loading } = useApiFetch<EquityCurveData>("/paper/equity-curve", token, []);
+
+  if (loading) return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 animate-pulse h-44" />
+  );
+  if (!data || data.curve.length < 2) return null;
+
+  const totalPnl = data.totalPnl;
+  const positive = totalPnl >= 0;
+  const color = positive ? "#34d399" : "#f87171";
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Paper Trading P&amp;L</h2>
+          <p className="text-xs text-white/30 mt-0.5">Cumulative from closed trades</p>
+        </div>
+        <div className={`text-right`}>
+          <p className={`text-lg font-mono font-semibold ${positive ? "text-emerald-400" : "text-red-400"}`}>
+            {positive ? "+" : ""}${totalPnl.toFixed(2)}
+          </p>
+          <p className="text-xs text-white/30">total P&amp;L</p>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={130}>
+        <AreaChart data={data.curve} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="paperEquityGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.2} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+          <XAxis dataKey="time" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.25)" }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.25)" }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} width={52} />
+          <Tooltip
+            contentStyle={{ background: "#111", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+            labelStyle={{ color: "rgba(255,255,255,0.5)" }}
+            formatter={(v: number) => [`$${v.toFixed(2)}`, "P&L"]}
+          />
+          <Area type="monotone" dataKey="equity" stroke={color} strokeWidth={1.5} fill="url(#paperEquityGrad)" dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ── Order Form ────────────────────────────────────────────────────
 
-function OrderForm({ token, onSuccess }: { token: string; onSuccess: () => void }) {
+function OrderForm({ token, accountBalance, onSuccess }: { token: string; accountBalance?: number; onSuccess: () => void }) {
   const [symbol,  setSymbol]  = useState("AAPL");
   const [qty,     setQty]     = useState("1");
   const [side,    setSide]    = useState<"buy" | "sell">("buy");
@@ -155,6 +211,21 @@ function OrderForm({ token, onSuccess }: { token: string; onSuccess: () => void 
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  // Risk calculator
+  const [showCalc, setShowCalc] = useState(false);
+  const [calcEntry, setCalcEntry] = useState("");
+  const [calcStop,  setCalcStop]  = useState("");
+  const [calcRisk,  setCalcRisk]  = useState("1");
+
+  const calcBalance = accountBalance ?? 10000;
+  const entryNum = parseFloat(calcEntry);
+  const stopNum  = parseFloat(calcStop);
+  const riskNum  = parseFloat(calcRisk);
+  const priceDiff = Math.abs(entryNum - stopNum);
+  const suggestedQty = (priceDiff > 0 && riskNum > 0 && calcBalance > 0)
+    ? ((calcBalance * riskNum / 100) / priceDiff)
+    : null;
+  const riskAmt = suggestedQty !== null ? (calcBalance * riskNum / 100) : null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,6 +338,82 @@ function OrderForm({ token, onSuccess }: { token: string; onSuccess: () => void 
           />
         </div>
       )}
+
+      {/* ── Risk Calculator ── */}
+      <div className="rounded-lg border border-white/10 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowCalc(v => !v)}
+          className="w-full flex items-center justify-between px-3 py-2 text-xs text-white/40 hover:text-white/60 hover:bg-white/[0.02] transition-all"
+        >
+          <span className="flex items-center gap-1.5">
+            <Calculator size={11} />
+            Risk Calculator
+          </span>
+          {showCalc ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+        {showCalc && (
+          <div className="px-3 pb-3 space-y-2.5 border-t border-white/10 pt-2.5">
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">Entry $</label>
+                <input
+                  type="number" step="any" value={calcEntry} onChange={e => setCalcEntry(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">Stop $</label>
+                <input
+                  type="number" step="any" value={calcStop} onChange={e => setCalcStop(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">Risk %</label>
+                <input
+                  type="number" step="0.1" min="0.1" max="100" value={calcRisk} onChange={e => setCalcRisk(e.target.value)}
+                  placeholder="1"
+                  className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-white/30"
+                />
+              </div>
+            </div>
+            {suggestedQty !== null ? (
+              <div className="rounded-md bg-white/[0.03] border border-white/10 p-2.5 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-white/40">Account balance</span>
+                  <span className="text-[10px] font-mono text-white/60">${calcBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-white/40">Risk amount</span>
+                  <span className="text-[10px] font-mono text-amber-400">${riskAmt!.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-0.5">
+                  <span className="text-[10px] text-white/40">Suggested qty</span>
+                  <span className="text-sm font-mono font-semibold text-white">
+                    {suggestedQty < 1 ? suggestedQty.toFixed(4) : suggestedQty.toFixed(2)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQty(suggestedQty < 1 ? suggestedQty.toFixed(4) : suggestedQty.toFixed(2))}
+                  className="w-full mt-1 py-1.5 rounded-md bg-white/10 hover:bg-white/15 border border-white/10 text-[11px] text-white transition-all"
+                >
+                  Apply →
+                </button>
+              </div>
+            ) : (calcEntry && calcStop) ? (
+              <p className="text-[10px] text-white/30 text-center">Enter valid entry &amp; stop prices</p>
+            ) : (
+              <p className="text-[10px] text-white/30 text-center">
+                Enter entry price &amp; stop loss to calculate position size
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {error && (
         <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
@@ -466,6 +613,9 @@ export default function BrokeragePage() {
           </div>
         ) : null}
 
+        {/* Paper equity curve */}
+        <PaperEquityChart token={token} />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Positions */}
@@ -529,7 +679,7 @@ export default function BrokeragePage() {
               <h2 className="text-sm font-semibold text-white">Place Order</h2>
               <Plus size={15} className="text-white/30" />
             </div>
-            <OrderForm token={token} onSuccess={handleOrderSuccess} />
+            <OrderForm token={token} accountBalance={account?.cash} onSuccess={handleOrderSuccess} />
             <p className="text-white/20 text-[10px] mt-3 text-center">
               Paper trading only · No real money
             </p>

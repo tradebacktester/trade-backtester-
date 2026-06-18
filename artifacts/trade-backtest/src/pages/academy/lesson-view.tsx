@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   ArrowLeft, CheckCircle2, Clock, BookOpen, ChevronDown,
   MessageSquare, X, Send, Loader2, Bot, User, Menu,
@@ -277,6 +277,49 @@ export function LessonView({ course, lesson, allLessons, onBack, onLessonSelect,
   const [showLessonList, setShowLessonList] = useState(false);
   const [completing, setCompleting] = useState(false);
   const startRef = useRef(Date.now());
+  const lessonIdRef = useRef(lesson.id);
+
+  // Restore scroll position when lesson changes
+  useEffect(() => {
+    lessonIdRef.current = lesson.id;
+    const pct = lesson.scrollPct ?? 0;
+    if (pct > 0) {
+      // Wait for content to render, then scroll
+      const t = setTimeout(() => {
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        if (scrollable > 0) {
+          window.scrollTo({ top: Math.round(scrollable * pct / 100), behavior: "auto" });
+        }
+      }, 120);
+      return () => clearTimeout(t);
+    } else {
+      window.scrollTo({ top: 0, behavior: "auto" });
+      return undefined;
+    }
+  }, [lesson.id, lesson.scrollPct]);
+
+  // Save scroll position every 10s
+  const saveProgress = useCallback(() => {
+    if (!token) return;
+    const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+    if (scrollable <= 0) return;
+    const pct = Math.round((window.scrollY / scrollable) * 100);
+    // fire-and-forget
+    void fetch(`${API_BASE}/api/academy/lessons/${lessonIdRef.current}/progress`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ scrollPct: pct }),
+    });
+  }, [token]);
+
+  useEffect(() => {
+    const interval = setInterval(saveProgress, 10_000);
+    // also save on unmount / lesson change
+    return () => {
+      clearInterval(interval);
+      saveProgress();
+    };
+  }, [saveProgress]);
 
   const safeAllLessons = allLessons ?? [];
   const currentIdx = safeAllLessons.findIndex(l => l.id === lesson.id);

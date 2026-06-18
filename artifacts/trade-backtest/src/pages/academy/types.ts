@@ -27,6 +27,7 @@ export interface AcademyLesson {
   estimatedMinutes: number;
   sortOrder: number;
   completed?: boolean;
+  scrollPct?: number;
 }
 
 export interface AcademyQuizQuestion {
