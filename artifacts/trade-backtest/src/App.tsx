@@ -60,6 +60,7 @@ const UserProfilePage    = lazy(() => import("@/pages/user-profile"));
 const ChartPage          = lazy(() => import("@/pages/chart"));
 
 import { OnboardingWizard } from "@/components/onboarding-wizard";
+import { PolicyPopup } from "@/components/policy-popup";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +201,7 @@ function App() {
                   </Layout>
                   <OnboardingWizard />
                 </WouterRouter>
+                <PolicyPopup />
                 <Toaster />
               </TooltipProvider>
             </SettingsProvider>

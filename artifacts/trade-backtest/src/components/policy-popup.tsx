@@ -29,117 +29,120 @@ export function PolicyPopup() {
 
   if (!show) return null;
 
-  function handleAgree() {
-    if (!agreed) return;
+  function accept() {
     localStorage.setItem(STORAGE_KEY, Date.now().toString());
     setShow(false);
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.65)" }}
-    >
+    <>
+      <style>{`
+        @keyframes tlSlideUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .tl-policy-card { animation: tlSlideUp 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+      `}</style>
+
       <div
-        className="relative w-full max-w-md mx-4 rounded-2xl flex flex-col scale-in"
+        className="fixed inset-0 z-[500] flex items-end justify-center pb-6 px-4 sm:pb-8"
         style={{
-          background: "var(--glass-bg-strong)",
-          border: "1px solid var(--glass-border)",
-          boxShadow: "var(--shadow-modal)",
-          maxHeight: "90vh",
+          backdropFilter: "blur(10px) saturate(0.6)",
+          WebkitBackdropFilter: "blur(10px) saturate(0.6)",
+          background: "rgba(0,0,0,0.38)",
         }}
       >
-        <div className="overflow-y-auto flex-1 min-h-0 px-6 pt-6 pb-2">
-          <div className="flex items-center gap-3 mb-4">
-            <span
-              className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}
-            >
-              <Shield style={{ height: "18px", width: "18px", color: "hsl(var(--foreground))" }} />
-            </span>
-            <div>
-              <h2 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>
-                Welcome to Trade Lab
-              </h2>
-              <p className="text-xs mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>
-                A few quick things before you begin
+        <div
+          className="tl-policy-card w-full max-w-lg rounded-2xl overflow-hidden"
+          style={{
+            background: "var(--glass-bg-strong, rgba(18,18,18,0.97))",
+            border: "1px solid var(--glass-border, rgba(255,255,255,0.1))",
+            boxShadow: "0 -4px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
+          }}
+        >
+          <div className="px-5 pt-5 pb-3">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span
+                className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+              >
+                <Shield style={{ height: 13, width: 13, color: "hsl(var(--muted-foreground))" }} />
+              </span>
+              <p className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>
+                Before you dive in
               </p>
             </div>
-          </div>
 
-          <div
-            className="rounded-xl p-4 mb-4 text-sm leading-relaxed"
-            style={{
-              background: "hsl(var(--muted))",
-              border: "1px solid hsl(var(--border))",
-              color: "hsl(var(--foreground))",
-            }}
-          >
-            Trade Lab is an <strong>educational backtesting platform</strong>. All results are for
-            informational purposes only and do not constitute financial advice. Past performance
-            does not guarantee future results. Trading involves significant risk of loss.
-          </div>
+            <p className="text-[13px] leading-relaxed mb-3" style={{ color: "hsl(var(--muted-foreground))" }}>
+              Trade Lab is an{" "}
+              <span style={{ color: "hsl(var(--foreground))", fontWeight: 600 }}>educational backtesting platform</span>.
+              {" "}Results are simulated and do not constitute financial advice.{" "}
+              <span style={{ color: "hsl(var(--foreground))" }}>Trading involves significant risk of loss.</span>
+            </p>
 
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="flex items-center gap-1.5 text-xs mb-4 transition-colors"
-            style={{ color: "hsl(var(--muted-foreground))" }}
-          >
-            {expanded
-              ? <><ChevronUp style={{ height: "13px", width: "13px" }} />Hide full policy list</>
-              : <><ChevronDown style={{ height: "13px", width: "13px" }} />View all 9 policies</>}
-          </button>
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="flex items-center gap-1.5 text-[11px] mb-3 transition-colors"
+              style={{ color: "hsl(var(--muted-foreground))" }}
+            >
+              {expanded
+                ? <><ChevronUp style={{ height: 11, width: 11 }} />Hide policies</>
+                : <><ChevronDown style={{ height: 11, width: 11 }} />View 9 policies (Privacy, T&C, Risk Disclosure…)</>
+              }
+            </button>
 
-          {expanded && (
-            <ul className="mb-4 flex flex-col gap-1">
-              {POLICY_LINKS.map(name => (
-                <li key={name} className="flex items-center gap-2 text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  <ExternalLink style={{ height: "11px", width: "11px", flexShrink: 0 }} />
-                  {name}
-                </li>
-              ))}
-            </ul>
-          )}
+            {expanded && (
+              <ul className="mb-3 grid grid-cols-2 gap-1">
+                {POLICY_LINKS.map(name => (
+                  <li key={name} className="flex items-center gap-1.5 text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    <ExternalLink style={{ height: 9, width: 9, flexShrink: 0 }} />
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            )}
 
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <div className="mt-0.5 flex-shrink-0">
-              <input
-                type="checkbox"
-                className="sr-only"
-                checked={agreed}
-                onChange={e => setAgreed(e.target.checked)}
-              />
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <div
                 onClick={() => setAgreed(v => !v)}
-                className="h-5 w-5 rounded-md flex items-center justify-center transition-all"
+                className="mt-0.5 h-4 w-4 rounded flex items-center justify-center flex-shrink-0 transition-all"
                 style={{
                   background: agreed ? "hsl(var(--primary))" : "hsl(var(--muted))",
                   border: agreed ? "2px solid hsl(var(--primary))" : "2px solid hsl(var(--border))",
                 }}
               >
                 {agreed && (
-                  <svg viewBox="0 0 12 10" fill="none" style={{ height: "10px", width: "12px" }}>
+                  <svg viewBox="0 0 12 10" fill="none" style={{ height: 8, width: 10 }}>
                     <path d="M1 5l3.5 3.5L11 1" stroke="hsl(var(--primary-foreground))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}
               </div>
-            </div>
-            <span className="text-sm" style={{ color: "hsl(var(--foreground))", lineHeight: "1.5" }}>
-              I have read and agree to the{" "}
-              <strong style={{ color: "hsl(var(--foreground))" }}>Terms & Conditions</strong>,{" "}
-              <strong style={{ color: "hsl(var(--foreground))" }}>Risk Disclosure</strong>, and all
-              other platform policies. I understand this platform is for educational use only.
-            </span>
-          </label>
-        </div>
+              <span className="text-[12px] leading-5" style={{ color: "hsl(var(--foreground))" }}>
+                I agree to the{" "}
+                <strong>Terms &amp; Conditions</strong>,{" "}
+                <strong>Risk Disclosure</strong>, and all platform policies.
+              </span>
+            </label>
+          </div>
 
-        <div className="px-6 pb-6 pt-3">
-          <button
-            onClick={handleAgree}
-            disabled={!agreed}
-            className="w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200"
-            style={
-              agreed
+          <div className="px-5 pb-5 pt-2 flex gap-2.5">
+            <button
+              onClick={accept}
+              className="flex-1 py-2.5 rounded-xl text-[12px] font-medium transition-all"
+              style={{
+                background: "hsl(var(--muted))",
+                color: "hsl(var(--muted-foreground))",
+                border: "1px solid hsl(var(--border))",
+              }}
+              title="Browse without an account — you acknowledge the risk disclosure by continuing"
+            >
+              Guest Preview
+            </button>
+            <button
+              onClick={() => { if (agreed) accept(); }}
+              disabled={!agreed}
+              className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition-all duration-200"
+              style={agreed
                 ? {
                     background: "hsl(var(--primary))",
                     color: "hsl(var(--primary-foreground))",
@@ -150,16 +153,19 @@ export function PolicyPopup() {
                     background: "hsl(var(--muted))",
                     color: "hsl(var(--muted-foreground))",
                     cursor: "not-allowed",
+                    opacity: 0.7,
                   }
-            }
-          >
-            Enter Trade Lab
-          </button>
-          <p className="text-[10px] text-center mt-2" style={{ color: "hsl(var(--muted-foreground))" }}>
-            You only need to accept this once.
+              }
+            >
+              Enter Trade Lab →
+            </button>
+          </div>
+
+          <p className="text-center text-[10px] pb-3" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.6 }}>
+            You only need to accept this once · Guest Preview also acknowledges risk disclosure
           </p>
         </div>
       </div>
-    </div>
+    </>
   );
 }

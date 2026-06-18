@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AuthModal } from "@/components/auth-modal";
 import { format, subYears } from "date-fns";
 import { API_BASE } from "@/lib/api-config";
+import { useSubscription } from "@/lib/subscription-context";
 
 /* ─── Zod Schema ──────────────────────────────────────────── */
 const formSchema = z.object({
@@ -54,25 +55,25 @@ type FormValues = z.infer<typeof formSchema>;
 
 /* ─── Data ────────────────────────────────────────────────── */
 export const SYMBOLS: { value: string; label: string; group: string; realData: boolean }[] = [
-  { value: "BTCUSDT",  label: "BTC/USDT",         group: "Crypto", realData: false },
-  { value: "ETHUSDT",  label: "ETH/USDT",         group: "Crypto", realData: false },
-  { value: "SOLUSDT",  label: "SOL/USDT",         group: "Crypto", realData: false },
-  { value: "BNBUSDT",  label: "BNB/USDT",         group: "Crypto", realData: false },
-  { value: "XRPUSDT",  label: "XRP/USDT",         group: "Crypto", realData: false },
-  { value: "ADAUSDT",  label: "ADA/USDT",         group: "Crypto", realData: false },
-  { value: "DOGEUSDT", label: "DOGE/USDT",        group: "Crypto", realData: false },
-  { value: "AVAXUSDT", label: "AVAX/USDT",        group: "Crypto", realData: false },
-  { value: "LINKUSDT", label: "LINK/USDT",        group: "Crypto", realData: false },
-  { value: "LTCUSDT",  label: "LTC/USDT",         group: "Crypto", realData: false },
-  { value: "DOTUSDT",  label: "DOT/USDT",         group: "Crypto", realData: false },
-  { value: "AAPL",     label: "Apple (AAPL)",     group: "Stocks", realData: false },
-  { value: "MSFT",     label: "Microsoft (MSFT)", group: "Stocks", realData: false },
-  { value: "TSLA",     label: "Tesla (TSLA)",     group: "Stocks", realData: false },
-  { value: "NVDA",     label: "Nvidia (NVDA)",    group: "Stocks", realData: false },
-  { value: "AMZN",     label: "Amazon (AMZN)",    group: "Stocks", realData: false },
-  { value: "GOOGL",    label: "Alphabet (GOOGL)", group: "Stocks", realData: false },
-  { value: "SPY",      label: "S&P 500 (SPY)",    group: "ETFs",   realData: false },
-  { value: "QQQ",      label: "Nasdaq (QQQ)",     group: "ETFs",   realData: false },
+  { value: "BTCUSDT",  label: "BTC/USDT",         group: "Crypto", realData: true },
+  { value: "ETHUSDT",  label: "ETH/USDT",         group: "Crypto", realData: true },
+  { value: "SOLUSDT",  label: "SOL/USDT",         group: "Crypto", realData: true },
+  { value: "BNBUSDT",  label: "BNB/USDT",         group: "Crypto", realData: true },
+  { value: "XRPUSDT",  label: "XRP/USDT",         group: "Crypto", realData: true },
+  { value: "ADAUSDT",  label: "ADA/USDT",         group: "Crypto", realData: true },
+  { value: "DOGEUSDT", label: "DOGE/USDT",        group: "Crypto", realData: true },
+  { value: "AVAXUSDT", label: "AVAX/USDT",        group: "Crypto", realData: true },
+  { value: "LINKUSDT", label: "LINK/USDT",        group: "Crypto", realData: true },
+  { value: "LTCUSDT",  label: "LTC/USDT",         group: "Crypto", realData: true },
+  { value: "DOTUSDT",  label: "DOT/USDT",         group: "Crypto", realData: true },
+  { value: "AAPL",     label: "Apple (AAPL)",     group: "Stocks", realData: true },
+  { value: "MSFT",     label: "Microsoft (MSFT)", group: "Stocks", realData: true },
+  { value: "TSLA",     label: "Tesla (TSLA)",     group: "Stocks", realData: true },
+  { value: "NVDA",     label: "Nvidia (NVDA)",    group: "Stocks", realData: true },
+  { value: "AMZN",     label: "Amazon (AMZN)",    group: "Stocks", realData: true },
+  { value: "GOOGL",    label: "Alphabet (GOOGL)", group: "Stocks", realData: true },
+  { value: "SPY",      label: "S&P 500 (SPY)",    group: "ETFs",   realData: true },
+  { value: "QQQ",      label: "Nasdaq (QQQ)",     group: "ETFs",   realData: true },
 ];
 
 export const STRATEGY_TYPES = [
@@ -128,6 +129,7 @@ export default function NewBacktest() {
   const searchParams = new URLSearchParams(window.location.search);
   const initialStrategyId = searchParams.get("strategyId");
   const { user, token } = useAuth();
+  const { features: planFeatures } = useSubscription();
 
   const [creatingStrategyType, setCreatingStrategyType] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -231,6 +233,22 @@ export default function NewBacktest() {
   }
 
   function onSubmit(data: FormValues) {
+    const maxYears = planFeatures?.maxHistoricalYears ?? 1;
+    if (maxYears !== -1) {
+      const rangeMs = new Date(data.endDate).getTime() - new Date(data.startDate).getTime();
+      const rangeYears = rangeMs / (365.25 * 24 * 3600 * 1000);
+      if (rangeYears > maxYears + 0.1) {
+        const label = maxYears === 1 ? "1 year" : `${maxYears} years`;
+        toast({
+          title: "Date range exceeds your plan",
+          description: `Free plan supports up to ${label} of history. Upgrade to Pro for 5 years, or Elite for unlimited.`,
+          variant: "destructive",
+        });
+        setLocation("/pricing");
+        return;
+      }
+    }
+
     const positionSizing = data.positionSizingMode === "fixed_amount"
       ? { mode: "fixed_amount" as const, value: data.positionSizingValue ?? data.initialCapital * 0.95 }
       : { mode: "risk_pct" as const, value: data.positionSizingValue ?? 95 };
@@ -241,17 +259,16 @@ export default function NewBacktest() {
         toast({ title: "Simulation running!", description: "Redirecting to your results…" });
         setLocation(`/backtests/${backtest.id}`);
       },
-      onError: (error: { data?: { error?: string; limitReached?: boolean } | null }) => {
+      onError: (error: { data?: { error?: string; limitReached?: boolean; upgradeRequired?: boolean } | null }) => {
         const msg = error.data?.error || "Failed to start backtest";
         const isLimit = error.data?.limitReached === true;
+        const needsUpgrade = error.data?.upgradeRequired === true;
         toast({
-          title: isLimit ? "Plan limit reached" : "Error",
-          description: isLimit
-            ? `${msg} Visit the Pricing page to upgrade.`
-            : msg,
+          title: isLimit ? "Plan limit reached" : needsUpgrade ? "Upgrade required" : "Error",
+          description: msg,
           variant: "destructive",
         });
-        if (isLimit) setLocation("/pricing");
+        if (isLimit || needsUpgrade) setLocation("/pricing");
       },
     });
   }
@@ -263,6 +280,10 @@ export default function NewBacktest() {
   const slippageVal = form.watch("slippage") ?? 0;
   const totalCostEstimate = (commissionVal * 2 + slippageVal * 2).toFixed(3);
   const hasIntradayWarning = selectedStrategy ? INTRADAY_TIMEFRAMES.includes(selectedStrategy.timeframe ?? "") : false;
+  const maxHistoricalYears = planFeatures?.maxHistoricalYears ?? 1;
+  const minAllowedStartDate = maxHistoricalYears === -1 ? null : format(subYears(new Date(), maxHistoricalYears), "yyyy-MM-dd");
+  const currentStartDate = form.watch("startDate");
+  const hasDateRangeViolation = minAllowedStartDate !== null && currentStartDate < minAllowedStartDate;
   const step1Done = selectedStrategyId > 0;
   const step2Done = step1Done && !!form.watch("symbol") && !!form.watch("startDate") && !!form.watch("endDate") && (form.watch("initialCapital") ?? 0) >= 100;
 

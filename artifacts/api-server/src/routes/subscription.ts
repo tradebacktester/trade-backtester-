@@ -41,12 +41,15 @@ const DEFAULT_PLANS = [
       dataExport: false,
       priorityBadge: false,
       allIndicators: false,
+      maxHistoricalYears: 1,
+      batchBacktest: false,
+      csvExport: false,
     },
   },
   {
     name: "Pro",
     slug: "pro",
-    description: "Unlimited backtests, all indicators, AI assistance, and replay mode.",
+    description: "Unlimited backtests, all indicators, AI assistance, replay mode, and 5 years of historical data.",
     priceMonthly: 49900,
     currency: "INR",
     isDefault: false,
@@ -62,12 +65,15 @@ const DEFAULT_PLANS = [
       dataExport: false,
       priorityBadge: false,
       allIndicators: true,
+      maxHistoricalYears: 5,
+      batchBacktest: true,
+      csvExport: true,
     },
   },
   {
     name: "Elite",
     slug: "elite",
-    description: "Everything in Pro plus unlimited AI, data export, and priority badge.",
+    description: "Everything in Pro plus unlimited AI, data export, unlimited history, and priority badge.",
     priceMonthly: 99900,
     currency: "INR",
     isDefault: false,
@@ -83,6 +89,9 @@ const DEFAULT_PLANS = [
       dataExport: true,
       priorityBadge: true,
       allIndicators: true,
+      maxHistoricalYears: -1,
+      batchBacktest: true,
+      csvExport: true,
     },
   },
 ];
@@ -93,14 +102,23 @@ async function ensurePlans() {
     await db.insert(subscriptionPlansTable).values(DEFAULT_PLANS);
     return;
   }
-  // Migrate: bump free plan from aiQueriesPerDay:0 → 5 so basic AI works out of the box
-  const freePlan = existing.find(p => p.isDefault);
-  if (freePlan) {
-    const feat = freePlan.features as Record<string, unknown>;
-    if (feat["aiQueriesPerDay"] === 0) {
+
+  const PLAN_PATCHES: Record<string, Record<string, unknown>> = {
+    free:  { aiQueriesPerDay: 5, communityPost: true, maxHistoricalYears: 1,  batchBacktest: false, csvExport: false },
+    pro:   { maxHistoricalYears: 5,  batchBacktest: true,  csvExport: true  },
+    elite: { maxHistoricalYears: -1, batchBacktest: true,  csvExport: true  },
+  };
+
+  for (const plan of existing) {
+    const slug = plan.slug as string;
+    const patch = PLAN_PATCHES[slug];
+    if (!patch) continue;
+    const feat = plan.features as Record<string, unknown>;
+    const needsUpdate = Object.entries(patch).some(([k, v]) => feat[k] !== v);
+    if (needsUpdate) {
       await db.update(subscriptionPlansTable)
-        .set({ features: { ...feat, aiQueriesPerDay: 5, communityPost: true } })
-        .where(eq(subscriptionPlansTable.id, freePlan.id));
+        .set({ features: { ...feat, ...patch } })
+        .where(eq(subscriptionPlansTable.id, plan.id));
     }
   }
 }

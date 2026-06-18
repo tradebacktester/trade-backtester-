@@ -12,6 +12,9 @@ export interface PlanFeatures {
   dataExport: boolean;
   priorityBadge: boolean;
   allIndicators: boolean;
+  maxHistoricalYears: number;
+  batchBacktest: boolean;
+  csvExport: boolean;
 }
 
 export interface SubscriptionPlan {
@@ -56,6 +59,9 @@ const FREE_FEATURES: PlanFeatures = {
   dataExport: false,
   priorityBadge: false,
   allIndicators: false,
+  maxHistoricalYears: 1,
+  batchBacktest: false,
+  csvExport: false,
 };
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);

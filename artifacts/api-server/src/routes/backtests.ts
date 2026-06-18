@@ -349,6 +349,41 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
+  // Enforce maxHistoricalYears — Free plan limited to 1 year of data
+  {
+    let maxHistoricalYears = 1;
+    const [activeSub] = await db
+      .select({ planId: subscriptionsTable.planId })
+      .from(subscriptionsTable)
+      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+      .orderBy(sql`${subscriptionsTable.createdAt} DESC`)
+      .limit(1);
+
+    if (activeSub) {
+      const [plan] = await db
+        .select({ features: subscriptionPlansTable.features })
+        .from(subscriptionPlansTable)
+        .where(eq(subscriptionPlansTable.id, activeSub.planId))
+        .limit(1);
+      const yrs = (plan?.features as Record<string, unknown> | null)?.["maxHistoricalYears"];
+      if (yrs === -1 || yrs === "-1") maxHistoricalYears = -1;
+      else if (typeof yrs === "number") maxHistoricalYears = yrs;
+    }
+
+    if (maxHistoricalYears !== -1) {
+      const rangeMs = new Date(parsed.data.endDate).getTime() - new Date(parsed.data.startDate).getTime();
+      const rangeYears = rangeMs / (365.25 * 24 * 3600 * 1000);
+      if (rangeYears > maxHistoricalYears + 0.1) {
+        const label = maxHistoricalYears === 1 ? "1 year" : `${maxHistoricalYears} years`;
+        res.status(403).json({
+          error: `Your plan allows up to ${label} of historical data. Upgrade to Pro for 5 years, or Elite for unlimited history.`,
+          upgradeRequired: true,
+        });
+        return;
+      }
+    }
+  }
+
   const notesRaw = typeof req.body.notes === "string" ? req.body.notes.slice(0, 2000) : null;
 
   const [backtest] = await db.insert(backtestsTable).values({

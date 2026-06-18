@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Play, CheckCircle2, XCircle, Loader2, TrendingUp, TrendingDown, Minus,
+  Crown, Lock,
 } from "lucide-react";
+import { useSubscription } from "@/lib/subscription-context";
 
 import { format, subYears } from "date-fns";
 import { SYMBOLS } from "./new";
@@ -51,6 +53,7 @@ export default function BatchBacktest() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { canAccess, isPro } = useSubscription();
 
   const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies();
   const createBacktest = useCreateBacktest();
@@ -145,6 +148,59 @@ export default function BatchBacktest() {
   const completed = results.filter((r) => r.status === "complete");
   const bestReturn = completed.length > 0 ? Math.max(...completed.map((r) => r.totalReturn ?? -Infinity)) : null;
   const worstReturn = completed.length > 0 ? Math.min(...completed.map((r) => r.totalReturn ?? Infinity)) : null;
+
+  if (!canAccess("batchBacktest")) {
+    return (
+      <div className="max-w-4xl mx-auto py-8 px-4">
+        <div className="flex items-center gap-4 mb-8">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/backtests/new"><ArrowLeft className="h-4 w-4" /></Link>
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold">Batch Backtest</h1>
+            <p className="text-sm text-muted-foreground">Test one strategy across multiple symbols</p>
+          </div>
+        </div>
+        <div
+          className="rounded-2xl flex flex-col items-center justify-center py-16 px-8 text-center"
+          style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
+        >
+          <div
+            className="h-14 w-14 rounded-2xl flex items-center justify-center mb-5"
+            style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.2)" }}
+          >
+            <Lock style={{ height: 24, width: 24, color: "#7C3AED" }} />
+          </div>
+          <h2 className="text-lg font-bold mb-2">Pro Feature</h2>
+          <p className="text-sm text-muted-foreground max-w-sm mb-6">
+            Batch backtesting — run one strategy across multiple symbols simultaneously — is available on the <strong>Pro plan</strong> and above.
+          </p>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 style={{ height: 13, width: 13, color: "#22c55e" }} />
+              Test across 19 crypto, stock, and ETF symbols at once
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 style={{ height: 13, width: 13, color: "#22c55e" }} />
+              Side-by-side performance comparison table
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 style={{ height: 13, width: 13, color: "#22c55e" }} />
+              Instantly find the best symbol for your strategy
+            </div>
+          </div>
+          <Button
+            className="mt-8 gap-2"
+            onClick={() => setLocation("/pricing")}
+            style={{ background: "#7C3AED", color: "#fff" }}
+          >
+            <Crown style={{ height: 14, width: 14 }} />
+            Upgrade to Pro
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

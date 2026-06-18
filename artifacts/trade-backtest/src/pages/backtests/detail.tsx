@@ -1532,11 +1532,13 @@ export default function BacktestDetail() {
               <StatBox
                 label="Initial Capital"
                 value={`$${backtest.initialCapital.toLocaleString()}`}
+                tooltip="The starting portfolio balance for this simulation. All returns and P&L figures are calculated relative to this amount."
               />
               <StatBox
                 label="Final Capital"
                 value={backtest.finalCapital != null ? fmtUSD(backtest.finalCapital) : "—"}
                 accent={backtest.finalCapital && backtest.finalCapital > backtest.initialCapital ? "#22c55e" : "#ef4444"}
+                tooltip="Portfolio value at the end of the backtest period after all trades are closed. Subtract Initial Capital to get the absolute dollar profit or loss."
               />
               <StatBox
                 label="Total Return"
@@ -1565,6 +1567,7 @@ export default function BacktestDetail() {
                 label="Max Drawdown"
                 value={backtest.maxDrawdown != null ? `-${backtest.maxDrawdown.toFixed(2)}%` : "—"}
                 accent="#ef4444"
+                tooltip="The largest peak-to-trough decline in portfolio value during the backtest, expressed as a percentage. This is the worst-case loss you would have experienced if you entered at the peak. Generally keep below 20% for sustainable strategies."
               />
               <StatBox
                 label="Sharpe Ratio"
@@ -1604,8 +1607,13 @@ export default function BacktestDetail() {
                 label="Win Rate"
                 value={backtest.winRate != null ? `${backtest.winRate.toFixed(1)}%` : "—"}
                 accent={backtest.winRate != null && backtest.winRate >= 50 ? "#22c55e" : "#f59e0b"}
+                tooltip="Percentage of closed trades that ended in profit. Above 50% means more winners than losers. Note: a high win rate alone doesn't guarantee profitability — a 40% win rate can still be profitable with a strong reward-to-risk ratio."
               />
-              <StatBox label="Total Trades" value={backtest.totalTrades ?? "—"} />
+              <StatBox
+                label="Total Trades"
+                value={backtest.totalTrades ?? "—"}
+                tooltip="Total number of completed round-trip trades (one entry + one exit) during the backtest period. More trades provide greater statistical confidence in the results; fewer than 30 trades is considered statistically weak."
+              />
               <StatBox
                 label="Profit Factor"
                 value={backtest.profitFactor != null ? (backtest.profitFactor === 999 ? "∞" : fmtNum(backtest.profitFactor)) : "—"}
