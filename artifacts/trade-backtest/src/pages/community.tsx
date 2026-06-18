@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import {
   Heart, Flag, Trash2, Send, X, AlertTriangle, CheckCircle,
   Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
-  Hash, Smile, Search, Lock, ChevronLeft, TrendingUp, Zap,
+  Hash, Smile, Search, Lock, ChevronLeft, TrendingUp, Zap, Copy, CheckCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -891,6 +891,32 @@ function ReportModal({ post, onClose, onDone }: { post: Post; onClose: () => voi
 function BacktestPreviewCard({ bt }: { bt: BacktestSummary }) {
   const ret = bt.totalReturn ?? 0;
   const retColor = ret > 0 ? "#30D158" : ret < 0 ? "#FF453A" : "rgba(255,255,255,0.5)";
+  const { token: authToken, user } = useAuth();
+  const [cloning, setCloning] = useState(false);
+  const [cloned, setCloned] = useState(false);
+
+  async function handleClone() {
+    if (!authToken) return;
+    setCloning(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/backtests/${bt.id}/clone-strategy`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({})) as { error?: string };
+        alert(err.error ?? "Failed to clone strategy");
+        return;
+      }
+      setCloned(true);
+      setTimeout(() => setCloned(false), 3000);
+    } catch {
+      alert("Failed to clone strategy");
+    } finally {
+      setCloning(false);
+    }
+  }
+
   return (
     <div style={{ margin: "0 16px 12px", padding: "10px 14px", borderRadius: 12, background: "rgba(10,132,255,0.06)", border: "1px solid rgba(10,132,255,0.18)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -929,6 +955,22 @@ function BacktestPreviewCard({ bt }: { bt: BacktestSummary }) {
           </div>
         )}
       </div>
+      {user && (
+        <button
+          onClick={handleClone}
+          disabled={cloning || cloned}
+          style={{
+            marginTop: 10, display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+            borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: cloning || cloned ? "default" : "pointer",
+            background: cloned ? "rgba(48,209,88,0.1)" : "rgba(10,132,255,0.1)",
+            border: `1px solid ${cloned ? "rgba(48,209,88,0.3)" : "rgba(10,132,255,0.25)"}`,
+            color: cloned ? "#30D158" : "#0A84FF", opacity: cloning ? 0.6 : 1, transition: "all 0.2s",
+          }}
+        >
+          {cloned ? <CheckCheck style={{ height: 11, width: 11 }} /> : <Copy style={{ height: 11, width: 11 }} />}
+          {cloned ? "Cloned to My Strategies!" : cloning ? "Cloning…" : "Clone Strategy"}
+        </button>
+      )}
     </div>
   );
 }
@@ -1157,9 +1199,9 @@ function PostCard({
 }
 
 /* ── CreatePostForm ─────────────────────────────────────────────────────────── */
-function CreatePostForm({ onCreated, initialBacktestId }: { onCreated: (post: Post) => void; initialBacktestId?: number | null }) {
+function CreatePostForm({ onCreated, initialBacktestId, initialContent }: { onCreated: (post: Post) => void; initialBacktestId?: number | null; initialContent?: string }) {
   const { user, token: authToken } = useAuth();
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState(initialContent ?? "");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(user?.name ?? "");
   const [sending, setSending] = useState(false);
@@ -1544,6 +1586,7 @@ export default function CommunityPage() {
   const [reportingPost, setReportingPost] = useState<Post | null>(null);
   const [tagFilter, setTagFilter] = useState<string>("All");
   const [shareBacktestId, setShareBacktestId] = useState<number | null>(null);
+  const [postDraft, setPostDraft] = useState<string | null>(null);
   const [likedIds, setLikedIds] = useState<Set<number>>(() => {
     try {
       const saved = localStorage.getItem("community_liked");
@@ -1560,6 +1603,8 @@ export default function CommunityPage() {
       const id = parseInt(btId, 10);
       if (!isNaN(id)) setShareBacktestId(id);
     }
+    const draft = params.get("postDraft");
+    if (draft) setPostDraft(decodeURIComponent(draft));
   }, []);
 
   const tagParam = tagFilter !== "All" ? `&tag=${encodeURIComponent(tagFilter)}` : "";
@@ -1797,7 +1842,7 @@ export default function CommunityPage() {
                   );
                 })}
               </div>
-              <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} initialBacktestId={shareBacktestId} />
+              <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} initialBacktestId={shareBacktestId} initialContent={postDraft ?? undefined} />
 
               {loading ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -64,6 +64,7 @@ interface CreateAlertBody {
   timeframe: string;
   conditions: AlertConditionSpec[];
   deliveryChannels: string[];
+  webhookUrl?: string;
   triggerOnce: boolean;
 }
 
@@ -74,6 +75,7 @@ interface UpdateAlertBody {
   timeframe?: string;
   conditions?: AlertConditionSpec[];
   deliveryChannels?: string[];
+  webhookUrl?: string | null;
   isActive?: boolean;
   triggerOnce?: boolean;
 }
@@ -394,6 +396,11 @@ router.post("/alerts", async (req: Request, res: Response): Promise<void> => {
     }
   }
 
+  const webhookUrlRaw = typeof (req.body as Record<string,unknown>)["webhookUrl"] === "string"
+    ? ((req.body as Record<string,unknown>)["webhookUrl"] as string).trim().slice(0, 2048)
+    : null;
+  const cleanWebhookUrl = webhookUrlRaw && /^https?:\/\/.+/.test(webhookUrlRaw) ? webhookUrlRaw : null;
+
   const [alert] = await db
     .insert(alertsTable)
     .values({
@@ -404,6 +411,7 @@ router.post("/alerts", async (req: Request, res: Response): Promise<void> => {
       timeframe: data.timeframe,
       conditions: data.conditions as AlertConditionSpec[],
       deliveryChannels: data.deliveryChannels,
+      webhookUrl: cleanWebhookUrl,
       triggerOnce: data.triggerOnce,
     })
     .returning();
@@ -468,6 +476,7 @@ router.patch("/alerts/:id", async (req: Request, res: Response): Promise<void> =
     }
   }
 
+  const patchWebhookUrl = typeof (req.body as Record<string,unknown>)["webhookUrl"];
   const updatePayload: Partial<typeof alertsTable.$inferInsert> = {};
   if (data.name !== undefined) updatePayload.name = data.name;
   if (data.type !== undefined) updatePayload.type = data.type;
@@ -475,6 +484,12 @@ router.patch("/alerts/:id", async (req: Request, res: Response): Promise<void> =
   if (data.timeframe !== undefined) updatePayload.timeframe = data.timeframe;
   if (data.conditions !== undefined) updatePayload.conditions = data.conditions as AlertConditionSpec[];
   if (data.deliveryChannels !== undefined) updatePayload.deliveryChannels = data.deliveryChannels;
+  if (patchWebhookUrl === "string") {
+    const raw = ((req.body as Record<string,unknown>)["webhookUrl"] as string).trim().slice(0, 2048);
+    updatePayload.webhookUrl = /^https?:\/\/.+/.test(raw) ? raw : null;
+  } else if (patchWebhookUrl === "object") {
+    updatePayload.webhookUrl = null;
+  }
   if (data.isActive !== undefined) updatePayload.isActive = data.isActive;
   if (data.triggerOnce !== undefined) updatePayload.triggerOnce = data.triggerOnce;
 
@@ -521,6 +536,46 @@ router.delete("/alerts/:id", async (req: Request, res: Response): Promise<void> 
     .where(and(eq(alertsTable.id, alertId), eq(alertsTable.userId, userId)));
 
   res.status(204).send();
+});
+
+router.post("/alerts/:id/test-webhook", async (req: Request, res: Response): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const alertId = parseInt((req.params as Record<string, string>)["id"] ?? "");
+  if (isNaN(alertId)) { res.status(400).json({ error: "Invalid alert id" }); return; }
+
+  const [alert] = await db
+    .select()
+    .from(alertsTable)
+    .where(and(eq(alertsTable.id, alertId), eq(alertsTable.userId, userId)))
+    .limit(1);
+
+  if (!alert) { res.status(404).json({ error: "Alert not found" }); return; }
+  if (!alert.webhookUrl) { res.status(400).json({ error: "No webhook URL set on this alert" }); return; }
+
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(alert.webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "TradeLab-Alerts/1.0" },
+      body: JSON.stringify({
+        event: "test",
+        alertName: alert.name,
+        symbol: alert.symbol,
+        message: `[TEST] Alert "${alert.name}" on ${alert.symbol} — webhook delivery test from Trade Lab`,
+        triggeredAt: new Date().toISOString(),
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (r.ok) {
+      res.json({ ok: true, status: r.status });
+    } else {
+      res.json({ ok: false, status: r.status, error: `Webhook responded with HTTP ${r.status}` });
+    }
+  } catch (err: unknown) {
+    res.json({ ok: false, error: err instanceof Error ? err.message : "Request failed" });
+  }
 });
 
 router.get("/alerts/notifications", async (_req, res: Response): Promise<void> => {

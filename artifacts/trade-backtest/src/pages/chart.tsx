@@ -42,13 +42,15 @@ import {
   RotateCcw, BarChart2, Save, SplitSquareVertical, Trash2, Check, Layers,
   Flame, Bell, BellOff, ArrowLeftRight, BookOpen, List,
   CalendarClock, Triangle, Sparkles, SlidersHorizontal,
-  Sun, Moon, Keyboard, Maximize2, Minimize2,
+  Sun, Moon, Keyboard, Maximize2, Minimize2, Grid2x2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useSubscription } from "@/lib/subscription-context";
 import { PositionOverlay } from "@/components/position-overlay";
 import { DrawingLayer, type DrawingLayerHandle } from "@/components/drawing-layer";
 import { DrawingToolbar } from "@/components/drawing-toolbar";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { MultiChartGrid } from "@/components/multi-chart-grid";
 import {
   calcSMA, calcEMA, calcBB, calcRSI, calcMACD, calcVWAP, calcATR, calcStochastic,
   calcIchimoku, calcSupertrend, calcParabolicSAR,
@@ -452,6 +454,7 @@ export default function ChartPage() {
   const [positionTools, setPositionTools] = useState<PositionTool[]>(loadPositions);
   const [selectedPosId, setSelectedPosId] = useState<number | null>(null);
   const { token } = useAuth();
+  const { canAccess } = useSubscription();
   const { toast } = useToast();
 
   // Fetch coaching insights once on mount — used to gate trade warning modal
@@ -489,6 +492,9 @@ export default function ChartPage() {
   // Multi-TF
   const [showMultiTf, setShowMultiTf] = useState(false);
   const [multiTfInterval, setMultiTfInterval] = useState<GetKlinesInterval>(GetKlinesInterval["1w"]);
+
+  // Layout mode (1×1 = single, 2×2 = multi-chart grid)
+  const [layoutMode, setLayoutMode] = useState<"1x1" | "2x2">("1x1");
 
   // Log/Linear scale
   const [logScale, setLogScale] = useState(false);
@@ -1993,6 +1999,13 @@ export default function ChartPage() {
             )}
           </div>
 
+          {/* 2×2 Multi-chart layout */}
+          <button onClick={() => setLayoutMode(m => m === "2x2" ? "1x1" : "2x2")}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+            style={layoutMode === "2x2" ? { background: "rgba(34,197,94,0.12)", borderColor: "rgba(34,197,94,0.3)", color: "hsl(142,70%,50%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+            <Grid2x2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">2×2</span>
+          </button>
+
           {/* Compare symbol */}
           <div className="flex items-center gap-1">
             <button onClick={() => setShowComparePanel(v => !v)}
@@ -2104,11 +2117,20 @@ export default function ChartPage() {
           )}
 
           {!replayMode ? (
-            <button onClick={enterReplay} disabled={!klines || klines.length < MIN_CANDLES}
+            <button
+              onClick={() => {
+                if (!canAccess("replayMode")) {
+                  toast({ title: "Upgrade to access Replay", description: "Bar-by-bar replay is a Pro feature. Upgrade your plan to practice trading history.", variant: "destructive" });
+                  return;
+                }
+                enterReplay();
+              }}
+              disabled={!klines || klines.length < MIN_CANDLES}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
               style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.28)", color: "hsl(38,100%,62%)" }}>
               <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: "hsl(38,100%,60%)" }} />
               <span className="hidden sm:inline">Replay</span>
+              {!canAccess("replayMode") && <span className="text-[8px] font-mono ml-0.5 opacity-60">PRO</span>}
             </button>
           ) : (
             <button onClick={exitReplay} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all" style={{ background: "rgba(245,158,11,0.06)", borderColor: "rgba(245,158,11,0.2)", color: "hsl(38,100%,50%)" }}>
@@ -2370,6 +2392,15 @@ export default function ChartPage() {
         {/* ── Charts column ────────────────────────────────────────── */}
         <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto">
 
+          {/* 2×2 multi-chart layout overlay */}
+          {layoutMode === "2x2" && (
+            <div className="flex-1 rounded-xl overflow-hidden border min-h-0" style={{ borderColor: "rgba(34,197,94,0.2)", background: "hsl(222,28%,8%)" }}>
+              <MultiChartGrid defaultSymbol={symbol} onClose={() => setLayoutMode("1x1")} />
+            </div>
+          )}
+
+          {/* Single-chart view (hidden in 2×2 mode) */}
+          {layoutMode !== "2x2" && (<>
           {/* Main chart */}
           <div className="relative rounded-xl overflow-hidden"
             style={{ flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto", height: (hasSubChart || showMultiTf) ? (isFullscreen ? "min(46dvh, 46dvh)" : "min(320px, 42vh)") : (isFullscreen ? "clamp(500px, calc(100dvh - 210px), 100dvh)" : "clamp(420px, calc(100vh - 260px), 700px)"), minHeight: (hasSubChart || showMultiTf) ? "200px" : "380px", border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)", boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
@@ -2511,6 +2542,7 @@ export default function ChartPage() {
               <div ref={multiTfContainerRef} className="w-full h-full" />
             </div>
           )}
+          </>)}
         </div>
 
         {/* ── Sidebars ─────────────────────────────────────────────── */}

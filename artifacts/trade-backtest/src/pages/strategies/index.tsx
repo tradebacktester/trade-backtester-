@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useListStrategies, getListStrategiesQueryKey } from "@workspace/api-client-react";
 import {
   Plus, ArrowRight, TrendingUp, BarChart2,
-  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell, Copy, Loader2, Download, Pencil,
+  Zap, Activity, Target, Layers, HardDrive, Wand2, Bell, Copy, Loader2, Download, Pencil, Share2,
 } from "lucide-react";
 import { loadLocalStrategies, saveLocalStrategy, type LocalStrategy } from "./new";
 import { useQueryClient } from "@tanstack/react-query";
@@ -338,6 +338,14 @@ function StrategyCard({
               >
                 <Download className="h-4 w-4" />
               </button>
+            )}
+            {!local && !sample && (
+              <Link href={`/community?postDraft=${encodeURIComponent(`📊 Sharing my ${name} strategy on ${symbol} (${timeframe}) — ${type} approach. Check it out!`)}`} title="Share to Community">
+                <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"
+                  style={{ background: "rgba(251,146,60,0.07)", border: "1px solid rgba(251,146,60,0.2)", color: "hsl(24,100%,62%)" }}>
+                  <Share2 className="h-4 w-4" />
+                </span>
+              </Link>
             )}
             <Link href={local ? "/backtests/new" : `/strategies/${id}`}>
               <span className="h-9 w-9 flex items-center justify-center rounded-xl transition-all cursor-pointer"

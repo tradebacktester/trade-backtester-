@@ -29,6 +29,25 @@ function getEmailTransporter(): nodemailer.Transporter | null {
   });
 }
 
+async function sendAlertWebhook(webhookUrl: string, payload: {
+  alertName: string; symbol: string; message: string; triggeredAt: string;
+}): Promise<void> {
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "TradeLab-Alerts/1.0" },
+      body: JSON.stringify({ event: "alert_triggered", ...payload }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timeout);
+    if (!r.ok) logger.warn({ status: r.status, webhookUrl }, "Webhook returned non-2xx");
+  } catch (err) {
+    logger.warn({ err, webhookUrl }, "Webhook delivery failed");
+  }
+}
+
 async function sendAlertEmail(toEmail: string, alertName: string, symbol: string, message: string): Promise<void> {
   const transporter = getEmailTransporter();
   if (!transporter) return;
@@ -108,8 +127,10 @@ async function runAlertEvaluationLoop() {
         },
       });
 
-      // ── Email delivery if user opted in ──────────────────────────────
+      // ── Delivery channels ─────────────────────────────────────────────
       const deliveryChannels = (alert.deliveryChannels ?? []) as string[];
+      const triggeredAt = new Date().toISOString();
+
       if (deliveryChannels.includes("email")) {
         try {
           const [userRow] = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, alert.userId));
@@ -119,6 +140,15 @@ async function runAlertEvaluationLoop() {
         } catch (emailErr) {
           logger.warn({ emailErr }, "Failed to send alert email");
         }
+      }
+
+      if (deliveryChannels.includes("webhook") && alert.webhookUrl) {
+        await sendAlertWebhook(alert.webhookUrl, {
+          alertName: alert.name,
+          symbol: alert.symbol,
+          message,
+          triggeredAt,
+        });
       }
 
       if (alert.triggerOnce) {

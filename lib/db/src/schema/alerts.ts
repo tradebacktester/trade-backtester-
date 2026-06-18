@@ -12,6 +12,7 @@ export const alertsTable = pgTable("alerts", {
   timeframe: text("timeframe").notNull().default("1d"),
   conditions: jsonb("conditions").notNull().$type<AlertConditionSpec[]>().default([]),
   deliveryChannels: jsonb("delivery_channels").$type<string[]>().notNull().default(["in_app"]),
+  webhookUrl: text("webhook_url"),
   isActive: boolean("is_active").notNull().default(true),
   triggerOnce: boolean("trigger_once").notNull().default(false),
   triggerCount: integer("trigger_count").notNull().default(0),

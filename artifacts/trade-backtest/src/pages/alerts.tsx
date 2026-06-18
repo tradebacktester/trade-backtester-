@@ -36,6 +36,7 @@ interface AlertRow {
   timeframe: string;
   conditions: AlertCondition[];
   deliveryChannels: string[];
+  webhookUrl?: string | null;
   isActive: boolean;
   triggerOnce: boolean;
   triggerCount: number;
@@ -191,8 +192,10 @@ export default function AlertsPage() {
     timeframe: "1d",
     conditions: [emptyCondition("AND")] as AlertCondition[],
     deliveryChannels: ["in_app"] as string[],
+    webhookUrl: "",
     triggerOnce: false,
   });
+  const [webhookTesting, setWebhookTesting] = useState(false);
 
   // ── Load catalog + alerts ───────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -265,7 +268,7 @@ export default function AlertsPage() {
 
   function openCreate(overrides?: { type?: AlertRow["type"]; symbol?: string }) {
     setEditingAlert(null);
-    setForm({ name: "", type: overrides?.type ?? "price", symbol: overrides?.symbol ?? "BTCUSDT", timeframe: "1d", conditions: [emptyCondition()], deliveryChannels: ["in_app"], triggerOnce: false });
+    setForm({ name: "", type: overrides?.type ?? "price", symbol: overrides?.symbol ?? "BTCUSDT", timeframe: "1d", conditions: [emptyCondition()], deliveryChannels: ["in_app"], webhookUrl: "", triggerOnce: false });
     setShowDialog(true);
   }
 
@@ -302,7 +305,7 @@ export default function AlertsPage() {
 
   function openEdit(a: AlertRow) {
     setEditingAlert(a);
-    setForm({ name: a.name, type: a.type, symbol: a.symbol, timeframe: a.timeframe, conditions: a.conditions.length ? a.conditions : [emptyCondition()], deliveryChannels: a.deliveryChannels, triggerOnce: a.triggerOnce });
+    setForm({ name: a.name, type: a.type, symbol: a.symbol, timeframe: a.timeframe, conditions: a.conditions.length ? a.conditions : [emptyCondition()], deliveryChannels: a.deliveryChannels, webhookUrl: a.webhookUrl ?? "", triggerOnce: a.triggerOnce });
     setShowDialog(true);
   }
 
@@ -321,6 +324,7 @@ export default function AlertsPage() {
       timeframe: form.timeframe,
       conditions: form.conditions,
       deliveryChannels: form.deliveryChannels,
+      webhookUrl: form.webhookUrl?.trim() || null,
       triggerOnce: form.triggerOnce,
     };
 
@@ -678,7 +682,7 @@ export default function AlertsPage() {
                       {a.deliveryChannels.map(ch => (
                         <span key={ch} className="text-[9px] font-mono px-1.5 py-0.5 rounded-md"
                           style={{ background: "rgba(34,197,94,0.08)", color: "hsl(142,70%,50%)", border: "1px solid rgba(34,197,94,0.18)" }}>
-                          {ch === "in_app" ? "In-App" : ch === "browser" ? "Browser" : ch}
+                          {ch === "in_app" ? "In-App" : ch === "browser" ? "Browser" : ch === "email" ? "Email" : ch === "webhook" ? "↗ Webhook" : ch}
                         </span>
                       ))}
                     </div>
@@ -1102,6 +1106,7 @@ export default function AlertsPage() {
                     { id: "in_app", label: "In-App" },
                     { id: "browser", label: "Browser" },
                     { id: "email", label: "Email" },
+                    { id: "webhook", label: "Webhook" },
                   ].map(ch => {
                     const active = form.deliveryChannels.includes(ch.id);
                     return (
@@ -1133,6 +1138,72 @@ export default function AlertsPage() {
                     Trigger Once
                   </button>
                 </div>
+
+                {/* Webhook URL input — shown when webhook channel is active */}
+                {form.deliveryChannels.includes("webhook") && (
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type="url"
+                        placeholder="https://your-server.com/webhook"
+                        value={form.webhookUrl}
+                        onChange={e => setForm(p => ({ ...p, webhookUrl: e.target.value }))}
+                        className="w-full text-xs px-3 py-2 rounded-xl font-mono"
+                        style={{
+                          background: "var(--card-bg)",
+                          border: "1px solid var(--border)",
+                          color: "hsl(var(--foreground))",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                    <button
+                      disabled={webhookTesting || !editingAlert}
+                      onClick={async () => {
+                        if (!editingAlert || !token) {
+                          toast({ title: "Save the alert first", description: "Create or save the alert before testing the webhook.", variant: "destructive" });
+                          return;
+                        }
+                        setWebhookTesting(true);
+                        try {
+                          const r = await fetch(`${API_BASE}/api/alerts/${editingAlert.id}/test-webhook`, {
+                            method: "POST",
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          const d = await r.json() as { ok: boolean; status?: number; error?: string };
+                          if (d.ok) {
+                            toast({ title: "Webhook delivered ✓", description: `HTTP ${d.status} — your endpoint received the test payload.` });
+                          } else {
+                            toast({ title: "Webhook failed", description: d.error ?? "Endpoint did not respond with 2xx", variant: "destructive" });
+                          }
+                        } catch {
+                          toast({ title: "Network error", description: "Could not reach the webhook URL", variant: "destructive" });
+                        } finally {
+                          setWebhookTesting(false);
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 flex-shrink-0"
+                      style={{
+                        background: webhookTesting ? "var(--card-bg)" : "rgba(34,197,94,0.1)",
+                        border: "1px solid rgba(34,197,94,0.2)",
+                        color: webhookTesting ? "var(--text-muted)" : "hsl(142,70%,50%)",
+                        cursor: (webhookTesting || !editingAlert) ? "not-allowed" : "pointer",
+                        opacity: !editingAlert ? 0.5 : 1,
+                      }}
+                      title={!editingAlert ? "Save the alert first to enable testing" : "Send a test payload to your webhook URL"}
+                    >
+                      {webhookTesting
+                        ? <><span className="h-2.5 w-2.5 border border-current border-t-transparent rounded-full animate-spin" />Sending…</>
+                        : "↗ Send Test"
+                      }
+                    </button>
+                  </div>
+                )}
+                {form.deliveryChannels.includes("webhook") && (
+                  <p className="text-[10px] mt-1.5" style={{ color: "var(--text-muted)" }}>
+                    Trade Lab will POST <code style={{ opacity: 0.8 }}>{"{ event, alertName, symbol, message, triggeredAt }"}</code> to this URL every time the alert fires — even when your browser tab is closed.
+                  </p>
+                )}
               </div>
 
             </div>

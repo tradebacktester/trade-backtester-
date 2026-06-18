@@ -284,4 +284,72 @@ router.get("/strategies/:id/performance", requireAuth, async (req, res): Promise
   });
 });
 
+// POST /api/strategies/:id/clone — duplicate any strategy into the caller's account
+router.post("/strategies/:id/clone", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const stratId = parseInt((req.params as Record<string, string>)["id"] ?? "");
+  if (isNaN(stratId)) { res.status(400).json({ error: "Invalid strategy id" }); return; }
+
+  const [original] = await db.select().from(strategiesTable).where(eq(strategiesTable.id, stratId)).limit(1);
+  if (!original) { res.status(404).json({ error: "Strategy not found" }); return; }
+
+  const [cloned] = await db
+    .insert(strategiesTable)
+    .values({
+      userId,
+      name: `${original.name} (clone)`,
+      description: original.description ?? "",
+      type: original.type,
+      symbol: original.symbol,
+      timeframe: original.timeframe,
+      parameters: original.parameters,
+    })
+    .returning();
+
+  res.status(201).json({
+    ...cloned!,
+    createdAt: cloned!.createdAt.toISOString(),
+  });
+});
+
+// POST /api/backtests/:id/clone-strategy — clone the strategy linked to a community backtest
+router.post("/backtests/:id/clone-strategy", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const btId = parseInt((req.params as Record<string, string>)["id"] ?? "");
+  if (isNaN(btId)) { res.status(400).json({ error: "Invalid backtest id" }); return; }
+
+  const [bt] = await db
+    .select({ strategyId: backtestsTable.strategyId })
+    .from(backtestsTable)
+    .where(eq(backtestsTable.id, btId))
+    .limit(1);
+  if (!bt) { res.status(404).json({ error: "Backtest not found" }); return; }
+
+  const [original] = await db
+    .select()
+    .from(strategiesTable)
+    .where(eq(strategiesTable.id, bt.strategyId))
+    .limit(1);
+  if (!original) { res.status(404).json({ error: "Strategy not found" }); return; }
+
+  const [cloned] = await db
+    .insert(strategiesTable)
+    .values({
+      userId,
+      name: `${original.name} (clone)`,
+      description: original.description ?? "",
+      type: original.type,
+      symbol: original.symbol,
+      timeframe: original.timeframe,
+      parameters: original.parameters,
+    })
+    .returning();
+
+  res.status(201).json({
+    ...cloned!,
+    createdAt: cloned!.createdAt.toISOString(),
+    strategyId: cloned!.id,
+  });
+});
+
 export default router;
