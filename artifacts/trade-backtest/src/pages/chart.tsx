@@ -1812,7 +1812,7 @@ export default function ChartPage() {
       <div className="rounded-xl px-3 sm:px-4 py-2.5 border" style={{ background: "rgba(10,12,20,0.95)", borderColor: "rgba(255,255,255,0.07)", boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", zIndex: 60 }}>
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight flex-shrink-0" style={{ background: "linear-gradient(135deg, hsl(190,90%,65%), hsl(210,80%,75%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Live Chart</h1>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight flex-shrink-0" style={{ background: "linear-gradient(135deg, #FFFFFF 0%, rgba(255,255,255,0.72) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Live Chart</h1>
             {replayMode && <span className="text-[10px] font-mono tracking-widest px-2 py-0.5 rounded-full border flex-shrink-0" style={{ background: "rgba(245,158,11,0.12)", borderColor: "rgba(245,158,11,0.3)", color: "hsl(38,100%,65%)" }}>● REPLAY</span>}
             {currentBar && !replayMode && (
               <div className="flex items-center gap-1.5 min-w-0">
@@ -1830,7 +1830,7 @@ export default function ChartPage() {
               onClick={toggleFullscreen}
               title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
               className="h-7 w-7 flex items-center justify-center rounded-lg transition-all hover:bg-white/10 flex-shrink-0"
-              style={isFullscreen ? { color: "hsl(190,90%,65%)", background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.25)" } : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              style={isFullscreen ? { color: "#FFFFFF", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.22)" } : { color: "hsl(220,14%,45%)", border: "1px solid rgba(255,255,255,0.07)" }}>
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
           </div>
@@ -1841,11 +1841,11 @@ export default function ChartPage() {
           <div className="relative" ref={indicatorPanelRef}>
             <button onClick={() => setShowIndicators(v => !v)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={showIndicators ? { background: "rgba(0,229,255,0.12)", borderColor: "rgba(0,229,255,0.3)", color: "hsl(190,90%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+              style={showIndicators ? { background: "rgba(255,255,255,0.10)", borderColor: "rgba(255,255,255,0.22)", color: "#FFFFFF" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
               <BarChart2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Indicators</span>
               {indicators.filter(i => i.enabled).length > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold" style={{ background: "rgba(0,229,255,0.25)", color: "hsl(190,90%,70%)" }}>{indicators.filter(i => i.enabled).length}</span>
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold" style={{ background: "rgba(255,255,255,0.20)", color: "#FFFFFF" }}>{indicators.filter(i => i.enabled).length}</span>
               )}
             </button>
 
@@ -1957,7 +1957,7 @@ export default function ChartPage() {
           <button onClick={() => setLogScale(v => !v)}
             title={logScale ? "Switch to Linear scale" : "Switch to Log scale"}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={logScale ? { background: "rgba(139,92,246,0.18)", borderColor: "rgba(139,92,246,0.4)", color: "hsl(260,80%,75%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+            style={logScale ? { background: "rgba(255,255,255,0.10)", borderColor: "rgba(255,255,255,0.22)", color: "#FFFFFF" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
             <span className="font-mono text-[10px] font-bold">{logScale ? "LOG" : "LIN"}</span>
           </button>
 
@@ -1965,13 +1965,13 @@ export default function ChartPage() {
           <div className="flex items-center gap-1">
             <button onClick={() => setShowMultiTf(v => !v)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={showMultiTf ? { background: "rgba(100,180,255,0.12)", borderColor: "rgba(100,180,255,0.3)", color: "hsl(200,80%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+              style={showMultiTf ? { background: "rgba(255,255,255,0.10)", borderColor: "rgba(255,255,255,0.22)", color: "#FFFFFF" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
               <SplitSquareVertical className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Multi-TF</span>
             </button>
             {showMultiTf && (
               <div onClick={e => e.stopPropagation()}>
                 <Select value={multiTfInterval} onValueChange={v => setMultiTfInterval(v as GetKlinesInterval)}>
-                  <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(100,180,255,0.25)", color: "hsl(200,80%,65%)", width: "4.5rem" }}><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)", width: "4.5rem" }}><SelectValue /></SelectTrigger>
                   <SelectContent>{INTERVALS.map(iv => <SelectItem key={iv.value} value={iv.value} className="text-xs font-mono">{iv.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
@@ -2010,13 +2010,13 @@ export default function ChartPage() {
           <div className="flex items-center gap-1">
             <button onClick={() => setShowComparePanel(v => !v)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-              style={compareSymbol ? { background: "rgba(139,92,246,0.15)", borderColor: "rgba(139,92,246,0.35)", color: "hsl(260,80%,72%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+              style={compareSymbol ? { background: "rgba(255,255,255,0.10)", borderColor: "rgba(255,255,255,0.22)", color: "#FFFFFF" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
               <ArrowLeftRight className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{compareSymbol ? SYMBOLS.find(s => s.value === compareSymbol)?.label ?? compareSymbol : "Compare"}</span>
             </button>
             {showComparePanel && (
               <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                 <Select value={compareSymbol ?? ""} onValueChange={v => { setCompareSymbol(v || null); setShowComparePanel(false); }}>
-                  <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(139,92,246,0.25)", color: "hsl(260,80%,72%)", width: "8rem" }}><SelectValue placeholder="Pick symbol" /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)", width: "8rem" }}><SelectValue placeholder="Pick symbol" /></SelectTrigger>
                   <SelectContent className="max-h-64">{SYMBOLS.filter(s => s.value !== symbol).map(s => <SelectItem key={s.value} value={s.value} className="text-xs font-mono">{s.label}</SelectItem>)}</SelectContent>
                 </Select>
                 {compareSymbol && <button onClick={() => { setCompareSymbol(null); setShowComparePanel(false); }} className="h-7 w-7 flex items-center justify-center rounded-lg" style={{ color: "hsl(0,78%,62%)", background: "rgba(239,68,68,0.1)" }}><X className="h-3 w-3" /></button>}
@@ -2104,7 +2104,7 @@ export default function ChartPage() {
           {/* Keyboard shortcuts */}
           <button onClick={() => setShowShortcuts(v => !v)} title="Keyboard shortcuts (?)"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
-            style={showShortcuts ? { background: "rgba(139,92,246,0.15)", borderColor: "rgba(139,92,246,0.35)", color: "hsl(260,80%,72%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+            style={showShortcuts ? { background: "rgba(255,255,255,0.10)", borderColor: "rgba(255,255,255,0.22)", color: "#FFFFFF" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
             <Keyboard className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Shortcuts</span>
           </button>
 
@@ -2301,7 +2301,7 @@ export default function ChartPage() {
           {INTERVALS.map(iv => (
             <button key={iv.value} onClick={() => handleIntervalChange(iv.value)}
               className="px-2 py-1 text-[11px] font-mono rounded-md transition-all"
-              style={interval === iv.value ? { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)" } : { color: "hsl(220,14%,55%)" }}>
+              style={interval === iv.value ? { background: "rgba(255,255,255,0.13)", color: "#FFFFFF", fontWeight: 600 } : { color: "hsl(220,14%,55%)" }}>
               {iv.label}
             </button>
           ))}
@@ -2311,7 +2311,7 @@ export default function ChartPage() {
           {CHART_TYPES.map(ct => (
             <button key={ct.id} onClick={() => setChartType(ct.id)} title={ct.title}
               className="px-2 py-1 text-[11px] font-mono rounded-md transition-all"
-              style={chartType === ct.id ? { background: "rgba(139,92,246,0.18)", color: "hsl(260,80%,75%)" } : { color: "hsl(220,14%,50%)" }}>
+              style={chartType === ct.id ? { background: "rgba(255,255,255,0.10)", color: "#FFFFFF", fontWeight: 600 } : { color: "hsl(220,14%,50%)" }}>
               {ct.label}
             </button>
           ))}
@@ -2403,7 +2403,7 @@ export default function ChartPage() {
           {layoutMode !== "2x2" && (<>
           {/* Main chart */}
           <div className="relative rounded-xl overflow-hidden"
-            style={{ flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto", height: (hasSubChart || showMultiTf) ? (isFullscreen ? "min(46dvh, 46dvh)" : "min(320px, 42vh)") : (isFullscreen ? "clamp(500px, calc(100dvh - 210px), 100dvh)" : "clamp(420px, calc(100vh - 260px), 700px)"), minHeight: (hasSubChart || showMultiTf) ? "200px" : "380px", border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)", boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+            style={{ flex: (hasSubChart || showMultiTf) ? "0 0 auto" : "1 1 auto", height: (hasSubChart || showMultiTf) ? (isFullscreen ? "min(50dvh, 50dvh)" : "min(400px, 50vh)") : (isFullscreen ? "clamp(560px, calc(100dvh - 160px), 100dvh)" : "clamp(520px, calc(100dvh - 170px), 1000px)"), minHeight: (hasSubChart || showMultiTf) ? "200px" : "480px", border: replayMode ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(255,255,255,0.06)", boxShadow: "0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
             {isLoading && <div className="absolute inset-0 z-10 p-4"><Skeleton className="w-full h-full" /></div>}
             {error && !isLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
@@ -2497,7 +2497,7 @@ export default function ChartPage() {
                   </span>
                 ))}
                 {displayBar.volume !== undefined && <span className="text-[10px] font-mono" style={{ color: "hsl(220,14%,35%)" }}>V <span style={{ color: "hsl(220,14%,50%)" }}>{(displayBar.volume / 1e6).toFixed(2)}M</span></span>}
-                {compareSymbol && <span className="text-[10px] font-mono px-1 rounded" style={{ background: "rgba(139,92,246,0.1)", color: "hsl(260,80%,70%)" }}>vs {SYMBOLS.find(s => s.value === compareSymbol)?.label}</span>}
+                {compareSymbol && <span className="text-[10px] font-mono px-1 rounded" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)" }}>vs {SYMBOLS.find(s => s.value === compareSymbol)?.label}</span>}
               </div>
             )}
 
@@ -2519,12 +2519,12 @@ export default function ChartPage() {
             <div className="relative rounded-xl overflow-hidden border flex-shrink-0" style={{ height: 120, borderColor: "rgba(255,255,255,0.06)" }}>
               <div className="absolute flex items-center gap-1.5 px-3 pt-2 pb-0 z-10 pointer-events-none flex-wrap">
                 {hasRSI       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>RSI 14</span>}
-                {hasMACD      && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>MACD 12/26/9</span>}
-                {hasATR       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "hsl(260,80%,72%)", border: "1px solid rgba(139,92,246,0.2)" }}>ATR 14</span>}
+                {hasMACD      && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.14)" }}>MACD 12/26/9</span>}
+                {hasATR       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.60)", border: "1px solid rgba(255,255,255,0.12)" }}>ATR 14</span>}
                 {hasStoch     && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.12)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.2)" }}>Stoch 14/3</span>}
-                {hasOBV       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(0,229,255,0.12)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.2)" }}>OBV</span>}
+                {hasOBV       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.14)" }}>OBV</span>}
                 {hasWilliamsR && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.18)", color: "hsl(38,100%,65%)", border: "1px solid rgba(245,158,11,0.2)" }}>%R 14</span>}
-                {hasCCI       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.15)", color: "hsl(260,80%,72%)", border: "1px solid rgba(139,92,246,0.2)" }}>CCI 20</span>}
+                {hasCCI       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.60)", border: "1px solid rgba(255,255,255,0.12)" }}>CCI 20</span>}
                 {hasADX       && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.12)", color: "hsl(150,90%,60%)", border: "1px solid rgba(52,211,153,0.2)" }}>ADX 14</span>}
               </div>
               <div ref={subChartContainerRef} className="w-full h-full" />
@@ -2581,9 +2581,9 @@ export default function ChartPage() {
 
           {/* Paper Trade panel */}
           {showOrderPanel && !replayMode && (
-            <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))", borderColor: "rgba(52,211,153,0.15)" }}>
+            <div className="rounded-xl p-4 flex flex-col gap-3 border" style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderColor: "rgba(255,255,255,0.10)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" }}>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "hsl(150,90%,55%)" }}>Paper Trade</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.60)", letterSpacing: "0.12em" }}>Paper Trade</span>
                 {(trades.length > 0 || position) && (
                   <button onClick={resetTrading} className="flex items-center gap-1 text-[10px] font-mono" style={{ color: "hsl(220,14%,40%)" }}><RotateCcw className="h-2.5 w-2.5" /> Reset</button>
                 )}
@@ -2595,7 +2595,7 @@ export default function ChartPage() {
                   {(["market", "limit", "stop"] as const).map(ot => (
                     <button key={ot} onClick={() => setChartOrderType(ot)}
                       className="flex-1 py-1.5 text-[10px] font-mono rounded-md transition-all"
-                      style={chartOrderType === ot ? { background: "rgba(0,229,255,0.15)", color: "hsl(190,90%,65%)", border: "1px solid rgba(0,229,255,0.25)" } : { color: "hsl(220,14%,45%)", border: "1px solid transparent" }}>
+                      style={chartOrderType === ot ? { background: "rgba(255,255,255,0.12)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.22)", fontWeight: 600 } : { color: "hsl(220,14%,45%)", border: "1px solid transparent" }}>
                       {ot.charAt(0).toUpperCase() + ot.slice(1)}
                     </button>
                   ))}
@@ -2672,10 +2672,10 @@ export default function ChartPage() {
 
               {/* ── Ghost Mode mini widget (live panel) ── */}
               {token && !position && (
-                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
+                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(201,168,76,0.28)" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
                   <button type="button" onClick={() => setGhostOpen(v => !v)}
                     className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
-                    style={{ color: ghostOpen ? "#8b5cf6" : "hsl(220,14%,38%)", background: "transparent" }}>
+                    style={{ color: ghostOpen ? "#C9A84C" : "hsl(220,14%,38%)", background: "transparent" }}>
                     <Sparkles className="h-2.5 w-2.5 flex-shrink-0" />Ghost Mode
                     <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
                   </button>
@@ -2693,7 +2693,7 @@ export default function ChartPage() {
                         ))}
                         <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
                           className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6" }}>
+                          style={{ background: "rgba(201,168,76,0.14)", border: "1px solid rgba(201,168,76,0.28)", color: "#C9A84C" }}>
                           {ghostLoading ? <span className="animate-spin text-[8px]">⟳</span> : "Run"}
                         </button>
                       </div>
@@ -2701,7 +2701,7 @@ export default function ChartPage() {
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center justify-between">
                             <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>Similarity</span>
-                            <span className="text-[9px] font-mono font-bold" style={{ color: "#8b5cf6" }}>{ghostResult.similarityScore}%</span>
+                            <span className="text-[9px] font-mono font-bold" style={{ color: "#C9A84C" }}>{ghostResult.similarityScore}%</span>
                           </div>
                           {[
                             { label: "Win Rate",  value: `${ghostResult.winRate}%`,     color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
@@ -2715,8 +2715,8 @@ export default function ChartPage() {
                           ))}
                           {ghostResult.closestMatch && (
                             <div className="rounded px-2 py-1 mt-0.5"
-                              style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.18)" }}>
-                              <p className="text-[8px] font-mono" style={{ color: "#8b5cf6" }}>Closest: {ghostResult.closestMatch.symbol} {ghostResult.closestMatch.side.toUpperCase()} · {ghostResult.closestMatch.pnlPercent >= 0 ? "+" : ""}{ghostResult.closestMatch.pnlPercent}%</p>
+                              style={{ background: "rgba(201,168,76,0.07)", border: "1px solid rgba(201,168,76,0.18)" }}>
+                              <p className="text-[8px] font-mono" style={{ color: "#C9A84C" }}>Closest: {ghostResult.closestMatch.symbol} {ghostResult.closestMatch.side.toUpperCase()} · {ghostResult.closestMatch.pnlPercent >= 0 ? "+" : ""}{ghostResult.closestMatch.pnlPercent}%</p>
                             </div>
                           )}
                         </div>
@@ -2816,10 +2816,10 @@ export default function ChartPage() {
 
                   {/* ── Ghost Mode mini widget (replay panel) ── */}
                   {token && !position && (
-                    <div className="mt-2 rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.07)"}` }}>
+                    <div className="mt-2 rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(201,168,76,0.28)" : "rgba(255,255,255,0.07)"}` }}>
                       <button type="button" onClick={() => setGhostOpen(v => !v)}
                         className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
-                        style={{ color: ghostOpen ? "#8b5cf6" : "hsl(220,14%,38%)", background: "transparent" }}>
+                        style={{ color: ghostOpen ? "#C9A84C" : "hsl(220,14%,38%)", background: "transparent" }}>
                         <Sparkles className="h-2.5 w-2.5" />Ghost Mode
                         <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
                       </button>
@@ -2837,14 +2837,14 @@ export default function ChartPage() {
                             ))}
                             <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
                               className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
-                              style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#8b5cf6" }}>
+                              style={{ background: "rgba(201,168,76,0.14)", border: "1px solid rgba(201,168,76,0.28)", color: "#C9A84C" }}>
                               {ghostLoading ? "…" : "Run"}
                             </button>
                           </div>
                           {ghostResult && ghostResult.hasHistory && (
                             <div className="flex flex-col gap-1">
                               {[
-                                { label: "Similarity", value: `${ghostResult.similarityScore}%`,  color: "#8b5cf6" },
+                                { label: "Similarity", value: `${ghostResult.similarityScore}%`,  color: "#C9A84C" },
                                 { label: "Win Rate",   value: `${ghostResult.winRate}%`,           color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
                                 { label: "Avg Return", value: `${ghostResult.avgReturn >= 0 ? "+" : ""}${ghostResult.avgReturn}%`, color: ghostResult.avgReturn >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
                                 { label: "Avg DD",     value: `-${ghostResult.avgDrawdown}%`,      color: ghostResult.avgDrawdown <= 10 ? "hsl(150,90%,50%)" : "hsl(0,85%,60%)" },
@@ -2917,17 +2917,17 @@ export default function ChartPage() {
 
       {/* ── Demo Account Overview (below chart, scroll to see) ───────── */}
       <div className="mx-auto w-full px-3 pb-6 mt-4 max-w-[1600px]">
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(52,211,153,0.18)", background: "linear-gradient(135deg, rgba(52,211,153,0.04) 0%, rgba(255,255,255,0.01) 100%)" }}>
-          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(52,211,153,0.1)" }}>
+        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <div className="flex items-center gap-2.5">
-              <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "hsl(150,90%,55%)" }} />
-              <span className="text-[11px] font-mono font-bold uppercase tracking-widest" style={{ color: "hsl(150,90%,60%)" }}>Demo Account</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.08)", color: "hsl(150,70%,50%)", border: "1px solid rgba(52,211,153,0.15)" }}>Paper Trading</span>
+              <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "rgba(255,255,255,0.60)" }} />
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.80)", letterSpacing: "0.12em" }}>Demo Account</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.10)" }}>Paper Trading</span>
             </div>
             <button
               onClick={() => setAccountModalOpen(true)}
               className="text-[10px] font-mono px-3 py-1 rounded-lg transition-all"
-              style={{ background: "rgba(52,211,153,0.08)", color: "hsl(150,80%,55%)", border: "1px solid rgba(52,211,153,0.15)" }}
+              style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.12)" }}
             >
               Configure
             </button>

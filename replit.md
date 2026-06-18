@@ -39,6 +39,15 @@ This installs `scripts/check-replit-secrets.sh` as `.git/hooks/pre-commit`. Afte
 - `artifacts/api-server/src/lib/backtest-engine.ts` — pure-TS backtest engine with indicator math
 - `artifacts/trade-backtest/src/pages/` — React pages (dashboard, strategies, backtests)
 
+## Design System
+
+- **Fonts:** Sora (display/headings) + DM Sans (body) + JetBrains Mono (financial data)
+- **Dark background:** `#060606` near-black with subtle warm-white + gold radial orbs
+- **Brand accents:** Platinum white (`#E8E8F0`) primary, warm gold (`#C9A84C`) for AI/Ghost Mode
+- **Keep green/red for trading data only** (BUY/SELL, P&L) — they're trading conventions
+- **Nav/dock active:** White glass pill instead of purple
+- **Chart page height:** `clamp(520px, calc(100dvh - 170px), 1000px)` — maximizes chart real estate
+
 ## Architecture decisions
 
 - The backtest engine is a pure TypeScript module in the API server that generates deterministic simulated OHLCV price data (seeded by symbol name) and runs indicator-based strategies against it. No external market data API needed.
