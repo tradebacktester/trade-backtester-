@@ -1682,6 +1682,17 @@ export default function BacktestDetail() {
               })()}
             </div>
 
+            {/* Execution model disclosure */}
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-2xl text-[11px]"
+              style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)" }}>
+              <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: "#818cf8" }} />
+              <span style={{ color: "#a5b4fc" }}>
+                <strong>Execution model:</strong> All entries and exits fill at the <strong>next bar's open price</strong> after the signal bar, plus configured slippage ({backtest.slippage ?? 0}% per side).
+                {backtest.commission && Number(backtest.commission) > 0 && ` Commission: ${backtest.commission}% per side.`}
+                {" "}No partial fills or intrabar execution. Results reflect idealized fills under the strategy's signal logic.
+              </span>
+            </div>
+
             {/* Backtest Notes */}
             <Card className="glass-card border-0">
               <CardHeader className="pb-3">

@@ -29,3 +29,4 @@ export * from "./academy";
 export * from "./coupons";
 export * from "./watchlist";
 export * from "./psych_alert_events";
+export * from "./drawings";

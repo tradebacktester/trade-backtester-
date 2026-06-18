@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Play, TrendingUp, Activity, BarChart3, Zap, Target,
   Layers, ChevronDown, ChevronUp, Info, Sparkles, Loader2, CheckCircle2,
-  Settings, FlaskConical, Cpu, ChevronRight, Eye,
+  Settings, FlaskConical, Cpu, ChevronRight, Eye, AlertTriangle, ShieldAlert, TrendingDown,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AuthModal } from "@/components/auth-modal";
@@ -36,6 +36,9 @@ const formSchema = z.object({
   initialCapital: z.coerce.number().min(100, "Minimum capital is $100"),
   commission: z.coerce.number().min(0).max(10).optional(),
   slippage: z.coerce.number().min(0).max(5).optional(),
+  stopLoss: z.coerce.number().min(0).max(50).optional(),
+  takeProfit: z.coerce.number().min(0).max(200).optional(),
+  maxPositions: z.coerce.number().int().min(1).max(10).optional(),
   positionSizingMode: z.enum(["pct_capital", "fixed_amount"]).default("pct_capital"),
   positionSizingValue: z.coerce.number().positive().optional(),
 })
@@ -43,6 +46,9 @@ const formSchema = z.object({
   .refine((d) => (new Date(d.endDate).getTime() - new Date(d.startDate).getTime()) / 86_400_000 >= 90, {
     message: "Range must be at least 3 months", path: ["endDate"],
   });
+
+const INTRADAY_TIMEFRAMES = ["1m", "5m", "15m", "1h"];
+const CRYPTO_GROUPS = ["Crypto"];
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -148,7 +154,10 @@ export default function NewBacktest() {
       endDate: format(new Date(), "yyyy-MM-dd"),
       initialCapital: 100000,
       commission: 0.1,
-      slippage: 0.05,
+      slippage: 0.1,
+      stopLoss: undefined,
+      takeProfit: undefined,
+      maxPositions: undefined,
       positionSizingMode: "pct_capital" as const,
       positionSizingValue: 95,
     },
@@ -159,6 +168,12 @@ export default function NewBacktest() {
       if (name === "strategyId" && strategies) {
         const strategy = strategies.find(s => s.id === value.strategyId);
         if (strategy) form.setValue("symbol", normalizeToSymbolValue(strategy.symbol));
+      }
+      if (name === "symbol" && value.symbol) {
+        const sym = SYMBOLS.find(s => s.value === value.symbol);
+        const isCrypto = sym?.group ? CRYPTO_GROUPS.includes(sym.group) : false;
+        form.setValue("slippage", isCrypto ? 0.1 : 0.03);
+        form.setValue("commission", isCrypto ? 0.1 : 0.05);
       }
     });
     return () => sub.unsubscribe();
@@ -220,7 +235,7 @@ export default function NewBacktest() {
       ? { mode: "fixed_amount" as const, value: data.positionSizingValue ?? data.initialCapital * 0.95 }
       : { mode: "risk_pct" as const, value: data.positionSizingValue ?? 95 };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    createBacktest.mutate({ data: { strategyId: data.strategyId, symbol: data.symbol, startDate: data.startDate, endDate: data.endDate, initialCapital: data.initialCapital, commission: data.commission ?? 0, slippage: data.slippage ?? 0, positionSizing, notes: backtestNotes || undefined } as any }, {
+    createBacktest.mutate({ data: { strategyId: data.strategyId, symbol: data.symbol, startDate: data.startDate, endDate: data.endDate, initialCapital: data.initialCapital, commission: data.commission ?? 0, slippage: data.slippage ?? 0, positionSizing, notes: backtestNotes || undefined, stopLoss: data.stopLoss || undefined, takeProfit: data.takeProfit || undefined } as any }, {
       onSuccess: (backtest) => {
         queryClient.invalidateQueries({ queryKey: getListBacktestsQueryKey() });
         toast({ title: "Simulation running!", description: "Redirecting to your results…" });
@@ -247,6 +262,7 @@ export default function NewBacktest() {
   const commissionVal = form.watch("commission") ?? 0;
   const slippageVal = form.watch("slippage") ?? 0;
   const totalCostEstimate = (commissionVal * 2 + slippageVal * 2).toFixed(3);
+  const hasIntradayWarning = selectedStrategy ? INTRADAY_TIMEFRAMES.includes(selectedStrategy.timeframe ?? "") : false;
   const step1Done = selectedStrategyId > 0;
   const step2Done = step1Done && !!form.watch("symbol") && !!form.watch("startDate") && !!form.watch("endDate") && (form.watch("initialCapital") ?? 0) >= 100;
 
@@ -586,41 +602,114 @@ export default function NewBacktest() {
                 </FormItem>
               )} />
 
-              {/* Advanced toggle */}
+              {/* Intraday timeframe warning */}
+              {hasIntradayWarning && (
+                <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-[11px]"
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }}>
+                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: "#f87171" }} />
+                  <span>
+                    Strategy uses <strong>{selectedStrategy?.timeframe}</strong> — intraday timeframes are not supported for backtesting.
+                    The engine runs on <strong>daily bars only</strong>. Edit the strategy to use <strong>4h, 1d, or 1w</strong>.
+                  </span>
+                </div>
+              )}
+
+              {/* Commission & Slippage — always visible */}
+              <div className="rounded-xl p-3.5 space-y-3" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "hsl(var(--muted-foreground))" }}>Transaction Costs</span>
+                  <span className="text-[11px] font-mono" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.7 }}>
+                    Round-trip: ~<strong className="text-foreground">{totalCostEstimate}%</strong>
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField control={form.control} name="commission" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[11px]">Commission (%)</FormLabel>
+                      <FormControl><Input type="number" step="0.01" min="0" max="10" {...field} className="h-9 rounded-xl font-mono text-[12px]" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }} /></FormControl>
+                      <FormDescription className="text-[10px]">Per-side (e.g. 0.1 = 0.1%)</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="slippage" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[11px]">Slippage (%)</FormLabel>
+                      <FormControl><Input type="number" step="0.01" min="0" max="5" {...field} className="h-9 rounded-xl font-mono text-[12px]" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }} /></FormControl>
+                      <FormDescription className="text-[10px]">Price impact per side</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <p className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.6 }}>
+                  Defaults auto-adjust by asset class (crypto 0.1%, equities 0.05%). Applied each entry &amp; exit.
+                </p>
+              </div>
+
+              {/* Advanced toggle — position sizing + risk management */}
               <button type="button" onClick={() => setShowAdvanced(v => !v)}
                 className="flex items-center gap-2 text-[12px] font-medium transition-colors w-full py-1"
                 style={{ color: showAdvanced ? "#FFFFFF" : "hsl(var(--muted-foreground))" }}>
                 {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                {showAdvanced ? "Hide" : "Show"} Advanced — Commission, Slippage &amp; Position Sizing
+                {showAdvanced ? "Hide" : "Show"} Advanced — Stop Loss, Take Profit &amp; Position Sizing
               </button>
 
               {showAdvanced && (
                 <div className="rounded-xl p-4 space-y-4" style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}>
-                  <div className="flex items-start gap-2.5 text-[11px] rounded-xl px-3 py-2.5"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "#FFFFFF" }}>
-                    <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                    Commission and slippage applied each entry &amp; exit. Est. round-trip cost: <strong className="font-mono ml-1">~{totalCostEstimate}%</strong>
+                  {/* Stop Loss & Take Profit */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: "hsl(var(--foreground))" }}>
+                      <ShieldAlert className="h-3.5 w-3.5" style={{ color: "#f59e0b" }} />
+                      Intrabar Stop Loss &amp; Take Profit
+                    </p>
+                    <p className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                      SL/TP are checked against each bar's high/low after entry. SL checked first (conservative). Leave blank to use strategy exit signals only.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField control={form.control} name="stopLoss" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[11px] flex items-center gap-1">
+                            <TrendingDown className="h-3 w-3 text-red-400" />Stop Loss (%)
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.5" min="0" max="50" placeholder="e.g. 5"
+                              {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))}
+                              className="h-9 rounded-xl font-mono text-[12px]" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }} />
+                          </FormControl>
+                          <FormDescription className="text-[10px]">% drop from entry to stop</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="takeProfit" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[11px] flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3 text-green-400" />Take Profit (%)
+                          </FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.5" min="0" max="200" placeholder="e.g. 10"
+                              {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))}
+                              className="h-9 rounded-xl font-mono text-[12px]" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }} />
+                          </FormControl>
+                          <FormDescription className="text-[10px]">% gain from entry to target</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField control={form.control} name="commission" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[11px]">Commission (%)</FormLabel>
-                        <FormControl><Input type="number" step="0.01" min="0" max="10" {...field} className="h-9 rounded-xl font-mono text-[12px]" /></FormControl>
-                        <FormDescription className="text-[10px]">Per-side fee (e.g. 0.1 = 0.1%)</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="slippage" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[11px]">Slippage (%)</FormLabel>
-                        <FormControl><Input type="number" step="0.01" min="0" max="5" {...field} className="h-9 rounded-xl font-mono text-[12px]" /></FormControl>
-                        <FormDescription className="text-[10px]">Price impact per side</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
+
                   <div className="pt-2 space-y-3" style={{ borderTop: "1px solid var(--glass-border)" }}>
-                    <p className="text-[11px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Position Sizing</p>
+                    <p className="text-[11px] font-semibold" style={{ color: "hsl(var(--foreground))" }}>Position Sizing &amp; Limits</p>
+                    <FormField control={form.control} name="maxPositions" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[11px]">Max Concurrent Positions</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="1" min="1" max="10" placeholder="1 (default)"
+                            {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))}
+                            className="h-9 rounded-xl font-mono text-[12px]" style={{ background: "var(--glass-bg)", borderColor: "var(--glass-border)" }} />
+                        </FormControl>
+                        <FormDescription className="text-[10px]">Max simultaneous open trades (1–10). Engine enforces single-position strategies by default.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                     <div className="grid grid-cols-2 gap-3">
                       <FormField control={form.control} name="positionSizingMode" render={({ field }) => (
                         <FormItem>

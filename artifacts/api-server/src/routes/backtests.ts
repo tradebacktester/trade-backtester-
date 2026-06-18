@@ -288,6 +288,16 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // BUG-001: Intraday timeframes are not supported — engine uses daily/weekly bars only
+  const INTRADAY_TIMEFRAMES = ["1m", "5m", "15m", "1h"];
+  if (INTRADAY_TIMEFRAMES.includes(strategy.timeframe ?? "")) {
+    res.status(400).json({
+      error: `Strategy timeframe "${strategy.timeframe}" is not supported for backtesting. The backtest engine requires daily (1d) or higher timeframes. Edit your strategy to use 4h, 1d, or 1w.`,
+      intradayTimeframe: true,
+    });
+    return;
+  }
+
   const commissionPct = parsed.data.commission ?? 0;
   const slippagePct   = parsed.data.slippage   ?? 0;
   const userId        = res.locals["userId"] as number;
@@ -390,6 +400,9 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       ? { mode: psRaw.mode as "fixed_amount" | "risk_pct", value: typeof psRaw.value === "number" ? psRaw.value : undefined }
       : undefined;
 
+    const stopLossPct   = typeof req.body.stopLoss   === "number" && req.body.stopLoss   > 0 ? Math.min(Number(req.body.stopLoss),   50)  : 0;
+    const takeProfitPct = typeof req.body.takeProfit === "number" && req.body.takeProfit > 0 ? Math.min(Number(req.body.takeProfit), 200) : 0;
+
     const result = runBacktest(
       parsed.data.symbol,
       strategy.type,
@@ -402,6 +415,8 @@ router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
       realBars,
       strategy.timeframe ?? "1d",
       positionSizing,
+      stopLossPct,
+      takeProfitPct,
     );
 
     // ── Bulk insert trades ────────────────────────────────────────────────────

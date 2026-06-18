@@ -634,7 +634,9 @@ export function runBacktest(
   slippagePct = 0,
   priceData?: OHLCVBar[],
   timeframe = "1d",
-  positionSizing?: PositionSizing
+  positionSizing?: PositionSizing,
+  stopLossPct = 0,
+  takeProfitPct = 0
 ): BacktestResult {
   if (!priceData || priceData.length < 20) {
     throw new Error(
@@ -671,20 +673,52 @@ export function runBacktest(
 
   const signals = runStrategy(bars, strategyType, parameters);
   const trades: TradeResult[] = [];
+  const tradeExitBarIdxes: number[] = [];
   let capital = initialCapital;
 
   for (const sig of signals) {
-    const entryBar = bars[sig.entries[0]];
-    const exitBar = bars[sig.exits[0]];
-
-    // Apply slippage: adverse fill for both longs and shorts
+    const entryBarIdx = sig.entries[0];
+    const entryBar = bars[entryBarIdx];
     const isShort = sig.direction === "short";
+
+    // Apply slippage: adverse fill on entry
     const entryPrice = isShort
       ? entryBar.open * (1 - slippagePct / 100)
       : entryBar.open * (1 + slippagePct / 100);
-    const exitPrice = isShort
-      ? exitBar.open * (1 + slippagePct / 100)
-      : exitBar.open * (1 - slippagePct / 100);
+
+    // ── Intrabar Stop-Loss / Take-Profit ──────────────────────────────────
+    const stopPrice = stopLossPct > 0
+      ? (isShort ? entryPrice * (1 + stopLossPct / 100) : entryPrice * (1 - stopLossPct / 100))
+      : null;
+    const targetPrice = takeProfitPct > 0
+      ? (isShort ? entryPrice * (1 - takeProfitPct / 100) : entryPrice * (1 + takeProfitPct / 100))
+      : null;
+
+    let actualExitBarIdx = sig.exits[0];
+    let overrideExitPrice: number | null = null; // set only when SL/TP triggered
+
+    if (stopPrice !== null || targetPrice !== null) {
+      for (let bi = entryBarIdx + 1; bi <= sig.exits[0]; bi++) {
+        const b = bars[bi];
+        // Check SL first (conservative — worst case intrabar sequence)
+        if (stopPrice !== null) {
+          const slHit = isShort ? b.high >= stopPrice : b.low <= stopPrice;
+          if (slHit) { actualExitBarIdx = bi; overrideExitPrice = stopPrice; break; }
+        }
+        if (targetPrice !== null) {
+          const tpHit = isShort ? b.low <= targetPrice : b.high >= targetPrice;
+          if (tpHit) { actualExitBarIdx = bi; overrideExitPrice = targetPrice; break; }
+        }
+      }
+    }
+
+    const actualExitBar = bars[actualExitBarIdx];
+    // SL/TP exits fill at the exact level; signal exits fill at next-bar-open with slippage
+    const exitPrice = overrideExitPrice !== null
+      ? overrideExitPrice
+      : (isShort
+          ? actualExitBar.open * (1 + slippagePct / 100)
+          : actualExitBar.open * (1 - slippagePct / 100));
 
     let quantity: number;
     if (positionSizing?.mode === "fixed_amount") {
@@ -704,12 +738,13 @@ export function runBacktest(
     const pnlPercent = isShort
       ? ((entryPrice - exitPrice) / entryPrice) * 100 - (commissionPct * 2)
       : ((exitPrice - entryPrice) / entryPrice) * 100 - (commissionPct * 2);
-    const duration = daysBetween(entryBar.date, exitBar.date);
+    const duration = daysBetween(entryBar.date, actualExitBar.date);
 
     capital += pnl;
+    tradeExitBarIdxes.push(actualExitBarIdx);
     trades.push({
       symbol, side: sig.direction,
-      entryDate: entryBar.date, exitDate: exitBar.date,
+      entryDate: entryBar.date, exitDate: actualExitBar.date,
       entryPrice, exitPrice, quantity, pnl, pnlPercent, duration,
     });
   }
@@ -730,7 +765,7 @@ export function runBacktest(
   const signalMeta = signals.map((sig, i) => ({
     trade: trades[i],
     entryBarIdx: sig.entries[0],
-    exitBarIdx: sig.exits[0],
+    exitBarIdx: tradeExitBarIdxes[i] ?? sig.exits[0],
   }));
 
   let sigPtr = 0; // next signal to consider opening

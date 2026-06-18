@@ -37,6 +37,7 @@ interface Props {
   symbol:        string;
   interval:      string;
   onHandleReady?: (h: DrawingLayerHandle) => void;
+  getToken?:     () => string | null;
 }
 
 // ── Fabric (local static bundle — no external CDN) ────────────────────────────
@@ -99,15 +100,15 @@ class DrawingController {
   undoStack: string[] = []; redoStack: string[] = [];
   _unsubs: Array<() => void> = [];
   _ro: ResizeObserver;
-  // RAF throttle for move events — only one preview update per animation frame
   _rafId:     number | null = null;
   _pendingXY: { x: number; y: number } | null = null;
   _b: { click:(e:MouseEvent)=>void; move:(e:MouseEvent)=>void; key:(e:KeyboardEvent)=>void;
         ts:(e:TouchEvent)=>void; tm:(e:TouchEvent)=>void; te:(e:TouchEvent)=>void;
         md:(e:MouseEvent)=>void };
-  // Two-finger pinch/pan state — chart navigation
   _pinch: { prevDist: number; prevMidX: number } | null = null;
   _isPinching = false;
+  getToken: (() => string | null) | undefined;
+  _apiSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     fab: Fab, container: HTMLElement,
@@ -117,6 +118,7 @@ class DrawingController {
     onToolChange: (t: string) => void,
     onPositions: (p: PosDraw[]) => void,
     onSync: () => void,
+    getToken?: () => string | null,
   ) {
     this.fab = fab; this.container = container;
     this.chartRef = chartRef; this.seriesRef = seriesRef;
@@ -124,6 +126,7 @@ class DrawingController {
     this.onToolChange = onToolChange;
     this.onPositions = onPositions;
     this.onSync = onSync;
+    this.getToken = getToken;
 
     const click = this._onClick.bind(this);
     const move  = this._onMove.bind(this);
@@ -745,13 +748,42 @@ class DrawingController {
       .filter((o:FObj)=>o.logicalData&&!o._isPreview&&o.drawingType!=="fib-line"&&o.drawingType!=="pitchfork-line")
       .map((o:FObj)=>({drawingType:o.drawingType,logicalData:o.logicalData,stroke:o.stroke,strokeWidth:o.strokeWidth}));
   }
-  private _save() { try { localStorage.setItem(this._key(), JSON.stringify(this._ser())); } catch {} }
+  private _save() {
+    const data = this._ser();
+    try { localStorage.setItem(this._key(), JSON.stringify(data)); } catch {}
+    // Debounced API sync — only if user is logged in
+    if (this._apiSaveTimer) clearTimeout(this._apiSaveTimer);
+    this._apiSaveTimer = setTimeout(() => {
+      const token = this.getToken?.();
+      if (!token) return;
+      fetch("/api/chart/drawings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ symbol: this.symbol, interval: this.interval, data }),
+      }).catch(() => {});
+    }, 1500);
+  }
   private _load() {
     try {
       const r = localStorage.getItem(this._key());
       if (r) { (JSON.parse(r) as any[]).forEach(d => this._restore1(d)); this.syncAll(); }
     } catch {}
     this._loadPosns();
+    // Async: try to load from API (server-side) and merge — overwrites localStorage if server has data
+    const token = this.getToken?.();
+    if (token) {
+      fetch(`/api/chart/drawings?symbol=${encodeURIComponent(this.symbol)}&interval=${encodeURIComponent(this.interval)}`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      }).then(r => r.json()).then((json: { data?: any[] }) => {
+        if (Array.isArray(json.data) && json.data.length > 0) {
+          // Clear current drawings and restore from server
+          this.fab.getObjects().slice().forEach((o: FObj) => this.fab.remove(o));
+          json.data.forEach((d: any) => this._restore1(d));
+          this.syncAll();
+          try { localStorage.setItem(this._key(), JSON.stringify(json.data)); } catch {}
+        }
+      }).catch(() => {});
+    }
   }
   private _restore1(d: {drawingType:string;logicalData:any}) {
     const ld = d.logicalData;
@@ -1063,7 +1095,7 @@ function PositionTool({ pos, series, chart, syncTick: _tick, onUpdate, onRemove,
 // ═════════════════════════════════════════════════════════════════════════════
 // DrawingLayer — React wrapper
 // ═════════════════════════════════════════════════════════════════════════════
-export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, onToolChange, symbol, interval, onHandleReady }: Props) {
+export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, onToolChange, symbol, interval, onHandleReady, getToken }: Props) {
   const fabricHostRef = useRef<HTMLDivElement>(null);
   const ctrlRef    = useRef<DrawingController | null>(null);
   const prevTool   = useRef(activeTool);
@@ -1125,6 +1157,7 @@ export function DrawingLayer({ chartRef, seriesRef, containerRef, activeTool, on
           onToolChange,
           (p) => setPositions([...p]),
           () => setSyncTick(t => t + 1),
+          getToken,
         );
         ctrlRef.current = ctrl;
         ctrl.setTool(prevTool.current);

@@ -1,5 +1,22 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { fetchYahooKlines, isYahooSupported } from "../lib/yahoo-finance";
+import { db } from "@workspace/db";
+import { drawingsTable } from "@workspace/db/schema";
+import { eq, and } from "drizzle-orm";
+import { verifyJwt } from "../lib/jwt";
+
+function extractUserId(req: Request): number | null {
+  const auth = req.headers["authorization"];
+  if (!auth?.startsWith("Bearer ")) return null;
+  const payload = verifyJwt(auth.slice(7));
+  return payload ? (payload as { id: number }).id : null;
+}
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const uid = extractUserId(req);
+  if (!uid) { res.status(401).json({ error: "Authentication required" }); return; }
+  res.locals["userId"] = uid;
+  next();
+}
 
 const router: IRouter = Router();
 
@@ -103,6 +120,26 @@ router.get("/klines", async (req, res): Promise<void> => {
   }
 
   res.status(503).json({ error: "Market data unavailable for this symbol. Please try again shortly." });
+});
+
+// ── Chart drawings persistence ─────────────────────────────────────────────
+router.get("/drawings", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const { symbol, interval } = req.query as Record<string, string>;
+  if (!symbol || !interval) { res.status(400).json({ error: "symbol and interval required" }); return; }
+  const row = await db.select().from(drawingsTable)
+    .where(and(eq(drawingsTable.userId, userId), eq(drawingsTable.symbol, symbol), eq(drawingsTable.interval, interval)))
+    .limit(1);
+  res.json({ data: row[0]?.data ?? [] });
+});
+
+router.post("/drawings", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+  const { symbol, interval, data } = req.body as { symbol: string; interval: string; data: unknown[] };
+  if (!symbol || !interval || !Array.isArray(data)) { res.status(400).json({ error: "symbol, interval, data[] required" }); return; }
+  await db.insert(drawingsTable).values({ userId, symbol, interval, data })
+    .onConflictDoUpdate({ target: [drawingsTable.userId, drawingsTable.symbol, drawingsTable.interval], set: { data, updatedAt: new Date() } });
+  res.json({ ok: true });
 });
 
 export default router;

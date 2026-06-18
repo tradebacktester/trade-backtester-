@@ -249,6 +249,14 @@ export default function FootprintPage() {
 
   return (
     <div style={{ paddingBottom: "80px" }}>
+      {/* ── Data source banner ───────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "10px 14px", borderRadius: "12px", marginBottom: "14px", background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.25)" }}>
+        <Wifi style={{ height: "13px", width: "13px", flexShrink: 0, marginTop: "1px", color: "#4ade80" }} />
+        <p style={{ fontSize: "11px", color: "#86efac", margin: 0, lineHeight: 1.6 }}>
+          <strong>Live data:</strong> Footprint charts stream real-time order flow from Binance via the <strong>aggTrade</strong> WebSocket. Each cell shows actual market buy/sell volume aggregated into price buckets — no simulation or synthetic data.
+        </p>
+      </div>
+
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div style={{ marginBottom: "16px" }}>
         <div className="flex items-center gap-2 mb-1">

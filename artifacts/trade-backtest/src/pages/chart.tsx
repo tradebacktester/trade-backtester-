@@ -521,6 +521,10 @@ export default function ChartPage() {
   const [vpvrOpacity, setVpvrOpacity] = useState(0.4);
   const [showVpvrSettings, setShowVpvrSettings] = useState(false);
 
+  // HTF EMA(200) overlay
+  const [showHtfEma, setShowHtfEma] = useState(false);
+  const [htfEmaInterval, setHtfEmaInterval] = useState<GetKlinesInterval>("1d");
+
   // Go to date
   const [goToDate, setGoToDate] = useState("");
 
@@ -545,6 +549,7 @@ export default function ChartPage() {
   const markersRef         = useRef<SeriesMarker<Time>[]>([]);
   const indicatorPanelRef  = useRef<HTMLDivElement>(null);
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line"> | ISeriesApi<"Line">[]>>(new Map());
+  const htfEmaSeriesRef    = useRef<ISeriesApi<"Line"> | null>(null);
 
   // Sub-chart
   const subChartContainerRef = useRef<HTMLDivElement>(null);
@@ -627,6 +632,12 @@ export default function ChartPage() {
     }
     return compareApiKlines ?? null;
   }, [compareSymbol, compareSymbolDef, compareIsSim, compareApiKlines, interval]);
+
+  // ── HTF EMA data ───────────────────────────────────────────────────────────
+  const htfParams = { symbol, interval: htfEmaInterval, limit: 300 };
+  const { data: htfKlines } = useGetKlines(htfParams, {
+    query: { enabled: showHtfEma && !isSim, queryKey: getGetKlinesQueryKey(htfParams), staleTime: 120_000 },
+  });
 
   // ── Derived ────────────────────────────────────────────────────────
   const hasRSI        = !!indicators.find(i => i.id === "rsi")?.enabled;
@@ -1208,6 +1219,35 @@ export default function ChartPage() {
     const slice = replayMode ? bars.slice(0, replayIndex) : bars;
     setVpvrBuckets(calcVolumeProfile(slice));
   }, [showVPVR, replayIndex, replayMode]);
+
+  // ── HTF EMA(200) overlay series ────────────────────────────────────
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    if (!showHtfEma || !htfKlines || htfKlines.length < 200) {
+      if (htfEmaSeriesRef.current) {
+        try { chart.removeSeries(htfEmaSeriesRef.current); } catch { /* ignore */ }
+        htfEmaSeriesRef.current = null;
+      }
+      return;
+    }
+    if (!htfEmaSeriesRef.current) {
+      htfEmaSeriesRef.current = chart.addSeries(LineSeries, {
+        color: "hsla(38,100%,65%,0.85)",
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        priceLineVisible: false,
+        lastValueVisible: true,
+        crosshairMarkerVisible: false,
+        title: `HTF EMA200 (${htfEmaInterval})`,
+      });
+    } else {
+      htfEmaSeriesRef.current.applyOptions({ title: `HTF EMA200 (${htfEmaInterval})` });
+    }
+    const sorted = [...htfKlines].sort((a, b) => (a.time as number) - (b.time as number));
+    const ema = calcEMA(sorted, 200);
+    htfEmaSeriesRef.current.setData(ema.map(d => ({ time: d.time as Time, value: d.value })));
+  }, [showHtfEma, htfKlines, htfEmaInterval]);
 
   // ── Indicator overlay series ───────────────────────────────────────
   useEffect(() => {
@@ -1929,6 +1969,27 @@ export default function ChartPage() {
             )}
           </div>
 
+          {/* HTF EMA(200) overlay */}
+          <div className="flex items-center gap-1">
+            <button onClick={() => setShowHtfEma(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all"
+              style={showHtfEma ? { background: "rgba(251,115,22,0.12)", borderColor: "rgba(251,115,22,0.3)", color: "hsl(28,100%,65%)" } : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", color: "hsl(220,14%,65%)" }}>
+              <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">HTF EMA</span>
+            </button>
+            {showHtfEma && (
+              <div onClick={e => e.stopPropagation()}>
+                <Select value={htfEmaInterval} onValueChange={v => setHtfEmaInterval(v as GetKlinesInterval)}>
+                  <SelectTrigger className="h-8 text-xs font-mono border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(251,115,22,0.25)", color: "hsl(28,100%,65%)", width: "4.5rem" }}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4h" className="text-xs font-mono">4h</SelectItem>
+                    <SelectItem value="1d" className="text-xs font-mono">1d</SelectItem>
+                    <SelectItem value="1w" className="text-xs font-mono">1w</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
           {/* Compare symbol */}
           <div className="flex items-center gap-1">
             <button onClick={() => setShowComparePanel(v => !v)}
@@ -2355,6 +2416,7 @@ export default function ChartPage() {
               symbol={symbol}
               interval={interval}
               onHandleReady={setDrawingHandle}
+              getToken={() => token}
             />
             </ErrorBoundary>
 
