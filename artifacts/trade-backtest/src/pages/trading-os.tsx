@@ -587,9 +587,36 @@ function SimulatorTab({ token }: { token: string }) {
 ══════════════════════════════════════════════════════════════════════════ */
 function FomoTab({ token }: { token: string }) {
   const [form, setForm] = useState({ symbol: "BTCUSDT", side: "long", priceMovePercent: "0", recentLossCount: "0", minutesSinceLastTrade: "60" });
-  const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]    = useState<string | null>(null);
+  const [result, setResult]       = useState<any>(null);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [autoFilled, setAutoFilled] = useState(false);
+
+  // BUG-011: Auto-populate from the most recent paper trade
+  useEffect(() => {
+    async function prefill() {
+      try {
+        const r = await fetch(`${API_BASE}/api/paper/trades?limit=10`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) return;
+        const trades: any[] = await r.json();
+        const last = trades.find((t: any) => t.exitTime);
+        if (!last) return;
+        const exitTimeSec = typeof last.exitTime === "number" ? last.exitTime : Number(last.exitTime);
+        const nowSec      = Math.floor(Date.now() / 1000);
+        const minsSince   = Math.max(0, Math.round((nowSec - exitTimeSec) / 60));
+        setForm(f => ({
+          ...f,
+          symbol: last.symbol ?? f.symbol,
+          side:   last.side   ?? f.side,
+          minutesSinceLastTrade: String(Math.min(minsSince, 1440)),
+        }));
+        setAutoFilled(true);
+      } catch { /* prefill is best-effort — ignore errors */ }
+    }
+    void prefill();
+  }, [token]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -617,6 +644,13 @@ function FomoTab({ token }: { token: string }) {
         <h2 className="text-lg font-bold" style={{ color: C.text }}>FOMO Detector</h2>
         <p className="text-xs" style={{ color: C.sub }}>Detect emotional trading behavior before you enter a position</p>
       </div>
+
+      {autoFilled && (
+        <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl" style={{ background: `${C.cyan}12`, border: `1px solid ${C.cyan}30`, color: C.cyan }}>
+          <CheckCircle2 className="h-3 w-3 shrink-0" />
+          Auto-filled from your last paper trade — adjust any field before running
+        </div>
+      )}
 
       <div className="rounded-2xl p-5 flex flex-col gap-4" style={CARD}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -877,6 +911,43 @@ function RankTab({ token }: { token: string }) {
               })}
             </div>
           </div>
+
+          {/* Benchmark comparison — MISSING-008 */}
+          {d.benchmarks && (
+            <div className="rounded-2xl p-5" style={CARD}>
+              <p className="text-xs font-mono uppercase tracking-widest mb-1" style={{ color: C.sub }}>Where You Stand</p>
+              <p className="text-[10px] mb-4" style={{ color: C.sub }}>Your score vs. reference trader benchmarks</p>
+              <div className="flex flex-col gap-3">
+                {(d.benchmarks as { id: string; label: string; description: string; score: number; percentile: number; rank: { color: string; icon: string }; stats: { avgWinRate: number; avgDrawdown: number } }[]).map(b => {
+                  const isAhead = d.score > b.score;
+                  const isTied  = d.score === b.score;
+                  const diff    = Math.abs(d.score - b.score);
+                  return (
+                    <div key={b.id} className="rounded-xl p-3" style={{ ...GLASS, border: `1px solid ${isAhead ? C.green : isTied ? C.amber : "hsl(var(--border))"}25` }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-xs font-medium" style={{ color: C.text }}>{b.rank.icon} {b.label}</p>
+                          <p className="text-[10px]" style={{ color: C.sub }}>{b.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold font-mono" style={{ color: b.rank.color }}>{b.score}</p>
+                          <p className="text-[10px]" style={{ color: C.sub }}>{b.percentile}th %ile</p>
+                        </div>
+                      </div>
+                      <div className="relative h-2 rounded-full" style={{ background: "hsl(var(--muted))" }}>
+                        <div className="h-2 rounded-full transition-all" style={{ width: `${b.score}%`, background: `${b.rank.color}60` }} />
+                        <div className="absolute top-0 h-2 w-0.5 rounded-full" style={{ left: `${d.score}%`, background: isAhead ? C.green : C.red }} />
+                      </div>
+                      <p className="text-[10px] mt-1.5" style={{ color: isAhead ? C.green : isTied ? C.amber : C.sub }}>
+                        {isAhead ? `▲ +${diff} pts ahead` : isTied ? "— Tied" : `▼ ${diff} pts behind`}
+                        {" · "}WR {b.stats.avgWinRate}% · DD {b.stats.avgDrawdown}%
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Achievements */}
           <div className="rounded-2xl p-5" style={CARD}>

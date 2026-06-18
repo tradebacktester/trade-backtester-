@@ -119,9 +119,41 @@ router.get("/trading-os/rank", async (req: Request, res: Response): Promise<void
       { id: "consistent", label: "3+ Strategies",     earned: profile.strategyStats.length >= 3,      icon: "💡" },
     ];
 
+    // Static benchmark personas — give rank meaning even for solo users
+    const benchmarks = [
+      {
+        id: "avg_retail",
+        label: "Avg Retail Trader",
+        description: "Typical self-directed retail account (1–3 yrs experience)",
+        score: 22,
+        rank: [...RANKS].filter(r => 22 >= r.min).pop()!,
+        percentile: 23,
+        stats: { avgWinRate: 41, avgDrawdown: 28, avgSharpe: 0.28, backtestCount: 2 },
+      },
+      {
+        id: "active_swing",
+        label: "Active Swing Trader",
+        description: "Experienced self-taught swing trader with consistent backtesting",
+        score: 48,
+        rank: [...RANKS].filter(r => 48 >= r.min).pop()!,
+        percentile: 55,
+        stats: { avgWinRate: 54, avgDrawdown: 18, avgSharpe: 0.71, backtestCount: 12 },
+      },
+      {
+        id: "prop_benchmark",
+        label: "Prop Trader Benchmark",
+        description: "Funded prop-firm evaluation passing standard (FTMO-equivalent)",
+        score: 74,
+        rank: [...RANKS].filter(r => 74 >= r.min).pop()!,
+        percentile: 75,
+        stats: { avgWinRate: 62, avgDrawdown: 8, avgSharpe: 1.4, backtestCount: 30 },
+      },
+    ];
+
     res.json({
       score, breakdown, achievements,
       rank: currentRank, nextRank, pctToNext,
+      benchmarks,
       profile: {
         totalTrades: profile.totalTrades,
         avgWinRate:  Math.round(profile.avgWinRate * 10) / 10,
@@ -597,15 +629,24 @@ Top mistake pattern: ${topMistake ? `"${topMistake.label}" recurring ${topMistak
 Best strategy type: ${profile.strategyStats[0]?.type ?? "N/A"} (${profile.strategyStats[0]?.avgWinRate.toFixed(0) ?? "?"}% avg win rate)
 Top symbol: ${profile.topSymbols[0]?.symbol ?? "N/A"} (${profile.topSymbols[0]?.winRate.toFixed(0) ?? "?"}% win rate)`;
 
-    const systemPrompt = `You are an elite personal trading coach who combines the precision of a hedge fund manager with the psychological insight of a sports performance coach. You know this trader's complete history. Be direct, specific, and motivating — never generic. All performance statistics are derived from real historical market data (Binance for crypto, Yahoo Finance for stocks/forex/indices/commodities).
+    const systemPrompt = `You are an elite personal trading coach. You have access ONLY to the trader data provided in the user message — do not invent statistics, cite external research, or reference studies.
+
+STRICT RULES:
+1. Every number you mention MUST come from the data provided. Never fabricate win rates, return figures, or comparisons.
+2. Never say "Research shows", "Studies indicate", or cite any book/paper/expert — you will hallucinate them.
+3. Never predict future market movements or guarantee outcomes.
+4. Prefix data-driven observations with "Based on your trade data:" — never "Research shows."
+5. If data is insufficient for a recommendation, say so in one sentence rather than inventing guidance.
+
+All statistics are derived from real historical market data (Binance for crypto, Yahoo Finance for stocks/forex/indices/commodities).
 
 Respond ONLY with this exact JSON (no markdown, no extra text):
 {
-  "greeting": "[Address them by their trading style. 1 sentence acknowledging their current performance trend]",
-  "keyInsight": "[The single most actionable insight from their exact data — cite specific numbers. 2 sentences max]",
+  "greeting": "[Address them by their trading style. 1 sentence acknowledging their current performance trend using only provided data]",
+  "keyInsight": "[The single most actionable insight from their exact data — cite specific numbers from the data. 2 sentences max]",
   "sessionAdvice": "[Which session to trade today and the specific reason based on their win rate data. 1 sentence]",
   "todayGoal": "[One concrete, measurable improvement goal for today. Start with a verb. 1 sentence]",
-  "warning": "[If there's a pattern risk to watch today — be specific. null if none]"
+  "warning": "[If there's a pattern risk to watch today — cite specific numbers. null if no clear risk in the data]"
 }`;
 
     const client     = groqClient();

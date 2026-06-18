@@ -4,6 +4,7 @@ import { db, paperTradesTable, psychAlertEventsTable } from "@workspace/db";
 import { verifyJwt } from "../lib/jwt";
 import { logger } from "../lib/logger";
 import OpenAI from "openai";
+import { alpacaGetOrders, ALPACA_CONFIGURED } from "../lib/alpaca";
 
 function extractUserId(req: Request): number | null {
   try {
@@ -351,8 +352,16 @@ async function getCoachAssessment(
       ? `\nPrevious session summaries (for continuity):\n${recentHistory.map(h => `- ${h.detectedAt.slice(0, 10)}: ${h.status} — "${h.headline}"`).join("\n")}`
       : "";
 
-    const prompt = `You are an elite trading psychology coach with memory of past sessions. Analyze this paper trader's behavior:
-- Trades: ${trades.length} total (confidence: ${confidence}% based on sample size)
+    const prompt = `You are an elite trading psychology coach analyzing behavioral data. You have access ONLY to the data provided below — do not invent statistics, cite external research, or reference any source outside this data.
+
+STRICT RULES:
+1. Base every assessment ONLY on the numbers below. Never fabricate statistics.
+2. Never say "Research shows", "Studies indicate", or cite any book, paper, or external expert.
+3. Start data-driven observations with "Based on your trade data:" — never with "Research shows."
+4. If data is insufficient for a strong conclusion, state that briefly rather than guessing.
+
+Trader data:
+- Trades analyzed: ${trades.length} total (confidence: ${confidence}% based on sample size)
 - Win rate: ${winRate}%
 - Total P&L: $${totalPnl}
 - Avg hold time: ${Math.round(avgDuration / 60000)} minutes
@@ -364,12 +373,12 @@ Return a JSON object with exactly these fields:
 {
   "status": one of: "green" | "yellow" | "orange" | "red",
   "statusLabel": short label (e.g. "Trading Well", "Risk Increasing", "Emotional Behavior", "Stop Trading"),
-  "headline": one short bold headline (max 10 words),
-  "detail": 1-2 sentences of honest assessment (max 30 words),
-  "recommendation": one clear action sentence (max 20 words)
+  "headline": one short bold headline citing their actual data (max 10 words),
+  "detail": 1-2 sentences of honest assessment referencing their specific numbers (max 30 words),
+  "recommendation": one clear action sentence derived from their data (max 20 words)
 }
 
-Be direct and specific. If multiple critical alerts exist, lean toward orange or red. Reference previous sessions if there is a pattern across sessions.`;
+Be direct. If multiple critical alerts exist, lean toward orange or red. Reference previous sessions only if there is an evident pattern in the session history data.`;
 
     const res = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
@@ -451,6 +460,41 @@ router.get("/psych-alerts", requireAuth, async (_req: Request, res: Response): P
       exitTime: r.exitTime,
     })).reverse();
 
+    // BUG-012: Merge Alpaca brokerage orders so psych detection covers real trades too
+    if (ALPACA_CONFIGURED()) {
+      try {
+        const alpacaOrders = await alpacaGetOrders("closed", 100);
+        let nextId = -1;
+        for (const o of alpacaOrders) {
+          if (o["status"] !== "filled") continue;
+          const sym   = typeof o["symbol"]            === "string" ? o["symbol"] : "";
+          const oSide = o["side"] === "buy" ? "long" : "short";
+          const price = Number(o["filled_avg_price"]  ?? 0);
+          const qty   = Number(o["filled_qty"]         ?? 0);
+          const ts    = String(o["filled_at"] ?? o["submitted_at"] ?? "");
+          if (!sym || !price || !ts) continue;
+          const tMs = new Date(ts).getTime();
+          if (isNaN(tMs)) continue;
+          const tSec = Math.floor(tMs / 1000);
+          trades.push({
+            id: nextId--,
+            symbol: sym,
+            side: oSide,
+            entryPrice: price,
+            exitPrice: price,
+            units: qty,
+            pnl: 0,       // P&L not available without round-trip matching
+            pnlPct: 0,
+            entryTime: tSec,
+            exitTime: tSec,
+          });
+        }
+        trades.sort((a, b) => a.entryTime - b.entryTime);
+      } catch {
+        // Alpaca unavailable — continue with paper trades only
+      }
+    }
+
     const detectedAlerts = detectAlerts(trades);
 
     // Persist new detected alerts (deduplicate by type within 1h)
@@ -528,6 +572,28 @@ router.get("/psych-alerts", requireAuth, async (_req: Request, res: Response): P
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, counts]) => ({ date, ...counts, total: Object.values(counts).reduce((s, v) => s + v, 0) }));
 
+    // MISSING-009: 4-week rolling sparkline — always populated even if zero alerts (shows improvement)
+    const weeklyTrend: Array<{ week: string; fomo: number; revenge: number; overtrading: number; aggressive: number; total: number }> = [];
+    const nowMs = Date.now();
+    for (let w = 3; w >= 0; w--) {
+      const weekStart = new Date(nowMs - (w + 1) * 7 * 24 * 60 * 60 * 1000);
+      const weekEnd   = new Date(nowMs - w       * 7 * 24 * 60 * 60 * 1000);
+      const mmdd      = weekStart.toISOString().slice(5, 10); // MM-DD
+      const label     = `W${4 - w} ${mmdd}`;
+      const counts    = { fomo: 0, revenge: 0, overtrading: 0, aggressive: 0, total: 0 };
+      for (const e of thirtyDayEvents) {
+        if (e.type === "coach_session") continue;
+        if (e.detectedAt >= weekStart && e.detectedAt < weekEnd) {
+          const t = e.type as string;
+          if (t === "fomo" || t === "revenge" || t === "overtrading" || t === "aggressive") {
+            (counts as Record<string, number>)[t]++;
+          }
+          counts.total++;
+        }
+      }
+      weeklyTrend.push({ week: label, ...counts });
+    }
+
     const stats = {
       totalTrades: trades.length,
       winRate: trades.length > 0 ? +(trades.filter(t => t.pnl > 0).length / trades.length * 100).toFixed(1) : 0,
@@ -544,6 +610,7 @@ router.get("/psych-alerts", requireAuth, async (_req: Request, res: Response): P
       coach,
       stats,
       trendData,
+      weeklyTrend,
     });
   } catch (err) {
     logger.error(err, "psych-alerts: GET failed");

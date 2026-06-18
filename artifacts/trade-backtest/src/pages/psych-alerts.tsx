@@ -57,12 +57,22 @@ interface TrendDataPoint {
   aggressive?: number;
 }
 
+interface WeeklyTrendPoint {
+  week: string;
+  fomo: number;
+  revenge: number;
+  overtrading: number;
+  aggressive: number;
+  total: number;
+}
+
 interface PsychData {
   events: PsychEvent[];
   detectedNow: { type: PsychAlertType; severity: Severity; title: string; message: string }[];
   coach: CoachAssessment;
   stats: Stats;
   trendData?: TrendDataPoint[];
+  weeklyTrend?: WeeklyTrendPoint[];
 }
 
 // ── Alert metadata ────────────────────────────────────────────────────────────
@@ -384,24 +394,36 @@ export default function PsychAlertsPage() {
             })}
           </div>
 
-          {/* ── 30-day Alert Trend ────────────────────────────────────────── */}
-          {data?.trendData && data.trendData.length > 0 && (
+          {/* ── 4-Week Alert Sparkline (MISSING-009) — always shown ─────── */}
+          {data?.weeklyTrend && (
             <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--border)" }}>
-              <p className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
-                30-Day Alert Trend
-              </p>
-              <ResponsiveContainer width="100%" height={90}>
-                <BarChart data={data.trendData} margin={{ top: 2, right: 4, left: -28, bottom: 0 }}>
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} tickFormatter={d => (d as string).slice(5)} interval="preserveStartEnd" />
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-mono uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                  4-Week Alert Trend
+                </p>
+                {data.weeklyTrend.every(w => w.total === 0) ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}>
+                    ✓ All clear
+                  </span>
+                ) : (
+                  <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    {data.weeklyTrend.reduce((s, w) => s + w.total, 0)} alerts this month
+                  </span>
+                )}
+              </div>
+              <ResponsiveContainer width="100%" height={80}>
+                <BarChart data={data.weeklyTrend} margin={{ top: 2, right: 4, left: -28, bottom: 0 }}>
+                  <XAxis dataKey="week" tick={{ fontSize: 9, fill: "var(--text-muted)" }} tickFormatter={w => (w as string).slice(0, 5)} />
                   <YAxis tick={{ fontSize: 9, fill: "var(--text-muted)" }} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }}
                     labelStyle={{ color: "var(--text-primary)" }}
+                    formatter={(val: number, name: string) => [val, ALERT_META[name as PsychAlertType]?.label ?? name]}
                   />
                   {(["fomo", "revenge", "overtrading", "aggressive"] as PsychAlertType[]).map((type, i) => (
                     <Bar key={type} dataKey={type} stackId="a"
                       fill={ALERT_META[type]?.color ?? "#a78bfa"}
-                      name={ALERT_META[type]?.label ?? type}
+                      name={type}
                       radius={i === 3 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
                     />
                   ))}
@@ -413,14 +435,14 @@ export default function PsychAlertsPage() {
           {/* ── Event list ────────────────────────────────────────────────── */}
           {events.length === 0 ? (
             <div
-              className="flex flex-col items-center justify-center gap-3 py-16 rounded-2xl"
-              style={{ background: "var(--card-bg)", border: "1px dashed var(--border)" }}
+              className="flex flex-col items-center justify-center gap-3 py-14 rounded-2xl"
+              style={{ background: "var(--card-bg)", border: "1px dashed rgba(34,197,94,0.35)" }}
             >
-              <Shield className="h-10 w-10 opacity-20" style={{ color: "var(--text-muted)" }} />
+              <Shield className="h-10 w-10" style={{ color: "#22c55e", opacity: 0.85 }} />
               <div className="text-center">
-                <p className="font-medium" style={{ color: "var(--text-primary)" }}>No behavioral alerts detected</p>
-                <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                  Run paper trades to generate behavioral analysis. Alerts appear automatically.
+                <p className="font-semibold" style={{ color: "var(--text-primary)" }}>🧠 Clean slate</p>
+                <p className="text-sm mt-1.5 max-w-xs mx-auto" style={{ color: "var(--text-muted)" }}>
+                  No behavioral anomalies detected in your last 50 trades. Keep it disciplined.
                 </p>
               </div>
               <Button size="sm" variant="outline" onClick={() => load(true)}>
