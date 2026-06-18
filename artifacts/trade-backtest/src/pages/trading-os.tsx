@@ -11,6 +11,8 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 import { SkeletonPulse as Skel } from "@/components/ui/skeleton-cards";
+import { apiFetch } from "@/lib/api-error";
+import { DataErrorBoundary } from "@/components/data-error-boundary";
 
 /* ── Design tokens ─────────────────────────────────────────────────────── */
 const C = {
@@ -38,11 +40,10 @@ function useOSFetch<T>(path: string, token: string | null, deps: unknown[] = [])
     if (!token) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
-      const r = await fetch(`${API_BASE}/api/trading-os/${path}`, {
+      const result = await apiFetch<T>(`${API_BASE}/api/trading-os/${path}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!r.ok) throw new Error(await r.text());
-      setData(await r.json());
+      setData(result);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Request failed");
     } finally { setLoading(false); }
@@ -54,16 +55,11 @@ function useOSFetch<T>(path: string, token: string | null, deps: unknown[] = [])
 }
 
 async function postOS<T>(path: string, token: string, body: unknown): Promise<T> {
-  const r = await fetch(`${API_BASE}/api/trading-os/${path}`, {
+  return apiFetch<T>(`${API_BASE}/api/trading-os/${path}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({ error: "Request failed" })) as { error?: string };
-    throw new Error(err.error ?? "Request failed");
-  }
-  return r.json() as Promise<T>;
 }
 
 /* ── Score gauge ────────────────────────────────────────────────────────── */
@@ -123,7 +119,9 @@ function OverviewTab({ token }: { token: string }) {
             <>
               <div className="flex items-center gap-4">
                 <div className="relative flex items-center justify-center" style={{ width: 90, height: 90 }}>
+                  <DataErrorBoundary label="health score gauge" compact>
                   <ScoreGauge score={hs.score} color={hs.statusColor} size={90} />
+                  </DataErrorBoundary>
                   <div className="absolute flex flex-col items-center">
                     <span className="text-2xl font-bold" style={{ color: hs.statusColor }}>{hs.score}</span>
                     <span className="text-[9px] font-mono" style={{ color: C.sub }}>/100</span>
@@ -395,7 +393,9 @@ function GhostTab({ token }: { token: string }) {
           {/* Similarity score */}
           <div className="rounded-2xl p-6 flex items-center gap-6" style={{ ...CARD, border: `1px solid ${simColor}40` }}>
             <div className="relative" style={{ width: 100, height: 100 }}>
+              <DataErrorBoundary label="similarity score gauge" compact>
               <ScoreGauge score={simScore} color={simColor} size={100} />
+              </DataErrorBoundary>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl font-bold font-mono" style={{ color: simColor }}>{simScore}%</span>
                 <span className="text-[9px]" style={{ color: C.sub }}>match</span>

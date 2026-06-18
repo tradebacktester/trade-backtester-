@@ -4,7 +4,7 @@ import { useGetStrategy, useGetStrategyPerformance, useListBacktests } from "@wo
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonPulse as Skeleton } from "@/components/ui/skeleton-cards";
 import { ArrowLeft, Play, Settings2, Activity } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";

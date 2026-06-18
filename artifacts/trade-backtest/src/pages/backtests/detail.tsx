@@ -14,7 +14,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonPulse as Skeleton } from "@/components/ui/skeleton-cards";
+import { apiFetch } from "@/lib/api-error";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
@@ -180,11 +181,10 @@ function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: numbe
   useEffect(() => {
     const token = localStorage.getItem("tt_token");
     if (!token) return;
-    fetch(`${API_BASE}/api/backtests/${backtestId}/journal/${tradeId}`, {
+    apiFetch<{ note?: string; tags?: string[]; session?: string; emotionPre?: string; emotionPost?: string; confidence?: number; mistakes?: string[] }>(`${API_BASE}/api/backtests/${backtestId}/journal/${tradeId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(r => r.ok ? r.json() : null)
-      .then((data: { note?: string; tags?: string[]; session?: string; emotionPre?: string; emotionPost?: string; confidence?: number; mistakes?: string[] } | null) => {
+      .then((data) => {
         if (!data) return;
         if (data.note !== undefined) { setNote(data.note); localStorage.setItem(key, data.note); }
         if (data.tags !== undefined) { setTags(data.tags); localStorage.setItem(key + "_tags", JSON.stringify(data.tags)); }
@@ -203,7 +203,7 @@ function TradeNote({ tradeId, backtestId }: { tradeId: number; backtestId: numbe
     saveTimerRef.current = setTimeout(() => {
       const token = localStorage.getItem("tt_token");
       if (!token) return;
-      fetch(`${API_BASE}/api/backtests/${backtestId}/journal/${tradeId}`, {
+      apiFetch(`${API_BASE}/api/backtests/${backtestId}/journal/${tradeId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -742,12 +742,8 @@ function PeerRankingTab({ backtestId }: { backtestId: number }) {
   React.useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`${API_BASE}/api/backtests/${backtestId}/percentile`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.error) { setError(d.error); return; }
-        setData(d);
-      })
+    apiFetch<PercentileData>(`${API_BASE}/api/backtests/${backtestId}/percentile`)
+      .then(d => { setData(d); })
       .catch(() => setError("Failed to load peer data."))
       .finally(() => setLoading(false));
   }, [backtestId]);
@@ -3309,12 +3305,12 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
   const loadAll = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const [tradesResp, divResp] = await Promise.all([
-        fetch(`${API_BASE}/api/backtests/${backtestId}/live-trades`, { headers: { "Authorization": `Bearer ${token()}` } }),
-        fetch(`${API_BASE}/api/backtests/${backtestId}/divergence`,  { headers: { "Authorization": `Bearer ${token()}` } }),
+      const [trades, div] = await Promise.all([
+        apiFetch<LiveTradeRow[]>(`${API_BASE}/api/backtests/${backtestId}/live-trades`, { headers: { "Authorization": `Bearer ${token()}` } }),
+        apiFetch<DivergenceData>(`${API_BASE}/api/backtests/${backtestId}/divergence`, { headers: { "Authorization": `Bearer ${token()}` } }),
       ]);
-      if (tradesResp.ok) setLiveTrades(await tradesResp.json());
-      if (divResp.ok) setDivergence(await divResp.json());
+      setLiveTrades(trades);
+      setDivergence(div);
     } catch { /* ignore */ }
     finally { setIsLoading(false); }
   }, [backtestId]);
