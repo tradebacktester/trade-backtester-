@@ -129,6 +129,14 @@ function detectAlerts(trades: TradeRow[]): DetectedAlert[] {
   }
 
   // ── Revenge Trading ───────────────────────────────────────────────────────
+  // Compute trade durations upfront for adaptive revenge window
+  const durations = trades.map(t => toMs(t.exitTime) - toMs(t.entryTime));
+  const avgDuration = avg(durations);
+  // Scalpers (avg hold < 5 min) get a tighter 2-min window; swing traders get 15 min
+  const revengeWindowMs = avgDuration > 0 && avgDuration < 5 * 60 * 1000
+    ? 2 * 60 * 1000
+    : 15 * 60 * 1000;
+
   // Require MIN_DATA_POINTS to avoid false positives
   if (trades.length >= MIN_DATA_POINTS) {
     for (let i = 1; i < trades.length; i++) {
@@ -137,7 +145,7 @@ function detectAlerts(trades: TradeRow[]): DetectedAlert[] {
       if (prev.pnl >= 0) continue;
 
       const gapMs = toMs(curr.entryTime) - toMs(prev.exitTime);
-      if (gapMs < 0 || gapMs > 15 * 60 * 1000) continue;
+      if (gapMs < 0 || gapMs > revengeWindowMs) continue;
 
       const sizeRatio = avgPositionValue > 0 ? (curr.entryPrice * curr.units) / avgPositionValue : 1;
       const severity: Severity = sizeRatio > 1.8 ? "critical" : sizeRatio > 1.3 ? "high" : "medium";
@@ -196,8 +204,7 @@ function detectAlerts(trades: TradeRow[]): DetectedAlert[] {
   }
 
   // ── Emotional Trading ─────────────────────────────────────────────────────
-  const durations = trades.map(t => toMs(t.exitTime) - toMs(t.entryTime));
-  const avgDuration = avg(durations);
+  // avgDuration already computed above for adaptive revenge window
   if (avgDuration < 3 * 60 * 1000 && trades.length >= 3) {
     alerts.push({
       type: "emotional",

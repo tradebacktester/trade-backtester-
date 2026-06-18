@@ -52,6 +52,7 @@ function serializePost(
     authorName: p.authorName,
     content: p.content,
     imageUrl: p.imageUrl,
+    tag: p.tag ?? "General",
     likes: p.likes,
     parentId: p.parentId ?? null,
     backtestId: p.backtestId ?? null,
@@ -68,11 +69,19 @@ router.get("/community", async (req, res): Promise<void> => {
   const PAGE_SIZE = 20;
   const limit = Math.min(Math.max(parseInt(String(req.query["limit"] ?? PAGE_SIZE), 10) || PAGE_SIZE, 1), 50);
   const offset = Math.max(parseInt(String(req.query["offset"] ?? "0"), 10) || 0, 0);
+  const VALID_TAGS_GET = ["General", "Analysis", "Strategy", "Education", "Question", "Meme"];
+  const tagFilter = typeof req.query["tag"] === "string" && VALID_TAGS_GET.includes(req.query["tag"])
+    ? req.query["tag"]
+    : null;
 
   const posts = await db
     .select()
     .from(communityPostsTable)
-    .where(and(eq(communityPostsTable.isDeleted, false), isNull(communityPostsTable.parentId)))
+    .where(and(
+      eq(communityPostsTable.isDeleted, false),
+      isNull(communityPostsTable.parentId),
+      ...(tagFilter ? [eq(communityPostsTable.tag, tagFilter)] : []),
+    ))
     .orderBy(desc(communityPostsTable.createdAt))
     .limit(limit + 1)
     .offset(offset);
@@ -178,12 +187,17 @@ router.post("/community", async (req, res): Promise<void> => {
     return;
   }
 
-  const { content, imageUrl, parentId: rawParentId, backtestId: rawBacktestId } = req.body as {
+  const VALID_TAGS_POST = ["General", "Analysis", "Strategy", "Education", "Question", "Meme"] as const;
+  const { content, imageUrl, parentId: rawParentId, backtestId: rawBacktestId, tag: rawTag } = req.body as {
     content?: string;
     imageUrl?: string;
     parentId?: number;
     backtestId?: number;
+    tag?: string;
   };
+  const tag = typeof rawTag === "string" && VALID_TAGS_POST.includes(rawTag as typeof VALID_TAGS_POST[number])
+    ? rawTag
+    : "General";
 
   if (!content || typeof content !== "string") {
     res.status(400).json({ error: "Post content must be at least 3 characters." });
@@ -269,6 +283,7 @@ router.post("/community", async (req, res): Promise<void> => {
     authorName: authorName.trim(),
     content: sanitized,
     imageUrl: imageUrl?.trim() || null,
+    tag,
   }).returning();
 
   res.status(201).json(serializePost(post!, 0, backtestSummary));

@@ -384,6 +384,32 @@ export default function PsychAlertsPage() {
             })}
           </div>
 
+          {/* ── 30-day Alert Trend ────────────────────────────────────────── */}
+          {data?.trendData && data.trendData.length > 0 && (
+            <div className="rounded-2xl p-4" style={{ background: "var(--card-bg)", border: "1px solid var(--border)" }}>
+              <p className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
+                30-Day Alert Trend
+              </p>
+              <ResponsiveContainer width="100%" height={90}>
+                <BarChart data={data.trendData} margin={{ top: 2, right: 4, left: -28, bottom: 0 }}>
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} tickFormatter={d => (d as string).slice(5)} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 9, fill: "var(--text-muted)" }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11 }}
+                    labelStyle={{ color: "var(--text-primary)" }}
+                  />
+                  {(["fomo", "revenge", "overtrading", "aggressive"] as PsychAlertType[]).map((type, i) => (
+                    <Bar key={type} dataKey={type} stackId="a"
+                      fill={ALERT_META[type]?.color ?? "#a78bfa"}
+                      name={ALERT_META[type]?.label ?? type}
+                      radius={i === 3 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
           {/* ── Event list ────────────────────────────────────────────────── */}
           {events.length === 0 ? (
             <div
@@ -506,6 +532,19 @@ export default function PsychAlertsPage() {
                               ))}
                             </div>
                           </div>
+                          {typeof event.metadata.tradeId === "number" && (
+                            <div className="mt-3">
+                              <Link href={`/trading-os?tab=paper&highlightTradeId=${event.metadata.tradeId}`}>
+                                <span
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer"
+                                  style={{ background: `${meta.color}12`, border: `1px solid ${meta.color}30`, color: meta.color }}
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  View Trade #{event.metadata.tradeId}
+                                </span>
+                              </Link>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

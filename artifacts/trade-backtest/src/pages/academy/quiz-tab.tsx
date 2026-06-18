@@ -230,6 +230,11 @@ function QuizResults({ course, result, answers, questions, onRetry, onBack }: {
                       {r.explanation}
                     </div>
                   )}
+                  {!r.correct && (
+                    <div style={{ fontSize: "11px", color: ACCENT, marginLeft: "23px", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                      📚 Review: <span style={{ fontWeight: 600 }}>{course.title}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}

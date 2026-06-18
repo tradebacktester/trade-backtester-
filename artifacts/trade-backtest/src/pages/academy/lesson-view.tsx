@@ -276,8 +276,21 @@ export function LessonView({ course, lesson, allLessons, onBack, onLessonSelect,
   const [showAiTutor, setShowAiTutor] = useState(false);
   const [showLessonList, setShowLessonList] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [readPct, setReadPct] = useState(0);
   const startRef = useRef(Date.now());
   const lessonIdRef = useRef(lesson.id);
+
+  // Track read progress for the sticky progress bar
+  useEffect(() => {
+    function onScroll() {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollable <= 0) { setReadPct(100); return; }
+      setReadPct(Math.min(100, Math.round((window.scrollY / scrollable) * 100)));
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Restore scroll position when lesson changes
   useEffect(() => {
@@ -347,6 +360,17 @@ export function LessonView({ course, lesson, allLessons, onBack, onLessonSelect,
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+      {/* Sticky read-progress bar */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "2px", zIndex: 200, background: "rgba(0,0,0,0.4)" }}>
+        <div style={{
+          height: "100%",
+          width: `${readPct}%`,
+          background: ACCENT,
+          transition: "width 0.12s ease",
+          borderRadius: "0 1px 1px 0",
+        }} />
+      </div>
+
       {/* Top bar */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
         <button onClick={onBack} style={{

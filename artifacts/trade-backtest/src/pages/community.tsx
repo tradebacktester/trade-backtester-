@@ -156,12 +156,31 @@ interface Post {
   authorName: string;
   content: string;
   imageUrl: string | null;
+  tag: string;
   likes: number;
   createdAt: string;
   parentId: number | null;
   backtestId: number | null;
   backtestSummary: BacktestSummary | null;
   replyCount: number;
+}
+
+const COMMUNITY_TAGS = ["All", "General", "Analysis", "Strategy", "Education", "Question", "Meme"] as const;
+const TAG_COLORS: Record<string, { bg: string; text: string }> = {
+  Analysis:  { bg: "rgba(34,211,238,0.12)",  text: "#22D3EE" },
+  Strategy:  { bg: "rgba(167,139,250,0.12)", text: "#A78BFA" },
+  Education: { bg: "rgba(132,204,22,0.12)",  text: "#84CC16" },
+  Question:  { bg: "rgba(245,158,11,0.12)",  text: "#F59E0B" },
+  Meme:      { bg: "rgba(249,115,22,0.12)",  text: "#F97316" },
+  General:   { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.45)" },
+};
+
+function renderCommunityMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "<strong style=\"font-weight:700;color:#fff\">$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code style=\"font-family:monospace;font-size:11px;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px\">$1</code>")
+    .replace(/\n/g, "<br/>");
 }
 
 interface Report {
@@ -992,14 +1011,21 @@ function PostCard({
               <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{post.authorName}</span>
             )}
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{timeAgo(post.createdAt)}</span>
+            {post.tag && post.tag !== "General" && (() => {
+              const tc = TAG_COLORS[post.tag] ?? TAG_COLORS.General!;
+              return (
+                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, fontWeight: 600, background: tc.bg, color: tc.text }}>
+                  {post.tag}
+                </span>
+              );
+            })()}
           </div>
         </div>
       </div>
 
       <div style={{ padding: "0 16px 12px" }}>
-        <p style={{ fontSize: 13, lineHeight: "1.6", color: "rgba(255,255,255,0.85)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {post.content}
-        </p>
+        <p style={{ fontSize: 13, lineHeight: "1.6", color: "rgba(255,255,255,0.82)", wordBreak: "break-word" }}
+          dangerouslySetInnerHTML={{ __html: renderCommunityMarkdown(post.content) }} />
       </div>
 
       {post.imageUrl && (
@@ -1131,23 +1157,41 @@ function PostCard({
 }
 
 /* ── CreatePostForm ─────────────────────────────────────────────────────────── */
-function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
+function CreatePostForm({ onCreated, initialBacktestId }: { onCreated: (post: Post) => void; initialBacktestId?: number | null }) {
   const { user, token: authToken } = useAuth();
   const [content, setContent] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(user?.name ?? "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [postTag, setPostTag] = useState<string>("General");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const [selectedBtId, setSelectedBtId] = useState<number | null>(null);
+  const [selectedBtId, setSelectedBtId] = useState<number | null>(initialBacktestId ?? null);
   const [selectedBtInfo, setSelectedBtInfo] = useState<{ symbol: string; totalReturn: number | null } | null>(null);
   const [showBtPicker, setShowBtPicker] = useState(false);
   const [btOptions, setBtOptions] = useState<{ id: number; symbol: string; totalReturn: number | null }[]>([]);
   const [btLoading, setBtLoading] = useState(false);
 
   useEffect(() => { if (user?.name) setDisplayName(user.name); }, [user?.name]);
+
+  // Auto-load backtest info if initialBacktestId provided
+  useEffect(() => {
+    if (!initialBacktestId || !authToken) return;
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/backtests?limit=15`, { headers: { Authorization: `Bearer ${authToken}` } });
+        if (r.ok) {
+          const data = await r.json() as Array<{ id: number; symbol: string; totalReturn: string | null }>;
+          const list = Array.isArray(data) ? data : [];
+          const found = list.find(b => b.id === initialBacktestId);
+          if (found) setSelectedBtInfo({ symbol: found.symbol, totalReturn: found.totalReturn != null ? Number(found.totalReturn) : null });
+          setBtOptions(list.slice(0, 15).map(b => ({ id: b.id, symbol: b.symbol, totalReturn: b.totalReturn != null ? Number(b.totalReturn) : null })));
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [initialBacktestId, authToken]);
 
   async function loadBacktests() {
     if (!authToken) return;
@@ -1192,7 +1236,7 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
     try {
       const post = await apiFetch("/api/community", {
         method: "POST",
-        body: JSON.stringify({ content: content.trim(), imageUrl: imagePreview ?? undefined, backtestId: selectedBtId ?? undefined }),
+        body: JSON.stringify({ content: content.trim(), imageUrl: imagePreview ?? undefined, backtestId: selectedBtId ?? undefined, tag: postTag }),
       }, authToken) as Post;
       onCreated(post);
       setContent(""); setImagePreview(null); setSelectedBtId(null); setSelectedBtInfo(null);
@@ -1221,10 +1265,30 @@ function CreatePostForm({ onCreated }: { onCreated: (post: Post) => void }) {
         </div>
       </div>
 
+      {/* Tag selector */}
+      <div style={{ display: "flex", gap: 6, padding: "10px 16px 0", flexWrap: "wrap" }}>
+        {(["General", "Analysis", "Strategy", "Education", "Question", "Meme"] as const).map(t => {
+          const tc = TAG_COLORS[t] ?? TAG_COLORS.General!;
+          const active = postTag === t;
+          return (
+            <button key={t} onClick={() => setPostTag(t)}
+              style={{
+                fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 600, cursor: "pointer",
+                background: active ? tc.bg : "transparent",
+                color: active ? tc.text : "rgba(255,255,255,0.35)",
+                border: `1px solid ${active ? tc.text + "50" : "rgba(255,255,255,0.1)"}`,
+                transition: "all 0.12s",
+              }}>
+              {t}
+            </button>
+          );
+        })}
+      </div>
+
       <div style={{ padding: "12px 16px 4px" }}>
         <textarea ref={textareaRef} value={content}
           onChange={e => { setContent(e.target.value); autoResize(); }}
-          placeholder="Share a trading idea, insight, or chart pattern…"
+          placeholder="Share a trading idea, insight, or chart pattern… (**bold**, *italic*, `code`)"
           style={{ width: "100%", resize: "none", outline: "none", fontSize: 13, lineHeight: "1.6", background: "transparent", color: "rgba(255,255,255,0.85)", minHeight: 72, border: "none" }}
           rows={3} />
       </div>
@@ -1478,6 +1542,8 @@ export default function CommunityPage() {
   const PAGE_SIZE = 20;
   const [error, setError] = useState("");
   const [reportingPost, setReportingPost] = useState<Post | null>(null);
+  const [tagFilter, setTagFilter] = useState<string>("All");
+  const [shareBacktestId, setShareBacktestId] = useState<number | null>(null);
   const [likedIds, setLikedIds] = useState<Set<number>>(() => {
     try {
       const saved = localStorage.getItem("community_liked");
@@ -1486,27 +1552,39 @@ export default function CommunityPage() {
   });
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
+  // Handle shareBacktestId URL param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const btId = params.get("shareBacktestId");
+    if (btId) {
+      const id = parseInt(btId, 10);
+      if (!isNaN(id)) setShareBacktestId(id);
+    }
+  }, []);
+
+  const tagParam = tagFilter !== "All" ? `&tag=${encodeURIComponent(tagFilter)}` : "";
+
   const fetchPosts = useCallback(async () => {
     setLoading(true); setError(""); setOffset(0);
     try {
-      const data = await apiFetch(`/api/community?limit=${PAGE_SIZE}&offset=0`) as { posts: Post[]; hasMore: boolean };
+      const data = await apiFetch(`/api/community?limit=${PAGE_SIZE}&offset=0${tagParam}`) as { posts: Post[]; hasMore: boolean };
       setPosts(data.posts);
       setHasMore(data.hasMore);
       setOffset(PAGE_SIZE);
     } catch { setError("Could not load posts. Please try again."); }
     finally { setLoading(false); }
-  }, []);
+  }, [tagParam]);
 
   const loadMore = useCallback(async () => {
     setLoadingMore(true);
     try {
-      const data = await apiFetch(`/api/community?limit=${PAGE_SIZE}&offset=${offset}`) as { posts: Post[]; hasMore: boolean };
+      const data = await apiFetch(`/api/community?limit=${PAGE_SIZE}&offset=${offset}${tagParam}`) as { posts: Post[]; hasMore: boolean };
       setPosts(prev => [...prev, ...data.posts]);
       setHasMore(data.hasMore);
       setOffset(prev => prev + PAGE_SIZE);
     } catch { /* ignore */ }
     finally { setLoadingMore(false); }
-  }, [offset]);
+  }, [offset, tagParam]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
@@ -1700,7 +1778,26 @@ export default function CommunityPage() {
           /* ── Feed ── */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} />
+              {/* Tag filter pills */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {COMMUNITY_TAGS.map(t => {
+                  const active = tagFilter === t;
+                  const tc = t !== "All" ? (TAG_COLORS[t] ?? TAG_COLORS.General!) : null;
+                  return (
+                    <button key={t} onClick={() => setTagFilter(t)}
+                      style={{
+                        fontSize: 12, padding: "5px 14px", borderRadius: 20, fontWeight: 600, cursor: "pointer",
+                        background: active ? (tc ? tc.bg : "rgba(255,255,255,0.1)") : "transparent",
+                        color: active ? (tc ? tc.text : "rgba(255,255,255,0.85)") : "rgba(255,255,255,0.35)",
+                        border: `1px solid ${active ? (tc ? tc.text + "50" : "rgba(255,255,255,0.2)") : "rgba(255,255,255,0.1)"}`,
+                        transition: "all 0.12s",
+                      }}>
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+              <CreatePostForm onCreated={post => setPosts(prev => [post, ...prev])} initialBacktestId={shareBacktestId} />
 
               {loading ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

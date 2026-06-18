@@ -2,6 +2,7 @@ import { pgTable, text, serial, timestamp, integer, boolean, index, uniqueIndex 
 import { usersTable } from "./users";
 import { backtestsTable } from "./backtests";
 
+const VALID_TAGS = ["General", "Analysis", "Strategy", "Education", "Question", "Meme"] as const;
 
 export const communityPostsTable = pgTable("community_posts", {
   id: serial("id").primaryKey(),
@@ -12,6 +13,7 @@ export const communityPostsTable = pgTable("community_posts", {
   authorEmail: text("author_email"),
   content: text("content").notNull(),
   imageUrl: text("image_url"),
+  tag: text("tag").notNull().default("General"),
   likes: integer("likes").notNull().default(0),
   isDeleted: boolean("is_deleted").notNull().default(false),
   deletedByAdmin: boolean("deleted_by_admin").notNull().default(false),
@@ -20,7 +22,10 @@ export const communityPostsTable = pgTable("community_posts", {
   index("community_posts_user_id_idx").on(t.userId),
   index("community_posts_created_at_idx").on(t.createdAt),
   index("community_posts_parent_id_idx").on(t.parentId),
+  index("community_posts_tag_idx").on(t.tag),
 ]);
+
+export { VALID_TAGS };
 
 // Per-user like tracking to prevent duplicate likes
 export const communityPostLikesTable = pgTable("community_post_likes", {

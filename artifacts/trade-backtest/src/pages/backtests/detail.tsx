@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Trash2, TrendingUp, AlertTriangle, Search, Download,
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, BookOpen, BarChart3, LayoutDashboard, StickyNote,
-  Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays,
+  Share2, Globe, Check, TrendingDown, Activity, Layers, Loader2, CalendarDays, MessageCircle,
   Brain, Sparkles, Waves, MonitorDot, Plus, Trash, Users2, Medal, Info,
   SplitSquareHorizontal, Shuffle, Target,
 } from "lucide-react";
@@ -1425,6 +1425,14 @@ export default function BacktestDetail() {
             {shareCopied
               ? <Check className="h-4 w-4 text-green-500" />
               : <Share2 className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setLocation(`/community?shareBacktestId=${backtest.id}`)}
+            title="Share result to community"
+            className="neon-hover-subtle"
+          >
+            <MessageCircle className="mr-1.5 h-3.5 w-3.5" />Community
           </Button>
           {isPublished ? (
             <Badge className="bg-green-500/10 text-green-400 border border-green-500/20 px-3 py-1.5 flex items-center gap-1.5">
