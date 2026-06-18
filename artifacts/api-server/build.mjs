@@ -31,6 +31,8 @@ async function buildAll() {
       "*.node",
       "openai",
       "razorpay",
+      "yahoo-finance2",
+      "google-auth-library",
       "sharp",
       "better-sqlite3",
       "sqlite3",

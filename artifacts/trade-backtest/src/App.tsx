@@ -9,7 +9,6 @@ import { SettingsProvider } from "@/lib/settings-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { SubscriptionProvider } from "@/lib/subscription-context";
 import { ThemeProvider } from "@/lib/theme-context";
-import { PolicyPopup } from "@/components/policy-popup";
 import { useToast } from "@/hooks/use-toast";
 import { CandleLoader } from "@/components/candle-loader";
 
@@ -54,6 +53,9 @@ const FootprintPage     = lazy(() => import("@/pages/footprint"));
 const BrokeragePage     = lazy(() => import("@/pages/brokerage"));
 const ForgotPasswordPage = lazy(() => import("@/pages/forgot-password"));
 const ResetPasswordPage  = lazy(() => import("@/pages/reset-password"));
+const SignInPage         = lazy(() => import("@/pages/auth/signin"));
+const SignUpPage         = lazy(() => import("@/pages/auth/signup"));
+const GoogleSuccessPage  = lazy(() => import("@/pages/auth/google-success"));
 const UserProfilePage    = lazy(() => import("@/pages/user-profile"));
 const ChartPage          = lazy(() => import("@/pages/chart"));
 
@@ -162,6 +164,10 @@ function Router() {
 
         <Route path="/user/:id" component={UserProfilePage} />
 
+        <Route path="/auth/signin" component={SignInPage} />
+        <Route path="/auth/signup" component={SignUpPage} />
+        <Route path="/auth/google-success" component={GoogleSuccessPage} />
+
         <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/reset-password" component={ResetPasswordPage} />
 
@@ -192,7 +198,6 @@ function App() {
                   <Layout>
                     <Router />
                   </Layout>
-                  <PolicyPopup />
                   <OnboardingWizard />
                 </WouterRouter>
                 <Toaster />
