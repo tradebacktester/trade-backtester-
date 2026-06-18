@@ -274,6 +274,33 @@ export default function PsychAlertsPage() {
                     <span>{coach.recommendation}</span>
                   </div>
                 )}
+                {/* Confidence indicator */}
+                {coach?.confidence !== undefined && (
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${coach.confidence}%`,
+                          background: coach.confidence >= 75 ? "#22c55e" : coach.confidence >= 60 ? "#f59e0b" : "#94a3b8",
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="text-[10px] font-mono whitespace-nowrap"
+                      style={{ color: coach.confidence >= 60 ? coachStyle.dot : "var(--text-muted)" }}
+                    >
+                      {coach.confidence}% confidence
+                      {coach.sampleSize !== undefined && ` · ${coach.sampleSize} trades`}
+                    </span>
+                  </div>
+                )}
+                {coach?.confidence !== undefined && coach.confidence < 60 && coach.sampleSize !== undefined && (
+                  <p className="mt-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    <Info className="inline h-3 w-3 mr-0.5 -mt-0.5" />
+                    Insufficient data for reliable analysis. Run more paper trades to improve accuracy.
+                  </p>
+                )}
               </div>
 
               {/* Stats mini */}

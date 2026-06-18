@@ -458,6 +458,33 @@ export default function Journal() {
         </p>
       )}
 
+      {/* Options & Futures coming soon */}
+      <div
+        className="rounded-2xl p-5 flex items-center gap-5 mt-2"
+        style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}
+      >
+        <div
+          className="h-12 w-12 rounded-2xl flex-shrink-0 flex items-center justify-center"
+          style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)" }}
+        >
+          <Activity className="h-5 w-5" style={{ color: "#818cf8" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-bold" style={{ color: "#818cf8" }}>Options &amp; Futures Backtesting</span>
+            <span
+              className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
+              style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}
+            >
+              Coming Soon
+            </span>
+          </div>
+          <p className="text-xs" style={{ color: "hsl(218,12%,50%)" }}>
+            Multi-leg options strategies (covered calls, spreads, iron condors) and perpetual futures with funding rate simulation — coming to Strategy Lab soon.
+          </p>
+        </div>
+      </div>
+
       {menuId !== null && (
         <div className="fixed inset-0 z-20" onClick={() => setMenuId(null)} />
       )}

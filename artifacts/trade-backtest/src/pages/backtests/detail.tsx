@@ -1185,7 +1185,7 @@ export default function BacktestDetail() {
     if (!trades || trades.length < 5) return;
     setMcLoading(true);
     setTimeout(() => {
-      const N_SIMS = 500;
+      const N_SIMS = 1000;
       const N_STEPS = trades.length;
       const initialCap = backtest?.initialCapital ?? 10000;
       const pnls = trades.map(t => t.pnl);
@@ -1506,6 +1506,16 @@ export default function BacktestDetail() {
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: "hsl(38,95%,58%)" }} />
                 <p className="text-xs" style={{ color: "hsl(38,95%,70%)" }}>
                   <strong>Simulated data</strong> — results for <strong>{backtest.symbol}</strong> are based on algorithmically generated price data and may not reflect actual market conditions.
+                </p>
+              </div>
+            )}
+            {/* Sub-daily timeframe warning — BUG-08 */}
+            {["1m","5m","15m"].includes(backtest.timeframe ?? "") && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
+                style={{ background: "rgba(249,115,22,0.08)", borderColor: "rgba(249,115,22,0.25)" }}>
+                <Info className="h-4 w-4 flex-shrink-0" style={{ color: "#f97316" }} />
+                <p className="text-xs" style={{ color: "#fdba74" }}>
+                  <strong>Sub-daily timeframe ({backtest.timeframe})</strong> — intraday backtests assume next-bar open fills. Slippage and spread costs are not modelled, so real results will be worse. Use this as a directional signal only.
                 </p>
               </div>
             )}
@@ -2284,7 +2294,7 @@ export default function BacktestDetail() {
                   Monte Carlo Simulation
                 </CardTitle>
                 <CardDescription>
-                  Resamples your actual trades 500 times in random order to show the distribution of possible outcomes.
+                  Resamples your actual trades 1000 times in random order to show the distribution of possible outcomes.
                   This reveals if your results were partly due to luck in trade sequencing.
                 </CardDescription>
               </CardHeader>
@@ -2299,7 +2309,7 @@ export default function BacktestDetail() {
                     {mcLoading
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
                       : <Shuffle className="h-3.5 w-3.5 mr-1.5" />}
-                    Run 500 Simulations
+                    Run 1000 Simulations
                   </Button>
                   {mcSims.length > 0 && (
                     <button onClick={() => setMcSims([])} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>
@@ -2406,10 +2416,80 @@ export default function BacktestDetail() {
                         </CardContent>
                       </Card>
 
+                      {/* Monte Carlo Fan Chart — SVG-based for performance */}
+                      {(() => {
+                        const N = mcSims[0].length;
+                        const pctByStep: Array<{p5:number;p25:number;p50:number;p75:number;p95:number}> = [];
+                        for (let i = 0; i < N; i++) {
+                          const vals = mcSims.map(s => s[i]).sort((a,b)=>a-b);
+                          const q = (p:number) => vals[Math.max(0,Math.floor(vals.length*p)-1)];
+                          pctByStep.push({p5:q(0.05),p25:q(0.25),p50:q(0.5),p75:q(0.75),p95:q(0.95)});
+                        }
+                        const W=560,H=220,ML=52,MR=16,MT=8,MB=28,IW=W-ML-MR,IH=H-MT-MB;
+                        const allBounds=pctByStep.flatMap(p=>[p.p5,p.p95]);
+                        const minV=Math.min(...allBounds)*0.97, maxV=Math.max(...allBounds)*1.03;
+                        const xS=(i:number)=>ML+(i/(N-1))*IW;
+                        const yS=(v:number)=>MT+IH-((v-minV)/(maxV-minV))*IH;
+                        const lp=(arr:number[])=>arr.map((v,i)=>`${i===0?"M":"L"}${xS(i).toFixed(1)},${yS(v).toFixed(1)}`).join(" ");
+                        const bp=(top:number[],bot:number[])=>{
+                          const f=top.map((_,i)=>`${i===0?"M":"L"}${xS(i).toFixed(1)},${yS(top[i]).toFixed(1)}`).join(" ");
+                          const b=bot.map((_,ri)=>{const i=bot.length-1-ri;return `L${xS(i).toFixed(1)},${yS(bot[i]).toFixed(1)}`;}).reverse().join(" ");
+                          return `${f} ${b} Z`;
+                        };
+                        const step=Math.max(1,Math.floor(mcSims.length/80));
+                        const samplePaths=mcSims.filter((_,i)=>i%step===0).slice(0,80);
+                        const initialCapRef=yS(backtest.initialCapital);
+                        const p5arr=pctByStep.map(p=>p.p5);
+                        const p25arr=pctByStep.map(p=>p.p25);
+                        const p50arr=pctByStep.map(p=>p.p50);
+                        const p75arr=pctByStep.map(p=>p.p75);
+                        const p95arr=pctByStep.map(p=>p.p95);
+                        const yTicks=[minV,backtest.initialCapital,(minV+maxV)/2,maxV].filter((v,i,a)=>a.findIndex(x=>Math.abs(x-v)<(maxV-minV)*0.08)===i);
+                        return (
+                          <Card className="border-border">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm">Monte Carlo Fan Chart ({mcSims.length} simulations)</CardTitle>
+                              <CardDescription className="text-xs">
+                                Each thin line = one random trade-resequencing. Bands show the P25–P75 (inner) and P5–P95 (outer) confidence envelopes.
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div style={{height:H}}>
+                                <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" style={{overflow:"visible"}}>
+                                  {samplePaths.map((sim,i)=>(
+                                    <path key={i} d={lp(sim)} fill="none" stroke="#6366f1" strokeWidth={0.6} opacity={0.04}/>
+                                  ))}
+                                  <path d={bp(p95arr,p5arr)} fill="#22c55e" opacity={0.06}/>
+                                  <path d={bp(p75arr,p25arr)} fill="#22c55e" opacity={0.15}/>
+                                  <path d={lp(p5arr)}  fill="none" stroke="#ef4444" strokeWidth={1}   strokeDasharray="4 3" opacity={0.75}/>
+                                  <path d={lp(p25arr)} fill="none" stroke="#f97316" strokeWidth={0.8} opacity={0.55}/>
+                                  <path d={lp(p50arr)} fill="none" stroke="#f59e0b" strokeWidth={2}/>
+                                  <path d={lp(p75arr)} fill="none" stroke="#4ade80" strokeWidth={0.8} opacity={0.55}/>
+                                  <path d={lp(p95arr)} fill="none" stroke="#22c55e" strokeWidth={1}   opacity={0.75}/>
+                                  <line x1={ML} y1={initialCapRef} x2={W-MR} y2={initialCapRef} stroke="rgba(255,255,255,0.18)" strokeWidth={1} strokeDasharray="3 3"/>
+                                  {yTicks.map((v,i)=>(
+                                    <text key={i} x={ML-4} y={yS(v)+3} fontSize={9} fill="hsl(var(--muted-foreground))" textAnchor="end">
+                                      ${v>=1000?(v/1000).toFixed(0)+"k":v.toFixed(0)}
+                                    </text>
+                                  ))}
+                                  <text x={ML+IW/2} y={H-4} fontSize={9} fill="hsl(var(--muted-foreground))" textAnchor="middle">Trade #</text>
+                                </svg>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-4 mt-2 text-[10px]" style={{color:"hsl(var(--muted-foreground))"}}>
+                                <span className="flex items-center gap-1.5"><span style={{display:"inline-block",width:12,height:2,background:"#22c55e",opacity:0.8}}/>P95</span>
+                                <span className="flex items-center gap-1.5"><span style={{display:"inline-block",width:12,height:8,background:"rgba(34,197,94,0.2)",borderRadius:2}}/>P25–P75</span>
+                                <span className="flex items-center gap-1.5"><span style={{display:"inline-block",width:12,height:2,background:"#f59e0b"}}/>P50 median</span>
+                                <span className="flex items-center gap-1.5"><span style={{display:"inline-block",width:12,height:2,background:"#ef4444"}}/>P5</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })()}
+
                       {/* Final equity histogram */}
                       <Card className="border-border">
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Distribution of Final Capital (500 sims)</CardTitle>
+                          <CardTitle className="text-sm">Distribution of Final Capital (1000 sims)</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="h-[180px]">
@@ -2496,6 +2576,10 @@ export default function BacktestDetail() {
               <Button variant="outline" size="sm" onClick={exportCSV} disabled={!trades?.length}>
                 <Download className="mr-2 h-3.5 w-3.5" />
                 Export CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Download className="mr-2 h-3.5 w-3.5" />
+                Export PDF
               </Button>
             </div>
 

@@ -624,6 +624,16 @@ function ChatPanel({ token }: { token: string }) {
 
       {messages.length > 0 && (
         <div className="flex flex-col gap-2.5">
+          {messages.length > 10 && (
+            <div className="flex items-center gap-2 py-1.5 px-3 rounded-xl text-center"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+              <span className="text-[10px] font-mono whitespace-nowrap" style={{ color: "hsl(var(--muted-foreground))" }}>
+                Earlier messages cleared · AI sees last 10 only
+              </span>
+              <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+            </div>
+          )}
           {messages.map((msg, i) => (
             <div key={i} className={`flex gap-2.5 fade-up-sm ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
               style={{ animationDelay: `${i * 0.03}s` }}>

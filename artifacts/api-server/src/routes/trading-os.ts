@@ -431,8 +431,8 @@ router.post("/trading-os/fomo-check", async (req: Request, res: Response): Promi
     const rawLosses   = Number(b["recentLossCount"]      ?? 0);
     const rawMins     = Number(b["minutesSinceLastTrade"] ?? 60);
 
-    if (!rawSymbol || rawSymbol.length > 20) {
-      res.status(422).json({ error: "symbol must be 1–20 characters" });
+    if (!rawSymbol || rawSymbol.length > 20 || !/^[A-Za-z0-9./:\-^]{1,20}$/.test(rawSymbol)) {
+      res.status(422).json({ error: "symbol must be 1–20 alphanumeric characters" });
       return;
     }
     if (rawSide !== "long" && rawSide !== "short") {
