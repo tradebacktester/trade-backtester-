@@ -64,7 +64,7 @@ function Panel({ children, className = "" }: { children: React.ReactNode; classN
   return (
     <div className={`specular-card rounded-2xl p-4 sm:p-5 relative overflow-hidden glass-shine ${className}`} style={CARD}>
       <div className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%)", zIndex: 0 }} />
+        style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.03) 0%, rgba(34,211,238,0.01) 50%, transparent 75%)", zIndex: 0 }} />
       <div className="relative z-[1]">{children}</div>
     </div>
   );
@@ -454,26 +454,26 @@ function AiMarketPulse() {
       className="specular-card relative rounded-3xl overflow-hidden p-5 sm:p-6"
       style={{
         background: "var(--card-bg)",
-        border: "1px solid var(--glass-border)",
-        boxShadow: "var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.07)",
+        border: "1px solid rgba(124,58,237,0.22)",
+        boxShadow: "var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.07), 0 0 30px rgba(124,58,237,0.08), 0 0 60px rgba(34,211,238,0.04)",
       }}
     >
-      {/* Ambient glow layers */}
+      {/* Ambient glow layers — Electric Purple + Cyan */}
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 70% 70% at 0% 50%, rgba(255,255,255,0.030) 0%, transparent 65%)" }} />
+        style={{ background: "radial-gradient(ellipse 70% 70% at 0% 50%, rgba(124,58,237,0.08) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(ellipse 50% 60% at 90% 10%, rgba(139,92,246,0.045) 0%, transparent 65%)" }} />
+        style={{ background: "radial-gradient(ellipse 50% 60% at 90% 10%, rgba(34,211,238,0.07) 0%, transparent 65%)" }} />
       <div className="pointer-events-none absolute inset-0"
-        style={{ background: "linear-gradient(160deg, rgba(255,255,255,0.025) 0%, transparent 45%)" }} />
+        style={{ background: "linear-gradient(160deg, rgba(124,58,237,0.04) 0%, transparent 45%)" }} />
 
       <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5">
         {/* Left — badge + copy */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-3">
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold"
-              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", color: "#FFFFFF" }}>
+              style={{ background: "rgba(124,58,237,0.16)", border: "1px solid rgba(124,58,237,0.32)", color: "#a78bfa" }}>
               <span className="h-1.5 w-1.5 rounded-full live-pulse"
-                style={{ background: "#FFFFFF", boxShadow: "0 0 6px rgba(255,255,255,0.5)" }} />
+                style={{ background: "#7C3AED", boxShadow: "0 0 6px rgba(124,58,237,0.7)" }} />
               AI MARKET PULSE
             </span>
             <span className="hidden sm:block text-[10px] font-mono" style={{ color: "var(--nav-dim-color)" }}>
@@ -528,14 +528,14 @@ function AiMarketPulse() {
         {/* Right — SVG gauge */}
         <div className="flex-shrink-0 flex flex-col items-center gap-2.5">
           <div className="relative" style={{ width: 156, height: 156 }}>
-            {/* Ambient glow behind gauge */}
+            {/* Ambient glow behind gauge — purple */}
             <div className="absolute inset-0 rounded-full"
-              style={{ background: "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 50%, transparent 72%)" }} />
+              style={{ background: "radial-gradient(circle at 50% 50%, rgba(124,58,237,0.12) 0%, rgba(34,211,238,0.04) 50%, transparent 72%)" }} />
 
             <svg width="156" height="156" viewBox="0 0 156 156" style={{ transform: `rotate(${rotation}deg)` }}>
               {/* Track */}
               <circle cx="78" cy="78" r={RADIUS} fill="none"
-                stroke="rgba(255,255,255,0.06)" strokeWidth={STROKE}
+                stroke="rgba(124,58,237,0.15)" strokeWidth={STROKE}
                 strokeLinecap="round"
                 strokeDasharray={`${dashArray} ${CIRCUM - dashArray}`}
                 strokeDashoffset={0}
@@ -546,28 +546,28 @@ function AiMarketPulse() {
                 strokeLinecap="round"
                 strokeDasharray={`${dashArray} ${CIRCUM - dashArray}`}
                 strokeDashoffset={dashOffset}
-                style={{ transition: "stroke-dashoffset 1.4s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+                style={{ transition: "stroke-dashoffset 1.4s cubic-bezier(0.34, 1.56, 0.64, 1)", filter: "drop-shadow(0 0 6px rgba(124,58,237,0.5))" }}
               />
               <defs>
                 <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
-                  <stop offset="100%" stopColor="rgba(255,255,255,1.0)" />
+                  <stop offset="0%" stopColor="#7C3AED" />
+                  <stop offset="100%" stopColor="#22D3EE" />
                 </linearGradient>
               </defs>
             </svg>
 
             {/* Center value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="font-bold font-mono leading-none tabular" style={{ fontSize: "34px", color: "#FFFFFF", letterSpacing: "-0.030em" }}>
+              <span className="font-bold font-mono leading-none tabular" style={{ fontSize: "34px", color: "#a78bfa", letterSpacing: "-0.030em", textShadow: "0 0 20px rgba(124,58,237,0.50)" }}>
                 {SCORE}
               </span>
-              <span className="apple-label mt-1">BULLISH</span>
+              <span className="apple-label mt-1" style={{ color: "#67e8f9" }}>BULLISH</span>
             </div>
           </div>
 
           {/* Confidence badge */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono px-3 py-1.5 rounded-full"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.75)" }}>
+            style={{ background: "rgba(124,58,237,0.10)", border: "1px solid rgba(124,58,237,0.22)", color: "#a78bfa" }}>
             <Sparkles style={{ height: "9px", width: "9px" }} />
             82% Confidence
           </div>
@@ -775,10 +775,13 @@ function StatCard({
       onMouseEnter={() => setShowTip(true)}
       onMouseLeave={() => setShowTip(false)}
     >
-      {/* Top edge specular gradient */}
+      {/* Top edge specular gradient — purple→cyan default */}
       <div
         className="absolute top-0 left-[15%] right-[15%] h-px pointer-events-none"
-        style={{ background: `linear-gradient(90deg, transparent, ${accent ?? "rgba(255,255,255,0.09)"} 50%, transparent)` }}
+        style={{ background: accent
+          ? `linear-gradient(90deg, transparent, ${accent} 50%, transparent)`
+          : "linear-gradient(90deg, transparent, rgba(124,58,237,0.35) 30%, rgba(34,211,238,0.25) 70%, transparent)"
+        }}
       />
       {/* Tooltip */}
       {tooltip && showTip && (
@@ -963,17 +966,23 @@ function InsightCard({ item }: { item: Insight }) {
   return (
     <Link href="/ai">
       <div
-        className="rounded-2xl p-4 cursor-pointer transition-colors duration-150"
-        style={CARD}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.16)"; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
+        className="rounded-2xl p-4 cursor-pointer glass-shine"
+        style={{ ...CARD, transition: "border-color 0.18s ease, box-shadow 0.18s ease" }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(124,58,237,0.28)";
+          (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-card), 0 0 20px rgba(124,58,237,0.08)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.borderColor = C.border;
+          (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-card)";
+        }}
       >
         <div className="flex items-center gap-2 mb-2.5">
           <span
             className="h-7 w-7 flex items-center justify-center rounded-xl flex-shrink-0"
-            style={{ background: "rgba(128,128,128,0.10)", border: "1px solid rgba(0,0,0,0.08)" }}
+            style={{ background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.22)" }}
           >
-            <Icon className="h-3.5 w-3.5" style={{ color: "#555" }} />
+            <Icon className="h-3.5 w-3.5" style={{ color: "#a78bfa" }} />
           </span>
           <p className="text-xs font-mono font-semibold" style={{ color: C.text }}>{item.title}</p>
           <span
@@ -1296,33 +1305,47 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col gap-4 pb-4 page-enter">
 
+      {/* ── Dashboard Header ── */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="flex items-center gap-1.5 text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.30)", color: "#a78bfa" }}>
+              <span className="h-1.5 w-1.5 rounded-full live-pulse" style={{ background: "#7C3AED" }} />
+              LIVE
+            </span>
+            <span className="text-[10px] font-mono" style={{ color: C.muted }}>
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </span>
+          </div>
+          <h1 className="text-3xl sm:text-[40px] font-bold leading-none" style={{ color: C.text, letterSpacing: "-0.038em" }}>
+            Dashboard
+          </h1>
+          <p className="text-[11px] mt-1.5 font-mono" style={{ color: C.muted }}>
+            Market overview &amp; performance summary
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 pt-1">
+          <Button variant="purple" size="sm" asChild>
+            <Link href="/backtests/new">
+              <Play className="mr-1 h-3.5 w-3.5" />
+              Run Backtest
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* AI Market Pulse Hero */}
+      <AiMarketPulse />
+
+      {/* AI Coach Section */}
+      <AiCoachSection />
+
       {/* Alert Engine Card */}
       <AlertEngineCard />
 
       {/* Daily Coach Card */}
       <DailyCoachCard />
-
-      {/* AI Coach Section */}
-      <AiCoachSection />
-
-      {/* AI Market Pulse Hero */}
-      <AiMarketPulse />
-
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 mt-1">
-        <div>
-          <h1 className="text-3xl sm:text-[36px] font-bold" style={{ color: C.text, letterSpacing: "-0.032em" }}>Dashboard</h1>
-          <p className="text-[10px] mt-1 font-mono" style={{ color: C.muted, letterSpacing: "0.02em" }}>
-            Market overview &amp; performance summary
-          </p>
-        </div>
-        <Button variant="cyan" size="sm" asChild className="flex-shrink-0">
-          <Link href="/backtests/new">
-            <Play className="mr-1.5 h-3.5 w-3.5" />
-            Run Backtest
-          </Link>
-        </Button>
-      </div>
 
       {/* AI Chat Panel */}
       <div className="rounded-2xl overflow-hidden"
@@ -1333,8 +1356,8 @@ export default function Dashboard() {
           onClick={() => setChatOpen(v => !v)}
         >
           <span className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)" }}>
-            <Bot className="h-4 w-4" style={{ color: "rgba(255,255,255,0.8)" }} />
+            style={{ background: "rgba(124,58,237,0.18)", border: "1px solid rgba(124,58,237,0.32)", boxShadow: "0 0 12px rgba(124,58,237,0.20)" }}>
+            <Bot className="h-4 w-4" style={{ color: "#a78bfa" }} />
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold leading-none mb-0.5" style={{ color: C.text }}>Trading AI</p>
@@ -1380,7 +1403,7 @@ export default function Dashboard() {
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className="max-w-[80%] px-3 py-2 rounded-2xl text-xs font-mono leading-relaxed whitespace-pre-wrap"
                     style={m.role === "user"
-                      ? { background: "rgba(255,255,255,0.10)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.16)", borderBottomRightRadius: 4, fontWeight: 600 }
+                      ? { background: "linear-gradient(135deg,rgba(124,58,237,0.28),rgba(124,58,237,0.16))", color: "#c4b5fd", border: "1px solid rgba(124,58,237,0.32)", borderBottomRightRadius: 4, fontWeight: 600 }
                       : { background: "var(--glass-bg)", color: C.text, border: "1px solid var(--glass-border)", borderBottomLeftRadius: 4 }}
                   >{m.content}</div>
                 </div>
@@ -1389,7 +1412,7 @@ export default function Dashboard() {
                 <div className="flex justify-start">
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-mono"
                     style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)", color: C.muted }}>
-                    <span className="h-1 w-1 rounded-full live-pulse" style={{ background: "rgba(255,255,255,0.7)" }} />
+                    <span className="h-1 w-1 rounded-full live-pulse" style={{ background: "#7C3AED", boxShadow: "0 0 4px rgba(124,58,237,0.6)" }} />
                     Thinking…
                   </div>
                 </div>
@@ -1409,7 +1432,7 @@ export default function Dashboard() {
                 />
                 <button onClick={() => void sendMessage()} disabled={!chatInput.trim() || isChatLoading}
                   className="h-6 w-6 rounded-lg flex items-center justify-center disabled:opacity-30"
-                  style={{ background: "rgba(255,255,255,0.12)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.18)" }}
+                  style={{ background: "linear-gradient(135deg,#7C3AED,#5b21b6)", color: "#FFFFFF", border: "1px solid rgba(124,58,237,0.40)", boxShadow: "0 0 10px rgba(124,58,237,0.30)" }}
                 ><Send className="h-3 w-3" /></button>
               </div>
             </div>
@@ -1518,12 +1541,12 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Brain className="h-3.5 w-3.5" style={{ color: C.muted }} />
-            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: C.muted }}>Portfolio Insights</p>
+            <Brain className="h-3.5 w-3.5" style={{ color: "#a78bfa" }} />
+            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#a78bfa" }}>Portfolio Insights</p>
           </div>
           <Link href="/ai">
             <span className="text-[10px] font-mono flex items-center gap-1 cursor-pointer hover:opacity-70"
-              style={{ color: C.sub }}>
+              style={{ color: "#7C3AED" }}>
               Full Analysis <ArrowUpRight className="h-3 w-3" />
             </span>
           </Link>
