@@ -8,6 +8,7 @@ export const usersTable = pgTable("app_users", {
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull().default(""),
   googleId: text("google_id").unique(),
+  appleId: text("apple_id").unique(),
   banned: boolean("banned").notNull().default(false),
   bannedReason: text("banned_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
