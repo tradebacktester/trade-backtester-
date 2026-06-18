@@ -89,7 +89,10 @@ function AlertEngineCard() {
   const stats = raw ? { total: raw.total ?? 0, active: raw.active ?? 0, unread: raw.unreadNotifications ?? 0, planSlug: raw.planSlug ?? "free", maxAlerts: raw.maxAlerts ?? 5 } : null;
 
   useEffect(() => {
-    if (alertError) handleApiError(alertError, toast, { title: "Alert stats unavailable" });
+    // Suppress 401 errors (unauthenticated) — the card already returns null when no token
+    if (alertError && (alertError as any)?.status !== 401 && (alertError as any)?.statusCode !== 401) {
+      handleApiError(alertError, toast, { title: "Alert stats unavailable" });
+    }
   }, [alertError]);
 
   if (!token) return null;

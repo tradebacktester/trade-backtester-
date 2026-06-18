@@ -344,18 +344,20 @@ const STRATEGY_DEFS: StrategyDef[] = [
     gradientTo: "#14b8a6",
     description: "Triple EMA trend filter with momentum confirmation",
     longDesc: "Uses two EMAs to confirm trend direction. Enter when the fast EMA is above the slow EMA and price is rising. Rides the trend until the EMAs cross back. Best in strongly trending markets.",
-    defaultParams: { fastPeriod: 10, slowPeriod: 50 },
+    defaultParams: { fastEma: 10, slowEma: 50, rsiPeriod: 14 },
     paramConfig: [
-      { key: "fastPeriod", label: "Fast EMA", min: 3, max: 30, step: 1 },
-      { key: "slowPeriod", label: "Slow EMA", min: 20, max: 200, step: 5 },
+      { key: "fastEma", label: "Fast EMA", min: 3, max: 50, step: 1 },
+      { key: "slowEma", label: "Slow EMA", min: 20, max: 200, step: 5 },
+      { key: "rsiPeriod", label: "RSI Period", min: 5, max: 30, step: 1 },
     ],
     entryConditions: (p) => [
-      { label: `EMA(${p.fastPeriod}) > EMA(${p.slowPeriod}) — uptrend confirmed`, color: "#22c55e" },
+      { label: `EMA(${p.fastEma}) > EMA(${p.slowEma}) — uptrend confirmed`, color: "#22c55e" },
+      { label: `RSI(${p.rsiPeriod}) above 50 — momentum confirmation`, color: "#22c55e" },
     ],
     exitConditions: (p) => [
-      { label: `EMA(${p.fastPeriod}) crosses BELOW EMA(${p.slowPeriod})`, color: "#ef4444" },
+      { label: `EMA(${p.fastEma}) crosses BELOW EMA(${p.slowEma})`, color: "#ef4444" },
     ],
-    logicSummary: (p) => `EMA(${p.fastPeriod}) / EMA(${p.slowPeriod}) trend alignment`,
+    logicSummary: (p) => `EMA(${p.fastEma}) / EMA(${p.slowEma}) trend + RSI(${p.rsiPeriod}) filter`,
   },
   {
     type: "golden_cross",

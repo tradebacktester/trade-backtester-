@@ -8,7 +8,9 @@ import {
   User, Mail, BarChart2, TrendingUp, Trophy, LogOut,
   Star, Zap, Brain, Shield, CheckCircle, Target, Activity,
   CreditCard, Settings, ArrowRight, Lock, ArrowUpRight, ArrowDownRight,
+  Pencil, X, Check, Loader2,
 } from "lucide-react";
+import { API_BASE } from "@/lib/api-config";
 
 interface BacktestDetail extends Backtest {
   strategyName?: string;
@@ -57,11 +59,18 @@ function AchievementRow({ icon: Icon, label, desc, unlocked, color }: {
 }
 
 export default function ProfilePage() {
-  const { user, signout } = useAuth();
+  const { user, token, setUser, signout } = useAuth();
   const [, setLocation] = useLocation();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { data: strategies } = useListStrategies();
   const { data: backtests } = useListBacktests();
+
+  // Username editing state
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
+  const [nameSuccess, setNameSuccess] = useState(false);
 
   if (!user) {
     return (
@@ -101,6 +110,41 @@ export default function ProfilePage() {
     ? backtestArray.reduce((worst, b) => Number(b.totalReturn ?? Infinity) < Number(worst.totalReturn ?? Infinity) ? b : worst, backtestArray[0])
     : null;
 
+  async function handleSaveName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed.length < 2) { setNameError("Name must be at least 2 characters"); return; }
+    if (trimmed.length > 60) { setNameError("Name must be at most 60 characters"); return; }
+    setNameSaving(true);
+    setNameError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/users/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setNameError((err as any).error ?? "Failed to update name");
+        return;
+      }
+      const updated = await res.json() as { id: number; name: string; email: string };
+      setUser({ ...user, name: updated.name });
+      setEditingName(false);
+      setNameSuccess(true);
+      setTimeout(() => setNameSuccess(false), 3000);
+    } catch {
+      setNameError("Network error — please try again");
+    } finally {
+      setNameSaving(false);
+    }
+  }
+
+  function startEditing() {
+    setNameInput(user.name);
+    setNameError("");
+    setEditingName(true);
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-10">
 
@@ -126,15 +170,66 @@ export default function ProfilePage() {
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-[22px] font-bold tracking-tight mb-1" style={{ color: "hsl(var(--foreground))" }}>{user.name}</h1>
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                <Mail style={{ height: 11, width: 11 }} />{user.email}
-              </span>
-              <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-                <User style={{ height: 11, width: 11 }} />User #{user.id}
-              </span>
-            </div>
+            {editingName ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={nameInput}
+                    onChange={e => { setNameInput(e.target.value); setNameError(""); }}
+                    onKeyDown={e => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") setEditingName(false); }}
+                    className="text-[18px] font-bold rounded-lg px-3 py-1.5 flex-1 min-w-0 outline-none"
+                    style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.2)", color: "hsl(var(--foreground))" }}
+                    placeholder="Your display name"
+                    maxLength={60}
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={nameSaving}
+                    className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                    style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e" }}
+                  >
+                    {nameSaving ? <Loader2 style={{ height: 14, width: 14 }} className="animate-spin" /> : <Check style={{ height: 14, width: 14 }} />}
+                  </button>
+                  <button
+                    onClick={() => setEditingName(false)}
+                    className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "hsl(var(--muted-foreground))" }}
+                  >
+                    <X style={{ height: 14, width: 14 }} />
+                  </button>
+                </div>
+                {nameError && <p className="text-[11px]" style={{ color: "#ef4444" }}>{nameError}</p>}
+                <p className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>Press Enter to save, Escape to cancel</p>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h1 className="text-[22px] font-bold tracking-tight" style={{ color: "hsl(var(--foreground))" }}>{user.name}</h1>
+                  <button
+                    onClick={startEditing}
+                    title="Change display name"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center transition-all opacity-50 hover:opacity-100"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  >
+                    <Pencil style={{ height: 11, width: 11, color: "hsl(var(--muted-foreground))" }} />
+                  </button>
+                  {nameSuccess && (
+                    <span className="flex items-center gap-1 text-[10px] font-medium" style={{ color: "#22c55e" }}>
+                      <Check style={{ height: 10, width: 10 }} /> Saved
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    <Mail style={{ height: 11, width: 11 }} />{user.email}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    <User style={{ height: 11, width: 11 }} />User #{user.id}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions */}

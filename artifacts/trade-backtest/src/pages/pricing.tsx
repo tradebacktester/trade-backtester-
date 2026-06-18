@@ -132,6 +132,24 @@ const FEATURES: Array<{
     icon: <Crown className="h-3.5 w-3.5" />,
     format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
   },
+  {
+    key: "maxHistoricalYears",
+    label: "Historical data",
+    icon: <BarChart2 className="h-3.5 w-3.5" />,
+    format: val => val === -1 ? "Unlimited" : `${val} year${Number(val) === 1 ? "" : "s"}`,
+  },
+  {
+    key: "batchBacktest",
+    label: "Batch backtesting",
+    icon: <RefreshCw className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
+  {
+    key: "csvExport",
+    label: "CSV export",
+    icon: <Download className="h-3.5 w-3.5" />,
+    format: val => typeof val === "boolean" ? (val ? "yes" : null) : null,
+  },
 ];
 
 function FeatureRow({

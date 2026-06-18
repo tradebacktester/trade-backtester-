@@ -278,6 +278,71 @@ async function fetchBinanceDepth(symbol: string): Promise<{ bids: DepthLevel[]; 
   }
 }
 
+// Convert Forex Factory date strings ("Jun 19, 2026" / "Jun 19") to ISO "2026-06-19"
+function normalizeFFDate(rawDate: string): string {
+  if (!rawDate) return "";
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return rawDate;
+  try {
+    // FF format: "Jun 19, 2026" or "Jun 19"
+    const withYear = rawDate.includes(",") ? rawDate : `${rawDate}, ${new Date().getFullYear()}`;
+    const parsed = new Date(`${withYear} 12:00:00 UTC`);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString().split("T")[0]!;
+  } catch { /* fall through */ }
+  return rawDate;
+}
+
+// Convert FF time strings ("1:30am", "8:30am", "All Day") to "HH:MM"
+function normalizeFFTime(rawTime: string): string {
+  if (!rawTime || rawTime.toLowerCase() === "all day" || rawTime.toLowerCase() === "tentative") return "00:00";
+  try {
+    const m = rawTime.match(/^(\d{1,2}):(\d{2})(am|pm)$/i);
+    if (m) {
+      let h = parseInt(m[1]!);
+      const min = m[2]!;
+      const meridiem = m[3]!.toLowerCase();
+      if (meridiem === "pm" && h !== 12) h += 12;
+      if (meridiem === "am" && h === 12) h = 0;
+      return `${String(h).padStart(2, "0")}:${min}`;
+    }
+  } catch { /* fall through */ }
+  return "00:00";
+}
+
+// Normalize raw Forex Factory event into the CalEvent shape expected by the frontend
+function normalizeFFEvent(raw: Record<string, unknown>, idx: number): object {
+  const rawDate = String(raw["date"] ?? "");
+  const rawTime = String(raw["time"] ?? "");
+  const dateIso = normalizeFFDate(rawDate);
+  const timeStr = normalizeFFTime(rawTime);
+
+  let timestamp = 0;
+  if (dateIso) {
+    const parsed = new Date(`${dateIso}T${timeStr}:00Z`);
+    if (!isNaN(parsed.getTime())) timestamp = parsed.getTime();
+  }
+
+  const impact = String(raw["impact"] ?? raw["importance"] ?? "Low");
+  const impactNorm = impact.charAt(0).toUpperCase() + impact.slice(1).toLowerCase();
+
+  return {
+    id: raw["id"] ?? `ff-${idx}`,
+    timestamp,
+    date: dateIso,
+    time: timeStr,
+    country: raw["country"] ?? raw["currency"] ?? "",
+    flag: raw["flag"] ?? "",
+    event: raw["title"] ?? raw["event"] ?? raw["name"] ?? "Economic Event",
+    currency: raw["currency"] ?? raw["country"] ?? "",
+    impact: ["High", "Medium", "Low"].includes(impactNorm) ? impactNorm : "Low",
+    category: raw["category"] ?? "General",
+    previous: raw["previous"] ?? null,
+    forecast: raw["forecast"] ?? null,
+    actual: raw["actual"] !== undefined && raw["actual"] !== "" ? raw["actual"] : null,
+    surprise: raw["surprise"] ?? null,
+  };
+}
+
 async function fetchForexFactoryEvents(): Promise<unknown[] | null> {
   const weeks = ["thisweek", "nextweek"];
   const allEvents: unknown[] = [];
@@ -300,7 +365,9 @@ async function fetchForexFactoryEvents(): Promise<unknown[] | null> {
           const text = await resp.text();
           const data = JSON.parse(text);
           if (Array.isArray(data) && data.length > 0) {
-            allEvents.push(...data);
+            // Normalize raw FF data to the CalEvent shape
+            const normalized = (data as Record<string, unknown>[]).map((ev, i) => normalizeFFEvent(ev, i));
+            allEvents.push(...normalized);
             break;
           }
         }
