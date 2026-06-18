@@ -22,6 +22,7 @@ import usersRouter from "./users";
 import footprintRouter from "./footprint";
 import watchlistRouter from "./watchlist";
 import brokerageRouter from "./brokerage";
+import psychAlertsRouter from "./psych-alerts";
 
 const router: IRouter = Router();
 
@@ -51,5 +52,6 @@ router.use(usersRouter);
 router.use(footprintRouter);
 router.use(watchlistRouter);
 router.use(brokerageRouter);
+router.use(psychAlertsRouter);
 
 export default router;

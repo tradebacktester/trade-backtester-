@@ -39,6 +39,7 @@ import AiBuilder from "@/pages/strategies/ai-builder";
 import StressTestPage from "@/pages/stress-test";
 import StrategyDnaPage from "@/pages/strategy-dna";
 import PsychMatchPage from "@/pages/psych-match";
+import PsychAlertsPage from "@/pages/psych-alerts";
 import AnalyticsPage from "@/pages/analytics";
 import ProfilePage from "@/pages/profile";
 import CalculatorPage from "@/pages/calculator";
@@ -144,6 +145,7 @@ function Router() {
       <Route path="/strategy-dna" component={StrategyDnaPage} />
       <Route path="/community" component={CommunityPage} />
       <Route path="/psych-match" component={PsychMatchPage} />
+      <Route path="/psych-alerts" component={PsychAlertsPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/trader-dna" component={TraderDnaPage} />
       <Route path="/trading-os" component={TradingOsPage} />

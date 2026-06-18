@@ -63,11 +63,12 @@ const SECTIONS = [
     icon: Dna,
     primary: "/trading-os",
     items: [
-      { title: "AI Trader OS",  url: "/trading-os",  icon: Brain,      desc: "AI coaching, rank, ghost, FOMO & more" },
-      { title: "DNA Overview",  url: "/trader-dna",  icon: Dna,        desc: "Your full trader profile" },
-      { title: "Analytics",    url: "/analytics",   icon: BarChart2,  desc: "Performance analytics" },
-      { title: "Psych Match",  url: "/psych-match", icon: Bot,        desc: "Psychology profiling" },
-      { title: "Profile",      url: "/profile",     icon: UserCircle, desc: "Account & preferences" },
+      { title: "AI Trader OS",     url: "/trading-os",    icon: Brain,      desc: "AI coaching, rank, ghost, FOMO & more" },
+      { title: "DNA Overview",     url: "/trader-dna",    icon: Dna,        desc: "Your full trader profile" },
+      { title: "Analytics",        url: "/analytics",     icon: BarChart2,  desc: "Performance analytics" },
+      { title: "Psych Match",      url: "/psych-match",   icon: Bot,        desc: "Psychology profiling" },
+      { title: "Psych Alerts",     url: "/psych-alerts",  icon: Shield,     desc: "FOMO, revenge & behavior alerts" },
+      { title: "Profile",          url: "/profile",       icon: UserCircle, desc: "Account & preferences" },
     ],
   },
   {
@@ -134,6 +135,7 @@ const ROUTE_SECTION: Record<string, string> = {
   "/strategies": "strategy-lab",  "/backtests": "strategy-lab",
   "/stress-test": "strategy-lab", "/strategy-dna": "strategy-lab",
   "/analytics": "trader-dna",     "/psych-match": "trader-dna",
+  "/psych-alerts": "trader-dna",
   "/profile": "trader-dna",       "/trader-dna": "trader-dna",
   "/trading-os": "trader-dna",
   "/tools": "tools",
@@ -193,10 +195,11 @@ const HOME_SHEET_SECTIONS = [
   {
     label: "Trader DNA",
     items: [
-      { title: "AI Trader OS",  url: "/trading-os",  icon: Brain },
-      { title: "DNA Overview",  url: "/trader-dna",  icon: Dna },
-      { title: "Analytics",     url: "/analytics",   icon: BarChart2 },
-      { title: "Psych Match",   url: "/psych-match", icon: Bot },
+      { title: "AI Trader OS",  url: "/trading-os",   icon: Brain },
+      { title: "DNA Overview",  url: "/trader-dna",   icon: Dna },
+      { title: "Analytics",     url: "/analytics",    icon: BarChart2 },
+      { title: "Psych Match",   url: "/psych-match",  icon: Bot },
+      { title: "Psych Alerts",  url: "/psych-alerts", icon: Shield },
     ],
   },
   {

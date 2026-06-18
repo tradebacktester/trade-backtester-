@@ -28,3 +28,4 @@ export * from "./password_resets";
 export * from "./academy";
 export * from "./coupons";
 export * from "./watchlist";
+export * from "./psych_alert_events";
