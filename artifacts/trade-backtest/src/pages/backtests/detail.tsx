@@ -508,7 +508,7 @@ function ParameterOptHeatmap({
     setIsLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`${API_BASE}/api/backtests/optimize`, {
+      const data = await apiFetch<OptResult>(`${API_BASE}/api/backtests/optimize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -522,8 +522,6 @@ function ParameterOptHeatmap({
           param2Values: p2Values,
         }),
       });
-      if (!resp.ok) throw new Error("Optimization failed");
-      const data = await resp.json();
       setResult(data);
     } catch (e: any) {
       setError(e.message || "Failed to run optimization");
@@ -1022,7 +1020,7 @@ export default function BacktestDetail() {
     setAutopsyError(null);
     setAutopsyText(null);
     try {
-      const resp = await fetch(`${API_BASE}/api/ai/autopsy`, {
+      const autopsyResult = await apiFetch<{ narrative: string }>(`${API_BASE}/api/ai/autopsy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1053,9 +1051,7 @@ export default function BacktestDetail() {
           })),
         }),
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Failed to generate autopsy");
-      setAutopsyText(data.narrative);
+      setAutopsyText(autopsyResult.narrative);
     } catch (e: unknown) {
       setAutopsyError(e instanceof Error ? e.message : "Failed to generate autopsy");
     } finally {
@@ -1093,7 +1089,7 @@ export default function BacktestDetail() {
         }
       }
 
-      const resp = await fetch(`${API_BASE}/api/ai/narrative`, {
+      const narrativeResult = await apiFetch<{ story: string }>(`${API_BASE}/api/ai/narrative`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("tt_token") ?? ""}` },
         body: JSON.stringify({
@@ -1121,9 +1117,7 @@ export default function BacktestDetail() {
           equityPeaks: equityPeaks.slice(0, 4),
         }),
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Failed to generate narrative");
-      setNarrativeText(data.story);
+      setNarrativeText(narrativeResult.story);
     } catch (e: unknown) {
       setNarrativeError(e instanceof Error ? e.message : "Failed to generate narrative");
     } finally {
@@ -1136,9 +1130,7 @@ export default function BacktestDetail() {
     setIsLoadingEvents(true);
     setEventError(null);
     try {
-      const resp = await fetch(`${API_BASE}/api/backtests/${id}/event-impact`);
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Failed to load event data");
+      const data = await apiFetch<{ events: EventImpact[]; summary: EventSummary }>(`${API_BASE}/api/backtests/${id}/event-impact`);
       setEventData(data);
     } catch (e: unknown) {
       setEventError(e instanceof Error ? e.message : "Failed to load event data");
@@ -1154,11 +1146,9 @@ export default function BacktestDetail() {
     setWfData(null);
     try {
       const token = localStorage.getItem("tt_token") ?? "";
-      const resp = await fetch(`${API_BASE}/api/backtests/${id}/walk-forward?trainRatio=${ratio}`, {
+      const data = await apiFetch<WFResult>(`${API_BASE}/api/backtests/${id}/walk-forward?trainRatio=${ratio}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Walk-forward failed");
       setWfData(data);
     } catch (e: unknown) {
       setWfError(e instanceof Error ? e.message : "Walk-forward failed");
@@ -3021,11 +3011,9 @@ function RegimeAnalysisTab({ backtestId }: { backtestId: number }) {
     setIsLoading(true); setError(null);
     try {
       const token = localStorage.getItem("tt_token") ?? "";
-      const resp = await fetch(`${API_BASE}/api/backtests/${backtestId}/regime-analysis`, {
+      const data = await apiFetch<{ regimes?: RegimePeriod[]; summary?: Record<string, RegimeSummaryItem>; regimeEquity?: Record<string, { date: string; value: number }[]> }>(`${API_BASE}/api/backtests/${backtestId}/regime-analysis`, {
         headers: { "Authorization": `Bearer ${token}` },
       });
-      if (!resp.ok) throw new Error("Failed to load regime data");
-      const data = await resp.json();
       setRegimes(data.regimes ?? []);
       setSummary(data.summary ?? {});
       setRegimeEquity(data.regimeEquity ?? {});
@@ -3320,7 +3308,7 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
     if (!form.tradeDate) { toast({ title: "Trade date required", variant: "destructive" }); return; }
     setIsSubmitting(true);
     try {
-      const resp = await fetch(`${API_BASE}/api/backtests/${backtestId}/live-trades`, {
+      await apiFetch(`${API_BASE}/api/backtests/${backtestId}/live-trades`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token()}` },
         body: JSON.stringify({
@@ -3329,13 +3317,12 @@ function LiveMonitorTab({ backtestId, symbol }: { backtestId: number; symbol: st
           note: form.note || null,
         }),
       });
-      if (!resp.ok) throw new Error("Failed to add trade");
       await loadAll();
       setShowForm(false);
       setForm({ tradeDate: new Date().toISOString().split("T")[0]!, pnlAmount: "", note: "" });
       toast({ title: "Live trade logged" });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+      handleApiError(e, toast, { title: "Failed to log live trade" });
     } finally { setIsSubmitting(false); }
   }
 
