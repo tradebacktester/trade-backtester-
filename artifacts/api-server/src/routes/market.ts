@@ -4,7 +4,7 @@ import { fetchYahooQuote, isYahooSupported } from "../lib/yahoo-finance";
 const router: IRouter = Router();
 
 const quoteCache = new Map<string, { data: unknown; expiresAt: number; fetchedAt: number }>();
-const QUOTE_TTL_MS = 15_000;
+const QUOTE_TTL_MS = 5_000;
 
 // ── Symbol search registry ────────────────────────────────────────────────────
 
@@ -161,8 +161,8 @@ router.get("/market/movers", async (_req, res): Promise<void> => {
     .filter((r): r is PromiseFulfilledResult<Record<string, unknown>> => r.status === "fulfilled")
     .map(r => r.value)
     .sort((a, b) => {
-      const aChg = Math.abs(Number(a["changePercent"] ?? 0));
-      const bChg = Math.abs(Number(b["changePercent"] ?? 0));
+      const aChg = Math.abs(Number(a["changePct"] ?? a["changePercent"] ?? 0));
+      const bChg = Math.abs(Number(b["changePct"] ?? b["changePercent"] ?? 0));
       return bChg - aChg;
     })
     .slice(0, 12);

@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { AuthModal } from "@/components/auth-modal";
+import { GlobalSearch } from "@/components/global-search";
 
 /* ── Section definitions ───────────────────────────────────────────── */
 const SECTIONS = [
@@ -228,7 +229,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [hoverSection, setHoverSection] = useState<string | null>(null);
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(v => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const { user, signout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
@@ -413,6 +426,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5 pr-4 flex-shrink-0">
+
+          {/* CMD+K Search */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            title="Search markets (⌘K)"
+            style={{
+              display: "flex", alignItems: "center", gap: "6px",
+              height: "32px", padding: "0 10px", borderRadius: "9px",
+              border: "1px solid var(--nav-border)",
+              background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+              color: "var(--nav-dim-color)", cursor: "pointer", fontSize: "12px",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--nav-active-border)";
+              (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--nav-border)";
+              (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
+            }}
+          >
+            <Search style={{ height: "12px", width: "12px" }} />
+            <span className="hidden lg:inline text-[11px]" style={{ letterSpacing: "0.01em" }}>Search</span>
+            <kbd
+              className="hidden lg:flex items-center text-[10px] px-1.5 py-0.5 rounded ml-1"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--nav-dim-color)", fontFamily: "inherit" }}
+            >
+              ⌘K
+            </kbd>
+          </button>
 
           {/* Alert Engine bell — links to /alerts */}
           <Link href="/alerts">
@@ -746,6 +789,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

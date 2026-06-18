@@ -602,7 +602,7 @@ export default function ChartPage() {
   const error     = isSim ? null : apiError;
 
   const lastKlineClose  = klines && klines.length > 0 ? klines[klines.length - 1].close : 100;
-  const liveChartPrice  = useBinanceLivePrice(symbol, isSim, lastKlineClose);
+  const { price: liveChartPrice, stale: liveStale } = useBinanceLivePrice(symbol, isSim, lastKlineClose);
 
   // ── Multi-TF ───────────────────────────────────────────────────────
   const multiTfParams = { symbol, interval: multiTfInterval, limit: 300 };
@@ -1816,7 +1816,10 @@ export default function ChartPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>{isSim ? `${displayCategory} · Sim` : displayCategory === "Crypto" ? "Binance · Live" : "Yahoo Finance · Delayed"}</span>
+            <span className="text-[10px] font-mono hidden sm:block" style={{ color: "hsl(220,14%,35%)" }}>{isSim ? `${displayCategory} · Sim` : displayCategory === "Crypto" ? "Binance · Live" : "Yahoo Finance · ~5s"}</span>
+            {liveStale && !isSim && displayCategory !== "Crypto" && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md hidden sm:block" style={{ background: "rgba(239,68,68,0.15)", color: "hsl(0,85%,62%)", border: "1px solid rgba(239,68,68,0.3)" }}>STALE</span>
+            )}
             <button
               onClick={toggleFullscreen}
               title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}

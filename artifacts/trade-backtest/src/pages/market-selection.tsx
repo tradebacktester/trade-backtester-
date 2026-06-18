@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import {
   Search, Star, ArrowUpRight, ArrowDownRight, RefreshCw,
   ChevronRight, Sparkles, Clock, BarChart2, X,
-  TrendingUp, Globe, Activity, Layers, Zap, Package,
+  TrendingUp, Globe, Activity, Layers, Zap, Package, Flame, ArrowUpDown,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api-config";
 import { useAuth } from "@/lib/auth-context";
@@ -863,6 +863,13 @@ export default function MarketSelectionPage() {
     enabled: !!token,
   });
 
+  const { data: moversData } = useQuery<{ movers: Array<{ symbol: string; price?: number; change?: number; changePct?: number; changePercent?: number; name?: string }> } | null>({
+    queryKey: ["ms-movers"],
+    queryFn: () => fetch(`${API_BASE}/api/market/movers`).then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
   const { data: watchlistApiData } = useQuery<{ id: number; symbol: string }[]>({
     queryKey: ["ms-watchlist"],
     queryFn: async () => {
@@ -917,7 +924,13 @@ export default function MarketSelectionPage() {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ symbol: sym, name, ticker }),
-        }).then(() => qc.invalidateQueries({ queryKey: ["ms-watchlist"] })).catch(() => {});
+        }).then(async r => {
+          if (r.status === 409) {
+            toast({ title: `${sym} is already in your watchlist`, variant: "destructive" });
+          } else {
+            qc.invalidateQueries({ queryKey: ["ms-watchlist"] });
+          }
+        }).catch(() => {});
       }
     }
   }
@@ -988,7 +1001,12 @@ export default function MarketSelectionPage() {
     });
   }, [allRows, category, search, sortKey, sortDir]);
 
-  const favRows = useMemo(() => favs.map(s => rowMap.get(s)).filter(Boolean) as ScreenerRow[], [favs, rowMap]);
+  const [favSort, setFavSort] = useState<"default" | "change">("change");
+  const favRows = useMemo(() => {
+    const rows = favs.map(s => rowMap.get(s)).filter(Boolean) as ScreenerRow[];
+    if (favSort === "change") return [...rows].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h));
+    return rows;
+  }, [favs, rowMap, favSort]);
   const recentRows = useMemo(() => recents.map(s => rowMap.get(s)).filter(Boolean) as ScreenerRow[], [recents, rowMap]);
 
   const activeCatColor = catColor(category);
@@ -1085,6 +1103,44 @@ export default function MarketSelectionPage() {
         </div>
       </div>
 
+      {/* ── Top Movers ─────────────────────────────────────────────────── */}
+      {moversData?.movers && moversData.movers.length > 0 && !search && (
+        <div style={{ marginBottom: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+            <Flame style={{ width: "12px", height: "12px", color: "#f59e0b" }} />
+            <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", color: sub, textTransform: "uppercase" }}>Top Movers</span>
+            <span style={{ fontSize: "9px", color: sub, opacity: 0.45, marginLeft: "2px" }}>biggest % moves right now</span>
+          </div>
+          <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"] }}>
+            {moversData.movers.map(m => {
+              const pct = m.changePct ?? m.changePercent ?? 0;
+              const up  = pct >= 0;
+              const label = m.symbol.replace("USDT", "").replace("USD", "");
+              return (
+                <button key={m.symbol} onClick={() => navigate(`/chart?symbol=${m.symbol}`)}
+                  style={{
+                    flexShrink: 0, padding: "10px 14px", borderRadius: "14px", cursor: "pointer", textAlign: "left",
+                    border: `1px solid ${up ? "rgba(52,211,153,0.22)" : "rgba(239,68,68,0.22)"}`,
+                    background: up ? "rgba(52,211,153,0.07)" : "rgba(239,68,68,0.07)",
+                    transition: "opacity 0.14s ease",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.75"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                >
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: text, fontFamily: "var(--app-font-mono)", marginBottom: "2px" }}>{label}</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: up ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" }}>{up ? "+" : ""}{pct.toFixed(2)}%</div>
+                  {typeof m.price === "number" && (
+                    <div style={{ fontSize: "10px", color: sub, marginTop: "2px", fontFamily: "var(--app-font-mono)" }}>
+                      {m.price < 0.01 ? m.price.toFixed(6) : m.price < 1 ? m.price.toFixed(4) : m.price < 100 ? m.price.toFixed(2) : m.price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Recents ────────────────────────────────────────────────────── */}
       {recentRows.length > 0 && !search && (
         <div style={{ marginBottom: "20px" }}>
@@ -1106,7 +1162,15 @@ export default function MarketSelectionPage() {
         <div style={{ marginBottom: "20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
             <Star style={{ width: "12px", height: "12px", color: "#fbbf24", fill: "#fbbf24" }} />
-            <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", color: sub, textTransform: "uppercase" }}>Favorites</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", color: sub, textTransform: "uppercase" }}>Watchlist</span>
+            <button
+              onClick={() => setFavSort(v => v === "default" ? "change" : "default")}
+              style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "3px", fontSize: "10px", color: sub, background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: "6px" }}
+              title="Toggle sort"
+            >
+              <ArrowUpDown style={{ width: "9px", height: "9px" }} />
+              {favSort === "change" ? "% change" : "Added"}
+            </button>
           </div>
           <div style={{ display: "flex", gap: "7px", overflowX: "auto", paddingBottom: "2px", scrollbarWidth: "none" }}>
             {favRows.map(row => (

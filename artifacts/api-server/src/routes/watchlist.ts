@@ -66,8 +66,7 @@ router.post("/watchlist", requireAuth, async (req, res): Promise<void> => {
     .where(and(eq(watchlistItemsTable.userId, userId), eq(watchlistItemsTable.symbol, symbol)));
 
   if (existing.length > 0) {
-    const row = existing[0]!;
-    res.json({ id: row.id, symbol: row.symbol, name: row.name, ticker: row.ticker, addedAt: row.addedAt.toISOString() });
+    res.status(409).json({ error: "Already in watchlist" });
     return;
   }
 

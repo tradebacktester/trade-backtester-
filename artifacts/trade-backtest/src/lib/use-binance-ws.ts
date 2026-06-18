@@ -1,75 +1,38 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
-export type BinanceTicker = {
-  price: number;
-  change24h: number;
-  changePct24h: number;
-  high24h: number;
-  low24h: number;
-  volume24h: number;
-};
-
-function isBinanceSymbol(s: string) {
-  return /^[A-Z0-9]+(USDT|BTC|ETH|BNB)$/i.test(s);
+function isBinanceSymbol(symbol: string): boolean {
+  return symbol.endsWith("USDT") || symbol.endsWith("USDC") || symbol.endsWith("BTC") || symbol.endsWith("ETH") || symbol.endsWith("BNB");
 }
 
 /**
- * Subscribe to live price updates for multiple symbols via Binance combined stream.
- * Only subscribes to Binance-listed USDT/BTC/ETH pairs; non-Binance symbols are ignored.
+ * Subscribe to live prices for multiple symbols (used by mini-ticker widgets).
  */
-export function useBinancePrices(symbols: string[]): Record<string, BinanceTicker> {
-  const [prices, setPrices] = useState<Record<string, BinanceTicker>>({});
-  const wsRef = useRef<WebSocket | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mountedRef = useRef(true);
-
-  const binanceSymbols = symbols.filter(isBinanceSymbol);
-  const streamsKey = binanceSymbols.join(",");
-
-  const connect = useCallback(() => {
-    if (!mountedRef.current || binanceSymbols.length === 0) return;
-    const streams = binanceSymbols.map(s => `${s.toLowerCase()}@miniTicker`).join("/");
-    const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data as string) as { data?: { s?: string; c?: string; o?: string; h?: string; l?: string; v?: string } };
-        const d = msg.data;
-        if (!d?.s) return;
-        const price = parseFloat(d.c ?? "0");
-        const open = parseFloat(d.o ?? "0");
-        setPrices(prev => ({
-          ...prev,
-          [d.s!]: {
-            price,
-            change24h: price - open,
-            changePct24h: open > 0 ? ((price - open) / open) * 100 : 0,
-            high24h: parseFloat(d.h ?? "0"),
-            low24h: parseFloat(d.l ?? "0"),
-            volume24h: parseFloat(d.v ?? "0"),
-          },
-        }));
-      } catch { /* ignore parse errors */ }
-    };
-
-    ws.onclose = () => {
-      if (mountedRef.current) timerRef.current = setTimeout(connect, 3000);
-    };
-    ws.onerror = () => ws.close();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streamsKey]);
+export function useBinancePrices(symbols: string[]): Map<string, number> {
+  const [prices, setPrices] = useState<Map<string, number>>(new Map());
+  const wsRefs = useRef<Map<string, WebSocket>>(new Map());
 
   useEffect(() => {
-    mountedRef.current = true;
-    connect();
+    const binanceSyms = symbols.filter(isBinanceSymbol);
+    if (!binanceSyms.length) return;
+
+    binanceSyms.forEach((symbol) => {
+      if (wsRefs.current.has(symbol)) return;
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@miniTicker`);
+      wsRefs.current.set(symbol, ws);
+      ws.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data as string) as { c?: string };
+          if (d.c) setPrices(prev => { const m = new Map(prev); m.set(symbol, parseFloat(d.c!)); return m; });
+        } catch { /* ignore */ }
+      };
+      ws.onerror = () => ws.close();
+    });
+
     return () => {
-      mountedRef.current = false;
-      if (timerRef.current) clearTimeout(timerRef.current);
-      wsRef.current?.close();
+      wsRefs.current.forEach(ws => ws.close());
+      wsRefs.current.clear();
     };
-  }, [connect]);
+  }, [symbols.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return prices;
 }
@@ -77,11 +40,19 @@ export function useBinancePrices(symbols: string[]): Record<string, BinanceTicke
 /**
  * Subscribe to live price for a single chart symbol.
  * - Binance USDT pairs: real WebSocket stream
- * - Non-Binance (stocks, forex, indices, commodities): polls /api/market/quote every 15s
+ * - Non-Binance (stocks, forex, indices, commodities): polls /api/market/quote every 5s
  * - Sim symbols: random-walk fallback (isSim=true)
+ *
+ * Returns { price, stale, lastUpdated } so callers can show a staleness badge.
  */
-export function useBinanceLivePrice(symbol: string, isSim: boolean, fallback: number): number {
+export function useBinanceLivePrice(
+  symbol: string,
+  isSim: boolean,
+  fallback: number,
+): { price: number; stale: boolean; lastUpdated: number } {
   const [price, setPrice] = useState(fallback);
+  const [stale, setStale] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -106,7 +77,11 @@ export function useBinanceLivePrice(symbol: string, isSim: boolean, fallback: nu
         ws.onmessage = (e) => {
           try {
             const d = JSON.parse(e.data as string) as { c?: string };
-            if (d.c) setPrice(parseFloat(d.c));
+            if (d.c) {
+              setPrice(parseFloat(d.c));
+              setStale(false);
+              setLastUpdated(Date.now());
+            }
           } catch { /* ignore */ }
         };
         ws.onclose = () => {
@@ -123,23 +98,25 @@ export function useBinanceLivePrice(symbol: string, isSim: boolean, fallback: nu
       };
     }
 
-    // Non-Binance: poll /api/market/quote every 15 seconds
+    // Non-Binance: poll /api/market/quote every 5 seconds
     let cancelled = false;
 
     async function fetchQuote() {
       try {
         const resp = await fetch(`/api/market/quote?symbol=${encodeURIComponent(symbol)}`);
         if (resp.ok) {
-          const data = await resp.json() as { price?: number };
+          const data = await resp.json() as { price?: number; stale?: boolean; fetchedAt?: number };
           if (!cancelled && typeof data.price === "number" && data.price > 0) {
             setPrice(data.price);
+            setStale(data.stale ?? false);
+            setLastUpdated(data.fetchedAt ?? Date.now());
           }
         }
       } catch { /* ignore network errors */ }
     }
 
     fetchQuote();
-    const pollId = setInterval(fetchQuote, 15_000);
+    const pollId = setInterval(fetchQuote, 5_000);
 
     return () => {
       cancelled = true;
@@ -148,5 +125,5 @@ export function useBinanceLivePrice(symbol: string, isSim: boolean, fallback: nu
     };
   }, [symbol, isSim]);
 
-  return price;
+  return { price, stale, lastUpdated };
 }
