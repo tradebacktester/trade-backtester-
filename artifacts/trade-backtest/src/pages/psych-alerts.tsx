@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   Brain, AlertTriangle, TrendingDown, Zap, BarChart2,
   Activity, Target, Shield, Eye, RefreshCw, Trash2,
-  CheckCheck, ChevronDown, ChevronUp, Clock, Info,
+  CheckCheck, ChevronDown, ChevronUp, Clock, Info, ExternalLink,
 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
@@ -35,6 +37,8 @@ interface CoachAssessment {
   headline: string;
   detail: string;
   recommendation: string;
+  confidence?: number;
+  sampleSize?: number;
 }
 
 interface Stats {
@@ -44,11 +48,21 @@ interface Stats {
   unreadCount: number;
 }
 
+interface TrendDataPoint {
+  date: string;
+  total: number;
+  fomo?: number;
+  revenge?: number;
+  overtrading?: number;
+  aggressive?: number;
+}
+
 interface PsychData {
   events: PsychEvent[];
   detectedNow: { type: PsychAlertType; severity: Severity; title: string; message: string }[];
   coach: CoachAssessment;
   stats: Stats;
+  trendData?: TrendDataPoint[];
 }
 
 // ── Alert metadata ────────────────────────────────────────────────────────────

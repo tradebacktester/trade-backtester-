@@ -13,51 +13,51 @@ import { PolicyPopup } from "@/components/policy-popup";
 import { useToast } from "@/hooks/use-toast";
 import { CandleLoader } from "@/components/candle-loader";
 
-// Pages (eager)
-import Dashboard from "@/pages/dashboard";
-import Strategies from "@/pages/strategies/index";
-import StrategyDetail from "@/pages/strategies/detail";
-import NewStrategy from "@/pages/strategies/new";
-import EditStrategy from "@/pages/strategies/edit";
-import Backtests from "@/pages/backtests/index";
-import NewBacktest from "@/pages/backtests/new";
-import BacktestDetail from "@/pages/backtests/detail";
-import BacktestBuilder from "@/pages/backtests/builder";
-import BatchBacktest from "@/pages/backtests/batch";
-import PortfolioBacktest from "@/pages/backtests/portfolio";
-import SettingsPage from "@/pages/settings";
-import NewsPage from "@/pages/news";
-import AiAssistant from "@/pages/ai-assistant";
-import AdminLogin from "@/pages/admin/login";
-import AdminPanel from "@/pages/admin/panel";
-import CommunityPage from "@/pages/community";
-import PricingPage from "@/pages/pricing";
-import BillingPage from "@/pages/billing";
-import ToolsPage from "@/pages/tools";
-import MarketSelectionPage from "@/pages/market-selection";
-import AiBuilder from "@/pages/strategies/ai-builder";
-import StressTestPage from "@/pages/stress-test";
-import StrategyDnaPage from "@/pages/strategy-dna";
-import PsychMatchPage from "@/pages/psych-match";
-import PsychAlertsPage from "@/pages/psych-alerts";
-import AnalyticsPage from "@/pages/analytics";
-import ProfilePage from "@/pages/profile";
-import CalculatorPage from "@/pages/calculator";
-import MarketplacePage from "@/pages/marketplace";
-import MarketplaceDetail from "@/pages/marketplace-detail";
-import TraderDnaPage from "@/pages/trader-dna/index";
-import AlertsPage from "@/pages/alerts";
-import TradingOsPage from "@/pages/trading-os";
-import TradingOsReportPage from "@/pages/trading-os-report";
-import AcademyPage from "@/pages/academy/index";
-import FootprintPage from "@/pages/footprint";
-import BrokeragePage from "@/pages/brokerage";
-import { OnboardingWizard } from "@/components/onboarding-wizard";
-import ForgotPasswordPage from "@/pages/forgot-password";
-import ResetPasswordPage from "@/pages/reset-password";
-import UserProfilePage from "@/pages/user-profile";
+// ── Lazy-loaded pages (code splitting — each becomes its own JS chunk) ────────
+const Dashboard         = lazy(() => import("@/pages/dashboard"));
+const Strategies        = lazy(() => import("@/pages/strategies/index"));
+const StrategyDetail    = lazy(() => import("@/pages/strategies/detail"));
+const NewStrategy       = lazy(() => import("@/pages/strategies/new"));
+const EditStrategy      = lazy(() => import("@/pages/strategies/edit"));
+const Backtests         = lazy(() => import("@/pages/backtests/index"));
+const NewBacktest       = lazy(() => import("@/pages/backtests/new"));
+const BacktestDetail    = lazy(() => import("@/pages/backtests/detail"));
+const BacktestBuilder   = lazy(() => import("@/pages/backtests/builder"));
+const BatchBacktest     = lazy(() => import("@/pages/backtests/batch"));
+const PortfolioBacktest = lazy(() => import("@/pages/backtests/portfolio"));
+const SettingsPage      = lazy(() => import("@/pages/settings"));
+const NewsPage          = lazy(() => import("@/pages/news"));
+const AiAssistant       = lazy(() => import("@/pages/ai-assistant"));
+const AdminLogin        = lazy(() => import("@/pages/admin/login"));
+const AdminPanel        = lazy(() => import("@/pages/admin/panel"));
+const CommunityPage     = lazy(() => import("@/pages/community"));
+const PricingPage       = lazy(() => import("@/pages/pricing"));
+const BillingPage       = lazy(() => import("@/pages/billing"));
+const ToolsPage         = lazy(() => import("@/pages/tools"));
+const MarketSelectionPage = lazy(() => import("@/pages/market-selection"));
+const AiBuilder         = lazy(() => import("@/pages/strategies/ai-builder"));
+const StressTestPage    = lazy(() => import("@/pages/stress-test"));
+const StrategyDnaPage   = lazy(() => import("@/pages/strategy-dna"));
+const PsychMatchPage    = lazy(() => import("@/pages/psych-match"));
+const PsychAlertsPage   = lazy(() => import("@/pages/psych-alerts"));
+const AnalyticsPage     = lazy(() => import("@/pages/analytics"));
+const ProfilePage       = lazy(() => import("@/pages/profile"));
+const CalculatorPage    = lazy(() => import("@/pages/calculator"));
+const MarketplacePage   = lazy(() => import("@/pages/marketplace"));
+const MarketplaceDetail = lazy(() => import("@/pages/marketplace-detail"));
+const TraderDnaPage     = lazy(() => import("@/pages/trader-dna/index"));
+const AlertsPage        = lazy(() => import("@/pages/alerts"));
+const TradingOsPage     = lazy(() => import("@/pages/trading-os"));
+const TradingOsReportPage = lazy(() => import("@/pages/trading-os-report"));
+const AcademyPage       = lazy(() => import("@/pages/academy/index"));
+const FootprintPage     = lazy(() => import("@/pages/footprint"));
+const BrokeragePage     = lazy(() => import("@/pages/brokerage"));
+const ForgotPasswordPage = lazy(() => import("@/pages/forgot-password"));
+const ResetPasswordPage  = lazy(() => import("@/pages/reset-password"));
+const UserProfilePage    = lazy(() => import("@/pages/user-profile"));
+const ChartPage          = lazy(() => import("@/pages/chart"));
 
-const ChartPage = lazy(() => import("@/pages/chart"));
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +67,14 @@ const queryClient = new QueryClient({
     }
   }
 });
+
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center h-full w-full min-h-[60vh]">
+      <CandleLoader size="md" />
+    </div>
+  );
+}
 
 function UnauthorizedHandler() {
   const { signout, user } = useAuth();
@@ -97,81 +105,77 @@ function AdminPanelGuard() {
     if (!adminToken) setLocation("/admin/login");
   }, [adminToken]);
   if (!adminToken) return null;
-  return <AdminPanel />;
-}
-
-function ChartFallback() {
   return (
-    <div className="flex items-center justify-center h-full w-full">
-      <CandleLoader size="md" />
-    </div>
+    <Suspense fallback={<PageFallback />}>
+      <AdminPanel />
+    </Suspense>
   );
 }
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={() => <Redirect to="/dashboard" />} />
-      <Route path="/dashboard" component={Dashboard} />
-      
-      <Route path="/strategies" component={Strategies} />
-      <Route path="/strategies/new" component={NewStrategy} />
-      <Route path="/strategies/ai-builder" component={AiBuilder} />
-      <Route path="/strategies/:id" component={StrategyDetail} />
-      <Route path="/strategies/:id/edit" component={EditStrategy} />
-      
-      <Route path="/backtests" component={Backtests} />
-      <Route path="/backtests/builder" component={BacktestBuilder} />
-      <Route path="/backtests/new" component={NewBacktest} />
-      <Route path="/backtests/batch" component={BatchBacktest} />
-      <Route path="/backtests/portfolio" component={PortfolioBacktest} />
-      <Route path="/backtests/:id" component={BacktestDetail} />
+    <Suspense fallback={<PageFallback />}>
+      <Switch>
+        <Route path="/" component={() => <Redirect to="/dashboard" />} />
+        <Route path="/dashboard" component={Dashboard} />
 
-      <Route path="/market" component={MarketSelectionPage} />
-      <Route path="/chart" component={() => (
-        <Suspense fallback={<ChartFallback />}>
-          <ChartPage />
-        </Suspense>
-      )} />
-      <Route path="/ai" component={AiAssistant} />
-      <Route path="/news" component={NewsPage} />
-      <Route path="/settings" component={SettingsPage} />
+        <Route path="/strategies" component={Strategies} />
+        <Route path="/strategies/new" component={NewStrategy} />
+        <Route path="/strategies/ai-builder" component={AiBuilder} />
+        <Route path="/strategies/:id" component={StrategyDetail} />
+        <Route path="/strategies/:id/edit" component={EditStrategy} />
 
-      <Route path="/calculator" component={CalculatorPage} />
-      <Route path="/marketplace" component={MarketplacePage} />
-      <Route path="/marketplace/:id" component={MarketplaceDetail} />
-      <Route path="/tools" component={ToolsPage} />
-      <Route path="/stress-test" component={StressTestPage} />
-      <Route path="/strategy-dna" component={StrategyDnaPage} />
-      <Route path="/community" component={CommunityPage} />
-      <Route path="/psych-match" component={PsychMatchPage} />
-      <Route path="/psych-alerts" component={PsychAlertsPage} />
-      <Route path="/analytics" component={AnalyticsPage} />
-      <Route path="/trader-dna" component={TraderDnaPage} />
-      <Route path="/trading-os" component={TradingOsPage} />
-      <Route path="/trading-os/report" component={TradingOsReportPage} />
-      <Route path="/academy" component={AcademyPage} />
-      <Route path="/footprint" component={FootprintPage} />
-      <Route path="/alerts" component={AlertsPage} />
-      <Route path="/research" component={() => <Redirect to="/ai" />} />
+        <Route path="/backtests" component={Backtests} />
+        <Route path="/backtests/builder" component={BacktestBuilder} />
+        <Route path="/backtests/new" component={NewBacktest} />
+        <Route path="/backtests/batch" component={BatchBacktest} />
+        <Route path="/backtests/portfolio" component={PortfolioBacktest} />
+        <Route path="/backtests/:id" component={BacktestDetail} />
 
-      <Route path="/profile" component={ProfilePage} />
-      <Route path="/pricing" component={PricingPage} />
-      <Route path="/billing" component={BillingPage} />
+        <Route path="/market" component={MarketSelectionPage} />
+        <Route path="/chart" component={ChartPage} />
+        <Route path="/ai" component={AiAssistant} />
+        <Route path="/news" component={NewsPage} />
+        <Route path="/settings" component={SettingsPage} />
 
-      <Route path="/user/:id" component={UserProfilePage} />
+        <Route path="/calculator" component={CalculatorPage} />
+        <Route path="/marketplace" component={MarketplacePage} />
+        <Route path="/marketplace/:id" component={MarketplaceDetail} />
+        <Route path="/tools" component={ToolsPage} />
+        <Route path="/stress-test" component={StressTestPage} />
+        <Route path="/strategy-dna" component={StrategyDnaPage} />
+        <Route path="/community" component={CommunityPage} />
+        <Route path="/psych-match" component={PsychMatchPage} />
+        <Route path="/psych-alerts" component={PsychAlertsPage} />
+        <Route path="/analytics" component={AnalyticsPage} />
+        <Route path="/trader-dna" component={TraderDnaPage} />
+        <Route path="/trading-os" component={TradingOsPage} />
+        <Route path="/trading-os/report" component={TradingOsReportPage} />
+        <Route path="/academy" component={AcademyPage} />
+        <Route path="/footprint" component={FootprintPage} />
+        <Route path="/alerts" component={AlertsPage} />
+        <Route path="/research" component={() => <Redirect to="/ai" />} />
 
-      <Route path="/forgot-password" component={ForgotPasswordPage} />
-      <Route path="/reset-password" component={ResetPasswordPage} />
+        <Route path="/profile" component={ProfilePage} />
+        <Route path="/pricing" component={PricingPage} />
+        <Route path="/billing" component={BillingPage} />
 
-      <Route path="/brokerage" component={BrokeragePage} />
+        <Route path="/user/:id" component={UserProfilePage} />
 
-      <Route path="/admin" component={() => <Redirect to="/admin/login" />} />
-      <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/admin/panel" component={AdminPanelGuard} />
-      
-      <Route component={NotFound} />
-    </Switch>
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
+
+        <Route path="/brokerage" component={BrokeragePage} />
+
+        <Route path="/admin" component={() => <Redirect to="/admin/login" />} />
+        <Route path="/admin/login" component={() => (
+          <Suspense fallback={<PageFallback />}><AdminLogin /></Suspense>
+        )} />
+        <Route path="/admin/panel" component={AdminPanelGuard} />
+
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

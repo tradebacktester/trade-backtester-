@@ -423,11 +423,40 @@ router.post("/trading-os/fomo-check", async (req: Request, res: Response): Promi
   try {
     const userId               = res.locals["userId"] as number;
     const b                    = req.body as Record<string, unknown>;
-    const symbol               = typeof b["symbol"] === "string" ? b["symbol"] : "BTCUSDT";
-    const side                 = typeof b["side"]   === "string" ? b["side"]   : "long";
-    const priceMovePercent     = Number(b["priceMovePercent"]     ?? 0);
-    const recentLossCount      = Number(b["recentLossCount"]      ?? 0);
-    const minutesSinceLastTrade = Number(b["minutesSinceLastTrade"] ?? 60);
+
+    // ── Input validation ─────────────────────────────────────────────────────
+    const rawSymbol   = typeof b["symbol"] === "string" ? b["symbol"].trim() : "BTCUSDT";
+    const rawSide     = typeof b["side"]   === "string" ? b["side"].trim()   : "long";
+    const rawPricePct = Number(b["priceMovePercent"]     ?? 0);
+    const rawLosses   = Number(b["recentLossCount"]      ?? 0);
+    const rawMins     = Number(b["minutesSinceLastTrade"] ?? 60);
+
+    if (!rawSymbol || rawSymbol.length > 20) {
+      res.status(422).json({ error: "symbol must be 1–20 characters" });
+      return;
+    }
+    if (rawSide !== "long" && rawSide !== "short") {
+      res.status(422).json({ error: "side must be 'long' or 'short'" });
+      return;
+    }
+    if (!isFinite(rawPricePct) || rawPricePct < -100 || rawPricePct > 200) {
+      res.status(422).json({ error: "priceMovePercent must be between -100 and 200" });
+      return;
+    }
+    if (!isFinite(rawLosses) || rawLosses < 0 || rawLosses > 50) {
+      res.status(422).json({ error: "recentLossCount must be between 0 and 50" });
+      return;
+    }
+    if (!isFinite(rawMins) || rawMins < 0 || rawMins > 10080) {
+      res.status(422).json({ error: "minutesSinceLastTrade must be between 0 and 10080" });
+      return;
+    }
+
+    const symbol               = rawSymbol;
+    const side                 = rawSide;
+    const priceMovePercent     = rawPricePct;
+    const recentLossCount      = Math.round(rawLosses);
+    const minutesSinceLastTrade = rawMins;
 
     const profile   = await extractTraderProfile(userId);
     const behaviors: string[] = [];

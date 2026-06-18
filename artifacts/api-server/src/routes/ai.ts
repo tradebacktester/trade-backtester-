@@ -241,13 +241,17 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
     return;
   }
 
+  // Keep last 10 messages to stay within token limits (~8k tokens)
+  const MAX_HISTORY = 10;
+  const limitedMessages = messages.slice(-MAX_HISTORY);
+
   try {
     const client = groqClient();
     const completion = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        ...messages,
+        ...limitedMessages,
       ],
       max_tokens: 800,
       temperature: 0.7,

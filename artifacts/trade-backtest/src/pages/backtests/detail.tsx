@@ -1831,6 +1831,10 @@ export default function BacktestDetail() {
                 )}
               </CardContent>
             </Card>
+            {/* Equity curve footnote */}
+            <p className="text-[11px] text-center" style={{ color: "hsl(var(--muted-foreground))", opacity: 0.6 }}>
+              Equity curve downsampled to ≤500 data points for rendering performance. All performance metrics (Sharpe, drawdown, etc.) are computed from the full trade-level dataset.
+            </p>
           </Tabs.Content>
 
           {/* ── TAB 2: Analytics ────────────────────────────────────── */}
