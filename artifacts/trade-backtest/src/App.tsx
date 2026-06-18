@@ -56,7 +56,6 @@ const ResetPasswordPage  = lazy(() => import("@/pages/reset-password"));
 const SignInPage         = lazy(() => import("@/pages/auth/signin"));
 const SignUpPage         = lazy(() => import("@/pages/auth/signup"));
 const GoogleSuccessPage  = lazy(() => import("@/pages/auth/google-success"));
-const AppleSuccessPage   = lazy(() => import("@/pages/auth/apple-success"));
 const UserProfilePage    = lazy(() => import("@/pages/user-profile"));
 const ChartPage          = lazy(() => import("@/pages/chart"));
 
@@ -169,7 +168,6 @@ function Router() {
         <Route path="/auth/signin" component={SignInPage} />
         <Route path="/auth/signup" component={SignUpPage} />
         <Route path="/auth/google-success" component={GoogleSuccessPage} />
-        <Route path="/auth/apple-success" component={AppleSuccessPage} />
 
         <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/reset-password" component={ResetPasswordPage} />
