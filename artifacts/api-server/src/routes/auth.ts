@@ -1,11 +1,14 @@
 import { Router, type IRouter } from "express";
-import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 import {
   db, usersTable, authAttemptsTable, authFailuresTable,
   passwordResetsTable, securityQuestionsTable, backupCodesTable,
 } from "@workspace/db";
 import { eq, gt, lt, count as drizzleCount, and as drizzleAnd, isNull } from "drizzle-orm";
 import { signJwt } from "../lib/jwt";
+
+const scryptAsync = promisify(scrypt);
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -46,27 +49,28 @@ function getAuthIp(req: import("express").Request): string {
 
 const router: IRouter = Router();
 
-// ── Password hashing ──────────────────────────────────────────────────────────
-function hashPassword(password: string, salt: string): string {
-  return scryptSync(password, salt, 64).toString("hex");
+// ── Password hashing (async scrypt — does not block the event loop) ───────────
+async function hashPassword(password: string, salt: string): Promise<string> {
+  const derived = await scryptAsync(password, salt, 64) as Buffer;
+  return derived.toString("hex");
 }
-function createPasswordHash(password: string): string {
+async function createPasswordHash(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
-  return `${salt}:${hashPassword(password, salt)}`;
+  return `${salt}:${await hashPassword(password, salt)}`;
 }
-function verifyPassword(password: string, hash: string): boolean {
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
   const [salt, stored] = hash.split(":");
   if (!salt || !stored) return false;
   try {
-    const hashed = hashPassword(password, salt);
+    const hashed = await hashPassword(password, salt);
     return timingSafeEqual(Buffer.from(stored, "hex"), Buffer.from(hashed, "hex"));
   } catch { return false; }
 }
 
 // ── Security answer hashing (same scheme, normalised to lowercase) ────────────
 function normaliseAnswer(a: string): string { return a.trim().toLowerCase(); }
-function hashAnswer(answer: string): string { return createPasswordHash(normaliseAnswer(answer)); }
-function verifyAnswer(answer: string, hash: string): boolean {
+async function hashAnswer(answer: string): Promise<string> { return createPasswordHash(normaliseAnswer(answer)); }
+async function verifyAnswer(answer: string, hash: string): Promise<boolean> {
   return verifyPassword(normaliseAnswer(answer), hash);
 }
 
@@ -119,27 +123,35 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     res.status(409).json({ error: "An account with this email already exists" }); return;
   }
 
-  const passwordHash = createPasswordHash(password);
+  const passwordHash = await createPasswordHash(password);
   const [user] = await db.insert(usersTable)
     .values({ email: email.toLowerCase(), name, passwordHash })
     .returning();
   if (!user) { res.status(500).json({ error: "Failed to create account" }); return; }
 
   // Store security questions
+  const [answerHash1, answerHash2, answerHash3] = await Promise.all([
+    hashAnswer(securityQuestions[0].answer),
+    hashAnswer(securityQuestions[1].answer),
+    hashAnswer(securityQuestions[2].answer),
+  ]);
   await db.insert(securityQuestionsTable).values({
     userId: user.id,
     question1: securityQuestions[0].question,
-    answerHash1: hashAnswer(securityQuestions[0].answer),
+    answerHash1,
     question2: securityQuestions[1].question,
-    answerHash2: hashAnswer(securityQuestions[1].answer),
+    answerHash2,
     question3: securityQuestions[2].question,
-    answerHash3: hashAnswer(securityQuestions[2].answer),
+    answerHash3,
   });
 
   // Generate and store 6 backup codes
   const plainCodes = generateSixBackupCodes();
+  const codeHashes = await Promise.all(
+    plainCodes.map(code => createPasswordHash(code.replace("-", "")))
+  );
   await db.insert(backupCodesTable).values(
-    plainCodes.map(code => ({ userId: user.id, codeHash: createPasswordHash(code.replace("-", "")) }))
+    codeHashes.map((codeHash, i) => ({ userId: user.id, codeHash }))
   );
 
   const token = signJwt({ id: user.id, email: user.email }, JWT_SECRET);
@@ -189,9 +201,12 @@ router.post("/auth/verify-security", async (req, res): Promise<void> => {
   if (!sq) {
     res.status(400).json({ error: "No security questions set for this account." }); return;
   }
-  const ok = verifyAnswer(answers[0], sq.answerHash1)
-    && verifyAnswer(answers[1], sq.answerHash2)
-    && verifyAnswer(answers[2], sq.answerHash3);
+  const [ok1, ok2, ok3] = await Promise.all([
+    verifyAnswer(answers[0], sq.answerHash1),
+    verifyAnswer(answers[1], sq.answerHash2),
+    verifyAnswer(answers[2], sq.answerHash3),
+  ]);
+  const ok = ok1 && ok2 && ok3;
   if (!ok) {
     await recordAuthFailure(getAuthIp(req));
     res.status(400).json({ error: "Incorrect answers. Please try again." }); return;
@@ -219,7 +234,7 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
   if (!reset || reset.usedAt || reset.expiresAt < new Date()) {
     res.status(400).json({ error: "Invalid or expired reset link" }); return;
   }
-  const passwordHash = createPasswordHash(password);
+  const passwordHash = await createPasswordHash(password);
   const [user] = await db.update(usersTable)
     .set({ passwordHash })
     .where(eq(usersTable.id, reset.userId))
@@ -250,7 +265,8 @@ router.post("/auth/signin", async (req, res): Promise<void> => {
     const normalised = String(backupCode).replace(/[-\s]/g, "").toUpperCase();
     const codes = await db.select().from(backupCodesTable)
       .where(drizzleAnd(eq(backupCodesTable.userId, user.id), eq(backupCodesTable.used, false)));
-    const matched = codes.find(c => verifyPassword(normalised, c.codeHash));
+    const verifyResults = await Promise.all(codes.map(c => verifyPassword(normalised, c.codeHash)));
+    const matched = codes[verifyResults.findIndex(v => v)];
     if (!matched) { await recordAuthFailure(ip); res.status(401).json({ error: "Invalid or already-used backup code" }); return; }
     await db.update(backupCodesTable).set({ used: true }).where(eq(backupCodesTable.id, matched.id));
     if (user.banned) {
@@ -263,7 +279,7 @@ router.post("/auth/signin", async (req, res): Promise<void> => {
 
   // ── Password path ──
   if (!password) { res.status(400).json({ error: "Password or backup code is required" }); return; }
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  if (!user || !await verifyPassword(password, user.passwordHash)) {
     await recordAuthFailure(ip);
     res.status(401).json({ error: "Invalid email or password" }); return;
   }

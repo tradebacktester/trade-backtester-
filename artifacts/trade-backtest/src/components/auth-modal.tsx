@@ -148,6 +148,29 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
     return "Something went wrong. Please try again.";
   }
 
+  // Fetch with automatic retry (up to 3 attempts, exponential backoff).
+  // Only retries on network-level errors (fetch throws), never on 4xx/5xx responses.
+  async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<globalThis.Response> {
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 15_000);
+        try {
+          const res = await fetch(url, { ...init, signal: ctrl.signal });
+          clearTimeout(timeout);
+          return res;
+        } finally { clearTimeout(timeout); }
+      } catch (err) {
+        lastErr = err;
+        if (attempt < maxRetries - 1) {
+          await new Promise(r => setTimeout(r, 500 * 2 ** attempt)); // 500ms, 1s, 2s
+        }
+      }
+    }
+    throw lastErr;
+  }
+
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   async function handleSignin(e: React.FormEvent) {
@@ -157,7 +180,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
       const body = useBackupCode
         ? { email, backupCode: backupCodeInput }
         : { email, password };
-      const res = await fetch(`${API_BASE}/api/auth/signin`, {
+      const res = await fetchWithRetry(`${API_BASE}/api/auth/signin`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -190,7 +213,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
     if (new Set(qs).size < 3) { setError("Please choose 3 different questions"); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
+      const res = await fetchWithRetry(`${API_BASE}/api/auth/signup`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, password, securityQuestions: sq }),
       });
