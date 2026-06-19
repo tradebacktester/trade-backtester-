@@ -8,7 +8,7 @@ import {
   Sun, Moon, Bot, Dna, Activity, Target, FlaskConical, Newspaper,
   UserCircle, Calculator, Search, ChevronDown,
   Cpu, Globe, Plus, Layers, TestTube, Bell, GraduationCap, Map, Library, FileText, Trophy, Award,
-  TrendingUp, Calendar, Building2,
+  TrendingUp, Calendar, Building2, LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -228,6 +228,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [hoverSection, setHoverSection] = useState<string | null>(null);
   const [homeSheetOpen, setHomeSheetOpen] = useState(false);
+  const [desktopHomeOpen, setDesktopHomeOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,6 +238,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setSearchOpen(v => !v);
+      }
+      if (e.key === "Escape") {
+        setDesktopHomeOpen(false);
+        setHomeSheetOpen(false);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -249,7 +254,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const activeSection = getActiveSection(location);
   const isDashboard = location === "/" || location === "/dashboard";
 
-  useEffect(() => { setHomeSheetOpen(false); setHoverSection(null); }, [location]);
+  useEffect(() => { setHomeSheetOpen(false); setDesktopHomeOpen(false); setHoverSection(null); }, [location]);
 
   function isItemActive(url: string) {
     if (url === "/dashboard") return isDashboard;
@@ -313,6 +318,40 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </span>
           </span>
         </Link>
+
+        <div className="w-px h-4 mx-2 flex-shrink-0" style={{ background: "var(--nav-border)" }} />
+
+        {/* Desktop Home Hub button */}
+        <button
+          onClick={() => setDesktopHomeOpen(v => !v)}
+          title="All features"
+          style={{
+            display: "flex", alignItems: "center", gap: "5px",
+            height: "30px", padding: "0 10px", borderRadius: "9px", flexShrink: 0,
+            border: `1px solid ${desktopHomeOpen ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+            background: desktopHomeOpen ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
+            color: desktopHomeOpen ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+            cursor: "pointer",
+            transition: "all 0.16s ease",
+          }}
+          onMouseEnter={e => {
+            if (!desktopHomeOpen) {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--nav-active-border)";
+              (e.currentTarget as HTMLElement).style.color = "var(--nav-active-color)";
+            }
+          }}
+          onMouseLeave={e => {
+            if (!desktopHomeOpen) {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--nav-border)";
+              (e.currentTarget as HTMLElement).style.color = "var(--nav-dim-color)";
+            }
+          }}
+        >
+          <LayoutGrid style={{ height: "12px", width: "12px", flexShrink: 0 }} />
+          <span style={{ fontSize: "12px", fontWeight: 600, fontFamily: "var(--app-font-display)", letterSpacing: "-0.01em" }}>
+            Home
+          </span>
+        </button>
 
         <div className="w-px h-4 mx-2 flex-shrink-0" style={{ background: "var(--nav-border)" }} />
 
@@ -569,6 +608,148 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      {/* ── DESKTOP HOME HUB OVERLAY ─────────────────────────────────── */}
+      {desktopHomeOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-[60] hidden md:block"
+            style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)" }}
+            onClick={() => setDesktopHomeOpen(false)}
+          />
+          {/* Panel — slides down from the nav */}
+          <div
+            className="fixed hidden md:flex flex-col z-[61] dropdown-enter"
+            style={{
+              top: "64px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "min(880px, calc(100vw - 48px))",
+              maxHeight: "calc(100dvh - 88px)",
+              borderRadius: "20px",
+              background: "var(--sheet-bg)",
+              border: "1px solid var(--nav-border)",
+              boxShadow: "var(--shadow-sheet)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--nav-border)" }}>
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "var(--nav-active-bg)", border: "1px solid var(--nav-active-border)" }}>
+                  <LayoutGrid style={{ height: "13px", width: "13px", color: "var(--nav-active-color)" }} />
+                </div>
+                <span style={{ fontFamily: "var(--app-font-display)", fontWeight: 700, fontSize: "15px", letterSpacing: "-0.025em", color: "var(--nav-active-color)" }}>
+                  All Features
+                </span>
+                <span className="text-[10px] font-mono uppercase tracking-widest ml-1" style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
+                  Press Esc to close
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Auth row — user info or sign in */}
+                {user ? (
+                  <Link href="/profile" onClick={() => setDesktopHomeOpen(false)}>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer"
+                      style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: "1px solid var(--nav-border)" }}>
+                      <span className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                        style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)", color: "white" }}>
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="text-[13px] font-semibold" style={{ color: "var(--nav-active-color)" }}>{user.name}</span>
+                      <button
+                        onClick={(e) => { e.preventDefault(); signout(); setDesktopHomeOpen(false); }}
+                        className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg ml-1"
+                        style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)" }}>
+                        <LogOut style={{ height: "10px", width: "10px" }} />
+                        Sign out
+                      </button>
+                    </div>
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => { setShowAuthModal(true); setDesktopHomeOpen(false); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
+                    style={{
+                      background: isDark ? "rgba(255,255,255,0.08)" : "hsl(var(--primary))",
+                      color: isDark ? "#FFFFFF" : "white",
+                      border: `1px solid ${isDark ? "rgba(255,255,255,0.14)" : "transparent"}`,
+                      fontWeight: 600, fontSize: "13px", cursor: "pointer",
+                    }}
+                  >
+                    <LogIn style={{ height: "12px", width: "12px" }} />
+                    Sign In
+                  </button>
+                )}
+                <button
+                  onClick={() => setDesktopHomeOpen(false)}
+                  className="h-8 w-8 flex items-center justify-center rounded-xl"
+                  style={{ background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)", color: "var(--nav-dim-color)", border: "1px solid var(--nav-border)", cursor: "pointer" }}>
+                  <X style={{ height: "13px", width: "13px" }} />
+                </button>
+              </div>
+            </div>
+
+            {/* Sections grid */}
+            <div className="overflow-y-auto p-5" style={{ maxHeight: "calc(100dvh - 160px)" }}>
+              <div className="grid grid-cols-3 gap-4">
+                {HOME_SHEET_SECTIONS.map(section => (
+                  <div key={section.label}>
+                    <div className="text-[9px] font-mono uppercase tracking-widest px-1 mb-2"
+                      style={{ color: "var(--nav-dim-color)", opacity: 0.5 }}>
+                      {section.label}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {section.items.map(item => {
+                        const active = isItemActive(item.url);
+                        return (
+                          <Link key={item.title} href={item.url} onClick={() => setDesktopHomeOpen(false)}>
+                            <span
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer"
+                              style={{
+                                background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"),
+                                border: `1px solid ${active ? "var(--nav-active-border)" : "var(--nav-border)"}`,
+                                color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)",
+                                transition: "background 0.13s ease, color 0.13s ease, border-color 0.13s ease",
+                              }}
+                              onMouseEnter={e => {
+                                if (!active) {
+                                  const el = e.currentTarget as HTMLElement;
+                                  el.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+                                  el.style.color = "var(--nav-active-color)";
+                                  el.style.borderColor = "var(--nav-active-border)";
+                                }
+                              }}
+                              onMouseLeave={e => {
+                                if (!active) {
+                                  const el = e.currentTarget as HTMLElement;
+                                  el.style.background = isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)";
+                                  el.style.color = "var(--nav-dim-color)";
+                                  el.style.borderColor = "var(--nav-border)";
+                                }
+                              }}
+                            >
+                              <span className="h-7 w-7 flex-shrink-0 rounded-lg flex items-center justify-center"
+                                style={{ background: active ? "var(--nav-active-bg)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"), border: "1px solid var(--nav-border)" }}>
+                                <item.icon style={{ height: "12px", width: "12px", color: active ? "var(--nav-active-color)" : "var(--nav-dim-color)" }} />
+                              </span>
+                              <span style={{ fontSize: "13px", fontWeight: active ? 600 : 500, fontFamily: "var(--app-font-display)", letterSpacing: "-0.01em" }}>
+                                {item.title}
+                              </span>
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── MOBILE FLOATING DOCK — exactly 5 items ───────────────────── */}
       <div className="tt-float-dock md:hidden">
