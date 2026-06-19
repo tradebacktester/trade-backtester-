@@ -112,7 +112,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
     if (!open) return;
     const SECRET = "devmode";
     function handleKey(e: KeyboardEvent) {
-      if (e.key.length !== 1) return;
+      if (!e.key || e.key.length !== 1) return;
       keyBufferRef.current = (keyBufferRef.current + e.key).slice(-SECRET.length);
       if (keyBufferRef.current === SECRET) {
         setShowAdminTab(true);
