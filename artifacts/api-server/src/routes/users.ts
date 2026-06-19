@@ -21,6 +21,31 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+// GET /users/me — return the current user's own profile
+// IMPORTANT: must be registered BEFORE /users/:id or "me" gets caught by the param handler
+router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
+  const userId = res.locals["userId"] as number;
+
+  const [user] = await db
+    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, createdAt: usersTable.createdAt })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const [btStats] = await db.select({ total: count() }).from(backtestsTable).where(eq(backtestsTable.userId, userId));
+  const [stStats] = await db.select({ total: count() }).from(strategiesTable).where(eq(strategiesTable.userId, userId));
+
+  res.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    joinedAt: user.createdAt.toISOString(),
+    totalBacktests: Number(btStats?.total ?? 0),
+    totalStrategies: Number(stStats?.total ?? 0),
+  });
+});
+
 // GET /users/:id — public profile (name, joined date, backtest/strategy counts)
 router.get("/users/:id", async (req, res): Promise<void> => {
   const userId = parseInt(req.params["id"] as string, 10);
@@ -96,30 +121,6 @@ router.patch("/users/me", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.json({ id: updated.id, name: updated.name, email: updated.email });
-});
-
-// GET /users/me — return the current user's own profile
-router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
-  const userId = res.locals["userId"] as number;
-
-  const [user] = await db
-    .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, createdAt: usersTable.createdAt })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId));
-
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-
-  const [btStats] = await db.select({ total: count() }).from(backtestsTable).where(eq(backtestsTable.userId, userId));
-  const [stStats] = await db.select({ total: count() }).from(strategiesTable).where(eq(strategiesTable.userId, userId));
-
-  res.json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    joinedAt: user.createdAt.toISOString(),
-    totalBacktests: Number(btStats?.total ?? 0),
-    totalStrategies: Number(stStats?.total ?? 0),
-  });
 });
 
 export default router;
