@@ -133,6 +133,21 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
 
   const pwStrength = getPasswordStrength(password);
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  // Safe JSON parse — never throws; returns {} if body is non-JSON (e.g. HTML error page).
+  async function safeJson(res: globalThis.Response): Promise<Record<string, unknown>> {
+    try { return await res.json() as Record<string, unknown>; }
+    catch { return {}; }
+  }
+
+  // Classify fetch() catch errors into user-friendly messages.
+  function netErrMsg(err: unknown): string {
+    if (err instanceof TypeError && err.message.toLowerCase().includes("fetch"))
+      return "Cannot reach the server. Check your connection and try again.";
+    return "Something went wrong. Please try again.";
+  }
+
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   async function handleSignin(e: React.FormEvent) {
@@ -146,11 +161,11 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Sign in failed"); return; }
-      setUser(data.user, data.token ?? null);
+      const data = await safeJson(res);
+      if (!res.ok) { setError(String(data["error"] ?? "Sign in failed")); return; }
+      setUser(data["user"] as Parameters<typeof setUser>[0], (data["token"] as string) ?? null);
       onClose();
-    } catch { setError("Network error. Please try again."); }
+    } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 
@@ -179,13 +194,13 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, password, securityQuestions: sq }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Signup failed"); return; }
-      setSavedToken(data.token);
-      setSavedUser(data.user);
-      setBackupCodes(data.backupCodes ?? []);
+      const data = await safeJson(res);
+      if (!res.ok) { setError(String(data["error"] ?? "Signup failed")); return; }
+      setSavedToken(data["token"] as string);
+      setSavedUser(data["user"] as typeof savedUser);
+      setBackupCodes((data["backupCodes"] as string[]) ?? []);
       setStep("backupCodes");
-    } catch { setError("Network error. Please try again."); }
+    } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 
@@ -211,16 +226,17 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to load questions"); return; }
-      setForgotQuestions(data.questions ?? ["", "", ""]);
+      const data = await safeJson(res);
+      if (!res.ok) { setError(String(data["error"] ?? "Failed to load questions")); return; }
+      const qs = (data["questions"] as string[]) ?? ["", "", ""];
+      setForgotQuestions(qs);
       setForgotAnswers(["", "", ""]);
-      if (!data.questions?.some((q: string) => q)) {
+      if (!qs.some(q => q)) {
         setError("No security questions found for this account. Contact support.");
         return;
       }
       setStep("forgotQA");
-    } catch { setError("Network error. Please try again."); }
+    } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 
@@ -232,11 +248,11 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail, answers: forgotAnswers }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Incorrect answers"); return; }
-      setResetToken(data.resetToken);
+      const data = await safeJson(res);
+      if (!res.ok) { setError(String(data["error"] ?? "Incorrect answers")); return; }
+      setResetToken(data["resetToken"] as string);
       setStep("forgotReset");
-    } catch { setError("Network error. Please try again."); }
+    } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 
@@ -248,11 +264,11 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: resetToken, password: newPassword }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Reset failed"); return; }
-      setUser(data.user, data.token ?? null);
+      const data = await safeJson(res);
+      if (!res.ok) { setError(String(data["error"] ?? "Reset failed")); return; }
+      setUser(data["user"] as Parameters<typeof setUser>[0], (data["token"] as string) ?? null);
       onClose();
-    } catch { setError("Network error. Please try again."); }
+    } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 
@@ -264,12 +280,12 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: adminId, password: adminPassword, id2: adminId, password2: adminPassword }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Authentication failed"); return; }
-      setAdminToken(data.token);
+      const data = await safeJson(res);
+      if (!res.ok) { setError(String(data["error"] ?? "Authentication failed")); return; }
+      setAdminToken(data["token"] as string);
       onClose();
       window.location.href = "/admin/panel";
-    } catch { setError("Network error. Please try again."); }
+    } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 

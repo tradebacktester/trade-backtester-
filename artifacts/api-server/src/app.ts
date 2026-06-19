@@ -269,6 +269,21 @@ app.use(createRateLimit(200));
 
 app.use("/api", router);
 
+// Global JSON error handler — must come after the router.
+// Express 5 propagates async route errors here automatically.
+// Without this, unhandled errors return an HTML page which causes
+// res.json() in the browser to throw a SyntaxError, masking the real error.
+app.use((err: unknown, _req: express.Request, res: Response, _next: express.NextFunction) => {
+  const status = typeof (err as { status?: number }).status === "number"
+    ? (err as { status: number }).status
+    : 500;
+  const message = err instanceof Error ? err.message : "Internal server error";
+  logger.error({ err }, "Unhandled route error");
+  if (!res.headersSent) {
+    res.status(status).json({ error: status < 500 ? message : "Internal server error" });
+  }
+});
+
 // Serve drawing tools at /drawing-tools (vanilla JS app — no build needed)
 const drawingToolsDir = path.resolve(process.cwd(), "tradingview-drawing");
 if (fs.existsSync(drawingToolsDir)) {
