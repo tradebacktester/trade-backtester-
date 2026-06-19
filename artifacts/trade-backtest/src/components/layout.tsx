@@ -331,11 +331,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {/* Clicking navigates to primary route */}
                 <Link href={section.primary}>
                   <span
-                    className="flex items-center gap-1.5 cursor-pointer select-none"
+                    className="nav-section-pill flex cursor-pointer select-none"
+                    title={section.label}
                     style={{
-                      padding: "5px 12px",
                       borderRadius: "10px",
-                      fontSize: "13px",
                       fontFamily: "var(--app-font-display)",
                       fontWeight: isActiveSection ? 600 : 500,
                       letterSpacing: isActiveSection ? "-0.018em" : "-0.010em",
@@ -348,8 +347,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     }}
                   >
                     <section.icon style={{ height: "12px", width: "12px", flexShrink: 0 }} />
-                    {section.label}
-                    <ChevronDown style={{
+                    <span className="nav-pill-text">{section.label}</span>
+                    <ChevronDown className="nav-pill-chevron" style={{
                       height: "10px", width: "10px", flexShrink: 0,
                       transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
                       transition: "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)",

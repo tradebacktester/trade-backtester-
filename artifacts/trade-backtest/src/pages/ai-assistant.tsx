@@ -906,33 +906,140 @@ export default function AiAssistant() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   if (!token) {
+    const FEATURE_CARDS = [
+      { icon: Brain,       label: "Market Overview",   color: "#6366f1", desc: "Live sentiment scores across BTC, ETH, Forex, Gold & more — bullish/bearish/neutral in one view." },
+      { icon: Newspaper,   label: "Market News",        color: "#22d3ee", desc: "Curated news feed with AI-tagged sentiment — filter by impact and asset class." },
+      { icon: Shield,      label: "ICT Concepts",       color: "#f59e0b", desc: "Order Blocks, Fair Value Gaps, BOS, Liquidity sweeps — explained with live price context." },
+      { icon: Clock,       label: "Econ Calendar",      color: "#10b981", desc: "High/medium/low impact events with forecast vs. previous data for smarter session planning." },
+      { icon: MessageCircle, label: "AI Chat",          color: "#a855f7", desc: "Ask anything — entries, setups, risk management. Powered by a 70B trading-trained model." },
+      { icon: Target,      label: "Daily Bias",         color: "#ef4444", desc: "AI-computed directional bias for each asset, updated each session with key reasoning." },
+      { icon: Bot,         label: "AI Coach",           color: "#f97316", desc: "Personalized coaching briefing based on your backtest history and trading patterns." },
+    ] as const;
+
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
+      <div className="fade-up pb-8">
         <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
-        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
-          <div className="h-16 w-16 rounded-2xl flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <Lock className="h-7 w-7" style={{ color: "hsl(var(--muted-foreground))" }} />
+
+        {/* ── Hero ─────────────────────────────────────────────── */}
+        <div className="rounded-2xl p-8 mb-6 relative overflow-hidden"
+          style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: "radial-gradient(ellipse 70% 120% at 0% 50%, rgba(99,102,241,0.10) 0%, transparent 60%)" }} />
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(34,211,238,0.07) 0%, transparent 60%)" }} />
+
+          <div className="relative flex flex-col lg:flex-row items-center lg:items-start gap-8">
+            {/* Left: text + CTA */}
+            <div className="flex-1 text-center lg:text-left">
+              {/* Orb icon */}
+              <div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto lg:mx-0 mb-5"
+                style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.25), rgba(34,211,238,0.15))", border: "1px solid rgba(99,102,241,0.3)" }}>
+                <Brain className="h-7 w-7" style={{ color: "#a5b4fc" }} />
+              </div>
+
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4"
+                style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)" }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#6366f1" }} />
+                <span style={{ fontSize: "11px", fontFamily: "var(--app-font-mono)", letterSpacing: "0.08em", color: "#a5b4fc" }}>
+                  AI MARKET ASSISTANT
+                </span>
+              </div>
+
+              <h1 className="text-3xl lg:text-4xl font-bold mb-3 leading-tight"
+                style={{ fontFamily: "var(--app-font-display)", color: "var(--foreground)", letterSpacing: "-0.03em" }}>
+                Trade Smarter with AI
+              </h1>
+              <p className="text-base leading-relaxed mb-6 max-w-md mx-auto lg:mx-0"
+                style={{ color: "var(--muted-foreground)" }}>
+                7 AI-powered tools in one dashboard — market sentiment, ICT concepts,
+                economic calendar, live news, and a personal trading coach. Free to start.
+              </p>
+
+              <div className="flex gap-3 justify-center lg:justify-start">
+                <button
+                  className="px-6 h-11 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: "#6366f1", color: "#fff", boxShadow: "0 0 20px rgba(99,102,241,0.35)" }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#4f46e5"}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "#6366f1"}
+                  onClick={() => setShowAuthModal(true)}>
+                  Sign In Free
+                </button>
+                <button
+                  className="px-6 h-11 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--foreground)" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.11)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                  onClick={() => setShowAuthModal(true)}>
+                  Create Account
+                </button>
+              </div>
+
+              <p className="mt-4 text-xs" style={{ color: "var(--muted-foreground)", opacity: 0.6 }}>
+                Free account · No credit card · Instant access
+              </p>
+            </div>
+
+            {/* Right: stat badges */}
+            <div className="hidden lg:grid grid-cols-2 gap-3 flex-shrink-0 w-64">
+              {[
+                { label: "Markets Tracked", value: "12+" },
+                { label: "AI Model", value: "70B LLM" },
+                { label: "ICT Concepts", value: "15+" },
+                { label: "Updated", value: "Live" },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl p-3.5 text-center"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--glass-border)" }}>
+                  <div className="text-xl font-bold mb-0.5" style={{ fontFamily: "var(--app-font-mono)", color: "var(--foreground)" }}>{s.value}</div>
+                  <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold mb-2" style={{ color: "hsl(var(--foreground))" }}>
-              Sign in to access AI
-            </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
-              The AI Market Assistant requires an account. Sign in or create a free account to get started.
-            </p>
-          </div>
-          <div className="flex gap-3 w-full">
-            <button className="flex-1 h-10 rounded-xl text-sm font-semibold transition-all"
-              style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
-              onClick={() => setShowAuthModal(true)}>
-              Sign In
-            </button>
-            <button className="flex-1 h-10 rounded-xl text-sm font-semibold transition-all"
-              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "hsl(var(--foreground))" }}
-              onClick={() => setShowAuthModal(true)}>
-              Create Account
-            </button>
+        </div>
+
+        {/* ── Feature cards grid ────────────────────────────────── */}
+        <div className="mb-4">
+          <p className="text-xs font-mono uppercase tracking-widest mb-4" style={{ color: "var(--muted-foreground)", opacity: 0.5 }}>
+            What's Inside
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {FEATURE_CARDS.map((f, i) => (
+              <button
+                key={f.label}
+                className="text-left rounded-2xl p-4 transition-all group fade-up"
+                style={{
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--glass-border)",
+                  animationDelay: `${i * 0.05}s`,
+                  cursor: "pointer",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `${f.color}44`;
+                  (e.currentTarget as HTMLElement).style.background = `${f.color}0d`;
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = "var(--glass-border)";
+                  (e.currentTarget as HTMLElement).style.background = "var(--card-bg)";
+                }}
+                onClick={() => setShowAuthModal(true)}
+              >
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center mb-3"
+                  style={{ background: `${f.color}20`, border: `1px solid ${f.color}33` }}>
+                  <f.icon style={{ height: "16px", width: "16px", color: f.color }} />
+                </div>
+                <div className="font-semibold mb-1.5" style={{ fontSize: "13px", fontFamily: "var(--app-font-display)", color: "var(--foreground)" }}>
+                  {f.label}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                  {f.desc}
+                </div>
+                <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ fontSize: "11px", color: f.color }}>
+                  <Lock style={{ height: "10px", width: "10px" }} />
+                  <span>Sign in to unlock</span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </div>
