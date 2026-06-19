@@ -24,7 +24,8 @@ const router: IRouter = Router();
 
 router.get("/auth/google", (req: Request, res: Response): void => {
   if (!GOOGLE_CLIENT_ID) {
-    res.status(503).json({ error: "Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." });
+    const frontendUrl = getFrontendUrl(req);
+    res.redirect(`${frontendUrl}/auth/signin?error=oauth_not_configured`);
     return;
   }
   const redirectUri = getCallbackUrl(req);
