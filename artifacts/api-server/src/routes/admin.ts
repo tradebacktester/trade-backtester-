@@ -114,8 +114,30 @@ router.get("/admin/users", requireAdmin, async (_req, res): Promise<void> => {
     banned: usersTable.banned,
     bannedReason: usersTable.bannedReason,
     createdAt: usersTable.createdAt,
-  }).from(usersTable).orderBy(usersTable.createdAt);
+    subscriptionId: subscriptionsTable.id,
+    planName: subscriptionPlansTable.name,
+    planSlug: subscriptionPlansTable.slug,
+  })
+    .from(usersTable)
+    .leftJoin(
+      subscriptionsTable,
+      and(eq(subscriptionsTable.userId, usersTable.id), eq(subscriptionsTable.status, "active")),
+    )
+    .leftJoin(subscriptionPlansTable, eq(subscriptionPlansTable.id, subscriptionsTable.planId))
+    .orderBy(usersTable.createdAt);
   res.json(users.map(u => ({ ...u, createdAt: u.createdAt.toISOString() })));
+});
+
+router.patch("/admin/users/:id/revoke-plan", requireAdmin, async (req, res): Promise<void> => {
+  const userId = parseInt(req.params["id"] as string, 10);
+  const [updated] = await db.update(subscriptionsTable)
+    .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.status, "active")))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "No active subscription found for this user" }); return; }
+  const adminToken = req.headers["x-admin-token"] as string;
+  await auditLog("revoke_plan", adminToken.slice(0, 8) + "…", userId, { subscriptionId: updated.id });
+  res.json({ success: true });
 });
 
 router.post("/admin/users/:id/ban", requireAdmin, async (req, res): Promise<void> => {

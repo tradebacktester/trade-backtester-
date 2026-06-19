@@ -13,6 +13,7 @@ import { AcademyAdminTab } from "./academy-admin-tab";
 
 interface AdminUser {
   id: number; email: string; name: string; banned: boolean; bannedReason: string | null; createdAt: string;
+  subscriptionId: number | null; planName: string | null; planSlug: string | null;
 }
 interface Policy {
   id: number; slug: string; title: string; content: string; updatedAt: string;
@@ -99,6 +100,7 @@ export default function AdminPanel() {
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
   const [banReason, setBanReason] = useState<Record<number, string>>({});
+  const [revokingPlan, setRevokingPlan] = useState<Set<number>>(new Set());
 
   // ── Policies ──
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -229,6 +231,20 @@ export default function AdminPanel() {
     if (!adminToken) return;
     fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments(); fetchResets(); fetchCoupons();
   }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments, fetchResets, fetchCoupons]);
+
+  async function revokePlan(user: AdminUser) {
+    if (!confirm(`Remove ${user.planName} plan from ${user.name}? They will immediately drop to Free.`)) return;
+    setRevokingPlan(s => new Set(s).add(user.id));
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users/${user.id}/revoke-plan`, { method: "PATCH", headers });
+      if (res.ok) {
+        setUsers(us => us.map(u => u.id === user.id ? { ...u, subscriptionId: null, planName: null, planSlug: null } : u));
+        setSubs(ss => ss.map(s => s.userId === user.id && s.status === "active" ? { ...s, status: "cancelled" } : s));
+      }
+    } finally {
+      setRevokingPlan(s => { const n = new Set(s); n.delete(user.id); return n; });
+    }
+  }
 
   async function toggleBan(user: AdminUser) {
     const reason = !user.banned ? (banReason[user.id] || null) : null;
@@ -447,6 +463,26 @@ export default function AdminPanel() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      {/* Plan badge + remove button */}
+                      {user.planSlug && user.planSlug !== "free" && user.planName && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+                            style={user.planSlug === "elite"
+                              ? { background: "rgba(201,168,76,0.15)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.35)" }
+                              : { background: "rgba(139,92,246,0.12)", color: "hsl(265,89%,60%)", border: "1px solid rgba(139,92,246,0.3)" }}>
+                            <Crown style={{ height: "9px", width: "9px" }} />
+                            {user.planName}
+                          </span>
+                          <button
+                            onClick={() => revokePlan(user)}
+                            disabled={revokingPlan.has(user.id)}
+                            title={`Remove ${user.planName} plan`}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors"
+                            style={{ background: "rgba(220,38,38,0.1)", color: "#f87171", border: "1px solid rgba(220,38,38,0.25)", opacity: revokingPlan.has(user.id) ? 0.5 : 1 }}>
+                            {revokingPlan.has(user.id) ? "…" : <><X style={{ height: "9px", width: "9px" }} />Remove</>}
+                          </button>
+                        </div>
+                      )}
                       {!user.banned && (
                         <input type="text" placeholder="Ban reason (optional)"
                           value={banReason[user.id] ?? ""}
