@@ -363,7 +363,8 @@ function StrategyCard({
 }
 
 export default function Strategies() {
-  const { data: apiStrategies, isLoading } = useListStrategies();
+  const { token } = useAuth();
+  const { data: apiStrategies, isLoading } = useListStrategies({ query: { enabled: !!token } });
   const [localStrategies, setLocalStrategies] = useState<LocalStrategy[]>([]);
   const [tab, setTab] = useState<"mine" | "sample">("sample");
 

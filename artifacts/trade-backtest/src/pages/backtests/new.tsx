@@ -143,7 +143,7 @@ export default function NewBacktest() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [backtestNotes, setBacktestNotes] = useState("");
 
-  const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies();
+  const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies({ query: { enabled: !!token } });
   const createBacktest = useCreateBacktest();
   const createStrategy = useCreateStrategy();
 

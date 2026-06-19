@@ -62,8 +62,8 @@ export default function ProfilePage() {
   const { user, token, setUser, signout } = useAuth();
   const [, setLocation] = useLocation();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { data: strategies } = useListStrategies();
-  const { data: backtests } = useListBacktests();
+  const { data: strategies } = useListStrategies({ query: { enabled: !!token } });
+  const { data: backtests } = useListBacktests({ query: { enabled: !!token } });
 
   // Username editing state
   const [editingName, setEditingName] = useState(false);

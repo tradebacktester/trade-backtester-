@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useCreateBacktest, useListStrategies, getListBacktestsQueryKey } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth-context";
 import type { Backtest } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -50,12 +51,13 @@ function fmtNum(v: number | undefined) {
 }
 
 export default function BatchBacktest() {
+  const { token } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { canAccess, isPro } = useSubscription();
 
-  const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies();
+  const { data: strategies, isLoading: isLoadingStrategies } = useListStrategies({ query: { enabled: !!token } });
   const createBacktest = useCreateBacktest();
 
   const [strategyId, setStrategyId] = useState<number>(0);

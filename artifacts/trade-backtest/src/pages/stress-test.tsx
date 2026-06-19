@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useListStrategies } from "@workspace/api-client-react";
 import { API } from "@/lib/api-config";
+import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: 1 | -1 }) {
 }
 
 export default function StressTestPage() {
+  const { token } = useAuth();
   const [strategyId, setStrategyId] = useState<number | null>(null);
   const [startDate, setStartDate] = useState("2022-01-01");
   const [endDate, setEndDate] = useState("2024-01-01");
@@ -72,7 +74,7 @@ export default function StressTestPage() {
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [view, setView] = useState<"table" | "bars" | "scatter">("table");
 
-  const { data: strategies, isLoading: loadingStrats } = useListStrategies();
+  const { data: strategies, isLoading: loadingStrats } = useListStrategies({ query: { enabled: !!token } });
 
   function toggleSort(k: keyof StressResult) {
     if (sortKey === k) setSortDir((d) => (d === 1 ? -1 : 1));

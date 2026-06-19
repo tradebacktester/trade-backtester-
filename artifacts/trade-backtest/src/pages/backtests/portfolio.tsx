@@ -78,7 +78,7 @@ function pctColor(n: number) { return n >= 0 ? "#22c55e" : "#ef4444"; }
 export default function PortfolioBacktest() {
   const { user, token } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { data: strategies } = useListStrategies();
+  const { data: strategies } = useListStrategies({ query: { enabled: !!token } });
 
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>(["AAPL", "MSFT", "SPY"]);
   const [strategyId, setStrategyId] = useState<number>(0);
