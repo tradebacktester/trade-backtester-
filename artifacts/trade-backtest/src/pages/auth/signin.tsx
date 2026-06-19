@@ -54,8 +54,7 @@ export default function SignInPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get("error");
-    if (err === "oauth_not_configured") setError("Google sign-in is not configured. Please use email and password.");
-    else if (err) setError(err);
+    if (err) setError(err);
   }, []);
 
   const inputStyle: React.CSSProperties = {
