@@ -30,3 +30,5 @@ export * from "./coupons";
 export * from "./watchlist";
 export * from "./psych_alert_events";
 export * from "./drawings";
+export * from "./security_questions";
+export * from "./backup_codes";
