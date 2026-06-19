@@ -87,6 +87,8 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
   const [adminId, setAdminId] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [showAdminPw, setShowAdminPw] = useState(false);
+  const [showAdminTab, setShowAdminTab] = useState(false);
+  const keyBufferRef = React.useRef("");
 
   useEffect(() => {
     if (open) {
@@ -100,8 +102,26 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
       setForgotEmail(""); setForgotQuestions(["", "", ""]); setForgotAnswers(["", "", ""]);
       setResetToken(""); setNewPassword(""); setShowNewPw(false);
       setAdminId(""); setAdminPassword(""); setShowAdminPw(false);
+      setShowAdminTab(false);
+      keyBufferRef.current = "";
     }
   }, [open, defaultTab]);
+
+  // ── Developer mode secret code listener ──────────────────────────────────
+  useEffect(() => {
+    if (!open) return;
+    const SECRET = "devmode";
+    function handleKey(e: KeyboardEvent) {
+      if (e.key.length !== 1) return;
+      keyBufferRef.current = (keyBufferRef.current + e.key).slice(-SECRET.length);
+      if (keyBufferRef.current === SECRET) {
+        setShowAdminTab(true);
+        keyBufferRef.current = "";
+      }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open]);
 
   if (!open) return null;
 
@@ -325,20 +345,31 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         {/* ── Tab bar (signin / signup only) ── */}
         {(step === "signin" || step === "signup" || step === "admin") && (
           <div className="flex mx-6 mt-4 rounded-xl p-1" style={{ background: "hsl(var(--muted))" }}>
-            {(["signin", "signup", "admin"] as const).map(t => (
+            {(["signin", "signup"] as const).map(t => (
               <button key={t}
                 onClick={() => { setStep(t); setError(""); setPassword(""); setUseBackupCode(false); }}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-all"
                 style={step === t ? {
                   background: "var(--card-bg)", boxShadow: "var(--shadow-xs)",
-                  color: t === "admin" ? "#f87171" : "hsl(var(--foreground))",
+                  color: "hsl(var(--foreground))",
                 } : { color: "hsl(var(--muted-foreground))" }}>
                 {t === "signin" && <LogIn style={{ height: 11, width: 11 }} />}
                 {t === "signup" && <UserPlus style={{ height: 11, width: 11 }} />}
-                {t === "admin" && <Shield style={{ height: 11, width: 11 }} />}
-                {t === "signin" ? "Sign In" : t === "signup" ? "Sign Up" : "Admin"}
+                {t === "signin" ? "Sign In" : "Sign Up"}
               </button>
             ))}
+            {showAdminTab && (
+              <button
+                onClick={() => { setStep("admin"); setError(""); setPassword(""); setUseBackupCode(false); }}
+                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                style={step === "admin" ? {
+                  background: "var(--card-bg)", boxShadow: "var(--shadow-xs)",
+                  color: "#f87171",
+                } : { color: "hsl(var(--muted-foreground))" }}>
+                <Shield style={{ height: 11, width: 11 }} />
+                Admin
+              </button>
+            )}
           </div>
         )}
 
