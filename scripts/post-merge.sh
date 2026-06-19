@@ -4,4 +4,4 @@ bash "$(dirname "$0")/setup-git-hooks.sh"
 
 set -e
 pnpm install --frozen-lockfile
-pnpm --filter db push
+pnpm --filter @workspace/db run push-force

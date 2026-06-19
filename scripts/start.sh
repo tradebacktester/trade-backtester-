@@ -10,9 +10,16 @@ fuser -k 8080/tcp 2>/dev/null || true
 echo "[start.sh] Installing dependencies..."
 pnpm install
 
-# Ensure DB schema is up to date
+# Auto-generate JWT_SECRET if not set (happens on fresh Replit imports)
+if [ -z "${JWT_SECRET}" ]; then
+  echo "[start.sh] WARNING: JWT_SECRET not set — auto-generating one for this session."
+  echo "[start.sh] To make tokens persist across restarts, add JWT_SECRET as a secret in your Replit."
+  JWT_SECRET="$(node -e "process.stdout.write(require('crypto').randomBytes(64).toString('hex'))")"
+fi
+
+# Ensure DB schema is up to date — use --force to avoid interactive prompts on fresh DBs
 echo "[start.sh] Syncing database schema..."
-pnpm --filter @workspace/db run push 2>&1 || echo "[start.sh] DB push warning (non-fatal)"
+pnpm --filter @workspace/db run push-force 2>&1 || echo "[start.sh] DB push warning (non-fatal)"
 
 # Build the Vite frontend — skip if dist is newer than sources
 FRONTEND_DIST_HTML="$WORKSPACE_ROOT/artifacts/trade-backtest/dist/public/index.html"

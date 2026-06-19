@@ -6,7 +6,7 @@ echo "[build.sh] Installing dependencies..."
 pnpm install --frozen-lockfile
 
 echo "[build.sh] Syncing database schema..."
-pnpm --filter @workspace/db run push 2>&1 || echo "[build.sh] DB push warning (non-fatal)"
+pnpm --filter @workspace/db run push-force 2>&1 || echo "[build.sh] DB push warning (non-fatal)"
 
 echo "[build.sh] Building frontend..."
 pnpm --filter @workspace/trade-backtest run build

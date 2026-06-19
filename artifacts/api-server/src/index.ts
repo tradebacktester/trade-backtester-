@@ -1,11 +1,17 @@
+import { randomBytes } from "crypto";
 import app from "./app";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"] ?? "8080";
 
+// Auto-generate JWT_SECRET if not set (e.g. fresh Replit import without secrets configured).
+// Tokens will only be valid for this session; add JWT_SECRET as a Replit secret for
+// persistent logins that survive restarts.
 if (!process.env["JWT_SECRET"]) {
-  throw new Error(
-    "JWT_SECRET environment variable is required but was not provided. Set it to a long random string.",
+  process.env["JWT_SECRET"] = randomBytes(64).toString("hex");
+  logger.warn(
+    "JWT_SECRET not configured — auto-generated a random one for this session. " +
+    "Add JWT_SECRET as a Replit secret to keep users logged in across restarts.",
   );
 }
 
