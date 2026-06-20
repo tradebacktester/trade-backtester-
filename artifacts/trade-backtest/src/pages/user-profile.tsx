@@ -1,148 +1,514 @@
-import React, { useEffect, useState } from "react";
-import { useRoute, Link } from "wouter";
-import { ArrowLeft, BarChart2, Layers, Calendar, User2, ExternalLink } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { useRoute, useLocation } from "wouter";
+import {
+  ArrowLeft, BarChart2, Layers, Calendar, TrendingUp, TrendingDown,
+  Users, UserPlus, UserCheck, MessageSquare, Edit2, Check, X,
+  Award, Target, Zap,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 
 interface PublicProfile {
   id: number;
   name: string;
+  username: string | null;
+  bio: string | null;
+  tradingStyle: string | null;
   joinedAt: string;
   totalBacktests: number;
   totalStrategies: number;
+  followerCount: number;
+  followingCount: number;
+  avgWinRate: number | null;
+  avgReturn: number | null;
   isOwnProfile: boolean;
+  isFollowing: boolean;
 }
 
-function Stat({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: React.ElementType; color: string }) {
+interface FollowUser {
+  id: number;
+  name: string;
+  username: string | null;
+}
+
+const AVATAR_PALETTE = [
+  "#1a3557", "#0d3d2b", "#3b1557", "#5a2d0c",
+  "#141457", "#4d0f2e", "#0d4d4d", "#2d4d0d",
+];
+function avatarColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]!;
+}
+function initials(name: string): string {
+  return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+}
+function fmt(n: number | null, decimals = 1): string {
+  if (n == null) return "—";
+  return n.toFixed(decimals);
+}
+function fmtK(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+function StatPill({ label, value, color = "#818cf8" }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex flex-col gap-2 p-5 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-      <div className="flex items-center gap-2">
-        <span className="h-8 w-8 rounded-xl flex items-center justify-center" style={{ background: `${color}18`, border: `1px solid ${color}28` }}>
-          <Icon className="h-4 w-4" style={{ color }} />
-        </span>
-        <span className="text-[11px] font-mono uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>{label}</span>
+    <div style={{
+      flex: "1 1 120px",
+      padding: "14px 16px",
+      borderRadius: 14,
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.07)",
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+    }}>
+      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)" }}>{label}</span>
+      <span style={{ fontSize: 22, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</span>
+    </div>
+  );
+}
+
+function FollowList({ userId, type, onClose }: { userId: number; type: "followers" | "following"; onClose: () => void }) {
+  const { token } = useAuth();
+  const [, navigate] = useLocation();
+  const [users, setUsers] = useState<FollowUser[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    fetch(`${API_BASE}/api/users/${userId}/${type}`, { headers })
+      .then(r => r.json())
+      .then((data: FollowUser[]) => setUsers(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [userId, type, token]);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: "rgba(0,0,0,0.7)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      backdropFilter: "blur(4px)",
+    }} onClick={onClose}>
+      <div style={{
+        width: "min(420px, 92vw)",
+        maxHeight: "70vh",
+        background: "#111",
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 20,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>
+            {type === "followers" ? "Followers" : "Following"}
+          </span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", padding: 4 }}>
+            <X style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          {loading && <p style={{ textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: 13, padding: 24 }}>Loading…</p>}
+          {!loading && users.length === 0 && (
+            <p style={{ textAlign: "center", color: "rgba(255,255,255,0.35)", fontSize: 13, padding: 24 }}>None yet.</p>
+          )}
+          {users.map(u => (
+            <button key={u.id} onClick={() => { onClose(); navigate(u.username ? `/u/${u.username}` : `/user/${u.id}`); }}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 20px", background: "none", border: "none",
+                cursor: "pointer", textAlign: "left",
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "none")}
+            >
+              <div style={{
+                width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+                background: avatarColor(u.name),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "rgba(255,255,255,0.9)", fontWeight: 600, fontSize: 14,
+              }}>{initials(u.name)}</div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.9)", margin: 0 }}>{u.name}</p>
+                {u.username && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: 0 }}>@{u.username}</p>}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
-      <span className="text-3xl font-bold" style={{ color: "rgba(255,255,255,0.92)" }}>{value}</span>
     </div>
   );
 }
 
 export default function UserProfilePage() {
-  const [, params] = useRoute("/user/:id");
-  const userId = params?.id ? parseInt(params.id, 10) : NaN;
-  const { token } = useAuth();
+  // Support both /u/:username and /user/:id routes
+  const [, uParams] = useRoute("/u/:username");
+  const [, idParams] = useRoute("/user/:id");
+  const { token, user: me } = useAuth();
+  const [, navigate] = useLocation();
+
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [showList, setShowList] = useState<"followers" | "following" | null>(null);
 
-  useEffect(() => {
-    if (isNaN(userId)) { setError("Invalid user ID"); setLoading(false); return; }
+  // Edit mode
+  const [editing, setEditing] = useState(false);
+  const [editBio, setEditBio] = useState("");
+  const [editStyle, setEditStyle] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editName, setEditName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const apiUrl = uParams?.username
+    ? `${API_BASE}/api/users/by-username/${encodeURIComponent(uParams.username)}`
+    : idParams?.id
+      ? `${API_BASE}/api/users/${idParams.id}`
+      : null;
+
+  const load = useCallback(() => {
+    if (!apiUrl) { setError("Invalid profile URL"); setLoading(false); return; }
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    fetch(`${API_BASE}/api/users/${userId}`, { headers })
+    fetch(apiUrl, { headers })
       .then(async r => {
-        if (!r.ok) throw new Error((await r.json()).error ?? "User not found");
+        if (!r.ok) throw new Error((await r.json() as { error?: string }).error ?? "Not found");
         return r.json() as Promise<PublicProfile>;
       })
-      .then(data => setProfile(data))
-      .catch(e => setError(e.message ?? "Failed to load profile"))
+      .then(data => {
+        setProfile(data);
+        setFollowing(data.isFollowing);
+        setEditBio(data.bio ?? "");
+        setEditStyle(data.tradingStyle ?? "");
+        setEditUsername(data.username ?? "");
+        setEditName(data.name);
+      })
+      .catch(e => setError((e as Error).message ?? "Failed to load"))
       .finally(() => setLoading(false));
-  }, [userId, token]);
+  }, [apiUrl, token]);
 
-  if (loading) {
-    return (
-      <div className="min-h-[40vh] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-full animate-pulse" style={{ background: "rgba(255,255,255,0.1)" }} />
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>Loading profile…</p>
-        </div>
-      </div>
-    );
+  useEffect(() => { load(); }, [load]);
+
+  async function toggleFollow() {
+    if (!token || !profile) return;
+    setFollowLoading(true);
+    try {
+      const method = following ? "DELETE" : "POST";
+      const r = await fetch(`${API_BASE}/api/users/${profile.id}/follow`, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r.ok) {
+        setFollowing(!following);
+        setProfile(p => p ? { ...p, followerCount: p.followerCount + (following ? -1 : 1) } : p);
+      }
+    } finally { setFollowLoading(false); }
   }
 
-  if (error || !profile) {
-    return (
-      <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4">
-        <User2 className="h-12 w-12" style={{ color: "rgba(255,255,255,0.15)" }} />
-        <p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>
-          {error || "User not found"}
-        </p>
-        <Link href="/community">
-          <button className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to Community
-          </button>
-        </Link>
-      </div>
-    );
+  async function saveEdit() {
+    if (!token) return;
+    setSaving(true); setEditError("");
+    try {
+      const r = await fetch(`${API_BASE}/api/users/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: editName,
+          username: editUsername,
+          bio: editBio,
+          tradingStyle: editStyle,
+        }),
+      });
+      const data = await r.json() as { error?: string; username?: string };
+      if (!r.ok) { setEditError(data.error ?? "Save failed"); return; }
+      setEditing(false);
+      // If username changed, navigate to new URL
+      if (data.username && data.username !== profile?.username) {
+        navigate(`/u/${data.username}`, { replace: true });
+      } else {
+        load();
+      }
+    } catch { setEditError("Save failed"); }
+    finally { setSaving(false); }
   }
+
+  function goToDM() {
+    navigate("/community");
+  }
+
+  if (loading) return (
+    <div style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(255,255,255,0.07)", animation: "pulse 1.5s ease infinite" }} />
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>Loading profile…</p>
+      </div>
+    </div>
+  );
+
+  if (error || !profile) return (
+    <div style={{ minHeight: "50vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+      <Users style={{ width: 44, height: 44, color: "rgba(255,255,255,0.12)" }} />
+      <p style={{ fontSize: 15, color: "rgba(255,255,255,0.6)" }}>{error || "User not found"}</p>
+      <button onClick={() => navigate("/community")} style={{
+        display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "8px 16px",
+        borderRadius: 10, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.55)",
+        border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer",
+      }}>
+        <ArrowLeft style={{ width: 13, height: 13 }} /> Community
+      </button>
+    </div>
+  );
 
   const joinedDate = new Date(profile.joinedAt).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const initials = profile.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-10">
+    <div style={{ maxWidth: 680, margin: "0 auto", paddingBottom: 60 }}>
+      {showList && (
+        <FollowList userId={profile.id} type={showList} onClose={() => setShowList(null)} />
+      )}
+
       {/* Back */}
-      <div>
-        <Link href="/community">
-          <button className="flex items-center gap-2 text-sm transition-opacity hover:opacity-70" style={{ color: "rgba(255,255,255,0.5)" }}>
-            <ArrowLeft className="h-3.5 w-3.5" /> Community
-          </button>
-        </Link>
-      </div>
+      <button onClick={() => navigate(-1 as unknown as string)}
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "rgba(255,255,255,0.4)", background: "none", border: "none", cursor: "pointer", marginBottom: 20, padding: 0 }}>
+        <ArrowLeft style={{ width: 14, height: 14 }} /> Back
+      </button>
 
-      {/* Header card */}
-      <div className="rounded-3xl overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      {/* Profile card */}
+      <div style={{ borderRadius: 24, overflow: "hidden", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
         {/* Banner */}
-        <div className="h-24 w-full" style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(168,85,247,0.25) 100%)" }} />
+        <div style={{ height: 100, background: `linear-gradient(135deg, ${avatarColor(profile.name)}cc, ${avatarColor(profile.name)}44)` }} />
 
-        {/* Avatar + name */}
-        <div className="px-6 pb-6">
-          <div className="-mt-10 mb-4 flex items-end justify-between">
-            <div
-              className="h-20 w-20 rounded-2xl flex items-center justify-center text-xl font-bold border-4"
-              style={{
-                background: "linear-gradient(135deg, #6366f1, #a855f7)",
-                color: "white",
-                borderColor: "rgba(13,17,28,1)",
-              }}
-            >
-              {initials}
+        {/* Avatar + Actions row */}
+        <div style={{ padding: "0 24px 24px" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: -28, marginBottom: 16 }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: 20,
+              background: avatarColor(profile.name),
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 26, fontWeight: 700, color: "rgba(255,255,255,0.95)",
+              border: "4px solid #080808", flexShrink: 0,
+            }}>{initials(profile.name)}</div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              {profile.isOwnProfile ? (
+                editing ? (
+                  <>
+                    <button onClick={saveEdit} disabled={saving} style={{
+                      display: "flex", alignItems: "center", gap: 5, fontSize: 12,
+                      padding: "7px 14px", borderRadius: 10, cursor: "pointer",
+                      background: "rgba(255,255,255,0.9)", color: "#050505",
+                      border: "none", fontWeight: 600, opacity: saving ? 0.6 : 1,
+                    }}>
+                      <Check style={{ width: 12, height: 12 }} /> {saving ? "Saving…" : "Save"}
+                    </button>
+                    <button onClick={() => { setEditing(false); setEditError(""); }} style={{
+                      display: "flex", alignItems: "center", gap: 5, fontSize: 12,
+                      padding: "7px 14px", borderRadius: 10, cursor: "pointer",
+                      background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}>
+                      <X style={{ width: 12, height: 12 }} /> Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => setEditing(true)} style={{
+                    display: "flex", alignItems: "center", gap: 5, fontSize: 12,
+                    padding: "7px 14px", borderRadius: 10, cursor: "pointer",
+                    background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}>
+                    <Edit2 style={{ width: 12, height: 12 }} /> Edit Profile
+                  </button>
+                )
+              ) : token ? (
+                <>
+                  <button onClick={goToDM} style={{
+                    display: "flex", alignItems: "center", gap: 5, fontSize: 12,
+                    padding: "7px 14px", borderRadius: 10, cursor: "pointer",
+                    background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}>
+                    <MessageSquare style={{ width: 12, height: 12 }} /> Message
+                  </button>
+                  <button onClick={toggleFollow} disabled={followLoading} style={{
+                    display: "flex", alignItems: "center", gap: 5, fontSize: 12,
+                    padding: "7px 14px", borderRadius: 10, cursor: "pointer",
+                    background: following ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.92)",
+                    color: following ? "rgba(255,255,255,0.7)" : "#050505",
+                    border: following ? "1px solid rgba(255,255,255,0.15)" : "none",
+                    fontWeight: 600, opacity: followLoading ? 0.6 : 1,
+                  }}>
+                    {following
+                      ? <><UserCheck style={{ width: 12, height: 12 }} /> Following</>
+                      : <><UserPlus style={{ width: 12, height: 12 }} /> Follow</>}
+                  </button>
+                </>
+              ) : null}
             </div>
-            {profile.isOwnProfile && (
-              <Link href="/profile">
-                <button
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl transition-opacity hover:opacity-70"
-                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" }}
-                >
-                  <ExternalLink className="h-3 w-3" /> Edit Profile
-                </button>
-              </Link>
+          </div>
+
+          {/* Edit form */}
+          {editing && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16, padding: 16, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {editError && <p style={{ fontSize: 12, color: "#FF453A", margin: 0 }}>{editError}</p>}
+              <div>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 4 }}>Display Name</label>
+                <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={60}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.9)", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 4 }}>Username</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>@</span>
+                  <input value={editUsername} onChange={e => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} maxLength={30}
+                    style={{ flex: 1, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.9)", fontSize: 13, outline: "none" }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 4 }}>Bio <span style={{ opacity: 0.5 }}>(max 300 chars)</span></label>
+                <textarea value={editBio} onChange={e => setEditBio(e.target.value)} maxLength={300} rows={3}
+                  placeholder="Tell traders about yourself…"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.9)", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 4 }}>Trading Style</label>
+                <input value={editStyle} onChange={e => setEditStyle(e.target.value)} maxLength={60}
+                  placeholder="e.g. Swing trader, Scalper, Long-term…"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.9)", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              </div>
+            </div>
+          )}
+
+          {/* Name + username + bio */}
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: "rgba(255,255,255,0.95)", margin: "0 0 2px" }}>{profile.name}</h1>
+          {profile.username && (
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", margin: "0 0 8px", fontFamily: "'JetBrains Mono', monospace" }}>@{profile.username}</p>
+          )}
+          {profile.bio && (
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", margin: "0 0 10px", lineHeight: 1.5 }}>{profile.bio}</p>
+          )}
+
+          {/* Badges row */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+            {profile.tradingStyle && (
+              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "rgba(124,58,237,0.15)", color: "#a78bfa", border: "1px solid rgba(124,58,237,0.2)", fontWeight: 500 }}>
+                <Zap style={{ width: 9, height: 9, display: "inline", marginRight: 4 }} />{profile.tradingStyle}
+              </span>
             )}
+            <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <Calendar style={{ width: 9, height: 9, display: "inline", marginRight: 4 }} />Joined {joinedDate}
+            </span>
           </div>
 
-          <h1 className="text-2xl font-bold" style={{ color: "rgba(255,255,255,0.95)" }}>{profile.name}</h1>
-          <div className="flex items-center gap-1.5 mt-1">
-            <Calendar className="h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.35)" }} />
-            <span className="text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>Joined {joinedDate}</span>
+          {/* Follower / following counts */}
+          <div style={{ display: "flex", gap: 20 }}>
+            <button onClick={() => setShowList("followers")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.92)" }}>{fmtK(profile.followerCount)}</span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginLeft: 4 }}>Followers</span>
+            </button>
+            <button onClick={() => setShowList("following")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.92)" }}>{fmtK(profile.followingCount)}</span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginLeft: 4 }}>Following</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <Stat label="Backtests" value={profile.totalBacktests} icon={BarChart2} color="#6366f1" />
-        <Stat label="Strategies" value={profile.totalStrategies} icon={Layers} color="#a855f7" />
+      {/* Stats grid */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
+        <StatPill label="Backtests" value={String(profile.totalBacktests)} color="#818cf8" />
+        <StatPill label="Strategies" value={String(profile.totalStrategies)} color="#a78bfa" />
+        <StatPill
+          label="Avg Win Rate"
+          value={profile.avgWinRate != null ? `${fmt(profile.avgWinRate, 1)}%` : "—"}
+          color={profile.avgWinRate != null && profile.avgWinRate >= 50 ? "#34C759" : "#FF453A"}
+        />
+        <StatPill
+          label="Avg Return"
+          value={profile.avgReturn != null ? `${profile.avgReturn >= 0 ? "+" : ""}${fmt(profile.avgReturn, 1)}%` : "—"}
+          color={profile.avgReturn != null && profile.avgReturn >= 0 ? "#34C759" : "#FF453A"}
+        />
       </div>
 
-      {/* User ID card */}
-      <div className="rounded-2xl px-5 py-4 flex items-center justify-between"
-        style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-        <div>
-          <p className="text-[11px] font-mono uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>User ID</p>
-          <p className="text-sm font-mono font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>#{profile.id}</p>
+      {/* Activity summary */}
+      <div style={{ marginTop: 16, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Activity</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <BarChart2 style={{ width: 15, height: 15, color: "#818cf8" }} />
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+              <strong style={{ color: "rgba(255,255,255,0.85)" }}>{profile.totalBacktests}</strong> backtests run
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Layers style={{ width: 15, height: 15, color: "#a78bfa" }} />
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+              <strong style={{ color: "rgba(255,255,255,0.85)" }}>{profile.totalStrategies}</strong> strategies created
+            </span>
+          </div>
+          {profile.avgWinRate != null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Target style={{ width: 15, height: 15, color: "#34C759" }} />
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+                <strong style={{ color: "rgba(255,255,255,0.85)" }}>{fmt(profile.avgWinRate, 1)}%</strong> average win rate across completed backtests
+              </span>
+            </div>
+          )}
+          {profile.avgReturn != null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {profile.avgReturn >= 0
+                ? <TrendingUp style={{ width: 15, height: 15, color: "#34C759" }} />
+                : <TrendingDown style={{ width: 15, height: 15, color: "#FF453A" }} />}
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+                <strong style={{ color: profile.avgReturn >= 0 ? "#34C759" : "#FF453A" }}>
+                  {profile.avgReturn >= 0 ? "+" : ""}{fmt(profile.avgReturn, 2)}%
+                </strong> average backtest return
+              </span>
+            </div>
+          )}
         </div>
-        <div className="text-[11px] font-mono px-3 py-1 rounded-lg" style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.2)" }}>
-          Trader
+      </div>
+
+      {/* Achievements */}
+      <div style={{ marginTop: 16, padding: "18px 20px", borderRadius: 18, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Achievements</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {profile.totalBacktests >= 1 && (
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+              <Award style={{ width: 10, height: 10 }} /> First Backtest
+            </span>
+          )}
+          {profile.totalBacktests >= 10 && (
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+              <Award style={{ width: 10, height: 10 }} /> 10 Backtests
+            </span>
+          )}
+          {profile.totalStrategies >= 5 && (
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(124,58,237,0.12)", color: "#a78bfa", border: "1px solid rgba(124,58,237,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+              <Layers style={{ width: 10, height: 10 }} /> Strategy Builder
+            </span>
+          )}
+          {profile.followerCount >= 5 && (
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(52,199,89,0.12)", color: "#34C759", border: "1px solid rgba(52,199,89,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+              <Users style={{ width: 10, height: 10 }} /> Rising Trader
+            </span>
+          )}
+          {profile.avgWinRate != null && profile.avgWinRate >= 60 && (
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(52,199,89,0.12)", color: "#34C759", border: "1px solid rgba(52,199,89,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+              <TrendingUp style={{ width: 10, height: 10 }} /> High Win Rate
+            </span>
+          )}
+          {profile.totalBacktests === 0 && profile.totalStrategies === 0 && (
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", margin: 0 }}>No achievements yet.</p>
+          )}
         </div>
       </div>
     </div>

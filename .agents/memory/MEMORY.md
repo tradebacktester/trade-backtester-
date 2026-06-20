@@ -34,3 +34,5 @@
 - [App color palette](app-color-palette.md) — Electric Purple (#7C3AED) + Cyan Blue (#22D3EE) brand accents; dark body #080808 with purple/cyan radial orbs; nav active is purple tint; button variants: purple + cyan both defined in button.tsx.
 - [Coupon system](coupon-system.md) — coupons + coupon_usages tables in DB; validate-coupon endpoint (POST /api/subscription/validate-coupon); create-order accepts couponCode; verify records usage + increments usedCount; frontend stores coupon in localStorage as tt_pending_coupon; admin Coupons tab for CRUD.
 - [Real data audit](real-data-audit.md) — which market features are live vs. fake and what needs paid APIs to improve further.
+- [Social graph schema](social-graph-schema.md) — username/bio/trading_style added to app_users; user_follows table for follow graph; drizzle push-force fails on unique constraint via TTY, use raw SQL migration .cjs script instead.
+- [User search routing](user-search-routing.md) — GET /users/search MUST be declared before GET /users/:id in users.ts; API server serves pre-built dist bundle so source changes require explicit rebuild before restart.

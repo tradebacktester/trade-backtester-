@@ -129,6 +129,11 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     .returning();
   if (!user) { res.status(500).json({ error: "Failed to create account" }); return; }
 
+  // Auto-generate a unique username from name + id (always unique because id is unique)
+  const usernameBase = name.trim().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20) || "trader";
+  const generatedUsername = `${usernameBase}${user.id}`;
+  await db.update(usersTable).set({ username: generatedUsername }).where(eq(usersTable.id, user.id));
+
   // Store security questions
   const [answerHash1, answerHash2, answerHash3] = await Promise.all([
     hashAnswer(securityQuestions[0].answer),

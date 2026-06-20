@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Heart, Flag, Trash2, Send, X, AlertTriangle, CheckCircle,
   Users, MessageSquare, RefreshCw, Shield, Upload, Camera,
@@ -206,6 +206,7 @@ interface ChatMessage {
 interface Conversation {
   partnerId: number;
   partnerName: string;
+  partnerUsername?: string | null;
   lastMessage: string;
   lastAt: string;
   unread: number;
@@ -268,9 +269,21 @@ async function apiFetch(path: string, opts?: RequestInit, token?: string | null)
 }
 
 /* ── Avatar ─────────────────────────────────────────────────────────────────── */
-function Avatar({ name, size = 36 }: { name: string; size?: number }) {
+function Avatar({ name, size = 36, username, userId, onClick }: {
+  name: string; size?: number;
+  username?: string | null; userId?: number | null;
+  onClick?: () => void;
+}) {
+  const [, navigate] = useLocation();
+  const href = username ? `/u/${username}` : userId ? `/user/${userId}` : null;
+  const handleClick = (e: React.MouseEvent) => {
+    if (onClick) { onClick(); return; }
+    if (href) { e.stopPropagation(); navigate(href); }
+  };
   return (
     <div
+      onClick={href || onClick ? handleClick : undefined}
+      title={href ? `View ${name}'s profile` : name}
       style={{
         width: size, height: size, borderRadius: "50%",
         background: avatarColor(name), flexShrink: 0,
@@ -278,7 +291,11 @@ function Avatar({ name, size = 36 }: { name: string; size?: number }) {
         color: "rgba(255,255,255,0.9)", fontWeight: 600,
         fontSize: Math.max(10, size * 0.35),
         letterSpacing: "-0.02em",
+        cursor: href || onClick ? "pointer" : "default",
+        transition: "opacity 0.15s ease, transform 0.15s ease",
       }}
+      onMouseEnter={href ? e => { (e.currentTarget as HTMLElement).style.opacity = "0.8"; (e.currentTarget as HTMLElement).style.transform = "scale(1.06)"; } : undefined}
+      onMouseLeave={href ? e => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.transform = "scale(1)"; } : undefined}
     >
       {initials(name)}
     </div>
@@ -518,7 +535,7 @@ function DMBox() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [searchQ, setSearchQ] = useState("");
-  const [searchResults, setSearchResults] = useState<{ id: number; name: string }[]>([]);
+  const [searchResults, setSearchResults] = useState<{ id: number; name: string; username: string | null }[]>([]);
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -558,6 +575,8 @@ function DMBox() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, activePartner?.id]);
 
+  const [, navigate] = useLocation();
+
   function selectPartner(id: number, name: string) {
     setActivePartner({ id, name });
     setShowSearch(false);
@@ -568,10 +587,10 @@ function DMBox() {
   }
 
   async function doSearch(q: string) {
-    if (!authToken || q.length < 2) { setSearchResults([]); return; }
+    if (!authToken || q.length < 1) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const res = await apiFetch(`/api/community/dm/search?q=${encodeURIComponent(q)}`, {}, authToken) as { id: number; name: string }[];
+      const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(q)}`, {}, authToken) as { id: number; name: string; username: string | null }[];
       setSearchResults(res);
     } catch { /* ignore */ } finally { setSearching(false); }
   }
@@ -654,18 +673,31 @@ function DMBox() {
         {showSearch && (
           <div className="px-2 py-2 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
             <input value={searchQ} onChange={e => onSearchChange(e.target.value)}
-              placeholder="Search by name or user ID…" autoFocus
+              placeholder="Search by username or name…" autoFocus
               className="cm-input w-full px-2.5 py-1.5"
               style={{ fontSize: 12 }} />
             {searching && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", paddingTop: 6 }}>Searching…</p>}
             {searchResults.map(u => (
-              <button key={u.id} onClick={() => selectPartner(u.id, u.name)}
-                className="cm-conv-item flex items-center gap-2 px-2 py-2 rounded-xl mt-1">
-                <Avatar name={u.name} size={28} />
-                <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>{u.name}</span>
-              </button>
+              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                <button onClick={() => selectPartner(u.id, u.name)}
+                  className="cm-conv-item flex items-center gap-2 px-2 py-2 rounded-xl"
+                  style={{ flex: 1 }}>
+                  <Avatar name={u.name} size={28} />
+                  <div style={{ textAlign: "left" }}>
+                    <p style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)", margin: 0 }}>{u.name}</p>
+                    {u.username && <p style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", margin: 0 }}>@{u.username}</p>}
+                  </div>
+                </button>
+                <button onClick={() => navigate(u.username ? `/u/${u.username}` : `/user/${u.id}`)}
+                  title="View profile"
+                  style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", background: "none", border: "none", cursor: "pointer", padding: "4px 6px", borderRadius: 8, flexShrink: 0 }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}>
+                  Profile
+                </button>
+              </div>
             ))}
-            {searchQ.length >= 2 && !searching && searchResults.length === 0 && (
+            {searchQ.length >= 1 && !searching && searchResults.length === 0 && (
               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", paddingTop: 6 }}>No users found</p>
             )}
           </div>
@@ -721,9 +753,13 @@ function DMBox() {
                 style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <ChevronLeft style={{ height: 13, width: 13 }} />
               </button>
-              <Avatar name={activePartner.name} size={30} />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{activePartner.name}</p>
+              <Avatar name={activePartner.name} size={30} userId={activePartner.id} />
+              <div style={{ cursor: "pointer" }} onClick={() => navigate(`/user/${activePartner.id}`)}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}
+                  onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                  onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}>
+                  {activePartner.name}
+                </p>
                 <div className="flex items-center gap-1">
                   <Lock style={{ height: 9, width: 9, color: "rgba(255,255,255,0.3)" }} />
                   <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Private</p>
@@ -1038,7 +1074,7 @@ function PostCard({
     <article className="cm-post-card overflow-hidden"
       style={{ animation: `fadeInUp 0.3s ease both`, animationDelay: `${Math.min(index, 12) * 0.04}s` }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "16px 16px 12px" }}>
-        <Avatar name={post.authorName} size={36} />
+        <Avatar name={post.authorName} size={36} userId={post.userId} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {post.userId ? (

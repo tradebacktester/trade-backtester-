@@ -162,6 +162,7 @@ function Router() {
         <Route path="/pricing" component={PricingPage} />
         <Route path="/billing" component={BillingPage} />
 
+        <Route path="/u/:username" component={UserProfilePage} />
         <Route path="/user/:id" component={UserProfilePage} />
 
         <Route path="/auth/signin" component={SignInPage} />
