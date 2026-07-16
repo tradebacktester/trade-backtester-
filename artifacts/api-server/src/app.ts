@@ -1,4 +1,4 @@
-import express, { type Express, type Response } from "express";
+import express, { type Express, type Response as ExpressResponse } from "express";
 import cors from "cors";
 import compression from "compression";
 import helmet from "helmet";
@@ -70,7 +70,7 @@ async function sendAlertEmail(toEmail: string, alertName: string, symbol: string
 
 const app: Express = express();
 
-const alertSseClients = new Map<number, Set<Response>>();
+const alertSseClients = new Map<number, Set<ExpressResponse>>();
 (app as any)._alertSseClients = alertSseClients;
 
 function broadcastAlertNotification(userId: number, payload: object) {
@@ -180,8 +180,9 @@ ensureAcademySeed().catch(err => logger.error({ err }, "Academy auto-seed failed
 // CSRF NOTE (S-13): This API uses Bearer JWT tokens in Authorization headers,
 // not cookies, so CSRF is not applicable — browsers enforce same-origin policy
 // on reading responses regardless of how a cross-site request was triggered.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.use(
-  helmet({
+  (helmet as unknown as (...args: unknown[]) => express.RequestHandler)({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -202,18 +203,19 @@ app.use(
 // Gzip all responses — critical for mobile (3 MB JS → ~650 KB over the wire)
 app.use(compression());
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.use(
-  pinoHttp({
+  (pinoHttp as unknown as (...args: unknown[]) => express.RequestHandler)({
     logger,
     serializers: {
-      req(req) {
+      req(req: { id: unknown; method: string; url?: string }) {
         return {
           id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
         };
       },
-      res(res) {
+      res(res: { statusCode: number }) {
         return {
           statusCode: res.statusCode,
         };
@@ -273,7 +275,7 @@ app.use("/api", router);
 // Express 5 propagates async route errors here automatically.
 // Without this, unhandled errors return an HTML page which causes
 // res.json() in the browser to throw a SyntaxError, masking the real error.
-app.use((err: unknown, _req: express.Request, res: Response, _next: express.NextFunction) => {
+app.use((err: unknown, _req: express.Request, res: ExpressResponse, _next: express.NextFunction) => {
   const status = typeof (err as { status?: number }).status === "number"
     ? (err as { status: number }).status
     : 500;
