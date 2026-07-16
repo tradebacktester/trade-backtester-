@@ -35,7 +35,7 @@ async function sendAlertWebhook(webhookUrl: string, payload: {
   try {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetch(webhookUrl, {
+    const r: { ok: boolean; status: number } = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json", "User-Agent": "TradeLab-Alerts/1.0" },
       body: JSON.stringify({ event: "alert_triggered", ...payload }),

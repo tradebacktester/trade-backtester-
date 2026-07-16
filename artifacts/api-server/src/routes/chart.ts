@@ -8,7 +8,7 @@ import { verifyJwt } from "../lib/jwt";
 function extractUserId(req: Request): number | null {
   const auth = req.headers["authorization"];
   if (!auth?.startsWith("Bearer ")) return null;
-  const payload = verifyJwt(auth.slice(7));
+  const payload = verifyJwt(auth.slice(7), "");
   return payload ? (payload as { id: number }).id : null;
 }
 function requireAuth(req: Request, res: Response, next: NextFunction): void {

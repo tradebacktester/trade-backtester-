@@ -158,8 +158,8 @@ router.get("/market/movers", async (_req, res): Promise<void> => {
   );
 
   const movers = results
-    .filter((r): r is PromiseFulfilledResult<Record<string, unknown>> => r.status === "fulfilled")
-    .map(r => r.value)
+    .filter((r) => r.status === "fulfilled")
+    .map((r) => (r as PromiseFulfilledResult<Record<string, unknown>>).value)
     .sort((a, b) => {
       const aChg = Math.abs(Number(a["changePct"] ?? a["changePercent"] ?? 0));
       const bChg = Math.abs(Number(b["changePct"] ?? b["changePercent"] ?? 0));

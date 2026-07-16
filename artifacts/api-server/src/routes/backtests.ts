@@ -251,7 +251,7 @@ router.get("/backtests", requireAuth, async (req, res): Promise<void> => {
 router.post("/backtests", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateBacktestBody.safeParse(req.body);
   if (!parsed.success) {
-    const messages = parsed.error.issues.map((i) => `${i.path.length ? i.path.join(".") + ": " : ""}${i.message}`).join("; ");
+    const messages = parsed.error.issues.map((i: { path: (string | number)[]; message: string }) => `${i.path.length ? i.path.join(".") + ": " : ""}${i.message}`).join("; ");
     res.status(400).json({ error: messages });
     return;
   }
