@@ -4,12 +4,22 @@ A full-stack trade backtesting app that lets you define algorithmic trading stra
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- **Start application** workflow runs `bash scripts/start.sh` — installs deps, syncs DB schema, builds frontend + API, starts Express on **port 5000** serving both `/api/*` and the React SPA
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/db run push-force` — re-apply schema if tables are missing after restart
+
+## Required secrets (Replit → Secrets)
+
+| Secret | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string — **already set** |
+| `JWT_SECRET` | Signs auth tokens — auto-generated per session if missing; set as a secret to keep logins valid across restarts |
+| `GROQ_API_KEY` | Powers AI features (assistant, coach, strategy builder) — get from https://console.groq.com |
+| `ADMIN_ID` / `ADMIN_PASSWORD` | Admin panel login (optional) |
+| `SESSION_SECRET` | Express session signing — **already set** |
 
 ## First-time setup (after clone)
 
