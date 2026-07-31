@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
-import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable, adminAuditLogTable, passwordResetsTable, couponsTable, couponUsagesTable } from "@workspace/db";
+import { db, usersTable, policiesTable, subscriptionPlansTable, subscriptionsTable, paymentsTable, adminAttemptsTable, adminAuditLogTable, passwordResetsTable, couponsTable, couponUsagesTable, manualPaymentsTable } from "@workspace/db";
 import { eq, and, desc, gt, lt, count as drizzleCount, isNull } from "drizzle-orm";
 import { ensurePlans } from "./subscription";
 import { makeAdminToken, verifyAdminToken } from "../lib/admin-auth";
@@ -379,6 +379,98 @@ router.get("/admin/password-resets", requireAdmin, async (_req, res): Promise<vo
     .orderBy(desc(passwordResetsTable.createdAt))
     .limit(100);
   res.json(resets.map(r => ({ ...r, expiresAt: r.expiresAt.toISOString(), createdAt: r.createdAt.toISOString() })));
+});
+
+// ── Manual UPI payments management ───────────────────────────────────────────
+router.get("/admin/manual-payments", requireAdmin, async (_req, res): Promise<void> => {
+  const payments = await db
+    .select({
+      id: manualPaymentsTable.id,
+      userId: manualPaymentsTable.userId,
+      planId: manualPaymentsTable.planId,
+      screenshotData: manualPaymentsTable.screenshotData,
+      screenshotMime: manualPaymentsTable.screenshotMime,
+      utrNote: manualPaymentsTable.utrNote,
+      status: manualPaymentsTable.status,
+      adminNote: manualPaymentsTable.adminNote,
+      createdAt: manualPaymentsTable.createdAt,
+      updatedAt: manualPaymentsTable.updatedAt,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      planName: subscriptionPlansTable.name,
+      planSlug: subscriptionPlansTable.slug,
+    })
+    .from(manualPaymentsTable)
+    .leftJoin(usersTable, eq(manualPaymentsTable.userId, usersTable.id))
+    .leftJoin(subscriptionPlansTable, eq(manualPaymentsTable.planId, subscriptionPlansTable.id))
+    .orderBy(desc(manualPaymentsTable.createdAt))
+    .limit(200);
+  res.json(payments.map(p => ({
+    ...p,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  })));
+});
+
+router.post("/admin/manual-payments/:id/approve", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  const { adminNote, months } = req.body as { adminNote?: string; months?: number };
+
+  const [payment] = await db.select().from(manualPaymentsTable).where(eq(manualPaymentsTable.id, id)).limit(1);
+  if (!payment) { res.status(404).json({ error: "Payment not found" }); return; }
+  if (payment.status !== "pending") { res.status(400).json({ error: "Payment already processed" }); return; }
+
+  const [plan] = await db.select().from(subscriptionPlansTable)
+    .where(eq(subscriptionPlansTable.id, payment.planId)).limit(1);
+  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+
+  // Cancel existing active subscription
+  await db.update(subscriptionsTable)
+    .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(subscriptionsTable.userId, payment.userId), eq(subscriptionsTable.status, "active")));
+
+  // Grant subscription
+  const periodStart = new Date();
+  const periodEnd = new Date();
+  periodEnd.setMonth(periodEnd.getMonth() + (months ?? 1));
+
+  await db.insert(subscriptionsTable).values({
+    userId: payment.userId,
+    planId: payment.planId,
+    status: "active",
+    razorpayOrderId: `manual_${payment.id}`,
+    currentPeriodStart: periodStart,
+    currentPeriodEnd: periodEnd,
+    grantedByAdmin: true,
+  });
+
+  // Mark payment as approved
+  await db.update(manualPaymentsTable)
+    .set({ status: "approved", adminNote: adminNote ?? null, updatedAt: new Date() })
+    .where(eq(manualPaymentsTable.id, id));
+
+  const adminToken = req.headers["x-admin-token"] as string;
+  await auditLog("manual_payment_approved", adminToken.slice(0, 8) + "…", payment.userId, { paymentId: id, planId: payment.planId });
+
+  res.json({ success: true });
+});
+
+router.post("/admin/manual-payments/:id/reject", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  const { adminNote } = req.body as { adminNote?: string };
+
+  const [payment] = await db.select().from(manualPaymentsTable).where(eq(manualPaymentsTable.id, id)).limit(1);
+  if (!payment) { res.status(404).json({ error: "Payment not found" }); return; }
+  if (payment.status !== "pending") { res.status(400).json({ error: "Payment already processed" }); return; }
+
+  await db.update(manualPaymentsTable)
+    .set({ status: "rejected", adminNote: adminNote ?? null, updatedAt: new Date() })
+    .where(eq(manualPaymentsTable.id, id));
+
+  const adminToken = req.headers["x-admin-token"] as string;
+  await auditLog("manual_payment_rejected", adminToken.slice(0, 8) + "…", payment.userId, { paymentId: id });
+
+  res.json({ success: true });
 });
 
 export default router;

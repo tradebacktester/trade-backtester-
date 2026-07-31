@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
   X, Mail, Lock, User, LogIn, UserPlus, Shield, Eye, EyeOff,
-  ChevronRight, Copy, Check, ArrowLeft, KeyRound, HelpCircle, RefreshCw,
+  ChevronRight, Copy, Check, ArrowLeft, KeyRound, RefreshCw, Fingerprint,
+  Smartphone, AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -12,21 +13,6 @@ interface AuthModalProps {
   defaultTab?: "signin" | "signup" | "admin";
 }
 
-const SECURITY_QUESTIONS = [
-  "What was the name of your first pet?",
-  "What city were you born in?",
-  "What is your mother's maiden name?",
-  "What was the name of your elementary school?",
-  "What was your childhood nickname?",
-  "What is the name of your favorite teacher?",
-  "What was the make and model of your first car?",
-  "What street did you grow up on?",
-  "What is the name of your best friend growing up?",
-  "What was the name of your first stuffed animal or toy?",
-  "What is your oldest sibling's middle name?",
-  "What was the name of the hospital where you were born?",
-];
-
 function getPasswordStrength(pw: string) {
   if (pw.length === 0) return { score: 0, label: "", color: "hsl(var(--border))" };
   if (pw.length < 6) return { score: 1, label: "Too short", color: "#ef4444" };
@@ -36,46 +22,62 @@ function getPasswordStrength(pw: string) {
   return { score: 2, label: "Weak", color: "#f97316" };
 }
 
+// ── WebAuthn helpers ──────────────────────────────────────────────────────────
+function b64url(buf: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+function fromB64url(str: string): Uint8Array {
+  const b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+  return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+}
+
+function isWebAuthnSupported(): boolean {
+  return typeof window !== "undefined" && !!window.PublicKeyCredential;
+}
+
 type ModalStep =
   | "signin" | "signup" | "admin"
-  | "security"      // step 2 signup: pick security questions
+  | "biometric"     // step 2 signup: register fingerprint/face id
   | "backupCodes"   // step 3 signup: save backup codes
   | "forgotEmail"   // forgot pw: enter email
-  | "forgotQA"      // forgot pw: answer questions
+  | "forgotBiometric" // forgot pw: verify with biometric
+  | "forgotQA"      // forgot pw: answer questions (fallback)
   | "forgotReset";  // forgot pw: set new password
 
 export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalProps) {
   const { setUser, setAdminToken } = useAuth();
 
-  // ── Core state ───────────────────────────────────────────────────────────
   const [step, setStep] = useState<ModalStep>(defaultTab);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ── Signup step 1 ────────────────────────────────────────────────────────
+  // ── Signup step 1 ─────────────────────────────────────────────────────────
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
 
-  // ── Signup step 2: security questions ───────────────────────────────────
-  const [sq, setSq] = useState([
-    { question: "", answer: "" },
-    { question: "", answer: "" },
-    { question: "", answer: "" },
-  ]);
+  // ── Biometric state ────────────────────────────────────────────────────────
+  const [biometricStatus, setBiometricStatus] = useState<"idle" | "registering" | "success" | "error" | "unsupported">("idle");
+  const [biometricError, setBiometricError] = useState("");
+  const [forgotHasWebauthn, setForgotHasWebauthn] = useState(false);
+  const [forgotHasQuestions, setForgotHasQuestions] = useState(false);
+  const [forgotBiometricChallengeId, setForgotBiometricChallengeId] = useState("");
+  const [forgotBiometricOptions, setForgotBiometricOptions] = useState<Record<string, unknown> | null>(null);
 
-  // ── Signup step 3: backup codes ──────────────────────────────────────────
+  // ── Signup step 3: backup codes ────────────────────────────────────────────
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
   const [savedToken, setSavedToken] = useState<string | null>(null);
   const [savedUser, setSavedUser] = useState<{ id: number; email: string; name: string; banned: boolean } | null>(null);
 
-  // ── Signin extras ────────────────────────────────────────────────────────
+  // ── Signin extras ──────────────────────────────────────────────────────────
   const [useBackupCode, setUseBackupCode] = useState(false);
   const [backupCodeInput, setBackupCodeInput] = useState("");
 
-  // ── Forgot password flow ─────────────────────────────────────────────────
+  // ── Forgot password flow ───────────────────────────────────────────────────
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotQuestions, setForgotQuestions] = useState<string[]>(["", "", ""]);
   const [forgotAnswers, setForgotAnswers] = useState(["", "", ""]);
@@ -83,7 +85,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
   const [newPassword, setNewPassword] = useState("");
   const [showNewPw, setShowNewPw] = useState(false);
 
-  // ── Admin ────────────────────────────────────────────────────────────────
+  // ── Admin ──────────────────────────────────────────────────────────────────
   const [adminId, setAdminId] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [showAdminPw, setShowAdminPw] = useState(false);
@@ -95,7 +97,6 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
       setStep(defaultTab);
       setError("");
       setEmail(""); setName(""); setPassword(""); setShowPw(false);
-      setSq([{ question: "", answer: "" }, { question: "", answer: "" }, { question: "", answer: "" }]);
       setBackupCodes([]); setCopiedAll(false);
       setSavedToken(null); setSavedUser(null);
       setUseBackupCode(false); setBackupCodeInput("");
@@ -103,21 +104,19 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
       setResetToken(""); setNewPassword(""); setShowNewPw(false);
       setAdminId(""); setAdminPassword(""); setShowAdminPw(false);
       setShowAdminTab(false);
+      setBiometricStatus("idle"); setBiometricError("");
+      setForgotHasWebauthn(false); setForgotHasQuestions(false);
       keyBufferRef.current = "";
     }
   }, [open, defaultTab]);
 
-  // ── Developer mode secret code listener ──────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const SECRET = "devmode";
     function handleKey(e: KeyboardEvent) {
       if (!e.key || e.key.length !== 1) return;
       keyBufferRef.current = (keyBufferRef.current + e.key).slice(-SECRET.length);
-      if (keyBufferRef.current === SECRET) {
-        setShowAdminTab(true);
-        keyBufferRef.current = "";
-      }
+      if (keyBufferRef.current === SECRET) { setShowAdminTab(true); keyBufferRef.current = ""; }
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -130,59 +129,41 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
     background: "hsl(var(--input))",
     color: "hsl(var(--foreground))",
   };
-
   const pwStrength = getPasswordStrength(password);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  // Safe JSON parse — never throws; returns {} if body is non-JSON (e.g. HTML error page).
   async function safeJson(res: globalThis.Response): Promise<Record<string, unknown>> {
     try { return await res.json() as Record<string, unknown>; }
     catch { return {}; }
   }
-
-  // Classify fetch() catch errors into user-friendly messages.
   function netErrMsg(err: unknown): string {
     if (err instanceof TypeError && err.message.toLowerCase().includes("fetch"))
       return "Cannot reach the server. Check your connection and try again.";
     return "Something went wrong. Please try again.";
   }
-
-  // Fetch with automatic retry (up to 3 attempts, exponential backoff).
-  // Only retries on network-level errors (fetch throws), never on 4xx/5xx responses.
   async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<globalThis.Response> {
     let lastErr: unknown;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const ctrl = new AbortController();
         const timeout = setTimeout(() => ctrl.abort(), 15_000);
-        try {
-          const res = await fetch(url, { ...init, signal: ctrl.signal });
-          clearTimeout(timeout);
-          return res;
-        } finally { clearTimeout(timeout); }
+        try { const res = await fetch(url, { ...init, signal: ctrl.signal }); clearTimeout(timeout); return res; }
+        finally { clearTimeout(timeout); }
       } catch (err) {
         lastErr = err;
-        if (attempt < maxRetries - 1) {
-          await new Promise(r => setTimeout(r, 500 * 2 ** attempt)); // 500ms, 1s, 2s
-        }
+        if (attempt < maxRetries - 1) await new Promise(r => setTimeout(r, 500 * 2 ** attempt));
       }
     }
     throw lastErr;
   }
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
+  // ── Signin ─────────────────────────────────────────────────────────────────
   async function handleSignin(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setLoading(true);
     try {
-      const body = useBackupCode
-        ? { email, backupCode: backupCodeInput }
-        : { email, password };
+      const body = useBackupCode ? { email, backupCode: backupCodeInput } : { email, password };
       const res = await fetchWithRetry(`${API_BASE}/api/auth/signin`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
       const data = await safeJson(res);
       if (!res.ok) { setError(String(data["error"] ?? "Sign in failed")); return; }
@@ -192,55 +173,92 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
     finally { setLoading(false); }
   }
 
+  // ── Signup Step 1 → creates account, then goes to biometric ───────────────
   async function handleSignupStep1(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!email || !name || !password) { setError("All fields are required"); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
-    setStep("security");
-  }
-
-  async function handleSignupSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    for (let i = 0; i < 3; i++) {
-      if (!sq[i]!.question) { setError(`Please select question ${i + 1}`); return; }
-      if (!sq[i]!.answer || sq[i]!.answer.trim().length < 2) {
-        setError(`Answer ${i + 1} must be at least 2 characters`); return;
-      }
-    }
-    const qs = sq.map(q => q.question);
-    if (new Set(qs).size < 3) { setError("Please choose 3 different questions"); return; }
     setLoading(true);
     try {
       const res = await fetchWithRetry(`${API_BASE}/api/auth/signup`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, password, securityQuestions: sq }),
+        body: JSON.stringify({ email, name, password, skipSecurityQuestions: true }),
       });
       const data = await safeJson(res);
       if (!res.ok) { setError(String(data["error"] ?? "Signup failed")); return; }
       setSavedToken(data["token"] as string);
       setSavedUser(data["user"] as typeof savedUser);
       setBackupCodes((data["backupCodes"] as string[]) ?? []);
-      setStep("backupCodes");
+      setBiometricStatus(isWebAuthnSupported() ? "idle" : "unsupported");
+      setStep("biometric");
     } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 
-  function handleDoneBackupCodes() {
-    if (savedUser && savedToken) {
-      setUser(savedUser, savedToken);
+  // ── Biometric registration ─────────────────────────────────────────────────
+  async function handleBiometricRegister() {
+    if (!savedUser || !savedToken) return;
+    setBiometricStatus("registering");
+    setBiometricError("");
+    try {
+      // 1. Get challenge
+      const chalRes = await fetch(`${API_BASE}/api/auth/webauthn/register-challenge`, {
+        method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${savedToken}` },
+        body: JSON.stringify({ userId: savedUser.id, email: savedUser.email, name }),
+      });
+      if (!chalRes.ok) throw new Error("Failed to start biometric setup");
+      const { challengeId, options } = await chalRes.json() as { challengeId: string; options: Record<string, unknown> };
+
+      // 2. Call browser WebAuthn API
+      const pubKeyOptions: PublicKeyCredentialCreationOptions = {
+        ...(options as object),
+        challenge: fromB64url(options["challenge"] as string),
+        user: {
+          ...(options["user"] as object),
+          id: fromB64url((options["user"] as { id: string })["id"]),
+        },
+        excludeCredentials: ((options["excludeCredentials"] as Array<{ id: string; type: string }>) ?? []).map(c => ({
+          ...c,
+          id: fromB64url(c.id),
+        })),
+      };
+
+      const credential = await navigator.credentials.create({ publicKey: pubKeyOptions }) as PublicKeyCredential;
+      const response = credential.response as AuthenticatorAttestationResponse;
+
+      const serialized = {
+        id: credential.id,
+        rawId: b64url(credential.rawId),
+        response: {
+          clientDataJSON: b64url(response.clientDataJSON),
+          attestationObject: b64url(response.attestationObject),
+          transports: response.getTransports?.() ?? [],
+        },
+        type: credential.type,
+        clientExtensionResults: credential.getClientExtensionResults(),
+      };
+
+      // 3. Verify with server
+      const verifyRes = await fetch(`${API_BASE}/api/auth/webauthn/register-verify`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengeId, credential: serialized }),
+      });
+      if (!verifyRes.ok) throw new Error("Server verification failed");
+      setBiometricStatus("success");
+      setTimeout(() => setStep("backupCodes"), 1200);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      if (msg.includes("NotAllowedError") || msg.includes("not allowed") || (err as { name?: string }).name === "NotAllowedError") {
+        setBiometricError("Permission denied. Please try again or skip.");
+      } else {
+        setBiometricError(msg || "Biometric setup failed. Please try again or skip.");
+      }
+      setBiometricStatus("error");
     }
-    onClose();
   }
 
-  function copyAllCodes() {
-    navigator.clipboard.writeText(backupCodes.join("\n")).then(() => {
-      setCopiedAll(true);
-      setTimeout(() => setCopiedAll(false), 2500);
-    });
-  }
-
+  // ── Forgot password: load recovery options ─────────────────────────────────
   async function handleForgotEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setLoading(true);
@@ -250,19 +268,98 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         body: JSON.stringify({ email: forgotEmail }),
       });
       const data = await safeJson(res);
-      if (!res.ok) { setError(String(data["error"] ?? "Failed to load questions")); return; }
-      const qs = (data["questions"] as string[]) ?? ["", "", ""];
-      setForgotQuestions(qs);
-      setForgotAnswers(["", "", ""]);
-      if (!qs.some(q => q)) {
-        setError("No security questions found for this account. Contact support.");
-        return;
+      if (!res.ok) { setError(String(data["error"] ?? "Failed to load recovery options")); return; }
+      const hasWebauthn = !!(data["hasWebauthn"] as boolean);
+      const qs = (data["questions"] as string[]) ?? [];
+      const hasQuestions = qs.some(q => q);
+      setForgotHasWebauthn(hasWebauthn);
+      setForgotHasQuestions(hasQuestions);
+      if (hasWebauthn) {
+        // Pre-fetch auth challenge
+        const chalRes = await fetch(`${API_BASE}/api/auth/webauthn/auth-challenge`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: forgotEmail }),
+        });
+        const chalData = await chalRes.json() as { hasCredential: boolean; challengeId?: string; options?: Record<string, unknown> };
+        if (chalData.hasCredential && chalData.challengeId) {
+          setForgotBiometricChallengeId(chalData.challengeId);
+          setForgotBiometricOptions(chalData.options ?? null);
+        }
+        setStep("forgotBiometric");
+      } else if (hasQuestions) {
+        setForgotQuestions(qs);
+        setForgotAnswers(["", "", ""]);
+        setStep("forgotQA");
+      } else {
+        setError("No recovery method found for this account. Contact support.");
       }
-      setStep("forgotQA");
     } catch (err) { setError(netErrMsg(err)); }
     finally { setLoading(false); }
   }
 
+  // ── Forgot password: verify with biometric ────────────────────────────────
+  async function handleForgotBiometric() {
+    setBiometricStatus("registering");
+    setBiometricError("");
+    try {
+      let challengeId = forgotBiometricChallengeId;
+      let options = forgotBiometricOptions;
+
+      // Refresh challenge if expired
+      if (!challengeId || !options) {
+        const chalRes = await fetch(`${API_BASE}/api/auth/webauthn/auth-challenge`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: forgotEmail }),
+        });
+        const chalData = await chalRes.json() as { hasCredential: boolean; challengeId?: string; options?: Record<string, unknown> };
+        if (!chalData.hasCredential || !chalData.challengeId) throw new Error("Biometric not available");
+        challengeId = chalData.challengeId;
+        options = chalData.options ?? null;
+      }
+
+      const pubKeyOptions: PublicKeyCredentialRequestOptions = {
+        ...(options as object),
+        challenge: fromB64url((options!["challenge"] as string)),
+        allowCredentials: ((options!["allowCredentials"] as Array<{ id: string; type: string; transports?: string[] }>) ?? []).map(c => ({
+          ...c,
+          id: fromB64url(c.id),
+        })),
+      };
+
+      const credential = await navigator.credentials.get({ publicKey: pubKeyOptions }) as PublicKeyCredential;
+      const response = credential.response as AuthenticatorAssertionResponse;
+
+      const serialized = {
+        id: credential.id,
+        rawId: b64url(credential.rawId),
+        response: {
+          clientDataJSON: b64url(response.clientDataJSON),
+          authenticatorData: b64url(response.authenticatorData),
+          signature: b64url(response.signature),
+          userHandle: response.userHandle ? b64url(response.userHandle) : null,
+        },
+        type: credential.type,
+        clientExtensionResults: credential.getClientExtensionResults(),
+      };
+
+      const verifyRes = await fetch(`${API_BASE}/api/auth/webauthn/auth-verify`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengeId, credential: serialized }),
+      });
+      const data = await verifyRes.json() as { resetToken?: string; error?: string };
+      if (!verifyRes.ok || !data.resetToken) throw new Error(data.error ?? "Verification failed");
+
+      setResetToken(data.resetToken);
+      setBiometricStatus("success");
+      setTimeout(() => setStep("forgotReset"), 800);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Verification failed";
+      setBiometricError(msg);
+      setBiometricStatus("error");
+    }
+  }
+
+  // ── Forgot password: security questions ───────────────────────────────────
   async function handleForgotQASubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setLoading(true);
@@ -295,6 +392,16 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
     finally { setLoading(false); }
   }
 
+  function handleDoneBackupCodes() {
+    if (savedUser && savedToken) setUser(savedUser, savedToken);
+    onClose();
+  }
+  function copyAllCodes() {
+    navigator.clipboard.writeText(backupCodes.join("\n")).then(() => {
+      setCopiedAll(true); setTimeout(() => setCopiedAll(false), 2500);
+    });
+  }
+
   async function handleAdminSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setLoading(true);
@@ -312,34 +419,27 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
     finally { setLoading(false); }
   }
 
-  function updateSq(i: number, field: "question" | "answer", value: string) {
-    setSq(prev => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q));
-  }
-
-  // ── Step titles ───────────────────────────────────────────────────────────
   const STEP_TITLES: Record<ModalStep, { title: string; sub: string }> = {
-    signin:       { title: "Sign In",          sub: "Welcome back to Trade Lab" },
-    signup:       { title: "Create Account",   sub: "Join Trade Lab today" },
-    admin:        { title: "Admin Login",      sub: "Restricted access" },
-    security:     { title: "Security Setup",   sub: "Step 2 of 3 — choose 3 personal questions" },
-    backupCodes:  { title: "Save Backup Codes", sub: "Step 3 of 3 — keep these safe" },
-    forgotEmail:  { title: "Reset Password",   sub: "Enter your email to continue" },
-    forgotQA:     { title: "Security Check",   sub: "Answer your security questions" },
-    forgotReset:  { title: "New Password",     sub: "Set a new password for your account" },
+    signin:           { title: "Sign In",              sub: "Welcome back to Trade Lab" },
+    signup:           { title: "Create Account",       sub: "Join Trade Lab today" },
+    admin:            { title: "Admin Login",          sub: "Restricted access" },
+    biometric:        { title: "Secure Your Account",  sub: "Step 2 of 3 — set up biometric recovery" },
+    backupCodes:      { title: "Save Backup Codes",    sub: "Step 3 of 3 — keep these safe" },
+    forgotEmail:      { title: "Reset Password",       sub: "Enter your email to continue" },
+    forgotBiometric:  { title: "Biometric Verification", sub: "Verify your identity with your device" },
+    forgotQA:         { title: "Security Check",       sub: "Answer your security questions" },
+    forgotReset:      { title: "New Password",         sub: "Set a new password for your account" },
   };
 
   const { title, sub } = STEP_TITLES[step];
-
   const canGoBack: Partial<Record<ModalStep, ModalStep>> = {
-    security: "signup",
     forgotEmail: "signin",
+    forgotBiometric: "forgotEmail",
     forgotQA: "forgotEmail",
-    forgotReset: "forgotQA",
+    forgotReset: forgotHasWebauthn ? "forgotBiometric" : "forgotQA",
   };
-
   const backTarget = canGoBack[step];
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center"
@@ -361,7 +461,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
           style={{ borderBottom: "1px solid hsl(var(--border))", background: "var(--glass-bg-strong)" }}>
           <div className="flex items-center gap-2">
             {backTarget && (
-              <button onClick={() => { setStep(backTarget); setError(""); }}
+              <button onClick={() => { setStep(backTarget); setError(""); setBiometricStatus("idle"); setBiometricError(""); }}
                 className="h-7 w-7 flex items-center justify-center rounded-full mr-1 transition-colors"
                 style={{ color: "hsl(var(--muted-foreground))", background: "hsl(var(--muted))" }}>
                 <ArrowLeft style={{ height: 13, width: 13 }} />
@@ -381,40 +481,34 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
           )}
         </div>
 
-        {/* ── Tab bar (signin / signup only) ── */}
+        {/* Tab bar */}
         {(step === "signin" || step === "signup" || step === "admin") && (
           <div className="flex mx-6 mt-4 rounded-xl p-1" style={{ background: "hsl(var(--muted))" }}>
             {(["signin", "signup"] as const).map(t => (
               <button key={t}
                 onClick={() => { setStep(t); setError(""); setPassword(""); setUseBackupCode(false); }}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-all"
-                style={step === t ? {
-                  background: "var(--card-bg)", boxShadow: "var(--shadow-xs)",
-                  color: "hsl(var(--foreground))",
-                } : { color: "hsl(var(--muted-foreground))" }}>
+                style={step === t
+                  ? { background: "var(--card-bg)", boxShadow: "var(--shadow-xs)", color: "hsl(var(--foreground))" }
+                  : { color: "hsl(var(--muted-foreground))" }}>
                 {t === "signin" && <LogIn style={{ height: 11, width: 11 }} />}
                 {t === "signup" && <UserPlus style={{ height: 11, width: 11 }} />}
                 {t === "signin" ? "Sign In" : "Sign Up"}
               </button>
             ))}
             {showAdminTab && (
-              <button
-                onClick={() => { setStep("admin"); setError(""); setPassword(""); setUseBackupCode(false); }}
+              <button onClick={() => { setStep("admin"); setError(""); setPassword(""); setUseBackupCode(false); }}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-all"
-                style={step === "admin" ? {
-                  background: "var(--card-bg)", boxShadow: "var(--shadow-xs)",
-                  color: "#f87171",
-                } : { color: "hsl(var(--muted-foreground))" }}>
-                <Shield style={{ height: 11, width: 11 }} />
-                Admin
+                style={step === "admin"
+                  ? { background: "var(--card-bg)", boxShadow: "var(--shadow-xs)", color: "#f87171" }
+                  : { color: "hsl(var(--muted-foreground))" }}>
+                <Shield style={{ height: 11, width: 11 }} />Admin
               </button>
             )}
           </div>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SIGN IN
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ── SIGN IN ── */}
         {step === "signin" && (
           <form onSubmit={handleSignin} className="px-6 pt-4 pb-6 flex flex-col gap-3">
             <Field label="Email Address" icon={<Mail style={{ height: 13, width: 13 }} />}>
@@ -425,7 +519,6 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
                 onFocus={e => (e.target.style.borderColor = "hsl(var(--ring))")}
                 onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")} />
             </Field>
-
             {!useBackupCode ? (
               <Field label="Password" icon={<Lock style={{ height: 13, width: 13 }} />}>
                 <input type={showPw ? "text" : "password"} placeholder="Your password" value={password}
@@ -442,41 +535,34 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
             ) : (
               <Field label="Backup Code" icon={<KeyRound style={{ height: 13, width: 13 }} />}>
                 <input type="text" placeholder="XXXX-XXXX" value={backupCodeInput}
-                  onChange={e => setBackupCodeInput(e.target.value.toUpperCase())} required
-                  maxLength={9}
+                  onChange={e => setBackupCodeInput(e.target.value.toUpperCase())} required maxLength={9}
                   className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none font-mono transition-[border-color]"
                   style={inputStyle}
                   onFocus={e => (e.target.style.borderColor = "hsl(var(--ring))")}
                   onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")} />
               </Field>
             )}
-
             <div className="flex items-center justify-between text-[11px]">
               <button type="button" onClick={() => { setUseBackupCode(v => !v); setError(""); }}
-                className="flex items-center gap-1 transition-colors"
-                style={{ color: "hsl(var(--muted-foreground))" }}
+                className="flex items-center gap-1 transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}
                 onMouseEnter={e => (e.currentTarget.style.color = "hsl(var(--foreground))")}
                 onMouseLeave={e => (e.currentTarget.style.color = "hsl(var(--muted-foreground))")}>
                 <KeyRound style={{ height: 10, width: 10 }} />
                 {useBackupCode ? "Use password instead" : "Use backup code"}
               </button>
               <button type="button" onClick={() => { setStep("forgotEmail"); setForgotEmail(email); setError(""); }}
-                className="transition-colors"
-                style={{ color: "hsl(var(--muted-foreground))" }}
+                className="transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}
                 onMouseEnter={e => (e.currentTarget.style.color = "hsl(var(--foreground))")}
                 onMouseLeave={e => (e.currentTarget.style.color = "hsl(var(--muted-foreground))")}>
                 Forgot password?
               </button>
             </div>
-
             <ErrorBox error={error} />
             <SubmitBtn loading={loading} label="Sign In" />
           </form>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SIGN UP — Step 1
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ── SIGN UP ── */}
         {step === "signup" && (
           <form onSubmit={handleSignupStep1} className="px-6 pt-4 pb-6 flex flex-col gap-3">
             <Field label="Full Name" icon={<User style={{ height: 13, width: 13 }} />}>
@@ -519,72 +605,114 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
               </div>
             )}
             <ErrorBox error={error} />
-            <SubmitBtn loading={false} label="Continue →" />
+            <SubmitBtn loading={loading} label="Create Account →" />
             <p className="text-center text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-              Next: set up security questions for account recovery
+              Next: set up biometric recovery (fingerprint / Face ID)
             </p>
           </form>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SIGN UP — Step 2: Security Questions
-        ════════════════════════════════════════════════════════════════════ */}
-        {step === "security" && (
-          <form onSubmit={handleSignupSubmit} className="px-6 pt-4 pb-6 flex flex-col gap-4">
-            <div className="rounded-xl px-3 py-2.5 flex items-start gap-2"
-              style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)" }}>
-              <HelpCircle style={{ height: 12, width: 12, color: "#22c55e", flexShrink: 0, marginTop: 1 }} />
-              <span className="text-[11px]" style={{ color: "#22c55e" }}>
-                These answers will be used to verify your identity if you forget your password. Answers are not case-sensitive.
-              </span>
+        {/* ── BIOMETRIC SETUP ── */}
+        {step === "biometric" && (
+          <div className="px-6 pt-5 pb-6 flex flex-col gap-5">
+            {/* Icon */}
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="relative">
+                <div className="h-20 w-20 rounded-2xl flex items-center justify-center"
+                  style={{
+                    background: biometricStatus === "success"
+                      ? "rgba(34,197,94,0.12)"
+                      : biometricStatus === "error"
+                        ? "rgba(239,68,68,0.10)"
+                        : "rgba(99,102,241,0.12)",
+                    border: `2px solid ${biometricStatus === "success" ? "#22c55e" : biometricStatus === "error" ? "#ef4444" : "rgba(99,102,241,0.35)"}`,
+                    transition: "all 0.3s",
+                  }}>
+                  {biometricStatus === "success" ? (
+                    <Check style={{ height: 36, width: 36, color: "#22c55e" }} />
+                  ) : biometricStatus === "error" ? (
+                    <AlertCircle style={{ height: 36, width: 36, color: "#ef4444" }} />
+                  ) : biometricStatus === "unsupported" ? (
+                    <Smartphone style={{ height: 36, width: 36, color: "hsl(var(--muted-foreground))" }} />
+                  ) : (
+                    <Fingerprint style={{
+                      height: 36, width: 36,
+                      color: biometricStatus === "registering" ? "#a5b4fc" : "#6366f1",
+                      animation: biometricStatus === "registering" ? "pulse 1s infinite" : "none",
+                    }} />
+                  )}
+                </div>
+              </div>
+
+              {biometricStatus === "idle" && (
+                <>
+                  <p className="text-sm font-semibold text-center" style={{ color: "hsl(var(--foreground))" }}>
+                    Enable Fingerprint / Face ID
+                  </p>
+                  <p className="text-xs text-center leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Register your device's biometric sensor to reset your password without answering security questions.
+                  </p>
+                </>
+              )}
+              {biometricStatus === "registering" && (
+                <p className="text-sm font-medium text-center" style={{ color: "#a5b4fc" }}>
+                  Waiting for biometric…
+                </p>
+              )}
+              {biometricStatus === "success" && (
+                <p className="text-sm font-semibold text-center" style={{ color: "#22c55e" }}>
+                  Biometric registered! ✓
+                </p>
+              )}
+              {biometricStatus === "error" && (
+                <>
+                  <p className="text-sm font-semibold text-center" style={{ color: "#ef4444" }}>Registration failed</p>
+                  {biometricError && (
+                    <p className="text-xs text-center" style={{ color: "hsl(var(--muted-foreground))" }}>{biometricError}</p>
+                  )}
+                </>
+              )}
+              {biometricStatus === "unsupported" && (
+                <>
+                  <p className="text-sm font-semibold text-center" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Not available on this device
+                  </p>
+                  <p className="text-xs text-center" style={{ color: "hsl(var(--muted-foreground))" }}>
+                    Biometric authentication is not supported in this browser. You can still sign in with your backup codes.
+                  </p>
+                </>
+              )}
             </div>
 
-            {([0, 1, 2] as const).map(i => (
-              <div key={i} className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  Question {i + 1}
-                </label>
-                <select value={sq[i]!.question}
-                  onChange={e => updateSq(i, "question", e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-[border-color]"
-                  style={{ ...inputStyle, appearance: "none" }}
-                  onFocus={e => (e.target.style.borderColor = "hsl(var(--ring))")}
-                  onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")}>
-                  <option value="">— Choose a question —</option>
-                  {SECURITY_QUESTIONS.filter(q =>
-                    q === sq[i]!.question || !sq.some((s, si) => si !== i && s.question === q)
-                  ).map(q => (
-                    <option key={q} value={q}>{q}</option>
-                  ))}
-                </select>
-                <input type="text" placeholder="Your answer"
-                  value={sq[i]!.answer}
-                  onChange={e => updateSq(i, "answer", e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-[border-color]"
-                  style={inputStyle}
-                  onFocus={e => (e.target.style.borderColor = "hsl(var(--ring))")}
-                  onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")} />
-              </div>
-            ))}
+            {(biometricStatus === "idle" || biometricStatus === "error") && biometricStatus !== "unsupported" && (
+              <button
+                onClick={handleBiometricRegister}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                style={{ background: "#6366f1", color: "#fff", boxShadow: "0 0 20px rgba(99,102,241,0.3)" }}>
+                <Fingerprint style={{ height: 15, width: 15 }} />
+                {biometricStatus === "error" ? "Try Again" : "Register Fingerprint / Face ID"}
+              </button>
+            )}
 
-            <ErrorBox error={error} />
-            <SubmitBtn loading={loading} label="Create Account" />
-          </form>
+            <button
+              onClick={() => setStep("backupCodes")}
+              className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors"
+              style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+              {biometricStatus === "unsupported" ? "Continue without biometric" : "Skip for now"}
+            </button>
+          </div>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SIGN UP — Step 3: Backup Codes
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ── BACKUP CODES ── */}
         {step === "backupCodes" && (
           <div className="px-6 pt-4 pb-6 flex flex-col gap-4">
             <div className="rounded-xl px-3 py-2.5 flex items-start gap-2"
               style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
               <Shield style={{ height: 12, width: 12, color: "#eab308", flexShrink: 0, marginTop: 1 }} />
               <span className="text-[11px]" style={{ color: "#eab308" }}>
-                Save these 6 backup codes somewhere safe. Each code can be used <strong>once</strong> to sign in if you forget your password. They cannot be shown again.
+                Save these 6 backup codes somewhere safe. Each can be used <strong>once</strong> to sign in if you lose access.
               </span>
             </div>
-
             <div className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
               {backupCodes.map((code, i) => (
                 <div key={i} className="flex items-center justify-between px-4 py-2.5"
@@ -594,25 +722,21 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
                 </div>
               ))}
             </div>
-
             <button type="button" onClick={copyAllCodes}
               className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{ border: "1px solid hsl(var(--border))", background: copiedAll ? "rgba(34,197,94,0.1)" : "hsl(var(--muted))", color: copiedAll ? "#22c55e" : "hsl(var(--foreground))" }}>
               {copiedAll ? <Check style={{ height: 14, width: 14 }} /> : <Copy style={{ height: 14, width: 14 }} />}
               {copiedAll ? "Copied!" : "Copy All Codes"}
             </button>
-
             <button type="button" onClick={handleDoneBackupCodes}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
+              className="w-full py-2.5 rounded-xl text-sm font-semibold"
               style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))", boxShadow: "var(--shadow-btn)" }}>
               I've saved my codes — Enter Trade Lab
             </button>
           </div>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            FORGOT PASSWORD — Step 1: Email
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ── FORGOT: Email ── */}
         {step === "forgotEmail" && (
           <form onSubmit={handleForgotEmailSubmit} className="px-6 pt-4 pb-6 flex flex-col gap-3">
             <Field label="Email Address" icon={<Mail style={{ height: 13, width: 13 }} />}>
@@ -624,19 +748,71 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
                 onBlur={e => (e.target.style.borderColor = "hsl(var(--border))")} />
             </Field>
             <ErrorBox error={error} />
-            <SubmitBtn loading={loading} label="Load Security Questions →" />
+            <SubmitBtn loading={loading} label="Continue →" />
           </form>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            FORGOT PASSWORD — Step 2: Answer Questions
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ── FORGOT: Biometric Verify ── */}
+        {step === "forgotBiometric" && (
+          <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="h-20 w-20 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: biometricStatus === "success" ? "rgba(34,197,94,0.12)" : biometricStatus === "error" ? "rgba(239,68,68,0.10)" : "rgba(99,102,241,0.12)",
+                  border: `2px solid ${biometricStatus === "success" ? "#22c55e" : biometricStatus === "error" ? "#ef4444" : "rgba(99,102,241,0.35)"}`,
+                }}>
+                {biometricStatus === "success" ? (
+                  <Check style={{ height: 36, width: 36, color: "#22c55e" }} />
+                ) : biometricStatus === "error" ? (
+                  <AlertCircle style={{ height: 36, width: 36, color: "#ef4444" }} />
+                ) : (
+                  <Fingerprint style={{ height: 36, width: 36, color: biometricStatus === "registering" ? "#a5b4fc" : "#6366f1" }} />
+                )}
+              </div>
+              {biometricStatus !== "success" && (
+                <p className="text-sm text-center leading-relaxed" style={{ color: "hsl(var(--muted-foreground))" }}>
+                  {biometricStatus === "error" ? biometricError : "Verify your identity using the fingerprint or Face ID registered on this device."}
+                </p>
+              )}
+              {biometricStatus === "success" && (
+                <p className="text-sm font-semibold" style={{ color: "#22c55e" }}>Identity verified!</p>
+              )}
+            </div>
+
+            {(biometricStatus === "idle" || biometricStatus === "error") && (
+              <button onClick={handleForgotBiometric}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                style={{ background: "#6366f1", color: "#fff" }}>
+                <Fingerprint style={{ height: 15, width: 15 }} />
+                {biometricStatus === "error" ? "Try Again" : "Verify with Fingerprint / Face ID"}
+              </button>
+            )}
+            {biometricStatus === "registering" && (
+              <div className="flex items-center justify-center gap-2 py-2" style={{ color: "#a5b4fc" }}>
+                <RefreshCw style={{ height: 14, width: 14 }} className="animate-spin" />
+                <span className="text-sm">Waiting for biometric…</span>
+              </div>
+            )}
+
+            {forgotHasQuestions && biometricStatus !== "success" && (
+              <button type="button"
+                onClick={() => { setBiometricStatus("idle"); setBiometricError(""); setStep("forgotQA"); }}
+                className="text-[11px] text-center transition-colors"
+                style={{ color: "hsl(var(--muted-foreground))" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "hsl(var(--foreground))")}
+                onMouseLeave={e => (e.currentTarget.style.color = "hsl(var(--muted-foreground))")}>
+                Use security questions instead
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── FORGOT: Security Questions ── */}
         {step === "forgotQA" && (
           <form onSubmit={handleForgotQASubmit} className="px-6 pt-4 pb-6 flex flex-col gap-4">
             {forgotQuestions.map((q, i) => (
               <div key={i} className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-medium leading-snug" style={{ color: "hsl(var(--muted-foreground))" }}>
-                  <HelpCircle style={{ height: 10, width: 10, display: "inline", marginRight: 4 }} />
                   {q}
                 </label>
                 <input type="text" placeholder="Your answer" value={forgotAnswers[i]}
@@ -649,13 +825,11 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
               </div>
             ))}
             <ErrorBox error={error} />
-            <SubmitBtn loading={loading} label="Verify Answers →" />
+            <SubmitBtn loading={loading} label="Verify →" />
           </form>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            FORGOT PASSWORD — Step 3: New Password
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ── FORGOT: New Password ── */}
         {step === "forgotReset" && (
           <form onSubmit={handleForgotReset} className="px-6 pt-4 pb-6 flex flex-col gap-3">
             <div className="rounded-xl px-3 py-2.5 flex items-center gap-2"
@@ -680,9 +854,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
           </form>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════
-            ADMIN
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ── ADMIN ── */}
         {step === "admin" && (
           <form onSubmit={handleAdminSubmit} className="px-6 pt-4 pb-6 flex flex-col gap-3">
             <div className="rounded-xl px-3 py-2.5 flex items-center gap-2"
@@ -723,7 +895,6 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
   );
 }
 
-// ── Small shared components ────────────────────────────────────────────────────
 function Field({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
@@ -735,7 +906,6 @@ function Field({ label, icon, children }: { label: string; icon: React.ReactNode
     </div>
   );
 }
-
 function ErrorBox({ error }: { error: string }) {
   if (!error) return null;
   return (
@@ -745,7 +915,6 @@ function ErrorBox({ error }: { error: string }) {
     </div>
   );
 }
-
 function SubmitBtn({ loading, label }: { loading: boolean; label: string }) {
   return (
     <button type="submit" disabled={loading}

@@ -918,28 +918,90 @@ export default function AiAssistant() {
 
     return (
       <div className="fade-up pb-8">
+        <style>{`
+          @keyframes ai-hero-float {
+            0%, 100% { transform: translateY(0px) scale(1); opacity: 0.35; }
+            50%       { transform: translateY(-18px) scale(1.07); opacity: 0.55; }
+          }
+          @keyframes ai-badge-shimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position:  200% center; }
+          }
+          @keyframes ai-orb-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.0), 0 0 20px rgba(99,102,241,0.18); }
+            50%       { box-shadow: 0 0 0 8px rgba(99,102,241,0.08), 0 0 38px rgba(99,102,241,0.30); }
+          }
+          @keyframes ai-stat-in {
+            from { opacity: 0; transform: translateY(12px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          @keyframes ai-card-in {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes ai-dot-blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.2; }
+          }
+          .ai-hero-particle { animation: ai-hero-float var(--dur,8s) ease-in-out infinite; animation-delay: var(--delay,0s); }
+          .ai-badge-shimmer {
+            background: linear-gradient(90deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.12) 30%, rgba(165,180,252,0.28) 50%, rgba(99,102,241,0.12) 70%, rgba(99,102,241,0.12) 100%);
+            background-size: 200% auto;
+            animation: ai-badge-shimmer 3s linear infinite;
+          }
+          .ai-stat-badge { animation: ai-stat-in 0.5s ease both; }
+          .ai-feature-card { animation: ai-card-in 0.45s ease both; }
+          .ai-live-dot { animation: ai-dot-blink 1.4s ease-in-out infinite; }
+        `}</style>
         <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
         {/* ── Hero ─────────────────────────────────────────────── */}
         <div className="rounded-2xl p-8 mb-6 relative overflow-hidden"
           style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+
+          {/* Animated radial orbs */}
           <div className="pointer-events-none absolute inset-0"
-            style={{ background: "radial-gradient(ellipse 70% 120% at 0% 50%, rgba(99,102,241,0.10) 0%, transparent 60%)" }} />
+            style={{ background: "radial-gradient(ellipse 70% 120% at 0% 50%, rgba(99,102,241,0.12) 0%, transparent 60%)" }} />
           <div className="pointer-events-none absolute inset-0"
-            style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(34,211,238,0.07) 0%, transparent 60%)" }} />
+            style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(34,211,238,0.08) 0%, transparent 60%)" }} />
+
+          {/* Floating particles */}
+          {[
+            { top: "12%",  left: "8%",  size: 6,  dur: "7s",  delay: "0s" },
+            { top: "68%",  left: "15%", size: 4,  dur: "9s",  delay: "1.2s" },
+            { top: "28%",  left: "82%", size: 5,  dur: "8.5s",delay: "0.5s" },
+            { top: "75%",  left: "75%", size: 7,  dur: "10s", delay: "2s" },
+            { top: "48%",  left: "52%", size: 3,  dur: "6.5s",delay: "1.8s" },
+            { top: "18%",  left: "45%", size: 4,  dur: "11s", delay: "0.8s" },
+          ].map((p, i) => (
+            <div key={i}
+              className="pointer-events-none absolute rounded-full ai-hero-particle"
+              style={{
+                top: p.top, left: p.left,
+                width: p.size, height: p.size,
+                background: i % 2 === 0 ? "rgba(99,102,241,0.45)" : "rgba(34,211,238,0.35)",
+                ["--dur" as string]: p.dur,
+                ["--delay" as string]: p.delay,
+              }} />
+          ))}
 
           <div className="relative flex flex-col lg:flex-row items-center lg:items-start gap-8">
             {/* Left: text + CTA */}
             <div className="flex-1 text-center lg:text-left">
-              {/* Orb icon */}
+              {/* Orb icon with pulse */}
               <div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto lg:mx-0 mb-5"
-                style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.25), rgba(34,211,238,0.15))", border: "1px solid rgba(99,102,241,0.3)" }}>
+                style={{
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.28), rgba(34,211,238,0.16))",
+                  border: "1px solid rgba(99,102,241,0.35)",
+                  animation: "ai-orb-pulse 2.8s ease-in-out infinite",
+                }}>
                 <Brain className="h-7 w-7" style={{ color: "#a5b4fc" }} />
               </div>
 
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4"
-                style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)" }}>
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#6366f1" }} />
+              {/* Shimmer badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4 ai-badge-shimmer"
+                style={{ border: "1px solid rgba(99,102,241,0.30)" }}>
+                <span className="h-1.5 w-1.5 rounded-full ai-live-dot" style={{ background: "#6366f1" }} />
                 <span style={{ fontSize: "11px", fontFamily: "var(--app-font-mono)", letterSpacing: "0.08em", color: "#a5b4fc" }}>
                   AI MARKET ASSISTANT
                 </span>
@@ -958,9 +1020,9 @@ export default function AiAssistant() {
               <div className="flex gap-3 justify-center lg:justify-start">
                 <button
                   className="px-6 h-11 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: "#6366f1", color: "#fff", boxShadow: "0 0 20px rgba(99,102,241,0.35)" }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#4f46e5"}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "#6366f1"}
+                  style={{ background: "#6366f1", color: "#fff", boxShadow: "0 0 24px rgba(99,102,241,0.40)" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#4f46e5"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 32px rgba(99,102,241,0.55)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#6366f1"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 24px rgba(99,102,241,0.40)"; }}
                   onClick={() => setShowAuthModal(true)}>
                   Sign In Free
                 </button>
@@ -979,16 +1041,22 @@ export default function AiAssistant() {
               </p>
             </div>
 
-            {/* Right: stat badges */}
+            {/* Right: stat badges with staggered entrance */}
             <div className="hidden lg:grid grid-cols-2 gap-3 flex-shrink-0 w-64">
               {[
                 { label: "Markets Tracked", value: "12+" },
                 { label: "AI Model", value: "70B LLM" },
                 { label: "ICT Concepts", value: "15+" },
                 { label: "Updated", value: "Live" },
-              ].map(s => (
-                <div key={s.label} className="rounded-xl p-3.5 text-center"
-                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--glass-border)" }}>
+              ].map((s, i) => (
+                <div key={s.label} className="rounded-xl p-3.5 text-center ai-stat-badge"
+                  style={{
+                    background: "rgba(255,255,255,0.04)", border: "1px solid var(--glass-border)",
+                    animationDelay: `${0.15 + i * 0.08}s`,
+                    transition: "border-color 0.2s, background 0.2s",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(99,102,241,0.35)"; (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.06)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--glass-border)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}>
                   <div className="text-xl font-bold mb-0.5" style={{ fontFamily: "var(--app-font-mono)", color: "var(--foreground)" }}>{s.value}</div>
                   <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{s.label}</div>
                 </div>
@@ -1006,7 +1074,7 @@ export default function AiAssistant() {
             {FEATURE_CARDS.map((f, i) => (
               <button
                 key={f.label}
-                className="text-left rounded-2xl p-4 transition-all group fade-up"
+                className="text-left rounded-2xl p-4 transition-all group ai-feature-card"
                 style={{
                   background: "var(--card-bg)",
                   border: "1px solid var(--glass-border)",

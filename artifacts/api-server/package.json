@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^13.3.2",
     "@types/compression": "^1.8.1",
     "@types/nodemailer": "^8.0.1",
     "@workspace/api-zod": "workspace:*",

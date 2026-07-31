@@ -33,3 +33,5 @@ export * from "./drawings";
 export * from "./security_questions";
 export * from "./backup_codes";
 export * from "./user_follows";
+export * from "./webauthn_credentials";
+export * from "./manual_payments";

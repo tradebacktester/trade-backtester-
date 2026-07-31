@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { verifyJwt } from "../lib/jwt";
 import { createHmac } from "crypto";
-import { db, subscriptionPlansTable, subscriptionsTable, paymentsTable, usersTable, couponsTable, couponUsagesTable } from "@workspace/db";
+import { db, subscriptionPlansTable, subscriptionsTable, paymentsTable, usersTable, couponsTable, couponUsagesTable, manualPaymentsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
@@ -353,6 +353,48 @@ router.get("/subscription/payments", async (req, res): Promise<void> => {
     .limit(20);
 
   res.json(payments.map(p => ({ ...p, createdAt: p.createdAt.toISOString() })));
+});
+
+// ── Manual UPI payment submission ─────────────────────────────────────────────
+router.post("/subscription/manual-payment", async (req, res): Promise<void> => {
+  const userId = extractUserId(req);
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { planId, screenshotData, screenshotMime, utrNote } = req.body as {
+    planId: number;
+    screenshotData: string;
+    screenshotMime?: string;
+    utrNote?: string;
+  };
+
+  if (!planId) { res.status(400).json({ error: "planId is required" }); return; }
+  if (!screenshotData) { res.status(400).json({ error: "Payment screenshot is required" }); return; }
+
+  // Size guard: ~1.5 MB base64
+  if (screenshotData.length > 2_000_000) {
+    res.status(400).json({ error: "Screenshot is too large. Please compress the image before uploading." }); return;
+  }
+
+  const [plan] = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.id, planId)).limit(1);
+  if (!plan || !plan.isActive || plan.priceMonthly === 0) {
+    res.status(400).json({ error: "Invalid plan" }); return;
+  }
+
+  const { manualPaymentsTable } = await import("@workspace/db");
+  const [payment] = await db.insert(manualPaymentsTable).values({
+    userId,
+    planId,
+    screenshotData,
+    screenshotMime: screenshotMime ?? "image/jpeg",
+    utrNote: utrNote ?? null,
+    status: "pending",
+  }).returning();
+
+  res.status(201).json({
+    success: true,
+    id: payment!.id,
+    message: "Payment submitted! Admin will review and activate your plan within 24 hours.",
+  });
 });
 
 export default router;

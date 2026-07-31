@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronUp, UserCheck, UserX, Crown, CreditCard, Zap,
   Plus, Edit2, ToggleLeft, ToggleRight, Gift, Trash2, Star,
   X, Check, Package, AlertCircle, Calendar, Hash, KeyRound, Copy, Clock,
-  GraduationCap, BookOpen, BarChart2, Tag, Percent,
+  GraduationCap, BookOpen, BarChart2, Tag, Percent, QrCode, ImageIcon, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
@@ -76,7 +76,24 @@ interface PendingReset {
   userId: number; userEmail: string | null; userName: string | null;
 }
 
-type Tab = "users" | "policies" | "plans" | "subscribers" | "payments" | "resets" | "academy" | "coupons";
+type Tab = "users" | "policies" | "plans" | "subscribers" | "payments" | "resets" | "academy" | "coupons" | "upiPayments";
+
+interface ManualPayment {
+  id: number;
+  userId: number;
+  planId: number;
+  screenshotData: string | null;
+  screenshotMime: string | null;
+  utrNote: string | null;
+  status: "pending" | "approved" | "rejected";
+  adminNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userName: string | null;
+  userEmail: string | null;
+  planName: string | null;
+  planSlug: string | null;
+}
 
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
@@ -145,6 +162,13 @@ export default function AdminPanel() {
   const [newCoupon, setNewCoupon] = useState({ code: "", discountPercent: "10", planSlug: "all", maxUses: "" });
   const [creatingCoupon, setCreatingCoupon] = useState(false);
   const [couponCreateError, setCouponCreateError] = useState("");
+
+  // ── UPI / Manual Payments ──
+  const [manualPayments, setManualPayments] = useState<ManualPayment[]>([]);
+  const [manualPaymentsLoading, setManualPaymentsLoading] = useState(true);
+  const [processingPaymentId, setProcessingPaymentId] = useState<number | null>(null);
+  const [adminNoteInputs, setAdminNoteInputs] = useState<Record<number, string>>({});
+  const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null);
 
   useEffect(() => { if (!adminToken) { setLocation("/admin"); return; } }, [adminToken]);
 
@@ -227,10 +251,19 @@ export default function AdminPanel() {
     finally { setCouponsLoading(false); }
   }, [headers, setAdminToken, setLocation]);
 
+  const fetchManualPayments = useCallback(async () => {
+    setManualPaymentsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/manual-payments`, { headers });
+      if (res.ok) setManualPayments(await res.json());
+    } catch { }
+    finally { setManualPaymentsLoading(false); }
+  }, [headers]);
+
   useEffect(() => {
     if (!adminToken) return;
-    fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments(); fetchResets(); fetchCoupons();
-  }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments, fetchResets, fetchCoupons]);
+    fetchUsers(); fetchPolicies(); fetchPlans(); fetchSubs(); fetchPayments(); fetchResets(); fetchCoupons(); fetchManualPayments();
+  }, [adminToken, fetchUsers, fetchPolicies, fetchPlans, fetchSubs, fetchPayments, fetchResets, fetchCoupons, fetchManualPayments]);
 
   async function revokePlan(user: AdminUser) {
     if (!confirm(`Remove ${user.planName} plan from ${user.name}? They will immediately drop to Free.`)) return;
@@ -358,7 +391,10 @@ export default function AdminPanel() {
     ["resets", KeyRound, "Resets"],
     ["academy", GraduationCap, "Academy"],
     ["coupons", Tag, "Coupons"],
+    ["upiPayments", QrCode, "UPI Pay"],
   ];
+
+  const pendingManualCount = useMemo(() => manualPayments.filter(p => p.status === "pending").length, [manualPayments]);
 
   // Memoized so these three array passes only re-run when subs or the filter changes,
   // not on every keystroke in the grant form or any other unrelated state update.
@@ -411,6 +447,12 @@ export default function AdminPanel() {
               <span className="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
                 style={tab === key ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: "rgba(251,191,36,0.15)", color: "#fbbf24" }}>
                 {resets.length}
+              </span>
+            )}
+            {key === "upiPayments" && pendingManualCount > 0 && (
+              <span className="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                style={tab === key ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: "rgba(34,211,238,0.15)", color: "#22d3ee" }}>
+                {pendingManualCount}
               </span>
             )}
           </button>
@@ -1335,6 +1377,156 @@ export default function AdminPanel() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── UPI / Manual Payments ── */}
+      {(tab === "upiPayments" || visitedTabs.has("upiPayments")) && (
+        <div className={tab !== "upiPayments" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
+          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
+            <div className="flex items-center gap-2">
+              <QrCode style={{ height: "14px", width: "14px", color: "#22d3ee" }} />
+              <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>UPI Payment Submissions</span>
+              {pendingManualCount > 0 && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.2)" }}>
+                  {pendingManualCount} pending
+                </span>
+              )}
+            </div>
+            <button onClick={fetchManualPayments} className="p-1.5 rounded-lg transition-colors" style={{ color: "hsl(var(--muted-foreground))" }}>
+              <RefreshCw style={{ height: "13px", width: "13px" }} />
+            </button>
+          </div>
+
+          {manualPaymentsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw style={{ height: "18px", width: "18px", animation: "spin 0.8s linear infinite", opacity: 0.4 }} />
+            </div>
+          ) : manualPayments.length === 0 ? (
+            <div className="text-center py-12">
+              <QrCode style={{ height: "28px", width: "28px", marginBottom: "8px", opacity: 0.2 }} className="mx-auto" />
+              <p className="text-sm" style={{ color: "hsl(var(--muted-foreground))" }}>No payment submissions yet</p>
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: "var(--glass-border)" }}>
+              {manualPayments.map(p => {
+                const isPending = p.status === "pending";
+                const isExpanded = expandedPaymentId === p.id;
+                const statusColors: Record<string, { bg: string; fg: string; border: string }> = {
+                  pending:  { bg: "rgba(251,191,36,0.08)", fg: "#fbbf24", border: "rgba(251,191,36,0.2)" },
+                  approved: { bg: "rgba(34,197,94,0.08)",  fg: "#4ade80", border: "rgba(34,197,94,0.2)" },
+                  rejected: { bg: "rgba(239,68,68,0.08)",  fg: "#f87171", border: "rgba(239,68,68,0.2)" },
+                };
+                const sc = statusColors[p.status];
+                return (
+                  <div key={p.id} className="px-5 py-4">
+                    {/* Row */}
+                    <div className="flex items-start gap-3">
+                      <span className="h-8 w-8 rounded-xl flex-shrink-0 flex items-center justify-center mt-0.5"
+                        style={{ background: sc.bg, border: `1px solid ${sc.border}` }}>
+                        <QrCode style={{ height: "13px", width: "13px", color: sc.fg }} />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>{p.userName ?? `User #${p.userId}`}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: sc.bg, color: sc.fg, border: `1px solid ${sc.border}` }}>
+                            {p.status.toUpperCase()}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+                            {p.planName ?? `Plan #${p.planId}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{p.userEmail}</span>
+                          <span className="text-[10px]" style={{ color: "hsl(var(--muted-foreground))" }}>
+                            {new Date(p.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        {p.utrNote && <p className="text-[11px] mt-1 font-mono" style={{ color: "#22d3ee" }}>UTR: {p.utrNote}</p>}
+                        {p.adminNote && <p className="text-[11px] mt-1 italic" style={{ color: "hsl(var(--muted-foreground))" }}>Admin note: {p.adminNote}</p>}
+                      </div>
+                      {/* Toggle screenshot */}
+                      <button onClick={() => setExpandedPaymentId(isExpanded ? null : p.id)}
+                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all"
+                        style={{ background: "var(--glass-bg)", color: "hsl(var(--muted-foreground))", border: "1px solid var(--glass-border)" }}>
+                        <ImageIcon style={{ height: "12px", width: "12px" }} />
+                        {isExpanded ? "Hide" : "View"}
+                      </button>
+                    </div>
+
+                    {/* Expanded: screenshot + action buttons */}
+                    {isExpanded && (
+                      <div className="mt-4 space-y-4">
+                        {p.screenshotData && (
+                          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--glass-border)", background: "#fff" }}>
+                            <img
+                              src={`data:${p.screenshotMime ?? "image/jpeg"};base64,${p.screenshotData}`}
+                              alt="Payment screenshot"
+                              className="w-full max-h-64 object-contain"
+                            />
+                          </div>
+                        )}
+
+                        {isPending && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-[11px] font-medium mb-1 block" style={{ color: "hsl(var(--muted-foreground))" }}>Admin note (optional)</label>
+                              <input type="text" placeholder="e.g. Verified via Paytm dashboard"
+                                value={adminNoteInputs[p.id] ?? ""}
+                                onChange={e => setAdminNoteInputs(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                                style={{ border: "1px solid var(--glass-border)", background: "hsl(var(--input))", color: "hsl(var(--foreground))" }} />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                disabled={processingPaymentId === p.id}
+                                onClick={async () => {
+                                  setProcessingPaymentId(p.id);
+                                  try {
+                                    const res = await fetch(`${API_BASE}/api/admin/manual-payments/${p.id}/approve`, {
+                                      method: "POST", headers, body: JSON.stringify({ adminNote: adminNoteInputs[p.id] || undefined }),
+                                    });
+                                    if (res.ok) {
+                                      setManualPayments(ms => ms.map(m => m.id === p.id ? { ...m, status: "approved", adminNote: adminNoteInputs[p.id] || null } : m));
+                                      setExpandedPaymentId(null);
+                                    }
+                                  } finally { setProcessingPaymentId(null); }
+                                }}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold transition-all"
+                                style={{ background: processingPaymentId === p.id ? "hsl(var(--muted))" : "rgba(34,197,94,0.15)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.25)" }}>
+                                {processingPaymentId === p.id
+                                  ? <><RefreshCw style={{ height: "12px", width: "12px", animation: "spin 0.8s linear infinite" }} /> Processing…</>
+                                  : <><CheckCircle2 style={{ height: "13px", width: "13px" }} /> Approve &amp; Activate</>}
+                              </button>
+                              <button
+                                disabled={processingPaymentId === p.id}
+                                onClick={async () => {
+                                  if (!confirm("Reject this payment?")) return;
+                                  setProcessingPaymentId(p.id);
+                                  try {
+                                    const res = await fetch(`${API_BASE}/api/admin/manual-payments/${p.id}/reject`, {
+                                      method: "POST", headers, body: JSON.stringify({ adminNote: adminNoteInputs[p.id] || undefined }),
+                                    });
+                                    if (res.ok) {
+                                      setManualPayments(ms => ms.map(m => m.id === p.id ? { ...m, status: "rejected", adminNote: adminNoteInputs[p.id] || null } : m));
+                                      setExpandedPaymentId(null);
+                                    }
+                                  } finally { setProcessingPaymentId(null); }
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                                style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}>
+                                <XCircle style={{ height: "13px", width: "13px" }} /> Reject
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
