@@ -673,7 +673,7 @@ export function AcademyAdminTab() {
             </div>
 
             {!aiGenerated && !aiGenerating && !aiMsg && (
-              <button onClick={runAiGenerate} style={{ ...btnBase, padding: "10px 20px", background: `linear-gradient(135deg, ${C.purple}, #7c3aed)`, color: "#fff", fontSize: "13px", justifyContent: "center", borderRadius: "10px" }}>
+              <button onClick={runAiGenerate} style={{ ...btnBase, padding: "10px 20px", background: `linear-gradient(135deg, ${C.purple}, #878681)`, color: "#fff", fontSize: "13px", justifyContent: "center", borderRadius: "10px" }}>
                 <Wand2 style={{ height: "14px", width: "14px" }} /> Generate Course Content
               </button>
             )}
@@ -733,7 +733,7 @@ export function AcademyAdminTab() {
                   <button onClick={() => { setAiGenerated(null); setAiMsg(null); }} style={{ ...btnBase, padding: "7px 16px", background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))", fontWeight: 400 }}>
                     Regenerate
                   </button>
-                  <button onClick={saveAiContent} disabled={aiSaving} style={{ ...btnBase, padding: "7px 16px", background: `linear-gradient(135deg, ${C.purple}, #7c3aed)`, color: "#fff", opacity: aiSaving ? 0.7 : 1 }}>
+                  <button onClick={saveAiContent} disabled={aiSaving} style={{ ...btnBase, padding: "7px 16px", background: `linear-gradient(135deg, ${C.purple}, #878681)`, color: "#fff", opacity: aiSaving ? 0.7 : 1 }}>
                     {aiSaving ? <RefreshCw style={{ height: "11px", width: "11px", animation: "spin 1s linear infinite" }} /> : <Save style={{ height: "11px", width: "11px" }} />}
                     Save All Content
                   </button>

@@ -53,3 +53,9 @@ Thumbs.db
 # Use the Replit Secrets store (padlock icon) for all sensitive values.
 # Run `bash scripts/check-replit-secrets.sh` (or install as .git/hooks/pre-commit)
 # to scan .replit for accidental secret exposure before committing.
+
+# Android local env overrides
+artifacts/trade-backtest/.env.android.local
+artifacts/trade-backtest/android/keystore.properties
+artifacts/trade-backtest/android/local.properties
+*.keystore

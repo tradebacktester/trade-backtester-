@@ -908,7 +908,7 @@ export default function AiAssistant() {
   if (!token) {
     const FEATURE_CARDS = [
       { icon: Brain,       label: "Market Overview",   color: "#6366f1", desc: "Live sentiment scores across BTC, ETH, Forex, Gold & more — bullish/bearish/neutral in one view." },
-      { icon: Newspaper,   label: "Market News",        color: "#22d3ee", desc: "Curated news feed with AI-tagged sentiment — filter by impact and asset class." },
+      { icon: Newspaper,   label: "Market News",        color: "#c0c0c0", desc: "Curated news feed with AI-tagged sentiment — filter by impact and asset class." },
       { icon: Shield,      label: "ICT Concepts",       color: "#f59e0b", desc: "Order Blocks, Fair Value Gaps, BOS, Liquidity sweeps — explained with live price context." },
       { icon: Clock,       label: "Econ Calendar",      color: "#10b981", desc: "High/medium/low impact events with forecast vs. previous data for smarter session planning." },
       { icon: MessageCircle, label: "AI Chat",          color: "#a855f7", desc: "Ask anything — entries, setups, risk management. Powered by a 70B trading-trained model." },
@@ -963,7 +963,7 @@ export default function AiAssistant() {
           <div className="pointer-events-none absolute inset-0"
             style={{ background: "radial-gradient(ellipse 70% 120% at 0% 50%, rgba(99,102,241,0.12) 0%, transparent 60%)" }} />
           <div className="pointer-events-none absolute inset-0"
-            style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(34,211,238,0.08) 0%, transparent 60%)" }} />
+            style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(192,192,192,0.08) 0%, transparent 60%)" }} />
 
           {/* Floating particles */}
           {[
@@ -979,7 +979,7 @@ export default function AiAssistant() {
               style={{
                 top: p.top, left: p.left,
                 width: p.size, height: p.size,
-                background: i % 2 === 0 ? "rgba(99,102,241,0.45)" : "rgba(34,211,238,0.35)",
+                background: i % 2 === 0 ? "rgba(99,102,241,0.45)" : "rgba(192,192,192,0.35)",
                 ["--dur" as string]: p.dur,
                 ["--delay" as string]: p.delay,
               }} />
@@ -991,7 +991,7 @@ export default function AiAssistant() {
               {/* Orb icon with pulse */}
               <div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto lg:mx-0 mb-5"
                 style={{
-                  background: "linear-gradient(135deg, rgba(99,102,241,0.28), rgba(34,211,238,0.16))",
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.28), rgba(192,192,192,0.16))",
                   border: "1px solid rgba(99,102,241,0.35)",
                   animation: "ai-orb-pulse 2.8s ease-in-out infinite",
                 }}>

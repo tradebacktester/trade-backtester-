@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Config for Trade Lab
+  ======================================
+  - Trusts system CAs for all HTTPS traffic (Railway API endpoint)
+  - Allows cleartext ONLY for the LAN dev-server IP when doing live-reload
+    development (remove the <domain-config> block before shipping to prod)
+  - Never allow cleartext in production; the androidScheme = "https" in
+    capacitor.config.ts already prevents mixed content from the WebView layer
+-->
+<network-security-config>
+
+  <!-- Default: trust system CAs for all domains (covers Railway HTTPS API) -->
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+
+  <!--
+    DEVELOPMENT ONLY — live-reload via local Vite dev server.
+    Replace 192.168.x.x with the LAN IP of your dev machine.
+    Remove this block before building a release APK.
+  -->
+  <!--
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">192.168.1.100</domain>
+  </domain-config>
+  -->
+
+</network-security-config>

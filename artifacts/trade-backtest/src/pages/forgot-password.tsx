@@ -19,9 +19,9 @@ export default function ForgotPasswordPage() {
         >
           <span
             className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.2)" }}
+            style={{ background: "rgba(192,192,192,0.12)", border: "1px solid rgba(192,192,192,0.2)" }}
           >
-            <ShieldCheck style={{ height: "16px", width: "16px", color: "#22d3ee" }} />
+            <ShieldCheck style={{ height: "16px", width: "16px", color: "#c0c0c0" }} />
           </span>
           <div>
             <h2 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>

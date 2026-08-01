@@ -56,7 +56,7 @@ const STRATEGY_DEFS: StrategyDef[] = [
     Icon: TrendingUp,
     color: "#6366f1",
     gradientFrom: "#6366f1",
-    gradientTo: "#C9A84C",
+    gradientTo: "#C0C0C0",
     description: "Golden/death cross via Simple Moving Averages",
     longDesc: "Generates buy signals when a fast SMA crosses above a slower SMA (golden cross) and sell signals when it crosses below (death cross). Classic trend-following.",
     defaultParams: { fastPeriod: 10, slowPeriod: 50 },

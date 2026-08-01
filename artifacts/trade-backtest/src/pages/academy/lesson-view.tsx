@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 import type { AcademyLesson, AcademyCourse } from "./types";
 
-const ACCENT = "#C9A84C";
+const ACCENT = "#C0C0C0";
 const SUCCESS = "#84CC16";
 const BORDER = "#262626";
 const CARD = "#171717";

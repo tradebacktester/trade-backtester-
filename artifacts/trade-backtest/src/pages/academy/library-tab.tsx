@@ -4,7 +4,7 @@ import type { AcademyCourse } from "./types";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/api-config";
 
-const ACCENT = "#C9A84C";
+const ACCENT = "#C0C0C0";
 const SUCCESS = "#84CC16";
 const BORDER = "#262626";
 const CARD = "#171717";
@@ -280,7 +280,7 @@ function RequestTopicModal({
                   cursor: generating || !topicName.trim() ? "not-allowed" : "pointer",
                   background: generating || !topicName.trim()
                     ? `${PURPLE}40`
-                    : `linear-gradient(135deg, ${PURPLE}, #7c3aed)`,
+                    : `linear-gradient(135deg, ${PURPLE}, #878681)`,
                   border: "none", color: "#FFFFFF",
                   opacity: generating || !topicName.trim() ? 0.7 : 1,
                   transition: "opacity 0.15s",

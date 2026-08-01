@@ -1,0 +1,16 @@
+{
+  "appId": "com.tradelab.app",
+  "appName": "Trade Lab",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#060606"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

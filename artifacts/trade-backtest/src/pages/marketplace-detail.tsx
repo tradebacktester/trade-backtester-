@@ -43,7 +43,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   sma_crossover: "#6366f1",
-  ema_crossover: "#C9A84C",
+  ema_crossover: "#C0C0C0",
   rsi: "#f59e0b",
   macd: "#06b6d4",
   bollinger_bands: "#10b981",

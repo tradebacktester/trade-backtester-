@@ -167,7 +167,7 @@ interface Post {
 
 const COMMUNITY_TAGS = ["All", "General", "Analysis", "Strategy", "Education", "Question", "Meme"] as const;
 const TAG_COLORS: Record<string, { bg: string; text: string }> = {
-  Analysis:  { bg: "rgba(201,168,76,0.12)",  text: "#C9A84C" },
+  Analysis:  { bg: "rgba(192,192,192,0.12)",  text: "#C0C0C0" },
   Strategy:  { bg: "rgba(167,139,250,0.12)", text: "#A78BFA" },
   Education: { bg: "rgba(132,204,22,0.12)",  text: "#84CC16" },
   Question:  { bg: "rgba(245,158,11,0.12)",  text: "#F59E0B" },

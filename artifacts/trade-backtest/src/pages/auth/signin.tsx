@@ -169,9 +169,9 @@ export default function SignInPage() {
           )}
           <span
             className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.2)" }}
+            style={{ background: "rgba(192,192,192,0.12)", border: "1px solid rgba(192,192,192,0.2)" }}
           >
-            <LogIn style={{ height: "16px", width: "16px", color: "#C9A84C" }} />
+            <LogIn style={{ height: "16px", width: "16px", color: "#C0C0C0" }} />
           </span>
           <div>
             <h2 className="text-base font-semibold" style={{ color: "hsl(var(--foreground))" }}>{title}</h2>

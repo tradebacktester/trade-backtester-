@@ -179,7 +179,7 @@ const STRATEGY_TAGS: { label: string; color: string }[] = [
   { label: "momentum", color: "#10b981" },
   { label: "fomo", color: "#f59e0b" },
   { label: "planned", color: "#22c55e" },
-  { label: "scalp", color: "#C9A84C" },
+  { label: "scalp", color: "#C0C0C0" },
   { label: "swing", color: "#38bdf8" },
 ];
 
@@ -3009,7 +3009,7 @@ export default function BacktestDetail() {
                           Events with active trades ({eventData.events.filter(e => e.tradesInWindow > 0).length})
                         </p>
                         {eventData.events.filter(e => e.tradesInWindow > 0).map(ev => {
-                          const typeColor: Record<string, string> = { fed: "#60a5fa", cpi: "#f59e0b", macro: "#ef4444", election: "#C9A84C" };
+                          const typeColor: Record<string, string> = { fed: "#60a5fa", cpi: "#f59e0b", macro: "#ef4444", election: "#C0C0C0" };
                           const col = typeColor[ev.type] ?? "#6366f1";
                           const wr = ev.winRateInWindow;
                           const wrColor = wr !== null ? (wr >= 60 ? "#34d399" : wr >= 40 ? "#f59e0b" : "#ef4444") : "#6b7280";
@@ -3121,7 +3121,7 @@ const REGIME_META = {
   trending_bull:  { color: "#22c55e", bg: "rgba(34,197,94,0.12)",   label: "Trending Bull",   icon: "📈" },
   trending_bear:  { color: "#ef4444", bg: "rgba(239,68,68,0.12)",   label: "Trending Bear",   icon: "📉" },
   highvol_bull:   { color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  label: "High-Vol Bull",   icon: "⚡📈" },
-  highvol_bear:   { color: "#C9A84C", bg: "rgba(201,168,76,0.12)", label: "High-Vol Bear",   icon: "⚡📉" },
+  highvol_bear:   { color: "#C0C0C0", bg: "rgba(192,192,192,0.12)", label: "High-Vol Bear",   icon: "⚡📉" },
 } as const;
 
 type RegimeKey = keyof typeof REGIME_META;

@@ -399,7 +399,7 @@ export default function UserProfilePage() {
           {/* Badges row */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
             {profile.tradingStyle && (
-              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "rgba(124,58,237,0.15)", color: "#a78bfa", border: "1px solid rgba(124,58,237,0.2)", fontWeight: 500 }}>
+              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "rgba(135,134,129,0.15)", color: "#C0C0C0", border: "1px solid rgba(135,134,129,0.2)", fontWeight: 500 }}>
                 <Zap style={{ width: 9, height: 9, display: "inline", marginRight: 4 }} />{profile.tradingStyle}
               </span>
             )}
@@ -425,7 +425,7 @@ export default function UserProfilePage() {
       {/* Stats grid */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
         <StatPill label="Backtests" value={String(profile.totalBacktests)} color="#818cf8" />
-        <StatPill label="Strategies" value={String(profile.totalStrategies)} color="#a78bfa" />
+        <StatPill label="Strategies" value={String(profile.totalStrategies)} color="#C0C0C0" />
         <StatPill
           label="Avg Win Rate"
           value={profile.avgWinRate != null ? `${fmt(profile.avgWinRate, 1)}%` : "—"}
@@ -449,7 +449,7 @@ export default function UserProfilePage() {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Layers style={{ width: 15, height: 15, color: "#a78bfa" }} />
+            <Layers style={{ width: 15, height: 15, color: "#C0C0C0" }} />
             <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
               <strong style={{ color: "rgba(255,255,255,0.85)" }}>{profile.totalStrategies}</strong> strategies created
             </span>
@@ -482,17 +482,17 @@ export default function UserProfilePage() {
         <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>Achievements</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {profile.totalBacktests >= 1 && (
-            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(192,192,192,0.12)", color: "#C0C0C0", border: "1px solid rgba(192,192,192,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
               <Award style={{ width: 10, height: 10 }} /> First Backtest
             </span>
           )}
           {profile.totalBacktests >= 10 && (
-            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(201,168,76,0.12)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(192,192,192,0.12)", color: "#C0C0C0", border: "1px solid rgba(192,192,192,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
               <Award style={{ width: 10, height: 10 }} /> 10 Backtests
             </span>
           )}
           {profile.totalStrategies >= 5 && (
-            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(124,58,237,0.12)", color: "#a78bfa", border: "1px solid rgba(124,58,237,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(135,134,129,0.12)", color: "#C0C0C0", border: "1px solid rgba(135,134,129,0.2)", display: "flex", alignItems: "center", gap: 5 }}>
               <Layers style={{ width: 10, height: 10 }} /> Strategy Builder
             </span>
           )}

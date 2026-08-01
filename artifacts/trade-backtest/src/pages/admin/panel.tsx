@@ -451,7 +451,7 @@ export default function AdminPanel() {
             )}
             {key === "upiPayments" && pendingManualCount > 0 && (
               <span className="ml-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                style={tab === key ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: "rgba(34,211,238,0.15)", color: "#22d3ee" }}>
+                style={tab === key ? { background: "rgba(255,255,255,0.2)", color: "#fff" } : { background: "rgba(192,192,192,0.15)", color: "#c0c0c0" }}>
                 {pendingManualCount}
               </span>
             )}
@@ -510,7 +510,7 @@ export default function AdminPanel() {
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
                             style={user.planSlug === "elite"
-                              ? { background: "rgba(201,168,76,0.15)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.35)" }
+                              ? { background: "rgba(192,192,192,0.15)", color: "#C0C0C0", border: "1px solid rgba(192,192,192,0.35)" }
                               : { background: "rgba(139,92,246,0.12)", color: "hsl(265,89%,60%)", border: "1px solid rgba(139,92,246,0.3)" }}>
                             <Crown style={{ height: "9px", width: "9px" }} />
                             {user.planName}
@@ -1387,10 +1387,10 @@ export default function AdminPanel() {
         <div className={tab !== "upiPayments" ? "hidden" : "rounded-2xl overflow-hidden"} style={{ border: "1px solid var(--glass-border)", background: "var(--card-bg)" }}>
           <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--glass-border)" }}>
             <div className="flex items-center gap-2">
-              <QrCode style={{ height: "14px", width: "14px", color: "#22d3ee" }} />
+              <QrCode style={{ height: "14px", width: "14px", color: "#c0c0c0" }} />
               <span className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>UPI Payment Submissions</span>
               {pendingManualCount > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.2)" }}>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(192,192,192,0.1)", color: "#c0c0c0", border: "1px solid rgba(192,192,192,0.2)" }}>
                   {pendingManualCount} pending
                 </span>
               )}
@@ -1444,7 +1444,7 @@ export default function AdminPanel() {
                             {new Date(p.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
-                        {p.utrNote && <p className="text-[11px] mt-1 font-mono" style={{ color: "#22d3ee" }}>UTR: {p.utrNote}</p>}
+                        {p.utrNote && <p className="text-[11px] mt-1 font-mono" style={{ color: "#c0c0c0" }}>UTR: {p.utrNote}</p>}
                         {p.adminNote && <p className="text-[11px] mt-1 italic" style={{ color: "hsl(var(--muted-foreground))" }}>Admin note: {p.adminNote}</p>}
                       </div>
                       {/* Toggle screenshot */}

@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Newspaper, Calendar, TrendingUp, Globe2, AlertTriangle,
-  Clock, ChevronLeft, ChevronRight, RefreshCw, Filter
+  Clock, RefreshCw, Filter, X, ChevronRight, Zap
 } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { API_BASE } from "@/lib/api-config";
@@ -26,11 +25,11 @@ interface CalendarEvent {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const IMPACT_CONFIG = {
-  High:         { cls: "impact-high",    dot: "#f87171", label: "High" },
-  Medium:       { cls: "impact-medium",  dot: "#fbbf24", label: "Med"  },
-  Low:          { cls: "impact-low",     dot: "#4ade80", label: "Low"  },
-  Holiday:      { cls: "impact-holiday", dot: "#94a3b8", label: "Holiday" },
-  "Non-Economic": { cls: "impact-holiday", dot: "#94a3b8", label: "—" },
+  High:           { dot: "#f87171", label: "High",    ring: "rgba(248,113,113,0.20)", text: "#f87171" },
+  Medium:         { dot: "#fbbf24", label: "Med",     ring: "rgba(251,191,36,0.18)",  text: "#fbbf24" },
+  Low:            { dot: "#6b7280", label: "Low",     ring: "rgba(107,114,128,0.15)", text: "#6b7280" },
+  Holiday:        { dot: "#4b5563", label: "Holiday", ring: "rgba(75,85,99,0.12)",    text: "#9ca3af" },
+  "Non-Economic": { dot: "#374151", label: "—",       ring: "rgba(55,65,81,0.10)",    text: "#6b7280" },
 } as const;
 
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD", "CNY"];
@@ -46,14 +45,7 @@ const FLAG: Record<string, string> = {
 function parseEventDate(dateStr: string): Date | null {
   if (!dateStr) return null;
   try {
-    const formats = [
-      "MM-dd-yyyy",
-      "MMM dd yyyy",
-      "MMM d yyyy",
-      "MMMM dd yyyy",
-      "MMMM d yyyy",
-      "yyyy-MM-dd",
-    ];
+    const formats = ["MM-dd-yyyy","MMM dd yyyy","MMM d yyyy","MMMM dd yyyy","MMMM d yyyy","yyyy-MM-dd"];
     for (const fmt of formats) {
       const d = parse(dateStr, fmt, new Date());
       if (isValid(d)) return d;
@@ -61,143 +53,192 @@ function parseEventDate(dateStr: string): Date | null {
     const direct = new Date(dateStr);
     if (isValid(direct)) return direct;
     return null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-// ─── Event Card ───────────────────────────────────────────────────────────────
+// ─── Bento Event Row ─────────────────────────────────────────────────────────
 
-function EventCard({ event }: { event: CalendarEvent }) {
+function EventRow({ event }: { event: CalendarEvent }) {
   const cfg = IMPACT_CONFIG[event.impact] ?? IMPACT_CONFIG.Low;
   const flag = FLAG[event.country] ?? "🌐";
   const hasActual = event.actual && event.actual !== "";
-
   const actualColor =
     hasActual && event.forecast
-      ? parseFloat(event.actual) > parseFloat(event.forecast)
-        ? "text-green-400"
-        : parseFloat(event.actual) < parseFloat(event.forecast)
-        ? "text-red-400"
-        : "text-foreground"
-      : "text-foreground";
+      ? parseFloat(event.actual) > parseFloat(event.forecast) ? "#4ade80"
+      : parseFloat(event.actual) < parseFloat(event.forecast) ? "#f87171"
+      : "#e8e8e8"
+    : "#e8e8e8";
 
   return (
     <div
-      className="neon-hover-subtle flex items-stretch gap-0 rounded-xl border border-border/40 overflow-hidden"
-      style={{ background: "var(--glass-bg)" }}
+      className="group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150"
+      style={{ background: "rgba(255,255,255,0.025)" }}
+      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+      onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.025)")}
     >
       {/* Impact stripe */}
-      <div
-        className="w-1 shrink-0"
-        style={{ background: cfg.dot, opacity: 0.7 }}
-      />
+      <div className="w-0.5 h-7 rounded-full shrink-0" style={{ background: cfg.dot, opacity: 0.7 }} />
 
-      <div className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0">
-        {/* Time */}
-        <div className="shrink-0 w-16 text-right">
-          <span className="text-[11px] font-mono text-muted-foreground">{event.time || "All Day"}</span>
-        </div>
+      {/* Time */}
+      <span className="text-[10px] font-mono w-12 text-right shrink-0" style={{ color: "#71797E" }}>
+        {event.time || "All Day"}
+      </span>
 
-        {/* Currency */}
-        <div className="shrink-0 flex items-center gap-1.5">
-          <span className="text-base leading-none">{flag}</span>
-          <span className="text-[11px] font-mono font-semibold text-muted-foreground">{event.country}</span>
-        </div>
-
-        {/* Impact dot */}
-        <div
-          className="shrink-0 h-2 w-2 rounded-full"
-          style={{ background: cfg.dot, boxShadow: `0 0 6px ${cfg.dot}` }}
-        />
-
-        {/* Title */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{event.title}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${cfg.cls}`}>
-              {cfg.label}
-            </span>
-          </div>
-        </div>
-
-        {/* F / A / P */}
-        <div className="shrink-0 flex items-center gap-3 md:gap-4 text-right">
-          <div>
-            <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Forecast</div>
-            <div className="text-xs font-mono">{event.forecast || "—"}</div>
-          </div>
-          <div>
-            <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Actual</div>
-            <div className={`text-xs font-mono font-semibold ${actualColor}`}>
-              {hasActual ? event.actual : "—"}
-            </div>
-          </div>
-          <div>
-            <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">Prev</div>
-            <div className="text-xs font-mono text-muted-foreground">{event.previous || "—"}</div>
-          </div>
-        </div>
+      {/* Flag + currency */}
+      <div className="flex items-center gap-1 shrink-0 w-14">
+        <span className="text-sm leading-none">{flag}</span>
+        <span className="text-[10px] font-mono font-semibold" style={{ color: "#878681" }}>{event.country}</span>
       </div>
-    </div>
-  );
-}
 
-// ─── Skeleton Row ─────────────────────────────────────────────────────────────
-
-function SkeletonRow() {
-  return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/[0.07]">
-      <div className="skeleton-shimmer h-4 w-12 shrink-0" />
-      <div className="skeleton-shimmer h-4 w-8 shrink-0" />
-      <div className="skeleton-shimmer h-2 w-2 rounded-full shrink-0" />
-      <div className="skeleton-shimmer h-4 flex-1" />
-      <div className="flex gap-3 md:gap-4">
-        <div className="skeleton-shimmer h-4 w-8 md:w-10" />
-        <div className="skeleton-shimmer h-4 w-8 md:w-10" />
-        <div className="skeleton-shimmer h-4 w-8 md:w-10" />
-      </div>
-    </div>
-  );
-}
-
-// ─── Date Group Header ────────────────────────────────────────────────────────
-
-function DateHeader({ dateStr }: { dateStr: string }) {
-  const d = parseEventDate(dateStr);
-  if (!d) return <div className="text-sm font-semibold text-muted-foreground py-2">{dateStr}</div>;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
-  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
-
-  const label = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : diff === -1 ? "Yesterday" : format(d, "EEEE");
-  const sub = format(d, "MMMM d, yyyy");
-
-  return (
-    <div className="flex items-center gap-3 py-3 mt-2">
+      {/* Impact badge */}
       <div
-        className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-        style={{
-          background: diff === 0 ? "hsl(var(--primary) / 0.15)" : "var(--glass-bg)",
-          color: diff === 0 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-          border: diff === 0 ? "1px solid hsl(var(--primary) / 0.25)" : "1px solid var(--glass-border)",
-        }}
+        className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded"
+        style={{ background: cfg.ring, color: cfg.text, border: `1px solid ${cfg.dot}22` }}
       >
-        {format(d, "d")}
+        {cfg.label}
       </div>
-      <div>
-        <div className="text-sm font-semibold" style={{ color: diff === 0 ? "hsl(var(--primary))" : undefined }}>
-          {label}
-          {diff === 0 && (
-            <span
-              className="ml-2 text-[9px] font-mono px-1.5 py-0.5 rounded-full"
-              style={{ background: "hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}
-            >LIVE</span>
+
+      {/* Title */}
+      <p className="flex-1 text-xs font-medium truncate min-w-0" style={{ color: "#D1D1D6" }}>
+        {event.title}
+      </p>
+
+      {/* F / A / P */}
+      <div className="shrink-0 hidden sm:flex items-center gap-4 text-right">
+        {[
+          { label: "F", value: event.forecast || "—", color: "#71797E" },
+          { label: "A", value: hasActual ? event.actual : "—", color: actualColor },
+          { label: "P", value: event.previous || "—", color: "#71797E" },
+        ].map(({ label, value, color }) => (
+          <div key={label}>
+            <div className="text-[8px] uppercase tracking-wider mb-0.5" style={{ color: "#4b5563" }}>{label}</div>
+            <div className="text-[11px] font-mono font-semibold" style={{ color }}>{value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+
+function BentoSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[60, 80, 70, 90, 65].map((w, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+          <div className="skeleton-shimmer w-0.5 h-7 rounded-full" />
+          <div className="skeleton-shimmer h-3 w-10" />
+          <div className="skeleton-shimmer h-3 w-12" />
+          <div className="skeleton-shimmer h-3" style={{ width: `${w}%` }} />
+          <div className="skeleton-shimmer h-3 w-16 shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Day Bento Tile ───────────────────────────────────────────────────────────
+
+function DayTile({ dateStr, events, isToday }: { dateStr: string; events: CalendarEvent[]; isToday: boolean }) {
+  const d = parseEventDate(dateStr);
+  const label = !d ? dateStr : isToday ? "Today" : format(d, "EEEE");
+  const sub = d ? format(d, "MMM d, yyyy") : dateStr;
+  const day = d ? format(d, "d") : "—";
+  const high = events.filter(e => e.impact === "High").length;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: isToday ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+        border: isToday ? "1px solid rgba(255,255,255,0.14)" : "1px solid rgba(255,255,255,0.07)",
+      }}
+    >
+      {/* Day header */}
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="h-9 w-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 font-mono"
+            style={{
+              background: isToday ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.05)",
+              color: isToday ? "#F5F5F5" : "#878681",
+              border: isToday ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            {day}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold" style={{ color: isToday ? "#F5F5F5" : "#D1D1D6" }}>
+                {label}
+              </span>
+              {isToday && (
+                <span
+                  className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ background: "rgba(255,255,255,0.12)", color: "#C0C0C0", border: "1px solid rgba(255,255,255,0.18)" }}
+                >
+                  LIVE
+                </span>
+              )}
+            </div>
+            <div className="text-[11px]" style={{ color: "#71797E" }}>{sub}</div>
+          </div>
+        </div>
+
+        {/* Counts */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono" style={{ color: "#71797E" }}>
+            {events.length} event{events.length !== 1 ? "s" : ""}
+          </span>
+          {high > 0 && (
+            <div
+              className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(248,113,113,0.12)", color: "#f87171", border: "1px solid rgba(248,113,113,0.20)" }}
+            >
+              <Zap className="h-2.5 w-2.5" />
+              {high}
+            </div>
           )}
         </div>
-        <div className="text-[11px] text-muted-foreground">{sub}</div>
+      </div>
+
+      {/* Events */}
+      <div className="p-2 space-y-0.5">
+        {events.map((ev, i) => (
+          <EventRow key={i} event={ev} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Stat Tile ────────────────────────────────────────────────────────────────
+
+function StatTile({ label, value, icon: Icon, accent }: {
+  label: string; value: number | string; icon: React.ElementType; accent?: string;
+}) {
+  return (
+    <div
+      className="rounded-2xl p-4 flex flex-col justify-between min-h-[90px]"
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div
+          className="h-7 w-7 rounded-lg flex items-center justify-center"
+          style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.10)" }}
+        >
+          <Icon className="h-3.5 w-3.5" style={{ color: accent ?? "#878681" }} />
+        </div>
+        <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "#4b5563" }}>
+          {label}
+        </span>
+      </div>
+      <div className="text-2xl font-bold font-mono tabular" style={{ color: accent ?? "#D1D1D6" }}>
+        {value}
       </div>
     </div>
   );
@@ -224,7 +265,7 @@ export default function NewsPage() {
 
   const filtered = useMemo(() => {
     if (!events) return [];
-    return events.filter((e) => {
+    return events.filter(e => {
       if (impact !== "all" && e.impact !== impact) return false;
       if (currency !== "all" && e.country !== currency) return false;
       return true;
@@ -234,7 +275,6 @@ export default function NewsPage() {
   const grouped = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const e of filtered) {
-      // Normalize to YYYY-MM-DD so all events on the same calendar day are grouped together
       const d = parseEventDate(e.date);
       const key = d && isValid(d) ? format(d, "yyyy-MM-dd") : e.date.slice(0, 10);
       if (!map.has(key)) map.set(key, []);
@@ -247,149 +287,162 @@ export default function NewsPage() {
     });
   }, [filtered]);
 
-  const highImpact = events?.filter((e) => e.impact === "High").length ?? 0;
-  const hasActual  = events?.filter((e) => e.actual !== "").length ?? 0;
+  const highImpact = events?.filter(e => e.impact === "High").length ?? 0;
+  const hasActual  = events?.filter(e => e.actual !== "").length ?? 0;
+  const todayKey   = format(new Date(), "yyyy-MM-dd");
+  const activeFilters = (impact !== "all" ? 1 : 0) + (currency !== "all" ? 1 : 0);
 
   return (
-    <div className="space-y-6 float-up">
-      {/* ── Header ──────────────────────────────────────────────────── */}
-      <div className="float-up flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <span
-              className="flex items-center justify-center h-9 w-9 rounded-xl"
-              style={{ background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}
-            >
-              <Newspaper className="h-5 w-5" />
-            </span>
-            Market News
-          </h1>
-          <p className="text-muted-foreground mt-1">Economic calendar powered by Forex Factory</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="shrink-0"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+    <div className="space-y-3 float-up px-0">
 
-      {/* ── Stats Row ───────────────────────────────────────────────── */}
-      <div className="float-up-1 grid grid-cols-3 gap-3">
-        {[
-          { label: "Total Events",  value: events?.length ?? "—",  icon: Calendar,    color: "hsl(var(--primary))" },
-          { label: "High Impact",   value: highImpact || "—",       icon: AlertTriangle, color: "#f87171"            },
-          { label: "Released",      value: hasActual || "—",        icon: TrendingUp,  color: "#4ade80"             },
-        ].map(({ label, value, icon: Icon, color }) => (
+      {/* ── BENTO HEADER TILE ─────────────────────────────────────────── */}
+      <div
+        className="rounded-2xl px-5 py-4 flex items-center justify-between"
+        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)" }}
+      >
+        <div className="flex items-center gap-3">
           <div
-            key={label}
-            className="glass-card neon-hover-subtle rounded-xl p-4"
+            className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <Icon className="h-3.5 w-3.5" style={{ color }} />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
-            </div>
-            <div className="text-2xl font-bold font-mono" style={{ color }}>{value}</div>
+            <Newspaper className="h-5 w-5" style={{ color: "#C0C0C0" }} />
           </div>
-        ))}
-      </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: "#F5F5F5", letterSpacing: "-0.030em" }}>
+              Market Research
+            </h1>
+            <p className="text-[11px] font-mono" style={{ color: "#71797E" }}>
+              Economic calendar · Forex Factory
+            </p>
+          </div>
+        </div>
 
-      {/* ── Week Tabs + Filters ──────────────────────────────────────── */}
-      <div className="float-up-2 space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          {/* Week switcher */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/30 border border-white/[0.07]">
-            {(["this", "next"] as const).map((w) => (
+        <div className="flex items-center gap-2">
+          {/* Week switcher pill */}
+          <div
+            className="flex items-center p-1 rounded-xl gap-0.5"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {(["this", "next"] as const).map(w => (
               <button
                 key={w}
                 onClick={() => setWeek(w)}
-                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer select-none"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer"
                 style={week === w ? {
-                  background: "hsl(var(--background))",
-                  color: "hsl(var(--foreground))",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-                } : { color: "hsl(var(--muted-foreground))" }}
+                  background: "rgba(255,255,255,0.12)",
+                  color: "#F5F5F5",
+                  border: "1px solid rgba(255,255,255,0.16)",
+                } : {
+                  color: "#71797E",
+                  border: "1px solid transparent",
+                }}
               >
                 {w === "this" ? "This Week" : "Next Week"}
               </button>
             ))}
           </div>
 
-          {/* Filter toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters((v) => !v)}
-            className="gap-1.5"
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer disabled:opacity-40"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
           >
-            <Filter className="h-3.5 w-3.5" />
-            Filters
-            {(impact !== "all" || currency !== "all") && (
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: "hsl(var(--primary))" }}
-              />
-            )}
-          </Button>
+            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} style={{ color: "#878681" }} />
+          </button>
         </div>
+      </div>
 
-        {/* Filter chips */}
+      {/* ── BENTO STATS ROW ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatTile label="Total Events" value={events?.length ?? "—"} icon={Calendar} accent="#C0C0C0" />
+        <StatTile label="High Impact"  value={highImpact || "—"}      icon={AlertTriangle} accent="#f87171" />
+        <StatTile label="Released"     value={hasActual || "—"}        icon={TrendingUp}  accent="#4ade80" />
+      </div>
+
+      {/* ── BENTO FILTER TILE ─────────────────────────────────────────── */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <button
+          onClick={() => setShowFilters(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-150"
+          style={{ color: "#D1D1D6" }}
+        >
+          <div className="flex items-center gap-2">
+            <Filter className="h-3.5 w-3.5" style={{ color: "#71797E" }} />
+            <span className="text-sm font-medium">Filters</span>
+            {activeFilters > 0 && (
+              <span
+                className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: "rgba(255,255,255,0.10)", color: "#C0C0C0", border: "1px solid rgba(255,255,255,0.14)" }}
+              >
+                {activeFilters} active
+              </span>
+            )}
+          </div>
+          <ChevronRight
+            className="h-4 w-4 transition-transform duration-200"
+            style={{ color: "#4b5563", transform: showFilters ? "rotate(90deg)" : "rotate(0deg)" }}
+          />
+        </button>
+
         {showFilters && (
-          <div className="glass-panel rounded-xl p-4 space-y-3">
-            {(impact !== "all" || currency !== "all") && (
-              <div className="flex justify-end">
+          <div className="px-4 pb-4 space-y-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="pt-3 flex items-center justify-between">
+              <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "#4b5563" }}>
+                Impact Level
+              </span>
+              {activeFilters > 0 && (
                 <button
                   onClick={() => { setImpact("all"); setCurrency("all"); }}
-                  className="text-xs font-medium px-3 py-1 rounded-full border transition-all duration-150 cursor-pointer"
-                  style={{ background: "transparent", borderColor: "rgba(255,255,255,0.12)", color: "hsl(var(--muted-foreground))" }}
+                  className="flex items-center gap-1 text-[10px] font-medium transition-colors duration-150 cursor-pointer"
+                  style={{ color: "#71797E" }}
                 >
-                  Reset Filters
+                  <X className="h-2.5 w-2.5" /> Reset all
                 </button>
-              </div>
-            )}
-            <div className="space-y-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Impact</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(["all", "High", "Medium", "Low"] as const).map((i) => (
-                  <button
-                    key={i}
-                    onClick={() => setImpact(i)}
-                    className="px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 cursor-pointer"
-                    style={impact === i ? {
-                      background: "hsl(var(--primary) / 0.15)",
-                      borderColor: "hsl(var(--primary) / 0.4)",
-                      color: "hsl(var(--primary))",
-                    } : {
-                      background: "transparent",
-                      borderColor: "var(--glass-border)",
-                      color: "hsl(var(--muted-foreground))",
-                    }}
-                  >
-                    {i === "all" ? "All Impact" : i}
-                  </button>
-                ))}
-              </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Currency</p>
-              <div className="flex flex-wrap gap-1.5">
-                {["all", ...CURRENCIES].map((c) => (
+            <div className="flex flex-wrap gap-1.5">
+              {(["all", "High", "Medium", "Low"] as const).map(i => (
+                <button
+                  key={i}
+                  onClick={() => setImpact(i)}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer"
+                  style={impact === i ? {
+                    background: "rgba(255,255,255,0.12)",
+                    border: "1px solid rgba(255,255,255,0.20)",
+                    color: "#F5F5F5",
+                  } : {
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#71797E",
+                  }}
+                >
+                  {i === "all" ? "All Impact" : i}
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: "#4b5563" }}>
+                Currency
+              </span>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {["all", ...CURRENCIES].map(c => (
                   <button
                     key={c}
                     onClick={() => setCurrency(c)}
-                    className="px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 cursor-pointer"
+                    className="px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 cursor-pointer"
                     style={currency === c ? {
-                      background: "hsl(var(--primary) / 0.15)",
-                      borderColor: "hsl(var(--primary) / 0.4)",
-                      color: "hsl(var(--primary))",
+                      background: "rgba(255,255,255,0.12)",
+                      border: "1px solid rgba(255,255,255,0.20)",
+                      color: "#F5F5F5",
                     } : {
                       background: "transparent",
-                      borderColor: "var(--glass-border)",
-                      color: "hsl(var(--muted-foreground))",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "#71797E",
                     }}
                   >
                     {c === "all" ? "All" : `${FLAG[c] ?? ""} ${c}`}
@@ -401,62 +454,74 @@ export default function NewsPage() {
         )}
       </div>
 
-      {/* ── Calendar Feed ────────────────────────────────────────────── */}
-      <div className="float-up-3 space-y-1">
-        {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
-          </div>
-        ) : isError ? (
+      {/* ── BENTO CALENDAR FEED ───────────────────────────────────────── */}
+      {isLoading ? (
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <BentoSkeleton />
+        </div>
+      ) : isError ? (
+        <div
+          className="rounded-2xl py-16 flex flex-col items-center gap-4"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
           <div
-            className="glass-panel rounded-xl py-14 flex flex-col items-center gap-3 text-muted-foreground"
+            className="h-14 w-14 rounded-2xl flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
           >
-            <Globe2 className="h-10 w-10 opacity-20" />
-            <div className="text-center">
-              <p className="font-medium text-foreground">Could not load calendar</p>
-              <p className="text-sm mt-1">Forex Factory may be temporarily unavailable.</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Try Again
-            </Button>
+            <Globe2 className="h-7 w-7" style={{ color: "#4b5563" }} />
           </div>
-        ) : grouped.length === 0 ? (
-          <div
-            className="glass-panel rounded-xl py-14 flex flex-col items-center gap-3 text-muted-foreground"
+          <div className="text-center">
+            <p className="font-semibold text-sm" style={{ color: "#D1D1D6" }}>Could not load calendar</p>
+            <p className="text-xs mt-1" style={{ color: "#71797E" }}>Forex Factory may be temporarily unavailable.</p>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl transition-all duration-150 cursor-pointer"
+            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "#C0C0C0" }}
           >
-            <Calendar className="h-10 w-10 opacity-20" />
-            <div className="text-center">
-              <p className="font-medium text-foreground">No events match your filters</p>
-              <p className="text-sm">Try adjusting impact level or currency.</p>
-            </div>
+            <RefreshCw className="h-3.5 w-3.5" /> Try Again
+          </button>
+        </div>
+      ) : grouped.length === 0 ? (
+        <div
+          className="rounded-2xl py-16 flex flex-col items-center gap-3"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <Calendar className="h-10 w-10 opacity-20" style={{ color: "#878681" }} />
+          <div className="text-center">
+            <p className="font-semibold text-sm" style={{ color: "#D1D1D6" }}>No events match your filters</p>
+            <p className="text-xs mt-1" style={{ color: "#71797E" }}>Try adjusting impact level or currency.</p>
           </div>
-        ) : (
-          grouped.map(([date, evs]) => (
-            <div key={date}>
-              <DateHeader dateStr={date} />
-              <div className="space-y-1.5 ml-11">
-                {evs.map((ev, i) => (
-                  <EventCard key={`${date}-${i}`} event={ev} />
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {grouped.map(([date, evs]) => (
+            <DayTile
+              key={date}
+              dateStr={date}
+              events={evs}
+              isToday={date === todayKey}
+            />
+          ))}
+        </div>
+      )}
 
-      {/* ── Footer note ─────────────────────────────────────────────── */}
+      {/* ── FOOTER ────────────────────────────────────────────────────── */}
       {!isLoading && !isError && events && events.length > 0 && (
-        <p className="text-[11px] text-muted-foreground text-center py-2">
+        <p className="text-[10px] font-mono text-center py-2" style={{ color: "#4b5563" }}>
           Data sourced from{" "}
           <a
             href="https://www.forexfactory.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
+            className="underline underline-offset-2 transition-colors duration-150 hover:text-[#878681]"
           >
             Forex Factory
           </a>
-          {" "}· Times shown in ET · {events.length} events this {week === "this" ? "week" : "next week"}
+          {" "}· Times shown in ET · {events.length} events
         </p>
       )}
     </div>

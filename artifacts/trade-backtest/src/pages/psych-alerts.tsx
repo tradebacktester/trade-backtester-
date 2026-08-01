@@ -82,14 +82,14 @@ const ALERT_META: Record<PsychAlertType, { icon: React.ElementType; color: strin
   revenge:            { icon: TrendingDown,   color: "#ef4444", label: "Revenge Trading",   emoji: "🚨" },
   overtrading:        { icon: BarChart2,      color: "#f97316", label: "Overtrading",        emoji: "🚨" },
   aggressive:         { icon: AlertTriangle,  color: "#dc2626", label: "Aggressive Risk",    emoji: "🚨" },
-  emotional:          { icon: Activity,       color: "#C9A84C", label: "Emotional Trading",  emoji: "🚨" },
+  emotional:          { icon: Activity,       color: "#C0C0C0", label: "Emotional Trading",  emoji: "🚨" },
   tilt:               { icon: Brain,          color: "#f43f5e", label: "Tilt",               emoji: "🚨" },
   discipline:         { icon: Shield,         color: "#6366f1", label: "Fading Discipline",  emoji: "🚨" },
-  confirmation_bias:  { icon: Eye,            color: "#C9A84C", label: "Confirmation Bias",  emoji: "🚨" },
+  confirmation_bias:  { icon: Eye,            color: "#C0C0C0", label: "Confirmation Bias",  emoji: "🚨" },
 };
 
 const SEVERITY_STYLE: Record<Severity, { bg: string; border: string; badge: string; text: string }> = {
-  low:      { bg: "rgba(201,168,76,0.04)",  border: "rgba(201,168,76,0.15)",  badge: "#C9A84C", text: "Low"      },
+  low:      { bg: "rgba(192,192,192,0.04)",  border: "rgba(192,192,192,0.15)",  badge: "#C0C0C0", text: "Low"      },
   medium:   { bg: "rgba(245,158,11,0.05)",  border: "rgba(245,158,11,0.2)",   badge: "#f59e0b", text: "Medium"   },
   high:     { bg: "rgba(239,68,68,0.06)",   border: "rgba(239,68,68,0.2)",    badge: "#ef4444", text: "High"     },
   critical: { bg: "rgba(244,63,94,0.08)",   border: "rgba(244,63,94,0.3)",    badge: "#f43f5e", text: "Critical" },
@@ -203,7 +203,7 @@ export default function PsychAlertsPage() {
             <button
               onClick={markAllRead}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-              style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", color: "#C9A84C" }}
+              style={{ background: "rgba(192,192,192,0.08)", border: "1px solid rgba(192,192,192,0.2)", color: "#C0C0C0" }}
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Mark all read
@@ -422,7 +422,7 @@ export default function PsychAlertsPage() {
                   />
                   {(["fomo", "revenge", "overtrading", "aggressive"] as PsychAlertType[]).map((type, i) => (
                     <Bar key={type} dataKey={type} stackId="a"
-                      fill={ALERT_META[type]?.color ?? "#C9A84C"}
+                      fill={ALERT_META[type]?.color ?? "#C0C0C0"}
                       name={type}
                       radius={i === 3 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
                     />
@@ -580,7 +580,7 @@ export default function PsychAlertsPage() {
             className="rounded-2xl p-4"
             style={{ background: "rgba(139,92,246,0.04)", border: "1px solid rgba(139,92,246,0.15)" }}
           >
-            <h3 className="text-xs font-bold uppercase tracking-widest font-mono mb-3" style={{ color: "#C9A84C" }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest font-mono mb-3" style={{ color: "#C0C0C0" }}>
               How Psychology Alerts Work
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -597,7 +597,7 @@ export default function PsychAlertsPage() {
                 <div key={row.label} className="flex items-start gap-2">
                   <span
                     className="font-bold flex-shrink-0"
-                    style={{ color: ALERT_META[row.label.toLowerCase().replace(/ /g, "_") as PsychAlertType]?.color ?? "#C9A84C" }}
+                    style={{ color: ALERT_META[row.label.toLowerCase().replace(/ /g, "_") as PsychAlertType]?.color ?? "#C0C0C0" }}
                   >
                     {row.label}:
                   </span>

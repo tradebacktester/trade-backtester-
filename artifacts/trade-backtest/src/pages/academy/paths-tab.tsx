@@ -8,7 +8,7 @@ import { API_BASE } from "@/lib/api-config";
 import type { AcademyCourse, LearningPath } from "./types";
 import { PATH_META, PATH_ICONS } from "./types";
 
-const ACCENT = "#C9A84C";
+const ACCENT = "#C0C0C0";
 const SUCCESS = "#84CC16";
 const BORDER = "#262626";
 const CARD = "#171717";

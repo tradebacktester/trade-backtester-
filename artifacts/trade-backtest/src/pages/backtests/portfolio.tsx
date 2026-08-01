@@ -36,7 +36,7 @@ const ALL_SYMBOLS = [
 
 const COLOR_POOL = [
   "#ffffff", "#22c55e", "#3b82f6", "#f59e0b", "#ec4899",
-  "#C9A84C", "#14b8a6", "#f97316", "#06b6d4", "#84cc16",
+  "#C0C0C0", "#14b8a6", "#f97316", "#06b6d4", "#84cc16",
 ];
 
 interface SymbolResult {

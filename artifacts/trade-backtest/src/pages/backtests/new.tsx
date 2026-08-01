@@ -78,7 +78,7 @@ export const SYMBOLS: { value: string; label: string; group: string; realData: b
 
 export const STRATEGY_TYPES = [
   { type: "sma_crossover",      name: "SMA Crossover",          short: "SMA",  icon: TrendingUp,  color: "#3b82f6", params: { fastPeriod: 10, slowPeriod: 50 },                                                           description: "Buy when fast MA crosses above slow MA" },
-  { type: "ema_crossover",      name: "EMA Crossover",          short: "EMA",  icon: Activity,    color: "#C9A84C", params: { fastPeriod: 9, slowPeriod: 21 },                                                            description: "Exponential MA crossover for trend following" },
+  { type: "ema_crossover",      name: "EMA Crossover",          short: "EMA",  icon: Activity,    color: "#C0C0C0", params: { fastPeriod: 9, slowPeriod: 21 },                                                            description: "Exponential MA crossover for trend following" },
   { type: "rsi",                name: "RSI Reversal",           short: "RSI",  icon: BarChart3,   color: "#f59e0b", params: { period: 14, overbought: 70, oversold: 30 },                                                 description: "Mean reversion at overbought/oversold extremes" },
   { type: "macd",               name: "MACD",                   short: "MACD", icon: Zap,         color: "#10b981", params: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },                                          description: "Trend momentum via signal line crossover" },
   { type: "bollinger_bands",    name: "Bollinger Bands",        short: "BB",   icon: Target,      color: "#ec4899", params: { period: 20, stdDev: 2 },                                                                    description: "Buy at lower band, sell at upper band" },
@@ -855,7 +855,7 @@ function GhostModePanel({
     finally { setLoading(false); }
   }
 
-  const GHOST_COLOR = "#C9A84C";
+  const GHOST_COLOR = "#C0C0C0";
 
   return (
     <div className="rounded-2xl overflow-hidden mb-4"

@@ -114,7 +114,7 @@ export const PATH_META: Record<string, { title: string; description: string; ico
     title: "Intermediate Trader",
     description: "Deepen your skills with advanced price action",
     icon: "intermediate",
-    color: "#22D3EE",
+    color: "#C0C0C0",
   },
   advanced: {
     title: "Advanced Trader",

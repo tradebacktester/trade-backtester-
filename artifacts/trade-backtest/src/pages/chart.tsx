@@ -2672,10 +2672,10 @@ export default function ChartPage() {
 
               {/* ── Ghost Mode mini widget (live panel) ── */}
               {token && !position && (
-                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(201,168,76,0.28)" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
+                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(192,192,192,0.28)" : "rgba(255,255,255,0.07)"}`, transition: "border-color 0.2s" }}>
                   <button type="button" onClick={() => setGhostOpen(v => !v)}
                     className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
-                    style={{ color: ghostOpen ? "#C9A84C" : "hsl(220,14%,38%)", background: "transparent" }}>
+                    style={{ color: ghostOpen ? "#C0C0C0" : "hsl(220,14%,38%)", background: "transparent" }}>
                     <Sparkles className="h-2.5 w-2.5 flex-shrink-0" />Ghost Mode
                     <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
                   </button>
@@ -2693,7 +2693,7 @@ export default function ChartPage() {
                         ))}
                         <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
                           className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(201,168,76,0.14)", border: "1px solid rgba(201,168,76,0.28)", color: "#C9A84C" }}>
+                          style={{ background: "rgba(192,192,192,0.14)", border: "1px solid rgba(192,192,192,0.28)", color: "#C0C0C0" }}>
                           {ghostLoading ? <span className="animate-spin text-[8px]">⟳</span> : "Run"}
                         </button>
                       </div>
@@ -2701,7 +2701,7 @@ export default function ChartPage() {
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center justify-between">
                             <span className="text-[9px] font-mono" style={{ color: "hsl(220,14%,38%)" }}>Similarity</span>
-                            <span className="text-[9px] font-mono font-bold" style={{ color: "#C9A84C" }}>{ghostResult.similarityScore}%</span>
+                            <span className="text-[9px] font-mono font-bold" style={{ color: "#C0C0C0" }}>{ghostResult.similarityScore}%</span>
                           </div>
                           {[
                             { label: "Win Rate",  value: `${ghostResult.winRate}%`,     color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
@@ -2715,8 +2715,8 @@ export default function ChartPage() {
                           ))}
                           {ghostResult.closestMatch && (
                             <div className="rounded px-2 py-1 mt-0.5"
-                              style={{ background: "rgba(201,168,76,0.07)", border: "1px solid rgba(201,168,76,0.18)" }}>
-                              <p className="text-[8px] font-mono" style={{ color: "#C9A84C" }}>Closest: {ghostResult.closestMatch.symbol} {ghostResult.closestMatch.side.toUpperCase()} · {ghostResult.closestMatch.pnlPercent >= 0 ? "+" : ""}{ghostResult.closestMatch.pnlPercent}%</p>
+                              style={{ background: "rgba(192,192,192,0.07)", border: "1px solid rgba(192,192,192,0.18)" }}>
+                              <p className="text-[8px] font-mono" style={{ color: "#C0C0C0" }}>Closest: {ghostResult.closestMatch.symbol} {ghostResult.closestMatch.side.toUpperCase()} · {ghostResult.closestMatch.pnlPercent >= 0 ? "+" : ""}{ghostResult.closestMatch.pnlPercent}%</p>
                             </div>
                           )}
                         </div>
@@ -2816,10 +2816,10 @@ export default function ChartPage() {
 
                   {/* ── Ghost Mode mini widget (replay panel) ── */}
                   {token && !position && (
-                    <div className="mt-2 rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(201,168,76,0.28)" : "rgba(255,255,255,0.07)"}` }}>
+                    <div className="mt-2 rounded-lg overflow-hidden" style={{ border: `1px solid ${ghostOpen ? "rgba(192,192,192,0.28)" : "rgba(255,255,255,0.07)"}` }}>
                       <button type="button" onClick={() => setGhostOpen(v => !v)}
                         className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-widest"
-                        style={{ color: ghostOpen ? "#C9A84C" : "hsl(220,14%,38%)", background: "transparent" }}>
+                        style={{ color: ghostOpen ? "#C0C0C0" : "hsl(220,14%,38%)", background: "transparent" }}>
                         <Sparkles className="h-2.5 w-2.5" />Ghost Mode
                         <span className="ml-auto opacity-50">{ghostOpen ? "▲" : "▼"}</span>
                       </button>
@@ -2837,14 +2837,14 @@ export default function ChartPage() {
                             ))}
                             <button type="button" onClick={() => runGhostMode(ghostSide)} disabled={ghostLoading}
                               className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[9px] font-mono font-semibold disabled:opacity-40"
-                              style={{ background: "rgba(201,168,76,0.14)", border: "1px solid rgba(201,168,76,0.28)", color: "#C9A84C" }}>
+                              style={{ background: "rgba(192,192,192,0.14)", border: "1px solid rgba(192,192,192,0.28)", color: "#C0C0C0" }}>
                               {ghostLoading ? "…" : "Run"}
                             </button>
                           </div>
                           {ghostResult && ghostResult.hasHistory && (
                             <div className="flex flex-col gap-1">
                               {[
-                                { label: "Similarity", value: `${ghostResult.similarityScore}%`,  color: "#C9A84C" },
+                                { label: "Similarity", value: `${ghostResult.similarityScore}%`,  color: "#C0C0C0" },
                                 { label: "Win Rate",   value: `${ghostResult.winRate}%`,           color: ghostResult.winRate >= 50 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
                                 { label: "Avg Return", value: `${ghostResult.avgReturn >= 0 ? "+" : ""}${ghostResult.avgReturn}%`, color: ghostResult.avgReturn >= 0 ? "hsl(150,90%,55%)" : "hsl(0,85%,60%)" },
                                 { label: "Avg DD",     value: `-${ghostResult.avgDrawdown}%`,      color: ghostResult.avgDrawdown <= 10 ? "hsl(150,90%,50%)" : "hsl(0,85%,60%)" },

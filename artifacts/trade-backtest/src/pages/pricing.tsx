@@ -167,7 +167,7 @@ function UpiPaymentModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--glass-border)" }}>
           <div className="flex items-center gap-2">
-            <QrCode style={{ height: 16, width: 16, color: "#22d3ee" }} />
+            <QrCode style={{ height: 16, width: 16, color: "#c0c0c0" }} />
             <div>
               <h3 className="text-sm font-semibold" style={{ color: "hsl(var(--foreground))" }}>Pay via UPI</h3>
               <p className="text-[11px]" style={{ color: "hsl(var(--muted-foreground))" }}>{plan.name} Plan — ₹{priceRs}/month</p>
@@ -188,8 +188,8 @@ function UpiPaymentModal({
               style={{ background: "#fff", border: "2px solid rgba(99,102,241,0.3)" }}>
               <img src="/upi-qr.jpg" alt="UPI QR Code" className="w-full max-w-[220px]" style={{ borderRadius: 8 }} />
             </div>
-            <div className="rounded-xl px-4 py-3 text-center" style={{ background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.2)" }}>
-              <p className="text-[11px] font-mono" style={{ color: "#22d3ee" }}>9837046271@ptyes</p>
+            <div className="rounded-xl px-4 py-3 text-center" style={{ background: "rgba(192,192,192,0.08)", border: "1px solid rgba(192,192,192,0.2)" }}>
+              <p className="text-[11px] font-mono" style={{ color: "#c0c0c0" }}>9837046271@ptyes</p>
               <p className="text-[10px] mt-0.5" style={{ color: "hsl(var(--muted-foreground))" }}>Paytm / UPI</p>
             </div>
             <div className="rounded-xl px-3 py-2.5 flex items-start gap-2"
@@ -201,7 +201,7 @@ function UpiPaymentModal({
             </div>
             <button onClick={() => setPhase("upload")}
               className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #06b6d4)", color: "#fff", boxShadow: "0 4px 20px rgba(124,58,237,0.35)" }}>
+              style={{ background: "linear-gradient(135deg, #878681, #06b6d4)", color: "#fff", boxShadow: "0 4px 20px rgba(135,134,129,0.35)" }}>
               <CheckCircle2 style={{ height: 15, width: 15 }} />
               I Have Paid — Upload Screenshot
             </button>
@@ -264,7 +264,7 @@ function UpiPaymentModal({
             <button onClick={handleSubmit} disabled={phase === "submitting" || !screenshot}
               className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
               style={{
-                background: phase === "submitting" || !screenshot ? "hsl(var(--muted))" : "linear-gradient(135deg, #7c3aed, #06b6d4)",
+                background: phase === "submitting" || !screenshot ? "hsl(var(--muted))" : "linear-gradient(135deg, #878681, #06b6d4)",
                 color: phase === "submitting" || !screenshot ? "hsl(var(--muted-foreground))" : "#fff",
                 cursor: phase === "submitting" || !screenshot ? "not-allowed" : "pointer",
               }}>
@@ -379,9 +379,9 @@ export default function PricingPage() {
 
         {/* UPI payment badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl mt-4"
-          style={{ background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.2)" }}>
-          <QrCode style={{ height: 13, width: 13, color: "#22d3ee" }} />
-          <span className="text-[12px]" style={{ color: "#22d3ee" }}>Pay instantly via UPI / Paytm QR · Manual activation within 24h</span>
+          style={{ background: "rgba(192,192,192,0.08)", border: "1px solid rgba(192,192,192,0.2)" }}>
+          <QrCode style={{ height: 13, width: 13, color: "#c0c0c0" }} />
+          <span className="text-[12px]" style={{ color: "#c0c0c0" }}>Pay instantly via UPI / Paytm QR · Manual activation within 24h</span>
         </div>
       </div>
 
