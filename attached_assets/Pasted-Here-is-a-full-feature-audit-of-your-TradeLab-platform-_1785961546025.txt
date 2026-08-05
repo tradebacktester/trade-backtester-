@@ -1,0 +1,314 @@
+Here is a full feature audit of your TradeLab platform — every section, every capability, big and small.
+
+TradeLab — Full Feature Audit
+Authentication & Account Access
+The platform has a complete standalone auth system. Users can sign up with name, email, and password, or sign in with existing credentials. Password recovery is fully implemented with a forgot-password flow that sends a reset link, and a reset-password page to complete the change. There is also an auth modal that can be triggered inline from any gated page without redirecting away. A terms/risk disclosure acknowledgement gate appears on first visit before the user can enter the app. A demo mode lets non-registered visitors preview the platform.
+
+Sign in and sign up pages (/auth/signin, /auth/signup)
+Forgot password and reset password flows
+Inline auth modal triggered from gated pages
+Terms, Conditions, and Risk Disclosure acceptance gate
+Guest/demo preview mode (/demo)
+JWT-based session management with Bearer token auth
+DB-backed rate limiting on auth attempts to prevent brute force
+Dashboard
+The dashboard at /dashboard is the main command centre after login. It aggregates multiple widgets into a single overview page.
+
+Live market snapshot and watchlist summary
+Performance summary showing overall backtest results
+Recent backtests quick-view cards
+Quick action buttons to start a new backtest or strategy
+AI callout/nudge surfacing an insight or coaching tip
+Market heatmap widget embedded in the dashboard
+Links to trading journal and performance analytics
+Notifications/unread alert badge in the header
+Strategy Library & Builder
+The strategy system at /strategies covers the full lifecycle from creation to management.
+
+Strategy library with list, filtering, and search
+Create a strategy manually with a full-featured form
+Support for 15 distinct strategy types (each with required parameter validation)
+7 supported timeframes: 1m, 5m, 15m, 1h, 4h, 1d, 1w
+AI-generated strategy builder at /strategies/ai-builder — describe a goal and the AI produces a parameterised strategy
+Strategy detail page showing historical performance, linked backtests, and metrics
+Clone a strategy from the library or directly from a backtest result
+Edit and delete strategies
+Create a price/indicator alert directly from a strategy
+Share a strategy to the community marketplace
+Backtesting Engine
+The backtesting system at /backtests is the core of the platform and one of the most feature-rich areas.
+
+Backtest history list with summary cards (symbol, strategy type, return, win rate, Sharpe ratio)
+Single-strategy backtest runner with symbol, date range, capital, and parameter inputs
+Visual backtest builder at /backtests/builder for no-code configuration
+Batch backtest runner at /backtests/batch — test multiple parameter combinations or symbols in one job
+Portfolio/multi-asset backtest at /backtests/portfolio — test a basket of assets simultaneously
+Streaming async job system — backtests run in the background and stream progress back
+Detailed backtest result page with:
+Equity curve chart
+Full trade log (entry/exit price, PnL, duration, direction)
+Performance metrics (total return, win rate, Sharpe, max drawdown, profit factor)
+Regime analysis tab — performance segmented by market condition
+Divergence analysis tab — spots where the strategy diverges from expectation
+Event-impact analysis tab — how major market events affected results
+Walk-forward optimisation — in-sample / out-of-sample split validation
+Overfitting score — computed from walk-forward and Monte Carlo shuffle, displayed as a coloured stat
+Notes tab — free-text per-backtest notes
+Journal tab — per-trade journal entries
+Live trade overlay — place real or paper trades directly from a backtest result
+"Superpower" actions panel for advanced analysis
+Delete backtest
+Real market data from Binance (crypto) and Yahoo Finance (stocks, forex, indices, commodities)
+422 error returned for unrecognised/unsupported symbols — no silent fallback
+Chart & Market Tools
+The chart at /chart is a full interactive trading chart, and the market section at /market provides symbol discovery.
+
+Candlestick/OHLCV chart powered by Lightweight Charts
+Multiple timeframes selectable inline
+Technical indicator overlays (moving averages, RSI, MACD, Bollinger Bands, etc.)
+Sub-chart panel for oscillators (RSI, MACD rendered in a separate pane)
+Multi-timeframe chart grid — view multiple charts side by side
+Drawing tools on the chart (trend lines, rectangles, etc.) with save/load via API
+Position/trade overlays — show backtest or paper trade entries/exits on the chart
+Symbol selection and search at /market
+Live price quotes via Binance WebSocket for crypto
+News & Economic Calendar
+At /news, users can track market-moving events and headlines.
+
+News feed with latest financial headlines
+Economic calendar showing upcoming events (CPI, FOMC, earnings, etc.)
+AI Research Assistant
+The AI assistant at /ai (aliased from /research) is a conversational AI interface tuned for trading.
+
+Multi-turn chat with an AI model (Groq, llama-3.3-70b-versatile)
+Market data panel surfacing live prices and context alongside the chat
+News context panel injected into AI prompts
+Daily coach briefing — a morning summary of market conditions and trade suggestions
+Bias report — AI-generated directional bias for the current market
+Educational concept explanations — ask about any trading concept in plain English
+Starter prompt suggestions to help new users begin
+Rate limiting per user per day (quota tracked in DB)
+Bearer token authentication required on all AI endpoints
+Alerts System
+The alerts system at /alerts is a full notification engine with multiple trigger types.
+
+Alert catalogue listing all user alerts with status (active/triggered/snoozed)
+Create alerts with conditions: price cross, indicator cross, percentage move, etc.
+Symbol-based alerts and strategy-based alerts
+Webhook support — configure an outbound webhook URL and test it
+AI-suggested alerts based on current portfolio/strategy context
+Strategy DNA-based alerts — alerts derived from the user's behavioural trading patterns
+Behaviour check — AI scans for alerts that match known psychological traps
+Real-time alert event stream (SSE) pushing triggered alerts to the browser instantly
+Notification centre with read/unread state and mark-all-read
+Psychology Alerts
+At /psych-alerts, the platform surfaces alerts specifically about trading psychology and behaviour.
+
+Psychology alert list segmented by type (overtrading, revenge trading, FOMO, etc.)
+Trend view showing frequency of each behaviour over time
+Mark all as read
+Delete psychology alerts
+At /psych-match, users can find traders with similar psychological profiles
+Analytics
+The analytics section at /analytics breaks down backtest and trade data into multiple lenses.
+
+Performance analytics tab — aggregate return, win rate, drawdown over time
+Risk analytics tab — Sharpe ratio, volatility, tail risk metrics
+Psychology analytics tab — emotional/behavioural pattern breakdown
+Session analytics tab — performance segmented by time of day and trading session
+Journal analytics tab — journaled trade notes aggregated and visualised
+Filters by date range, strategy, symbol, and asset class
+Charts for equity curves, win-rate distributions, and return histograms
+Trader DNA
+At /trader-dna, the platform builds an AI-driven performance profile for each user.
+
+Trader score — a composite numerical rating of trading performance
+Trading style classification (e.g., scalper, swing trader, trend follower)
+Day-of-week performance breakdown — win rate and return per day
+Session win-rate cards — best and weakest sessions identified
+Market breakdown — performance per asset class or symbol category
+Coaching insights — AI-generated suggestions based on the DNA profile
+Loading, no-data, and CTA states for users with insufficient history
+Strategy DNA
+At /strategy-dna, individual strategies are analysed for their behavioural fingerprint — similar to Trader DNA but scoped to a single strategy's characteristics, market conditions where it excels, and edge identification.
+
+Trading OS
+The Trading OS at /trading-os is a gamified layer over the entire platform, positioning trading improvement as a levelled progression system.
+
+Rank system — users earn and display a trading rank
+Health score — composite score of recent trading discipline and consistency
+Mistake counter — tracks and categorises recent trading errors
+Ghost trade tool — simulate a trade hypothetically without executing it
+Future simulation — project portfolio outcomes forward using historical assumptions
+FOMO check — AI evaluates whether a potential trade is being driven by FOMO
+Coach briefing — daily personalised coaching note based on recent activity
+Weekly performance report at /trading-os/report
+Missed opportunities tracker — surfaces trades the strategy would have taken that the user passed on
+AI twin — a simulated version of the user's strategy running autonomously for comparison
+Trade mirror — compares actual trades against the AI twin's decisions
+Footprint Chart
+At /footprint, the platform provides professional-grade order flow analysis tools.
+
+Footprint candles — each candle shows buy vs. sell volume at each price level
+Cumulative Volume Delta (CVD) indicator
+Footprint grid view for granular order-flow inspection
+Scanner — scans multiple symbols for significant order flow events
+Session analytics — footprint data segmented by trading session
+AI order-flow panel — AI interprets current order flow and provides commentary
+Trader DNA integration panel — surfaces DNA insights alongside footprint data
+Alerts integration for order-flow-triggered notifications
+Live data via Binance and Alpaca WebSocket connections
+Market Tools
+At /tools, a suite of standalone market analysis utilities is available.
+
+Market screener — filter symbols by price, volume, momentum, and other criteria
+Market heatmap — visual overview of sector/asset performance
+Order book depth chart — live bid/ask depth for a selected symbol
+Correlation matrix — shows pairwise correlation between selected assets
+Economic calendar (also accessible standalone here)
+Funding rates table — perpetual futures funding rates across exchanges
+Extra assets browser — less common instruments and alt-market data
+Crypto dominance chart — BTC/ETH/alt dominance over time
+Economic indicators dashboard — macro data (CPI, unemployment, etc.)
+Live quote panel for any symbol
+User-symbol performance — how the authenticated user has performed on each symbol historically
+Calculators
+At /calculator, four standalone financial calculators are available.
+
+P&L calculator — compute profit/loss for a given trade
+Position sizing calculator — determine position size from risk percentage and stop distance
+Risk/reward calculator — evaluate trade setups by R:R ratio
+Compounding calculator — project portfolio growth over time with a given return rate
+Stress Test
+At /stress-test, users can model how their portfolio or strategy holds up under extreme scenarios.
+
+Historical scenario stress tests (e.g., 2008 crash, COVID drop, crypto bear)
+Custom scenario builder — define hypothetical drawdown magnitude and duration
+Output shows projected portfolio impact, recovery time, and risk metrics
+Paper Trading
+Paper trading is integrated throughout the platform rather than being a single page.
+
+Create paper trades from backtest detail pages or the brokerage screen
+Paper trade list with entry price, exit price, PnL, and timestamp
+Equity curve for all paper trades over time
+Delete paper trades
+All paper trade timestamps stored and displayed in correct Unix seconds format
+Brokerage Integration
+At /brokerage, users can connect a live brokerage account (Alpaca).
+
+Connection status display — shows whether the brokerage account is linked
+Live account overview — balance, buying power, equity
+Open positions list with unrealised PnL
+Order history — recent filled and pending orders
+Order form — submit market and limit orders directly from the platform
+Cancel pending orders
+Equity curve for the connected brokerage account
+Community & Social
+At /community, the platform has a full social trading network.
+
+Social feed with posts, replies, and nested threading
+Like and unlike posts
+Report posts/content with admin review queue
+Live community chat room
+Direct messages — 1:1 DM conversations with any user
+DM search — find users to message
+User profiles at /u/:username and /user/:id — public profile pages with avatar, bio, trading style
+Follow and unfollow other traders
+Follower and following counts and lists
+Admin anonymisation of reported content
+Marketplace
+At /marketplace, strategies can be shared and discovered.
+
+Strategy marketplace browse page with filters and sorting
+Strategy detail page at /marketplace/:id with performance stats and description
+Vote/upvote a strategy
+Clone a marketplace strategy into personal library
+Refresh strategy stats (recalculate against latest data)
+Publish your own strategy to the marketplace
+Backtest percentile ranking — shows where a strategy ranks among all platform backtests
+Academy (Learning)
+At /academy, the platform includes a full e-learning system.
+
+Dashboard tab — personalised learning progress overview
+Library tab — browse all available courses and lessons
+Learning paths tab — curated sequences of courses for specific goals
+Individual course and lesson pages with content rendering
+Quizzes with multiple attempts and results tracking
+Certificates issued on course completion
+Per-lesson notes with AI-assisted note enhancement
+AI tutor chat — context-aware Q&A tied to the current lesson
+Topic requests — users can request new course content
+Progress tracking across lessons and paths
+Subscription & Billing
+At /pricing and /billing, the full monetisation system is exposed.
+
+Tiered pricing plans with feature gating (free vs. premium)
+Premium gate UI shown inline when a locked feature is accessed
+Coupon system — enter a discount code at checkout, validated and applied server-side
+Coupon usage tracking — limits per coupon enforced, used count incremented
+Create order and verify payment flow
+Payment history list
+Cancel subscription
+Manual payment option (for bank transfers or admin-issued access)
+Admin-issued plan grants without payment
+Admin Panel
+At /admin/panel, a protected admin interface covers platform operations.
+
+Admin login with HMAC token and hourly expiry
+User management — list all users, revoke plans, ban accounts
+Plan and subscription management
+Payment log and manual payment processing
+Coupon management — full CRUD for discount codes
+Platform policies editor — edit and publish Terms, Privacy, Risk Disclosure
+Password reset tool for any user
+Reports and content moderation queue — review flagged community posts
+Academy admin — create, edit, publish, and delete courses, lessons, and quizzes
+AI course generation — generate lesson content from a topic prompt
+Lesson image upload
+Academy analytics and usage statistics
+Superpower tools — trigger stress tests and event-impact analyses on behalf of users
+User Settings & Profile
+At /settings and /profile, users manage their personal account.
+
+Account details — change display name, email
+Security settings — change password
+App preferences — UI/notification preferences
+Own profile page with avatar, bio, and trading style
+Public profile visible at /u/:username
+Social stats — follower and following counts displayed on profile
+Watchlist
+The watchlist is a persistent, authenticated feature accessible throughout the platform.
+
+Add symbols to a personal watchlist
+Remove symbols from the watchlist
+Watchlist displayed in the dashboard market snapshot widget
+Journal
+The journal system is embedded inside both the backtest detail and analytics sections.
+
+Per-backtest journal — write a reflection for the entire backtest run
+Per-trade journal — annotate individual trades within a backtest
+Journal entries surfaced in the analytics journal tab for aggregate review
+Mobile App (Expo)
+The TradeLab mobile app (React Native / Expo) provides a focused subset of the web platform's features.
+
+Login and sign-up screen with email/password, validation, and auth context
+Home tab — trading command centre with live market data cards and a performance score ring
+Trade tab — live crypto market list with price and percentage change, pull-to-refresh
+Strategy Lab tab — authenticated backtest list with key metrics; directs unauthenticated users to the web to run new tests
+AI Research tab — full Groq-powered chat assistant with starter prompts and typing indicator
+Trader DNA tab — full performance profile with trader score, style, day-of-week bars, session cards, and market breakdown
+Profile tab — account info, sign-out, and navigation links to key sections
+Authentication gate on all restricted tabs — shows a sign-in prompt inline rather than redirecting
+Infrastructure & Cross-Cutting Features
+These are capabilities that run across the whole platform rather than in a single page.
+
+OpenAPI-generated Zod validation schemas — all API inputs are typed and validated against the spec
+DB-based auth rate limiting that survives server restarts
+User-scoped data — every strategy, backtest, and alert is filtered by the authenticated user ID
+AI daily quota tracked in the database per user per day
+Admin HMAC auth tokens with hourly expiry and a one-hour rolling window for tolerance
+Real-time SSE (Server-Sent Events) for alert notifications and backtest job progress streaming
+Binance and Alpaca WebSocket connections for live market and order-flow data
+Equity curve minimum-point fix — single-trade or zero-trade backtests always render a valid chart
+Social graph — user follow/unfollow relationships stored in a dedicated table
+Health and status endpoint for uptime monitoring
