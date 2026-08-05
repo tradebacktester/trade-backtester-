@@ -275,7 +275,7 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
       setForgotHasWebauthn(hasWebauthn);
       setForgotHasQuestions(hasQuestions);
       if (hasWebauthn) {
-        // Pre-fetch auth challenge
+        // Pre-fetch auth challenge — only go to biometric step if a credential exists
         const chalRes = await fetch(`${API_BASE}/api/auth/webauthn/auth-challenge`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: forgotEmail }),
@@ -284,8 +284,15 @@ export function AuthModal({ open, onClose, defaultTab = "signin" }: AuthModalPro
         if (chalData.hasCredential && chalData.challengeId) {
           setForgotBiometricChallengeId(chalData.challengeId);
           setForgotBiometricOptions(chalData.options ?? null);
+          setStep("forgotBiometric");
+        } else if (hasQuestions) {
+          // Biometric record exists in DB but no credential on this device — fall back to security questions
+          setForgotQuestions(qs);
+          setForgotAnswers(["", "", ""]);
+          setStep("forgotQA");
+        } else {
+          setError("No biometric credential found on this device. Please use a different browser or contact support.");
         }
-        setStep("forgotBiometric");
       } else if (hasQuestions) {
         setForgotQuestions(qs);
         setForgotAnswers(["", "", ""]);

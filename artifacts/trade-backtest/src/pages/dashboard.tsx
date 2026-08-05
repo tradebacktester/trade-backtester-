@@ -149,13 +149,12 @@ function AlertEngineCard() {
 /* ── Daily Coach Card (compact dashboard widget) ─────────────────── */
 function DailyCoachCard() {
   const { token } = useAuth();
-  const { toast } = useToast();
   const [open, setOpen] = useState(true);
   const { data, isLoading: loading, error: coachError } = useApiQuery<Record<string, unknown>>("/api/ai/daily-coach", { token, staleTime: 5 * 60_000 });
 
-  useEffect(() => {
-    if (coachError) handleApiError(coachError, toast, { title: "Daily coach unavailable" });
-  }, [coachError]);
+  // Suppress toast for auto-fetched coaching errors — rate limit / empty data are
+  // handled inline by the component; showing a banner before the user interacts is noisy.
+  void coachError;
 
   if (!token || (!loading && !data?.hasData)) return null;
 
@@ -229,13 +228,8 @@ function DailyCoachCard() {
 
 function AiCoachSection() {
   const { token } = useAuth();
-  const { toast } = useToast();
   const [showMistakes, setShowMistakes] = useState(false);
-  const { data, isLoading: loading, error: coachError } = useApiQuery<CoachingData>("/api/ai/coaching-insights", { token, staleTime: 3 * 60_000 });
-
-  useEffect(() => {
-    if (coachError) handleApiError(coachError, toast, { title: "AI coaching unavailable" });
-  }, [coachError]);
+  const { data, isLoading: loading } = useApiQuery<CoachingData>("/api/ai/coaching-insights", { token, staleTime: 3 * 60_000 });
 
   if (!token) return null;
 
@@ -423,10 +417,10 @@ function AiMarketPulse() {
   const rotation = -225;
 
   const pulseItems = [
-    { icon: Bitcoin, label: "Crypto",   score: 72, col: "#4ade80",  tag: "Bullish" },
-    { icon: Globe,   label: "Forex",    score: 38, col: "#f87171",  tag: "Bearish" },
-    { icon: BarChart2, label: "Equities", score: 51, col: "#facc15", tag: "Neutral" },
-    { icon: Cpu,     label: "AI Signal", score: 80, col: "#818cf8", tag: "Strong" },
+    { icon: Bitcoin,  label: "Crypto",    score: 72, col: "#16a34a",  tag: "Bullish" },
+    { icon: Globe,    label: "Forex",     score: 38, col: "#b91c1c",  tag: "Bearish" },
+    { icon: BarChart2,label: "Equities",  score: 51, col: "#6b7280",  tag: "Neutral" },
+    { icon: Cpu,      label: "AI Signal", score: 80, col: "#9ca3af",  tag: "Strong"  },
   ];
 
   return (
@@ -463,7 +457,7 @@ function AiMarketPulse() {
 
           <h2 className="text-2xl sm:text-[30px] font-bold mb-1" style={{ color: "hsl(var(--foreground))", letterSpacing: "-0.030em" }}>
             Markets trending&nbsp;
-            <span style={{ color: "#22C55E", textShadow: "0 0 28px rgba(34,197,94,0.35)" }}>bullish</span>
+            <span style={{ color: "#16a34a" }}>bullish</span>
           </h2>
           <p className="text-[11px] sm:text-xs font-mono leading-relaxed mb-4"
             style={{ color: "hsl(var(--muted-foreground))" }}>
