@@ -907,203 +907,248 @@ export default function AiAssistant() {
 
   if (!token) {
     const FEATURE_CARDS = [
-      { icon: Brain,       label: "Market Overview",   color: "#6366f1", desc: "Live sentiment scores across BTC, ETH, Forex, Gold & more — bullish/bearish/neutral in one view." },
-      { icon: Newspaper,   label: "Market News",        color: "#c0c0c0", desc: "Curated news feed with AI-tagged sentiment — filter by impact and asset class." },
-      { icon: Shield,      label: "ICT Concepts",       color: "#f59e0b", desc: "Order Blocks, Fair Value Gaps, BOS, Liquidity sweeps — explained with live price context." },
-      { icon: Clock,       label: "Econ Calendar",      color: "#10b981", desc: "High/medium/low impact events with forecast vs. previous data for smarter session planning." },
-      { icon: MessageCircle, label: "AI Chat",          color: "#a855f7", desc: "Ask anything — entries, setups, risk management. Powered by a 70B trading-trained model." },
-      { icon: Target,      label: "Daily Bias",         color: "#ef4444", desc: "AI-computed directional bias for each asset, updated each session with key reasoning." },
-      { icon: Bot,         label: "AI Coach",           color: "#f97316", desc: "Personalized coaching briefing based on your backtest history and trading patterns." },
+      { icon: Brain,         label: "Market Overview",  desc: "Live sentiment scores across BTC, ETH, Forex, Gold & more — bullish/bearish/neutral in one view." },
+      { icon: Newspaper,     label: "Market News",       desc: "Curated news feed with AI-tagged sentiment — filter by impact and asset class." },
+      { icon: Shield,        label: "ICT Concepts",      desc: "Order Blocks, Fair Value Gaps, BOS, Liquidity sweeps — explained with live price context." },
+      { icon: Clock,         label: "Econ Calendar",     desc: "High/medium/low impact events with forecast vs. previous data for smarter session planning." },
+      { icon: MessageCircle, label: "AI Chat",           desc: "Ask anything — entries, setups, risk management. Powered by a 70B trading-trained model." },
+      { icon: Target,        label: "Daily Bias",        desc: "AI-computed directional bias for each asset, updated each session with key reasoning." },
+      { icon: Bot,           label: "AI Coach",          desc: "Personalized coaching briefing based on your backtest history and trading patterns." },
     ] as const;
+
+    const STATS = [
+      { label: "Markets Tracked", value: "12+" },
+      { label: "AI Model",        value: "70B" },
+      { label: "ICT Concepts",    value: "15+" },
+      { label: "Updated",         value: "Live" },
+    ];
 
     return (
       <div className="fade-up pb-8">
         <style>{`
-          @keyframes ai-hero-float {
-            0%, 100% { transform: translateY(0px) scale(1); opacity: 0.35; }
-            50%       { transform: translateY(-18px) scale(1.07); opacity: 0.55; }
-          }
-          @keyframes ai-badge-shimmer {
-            0%   { background-position: -200% center; }
-            100% { background-position:  200% center; }
-          }
-          @keyframes ai-orb-pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.0), 0 0 20px rgba(99,102,241,0.18); }
-            50%       { box-shadow: 0 0 0 8px rgba(99,102,241,0.08), 0 0 38px rgba(99,102,241,0.30); }
-          }
-          @keyframes ai-stat-in {
-            from { opacity: 0; transform: translateY(12px) scale(0.95); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
-          }
           @keyframes ai-card-in {
-            from { opacity: 0; transform: translateY(18px); }
+            from { opacity: 0; transform: translateY(16px); }
             to   { opacity: 1; transform: translateY(0); }
           }
           @keyframes ai-dot-blink {
             0%, 100% { opacity: 1; }
-            50%       { opacity: 0.2; }
+            50%       { opacity: 0.25; }
           }
-          .ai-hero-particle { animation: ai-hero-float var(--dur,8s) ease-in-out infinite; animation-delay: var(--delay,0s); }
-          .ai-badge-shimmer {
-            background: linear-gradient(90deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.12) 30%, rgba(165,180,252,0.28) 50%, rgba(99,102,241,0.12) 70%, rgba(99,102,241,0.12) 100%);
-            background-size: 200% auto;
-            animation: ai-badge-shimmer 3s linear infinite;
+          @keyframes ai-icon-breathe {
+            0%, 100% { transform: scale(1);    opacity: 0.9; }
+            50%       { transform: scale(1.08); opacity: 1;   }
           }
-          .ai-stat-badge { animation: ai-stat-in 0.5s ease both; }
-          .ai-feature-card { animation: ai-card-in 0.45s ease both; }
-          .ai-live-dot { animation: ai-dot-blink 1.4s ease-in-out infinite; }
+          .ai-feature-card { animation: ai-card-in 0.4s ease both; }
+          .ai-live-dot     { animation: ai-dot-blink 1.6s ease-in-out infinite; }
+          .ai-icon-breathe { animation: ai-icon-breathe 3s ease-in-out infinite; }
         `}</style>
         <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
-        {/* ── Hero ─────────────────────────────────────────────── */}
-        <div className="rounded-2xl p-8 mb-6 relative overflow-hidden"
-          style={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", boxShadow: "var(--shadow-card)" }}>
+        {/* ── Hero banner card ─────────────────────────────────── */}
+        <div className="rounded-3xl mb-3 relative overflow-hidden"
+          style={{
+            background: "linear-gradient(145deg, #1a1a1a 0%, #111111 60%, #0d0d0d 100%)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.55)",
+          }}>
 
-          {/* Animated radial orbs */}
-          <div className="pointer-events-none absolute inset-0"
-            style={{ background: "radial-gradient(ellipse 70% 120% at 0% 50%, rgba(99,102,241,0.12) 0%, transparent 60%)" }} />
-          <div className="pointer-events-none absolute inset-0"
-            style={{ background: "radial-gradient(ellipse 60% 80% at 100% 50%, rgba(192,192,192,0.08) 0%, transparent 60%)" }} />
+          {/* Subtle noise texture overlay */}
+          <div className="pointer-events-none absolute inset-0 rounded-3xl"
+            style={{ background: "radial-gradient(ellipse 90% 140% at 5% 50%, rgba(255,255,255,0.04) 0%, transparent 55%)" }} />
 
-          {/* Floating particles */}
-          {[
-            { top: "12%",  left: "8%",  size: 6,  dur: "7s",  delay: "0s" },
-            { top: "68%",  left: "15%", size: 4,  dur: "9s",  delay: "1.2s" },
-            { top: "28%",  left: "82%", size: 5,  dur: "8.5s",delay: "0.5s" },
-            { top: "75%",  left: "75%", size: 7,  dur: "10s", delay: "2s" },
-            { top: "48%",  left: "52%", size: 3,  dur: "6.5s",delay: "1.8s" },
-            { top: "18%",  left: "45%", size: 4,  dur: "11s", delay: "0.8s" },
-          ].map((p, i) => (
-            <div key={i}
-              className="pointer-events-none absolute rounded-full ai-hero-particle"
-              style={{
-                top: p.top, left: p.left,
-                width: p.size, height: p.size,
-                background: i % 2 === 0 ? "rgba(99,102,241,0.45)" : "rgba(192,192,192,0.35)",
-                ["--dur" as string]: p.dur,
-                ["--delay" as string]: p.delay,
-              }} />
-          ))}
-
-          <div className="relative flex flex-col lg:flex-row items-center lg:items-start gap-8">
-            {/* Left: text + CTA */}
-            <div className="flex-1 text-center lg:text-left">
-              {/* Orb icon with pulse */}
-              <div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto lg:mx-0 mb-5"
+          <div className="relative p-7 flex flex-col sm:flex-row items-start sm:items-center gap-6">
+            {/* Left content */}
+            <div className="flex-1 min-w-0">
+              {/* Badge pill */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-5"
                 style={{
-                  background: "linear-gradient(135deg, rgba(99,102,241,0.28), rgba(192,192,192,0.16))",
-                  border: "1px solid rgba(99,102,241,0.35)",
-                  animation: "ai-orb-pulse 2.8s ease-in-out infinite",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
                 }}>
-                <Brain className="h-7 w-7" style={{ color: "#a5b4fc" }} />
-              </div>
-
-              {/* Shimmer badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4 ai-badge-shimmer"
-                style={{ border: "1px solid rgba(99,102,241,0.30)" }}>
-                <span className="h-1.5 w-1.5 rounded-full ai-live-dot" style={{ background: "#6366f1" }} />
-                <span style={{ fontSize: "11px", fontFamily: "var(--app-font-mono)", letterSpacing: "0.08em", color: "#a5b4fc" }}>
-                  AI MARKET ASSISTANT
+                <span className="h-1.5 w-1.5 rounded-full ai-live-dot"
+                  style={{ background: "#d4d4d4" }} />
+                <span style={{
+                  fontSize: "10px",
+                  fontFamily: "var(--app-font-mono)",
+                  letterSpacing: "0.10em",
+                  color: "rgba(255,255,255,0.55)",
+                  textTransform: "uppercase",
+                }}>
+                  AI Market Assistant
                 </span>
               </div>
 
-              <h1 className="text-3xl lg:text-4xl font-bold mb-3 leading-tight"
-                style={{ fontFamily: "var(--app-font-display)", color: "var(--foreground)", letterSpacing: "-0.03em" }}>
-                Trade Smarter with AI
+              {/* Heading */}
+              <h1 style={{
+                fontFamily: "var(--app-font-display)",
+                fontSize: "clamp(26px, 5vw, 38px)",
+                fontWeight: 800,
+                letterSpacing: "-0.035em",
+                lineHeight: 1.08,
+                color: "#f5f5f5",
+                marginBottom: "14px",
+              }}>
+                Trade Smarter<br />with AI
               </h1>
-              <p className="text-base leading-relaxed mb-6 max-w-md mx-auto lg:mx-0"
-                style={{ color: "var(--muted-foreground)" }}>
+
+              {/* Description */}
+              <p style={{
+                fontSize: "14px",
+                lineHeight: 1.65,
+                color: "rgba(255,255,255,0.45)",
+                maxWidth: "360px",
+                marginBottom: "24px",
+              }}>
                 7 AI-powered tools in one dashboard — market sentiment, ICT concepts,
                 economic calendar, live news, and a personal trading coach. Free to start.
               </p>
 
-              <div className="flex gap-3 justify-center lg:justify-start">
+              {/* CTA buttons */}
+              <div className="flex items-center gap-3 flex-wrap">
                 <button
-                  className="px-6 h-11 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: "#6366f1", color: "#fff", boxShadow: "0 0 24px rgba(99,102,241,0.40)" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#4f46e5"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 32px rgba(99,102,241,0.55)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#6366f1"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 24px rgba(99,102,241,0.40)"; }}
+                  className="transition-all"
+                  style={{
+                    height: "44px",
+                    padding: "0 22px",
+                    borderRadius: "999px",
+                    background: "#f0f0f0",
+                    color: "#0a0a0a",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    fontFamily: "var(--app-font-display)",
+                    border: "none",
+                    cursor: "pointer",
+                    letterSpacing: "-0.01em",
+                    boxShadow: "0 2px 12px rgba(255,255,255,0.12)",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#ffffff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#f0f0f0"; }}
                   onClick={() => setShowAuthModal(true)}>
                   Sign In Free
                 </button>
                 <button
-                  className="px-6 h-11 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "var(--foreground)" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.11)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                  className="transition-all"
+                  style={{
+                    height: "44px",
+                    padding: "0 22px",
+                    borderRadius: "999px",
+                    background: "transparent",
+                    color: "rgba(255,255,255,0.70)",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    fontFamily: "var(--app-font-display)",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.70)"; }}
                   onClick={() => setShowAuthModal(true)}>
                   Create Account
                 </button>
               </div>
 
-              <p className="mt-4 text-xs" style={{ color: "var(--muted-foreground)", opacity: 0.6 }}>
+              <p style={{ marginTop: "14px", fontSize: "11px", color: "rgba(255,255,255,0.25)", letterSpacing: "0.01em" }}>
                 Free account · No credit card · Instant access
               </p>
             </div>
 
-            {/* Right: stat badges with staggered entrance */}
-            <div className="hidden lg:grid grid-cols-2 gap-3 flex-shrink-0 w-64">
-              {[
-                { label: "Markets Tracked", value: "12+" },
-                { label: "AI Model", value: "70B LLM" },
-                { label: "ICT Concepts", value: "15+" },
-                { label: "Updated", value: "Live" },
-              ].map((s, i) => (
-                <div key={s.label} className="rounded-xl p-3.5 text-center ai-stat-badge"
-                  style={{
-                    background: "rgba(255,255,255,0.04)", border: "1px solid var(--glass-border)",
-                    animationDelay: `${0.15 + i * 0.08}s`,
-                    transition: "border-color 0.2s, background 0.2s",
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(99,102,241,0.35)"; (e.currentTarget as HTMLElement).style.background = "rgba(99,102,241,0.06)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--glass-border)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}>
-                  <div className="text-xl font-bold mb-0.5" style={{ fontFamily: "var(--app-font-mono)", color: "var(--foreground)" }}>{s.value}</div>
-                  <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{s.label}</div>
-                </div>
-              ))}
+            {/* Right: icon + stat pills */}
+            <div className="flex-shrink-0 flex flex-col items-center gap-4 self-stretch justify-between sm:justify-center sm:py-2">
+              {/* Large icon orb */}
+              <div className="flex items-center justify-center rounded-2xl ai-icon-breathe"
+                style={{
+                  width: 72, height: 72,
+                  background: "radial-gradient(circle at 38% 32%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 60%, transparent 100%)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+                }}>
+                <Brain style={{ width: 32, height: 32, color: "rgba(255,255,255,0.75)" }} />
+              </div>
+
+              {/* Stat pills — 2×2 grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {STATS.map(s => (
+                  <div key={s.label}
+                    className="rounded-xl px-3 py-2.5 text-center"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                      minWidth: 68,
+                    }}>
+                    <div style={{ fontSize: "15px", fontWeight: 700, fontFamily: "var(--app-font-mono)", color: "#e8e8e8", lineHeight: 1.1 }}>{s.value}</div>
+                    <div style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.07em", color: "rgba(255,255,255,0.30)", marginTop: 3 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ── Feature cards grid ────────────────────────────────── */}
-        <div className="mb-4">
-          <p className="text-xs font-mono uppercase tracking-widest mb-4" style={{ color: "var(--muted-foreground)", opacity: 0.5 }}>
-            What's Inside
+        {/* ── "What's Inside" bento grid ───────────────────────── */}
+        <div>
+          <p style={{
+            fontSize: "10px",
+            fontFamily: "var(--app-font-mono)",
+            textTransform: "uppercase",
+            letterSpacing: "0.10em",
+            color: "rgba(255,255,255,0.25)",
+            marginBottom: "12px",
+            paddingLeft: "2px",
+          }}>
+            What&rsquo;s Inside
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
             {FEATURE_CARDS.map((f, i) => (
               <button
                 key={f.label}
                 className="text-left rounded-2xl p-4 transition-all group ai-feature-card"
                 style={{
-                  background: "var(--card-bg)",
-                  border: "1px solid var(--glass-border)",
+                  background: "#111111",
+                  border: "1px solid rgba(255,255,255,0.07)",
                   animationDelay: `${i * 0.05}s`,
                   cursor: "pointer",
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${f.color}44`;
-                  (e.currentTarget as HTMLElement).style.background = `${f.color}0d`;
+                  (e.currentTarget as HTMLElement).style.background = "#181818";
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.14)";
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = "var(--glass-border)";
-                  (e.currentTarget as HTMLElement).style.background = "var(--card-bg)";
+                  (e.currentTarget as HTMLElement).style.background = "#111111";
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)";
                 }}
                 onClick={() => setShowAuthModal(true)}
               >
+                {/* Icon */}
                 <div className="h-9 w-9 rounded-xl flex items-center justify-center mb-3"
-                  style={{ background: `${f.color}20`, border: `1px solid ${f.color}33` }}>
-                  <f.icon style={{ height: "16px", width: "16px", color: f.color }} />
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.09)",
+                  }}>
+                  <f.icon style={{ height: "16px", width: "16px", color: "rgba(255,255,255,0.65)" }} />
                 </div>
-                <div className="font-semibold mb-1.5" style={{ fontSize: "13px", fontFamily: "var(--app-font-display)", color: "var(--foreground)" }}>
+
+                {/* Label */}
+                <div style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  fontFamily: "var(--app-font-display)",
+                  color: "#e8e8e8",
+                  marginBottom: "6px",
+                  letterSpacing: "-0.01em",
+                }}>
                   {f.label}
                 </div>
-                <div style={{ fontSize: "12px", color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+
+                {/* Description */}
+                <div style={{ fontSize: "11.5px", color: "rgba(255,255,255,0.35)", lineHeight: 1.55 }}>
                   {f.desc}
                 </div>
+
+                {/* Lock hint on hover */}
                 <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ fontSize: "11px", color: f.color }}>
-                  <Lock style={{ height: "10px", width: "10px" }} />
+                  style={{ fontSize: "10px", color: "rgba(255,255,255,0.40)" }}>
+                  <Lock style={{ height: "9px", width: "9px" }} />
                   <span>Sign in to unlock</span>
                 </div>
               </button>
